@@ -58,7 +58,10 @@
 .lawprev{margin-top:0;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--ink-3);white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;padding:var(--s3);border:1px solid var(--line-2);border-radius:var(--r2);background:var(--void)}
 #i-lawwrite[hidden],#i-lawprevwrap[hidden],#m-prev[hidden],#m-crop[hidden]{display:none}
 .music-drops{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
+.music-drops .drop{position:relative;padding-top:var(--s7)}
+.music-drops .ibatch-x{min-width:44px;min-height:44px}
 @media(max-width:640px){.music-drops{grid-template-columns:1fr}}
+.itick-pay .v{font-size:18px;font-weight:600;letter-spacing:-.02em}
 .music-prev{margin-top:var(--s4);display:flex;flex-direction:column;align-items:center;gap:var(--s3)}
 .music-prev img{width:min(100%,280px);aspect-ratio:1/1;object-fit:cover;border-radius:var(--r2);border:1px solid var(--line)}
 .music-prev audio{width:min(100%,280px)}
@@ -127,12 +130,14 @@
           <div class="field">
             <label>MP3 · audio/mpeg · frames copied, never re-encoded</label>
             <div class="drop" id="m-mp3drop"><b>Choose an MP3</b><span>encode at 320 CBR or V0 before you drop — we will not touch the bitrate</span>
+              <button type="button" class="ibatch-x" id="m-mp3x" hidden aria-label="remove MP3">✕</button>
               <input type="file" id="m-mp3" accept="audio/mpeg,.mp3" hidden>
             </div>
           </div>
           <div class="field">
             <label>Cover · 1:1 · PNG stays lossless</label>
             <div class="drop" id="m-coverdrop"><b>Choose a cover</b><span>square PNG/JPEG seals as-is · not square: you choose the 1:1</span>
+              <button type="button" class="ibatch-x" id="m-coverx" hidden aria-label="remove cover">✕</button>
               <input type="file" id="m-cover" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
             </div>
           </div>
@@ -150,6 +155,7 @@
           <audio id="m-audio" controls preload="metadata"></audio>
           <div class="imeta" id="m-note"></div>
         </div>
+        <div id="m-cost" class="ibatch-cost" hidden style="margin-top:var(--s5)"><b>—</b><span></span></div>
       </div>
       <div data-ipane="law" hidden>
         <p class="imeta" style="margin:0 0 var(--s4);color:var(--ink-3);line-height:1.55">Anyone can write a law — same idea as Ethereum or Solana, a smaller language. <b>Code</b> is the real path: paste JSON an AI drafted, or type it. The other buttons are common patterns (mint, raffle, escrow…) so you can start fast. Run test. Then seal. Tutorial you can paste into Claude: <a href="/docs/contracts.md">/docs/contracts.md</a>.</p>
@@ -248,7 +254,7 @@
         <div class="itick"><span class="k">Size</span><span class="v" id="i-tk-size">—</span></div>
         <div class="itick"><span class="k">Fire</span><span class="v" id="i-tk-fire">—</span></div>
         <div class="itick" id="i-tk-atlas-wrap" hidden><span class="k">Atlas</span><span class="v" id="i-tk-atlas">—</span></div>
-        <div class="itick"><span class="k">Total</span><span class="v" id="i-tk-total">—</span></div>
+        <div class="itick itick-pay"><span class="k">Total</span><span class="v" id="i-tk-total">—</span></div>
         <div class="itick"><span class="k">Balance</span><span class="v" id="i-tk-bal">—</span></div>
         <p class="itick-status" id="i-tk-status">waiting for this node's quote</p>
       </div>
@@ -384,6 +390,43 @@
     if(window.KRAY && KRAY.formatBytes) return KRAY.formatBytes(n);
     return Number(n||0).toLocaleString()+' bytes';
   }
+  function bytesExactI(n){
+    n=Number(n)||0;
+    var raw=n.toLocaleString()+' B';
+    if(n>=1000) return raw+' · '+bytesLabelI(n);
+    return raw;
+  }
+  function musicSplit(){
+    var tool=id3();
+    var mpeg=null;
+    if(tool && musicMp3 && tool.mpegBody) mpeg=tool.mpegBody(musicMp3);
+    var mpegN=mpeg&&mpeg.length ? mpeg.length : (musicMp3&&musicMp3.length ? musicMp3.length : (musicHintBytes||0));
+    var relicN=musicBytes||0;
+    var sleeveN=0;
+    if(relicN>mpegN) sleeveN=relicN-mpegN;
+    else if(musicCover && musicCover.bytes) sleeveN=musicCover.bytes.length;
+    return { mpeg:mpegN, sleeve:sleeveN, relic:relicN||mpegN };
+  }
+  function paintMusicCost(){
+    var box=$('m-cost'); if(!box) return;
+    var q=quoteI();
+    if(tab!=='music' || q.empty){ box.hidden=true; return; }
+    box.hidden=false;
+    var b=box.querySelector('b'), s=box.querySelector('span');
+    if(b) b.textContent=Number(q.total||0).toLocaleString()+' ₭';
+    var split=musicSplit();
+    var line;
+    if(musicOn && split.relic){
+      line=split.mpeg.toLocaleString()+' B audio + '+split.sleeve.toLocaleString()+' B sleeve = '+split.relic.toLocaleString()+' B · '+costTextI(q);
+    } else {
+      line=split.mpeg.toLocaleString()+' B audio'+(musicCover?' + sleeve pending':'')+' · '+costTextI(q);
+    }
+    if(musicOver()) line+=' · over the '+bytesExactI(musicCeil())+' ceiling';
+    if(s) s.textContent=line;
+  }
+  function setMusicClear(id, on){
+    var x=$(id); if(x) x.hidden=!on;
+  }
   function paintTicket(){
     var box=$('i-ticket'); if(!box) return;
     var q=quoteI();
@@ -396,7 +439,7 @@
     if(!Number.isFinite(atlasN) || atlasN<0) atlasN=0;
     if(!Number.isFinite(totN) || totN<0) totN=0;
     totN=Math.trunc(totN);
-    if(size) size.textContent = (q.empty && !q.bytes) ? '—' : bytesLabelI(q.bytes);
+    if(size) size.textContent = (q.empty && !q.bytes) ? '—' : bytesExactI(q.bytes);
     if(fire) fire.textContent = !q.ready ? '…' : (q.empty ? '—' : fireN.toLocaleString()+' ₭');
     if(atlas) atlas.textContent = !q.ready ? '…' : ((q.empty || !atlasN) ? '0 ₭' : atlasN.toLocaleString()+' ₭');
     if(tot) tot.textContent = !q.ready ? 'quoting…' : (q.empty ? '—' : totN.toLocaleString()+' ₭');
@@ -625,8 +668,10 @@
       musicHintBytes=relic.length;
       musicOn=true;
       var rate=tool.mpeg1L3BitrateKbps(relic);
+      var split=musicSplit();
+      markMusicDrop('m-mp3drop', musicName||'track.mp3', bytesExactI(split.mpeg)+' audio');
       paintMusicStage(relic, (musicCover.reused?'square cover sealed as-is':(musicCover.accepted?'your 1:1 sleeve':'choose the 1:1 — then confirm'))
-        +' · MPEG frames byte-identical'+(rate?' · '+rate+' kbps':'')+' · '+relic.length.toLocaleString()+' bytes');
+        +' · MPEG frames byte-identical'+(rate?' · '+rate+' kbps':'')+' · '+split.mpeg.toLocaleString()+' B + '+split.sleeve.toLocaleString()+' B = '+relic.length.toLocaleString()+' B');
       out.className='iout'; out.textContent='';
     }catch(e){
       out.className='iout err';
@@ -711,7 +756,8 @@
     musicName=f.name||'track.mp3';
     musicHintBytes=Number(f.size)||0;
     musicOn=false; musicB64=null; musicBytes=0;
-    markMusicDrop('m-mp3drop', musicName, bytesLabelI(musicHintBytes)+' · drop the 1:1 cover');
+    markMusicDrop('m-mp3drop', musicName, bytesExactI(musicHintBytes)+(musicCover?'':' · drop the 1:1 cover'));
+    setMusicClear('m-mp3x', true);
     out.className='iout'; out.textContent='';
     refreshMeta();
     f.arrayBuffer().then(function(ab){
@@ -736,6 +782,7 @@
           if(bmp.close) bmp.close();
           musicCover={ bytes:new Uint8Array(b), mime:kind==='image/png'?'image/png':'image/jpeg', reused:true, accepted:true };
           markMusicDrop('m-coverdrop', f.name||'cover', 'square · sealed as-is');
+          setMusicClear('m-coverx', true);
           remuxMusic();
         });
       }
@@ -749,6 +796,7 @@
       if(srcImg){ srcImg.onload=function(){ layoutCoverCrop(); }; srcImg.src=musicCropUrl; }
       previewCoverCrop(bmp, musicCoverSrc.sx, musicCoverSrc.sy, side);
       markMusicDrop('m-coverdrop', f.name||'cover', w+'×'+h+' · choose the 1:1');
+      setMusicClear('m-coverx', true);
       return encodeCoverCrop(bmp, musicCoverSrc.sx, musicCoverSrc.sy, side).then(function(c){
         musicCover=c;
         remuxMusic();
@@ -939,9 +987,26 @@
     ['dragleave','drop'].forEach(function(ev){ box.addEventListener(ev,function(e){ e.preventDefault(); box.classList.remove('over'); }); });
     box.addEventListener('drop',function(e){ if(e.dataTransfer.files.length) take(e.dataTransfer.files[0]); });
   }
+  function clearMusicMp3(){
+    musicMp3=null; musicName=null; musicHintBytes=0; musicB64=null; musicBytes=0; musicOn=false;
+    markMusicDrop('m-mp3drop','Choose an MP3','encode at 320 CBR or V0 before you drop — we will not touch the bitrate');
+    setMusicClear('m-mp3x', false);
+    var au=$('m-audio'); if(au) au.removeAttribute('src');
+    remuxMusic();
+  }
+  function clearMusicCover(){
+    hideCoverCrop();
+    musicCover=null; musicOn=false; musicB64=null; musicBytes=0;
+    markMusicDrop('m-coverdrop','Choose a cover','square PNG/JPEG seals as-is · not square: you choose the 1:1');
+    setMusicClear('m-coverx', false);
+    remuxMusic();
+  }
   wireDrop('m-mp3drop','m-mp3',takeMusicMp3);
   wireDrop('m-coverdrop','m-cover',takeMusicCover);
   wireCoverCrop();
+  var mx=$('m-mp3x'), cx=$('m-coverx');
+  if(mx) mx.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); clearMusicMp3(); });
+  if(cx) cx.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); clearMusicCover(); });
   // THE ADDRESS IS THE USER — no identity, no pen: the writing surface stays
   // locked until a wallet address is connected.
   var FIELDS=['i-content','i-name','i-parent','i-oparent','i-metadata','i-lawstar'];
@@ -1038,12 +1103,13 @@
 
   var shaTimer=null;
   function refreshMeta(){
-    paintGolabel(); paintLineage(); paintDocBytes();
+    paintGolabel(); paintLineage(); paintDocBytes(); paintMusicCost();
     if(tab==='music'){
+      var q=quoteI(), split=musicSplit();
       if(musicOn){
-        meta.textContent = (musicName||'track.mp3')+' · '+musicBytes.toLocaleString()+' bytes · audio/mpeg · ID3 APIC · MPEG frames untouched · gene is the MPEG sha256 — burns '+costTextI(quoteI())+' to born';
+        meta.textContent = (musicName||'track.mp3')+' · '+split.mpeg.toLocaleString()+' B audio + '+split.sleeve.toLocaleString()+' B sleeve = '+split.relic.toLocaleString()+' B · audio/mpeg · burns '+costTextI(q)+' to born';
       } else if(musicMp3 || musicHintBytes){
-        meta.textContent = (musicName||'track.mp3')+' · '+musicLandedBytes().toLocaleString()+' bytes · audio/mpeg — burns '+costTextI(quoteI())+(musicCover?' · muxing the sleeve':' · drop the 1:1 cover');
+        meta.textContent = (musicName||'track.mp3')+' · '+split.mpeg.toLocaleString()+' B audio · audio/mpeg — burns '+costTextI(q)+(musicCover?' · muxing the sleeve':' · drop the 1:1 cover');
       } else {
         meta.textContent = 'Music needs both drops — MP3 + 1:1 cover · one relic · we never re-encode';
       }
@@ -1437,6 +1503,7 @@
       if(mp) mp.hidden=true; if(m3) m3.value=''; if(mc) mc.value='';
       markMusicDrop('m-mp3drop','Choose an MP3','encode at 320 CBR or V0 before you drop — we will not touch the bitrate');
       markMusicDrop('m-coverdrop','Choose a cover','square PNG/JPEG seals as-is · not square: you choose the 1:1');
+      setMusicClear('m-mp3x', false); setMusicClear('m-coverx', false);
       refreshMeta(); loadAccount();
     }catch(e){ fail(e && e.message ? e.message : 'refused'); }
     finally{ busy=false; paintGo(); }
