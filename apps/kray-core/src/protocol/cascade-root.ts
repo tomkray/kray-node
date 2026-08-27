@@ -1,0 +1,62 @@
+/**
+ * THE CASCADE ROOT, FROM ITS PARTS (ADR-3 · the cascade opening) — ONE law, two callers, zero drift.
+ *
+ * The cascade root the ledger anchors to Bitcoin is a SEQUENTIAL hash over each subsystem's committed value
+ * (money, stars, pot, seals, runes, contracts, amm, and — post-activation — the inclusion and window roots).
+ * Because it is a sequential hash and not a merkle of components, proving that ONE component (the seal-window
+ * root 3d's verdict rests on) is part of an anchored root requires REVEALING ALL of them and re-hashing: a full
+ * "opening" of the anchored root. This module is that re-hash, made the SINGLE SOURCE OF TRUTH — `ledger.
+ * cascadeRoot()` builds these parts and calls this function, and a censorship verifier calls the very same
+ * function on the parts a prover reveals, so the two can never disagree by construction (no parallel formula to
+ * drift). A field is present in `CascadeParts` iff it folds today, so an all-empty history opens to the same
+ * bytes it always did — a format anchored on Bitcoin may only ever GROW (axiom A3).
+ */
+import { createHash } from 'node:crypto'
+
+export interface CascadeParts {
+  seq: number
+  emitted: string           // bigint, decimal string
+  burned: string            // bigint, decimal string
+  moneyRoot: string
+  starsRoot: string
+  potCommitment: string     // the pot's own already-labelled commitment line
+  runesCommitment: string
+  contractsRoot: string
+  /** present ONLY when the subsystem folds today (conditional components, appended in this exact order) */
+  seals?: { count: number; root: string }
+  qcommits?: { count: number; root: string }
+  qmigrated?: string[]      // the sorted account list (folded as a comma-join)
+  ammCommitment?: string
+  inclusionRoot?: string    // ADR-3 A — present iff at/after the inclusion activation seq
+  windowRoot?: string       // ADR-3 3d-a — present iff at/after the inclusion activation seq (with inclusionRoot)
+  nonceRoot?: string        // ADR-3 eligibility opening — present iff at/after the inclusion activation seq (with inclusion/window)
+  xRoot?: string            // Ӿ transferable book — present iff at/after the Ӿ transfer activation seq (slice 2; A3)
+  fireRoot?: string         // THE FIREBORN LAW tank book — present iff at/after the feeless activation seq (A3)
+  laneRoot?: string         // THE TK-FOLD lane book (Gate 2) — present iff at/after the fold activation seq (appended LAST, A3)
+  marketCommitment?: string // THE STAR MARKET order book — present iff a listing exists (by presence, the AMM pattern; A3)
+}
+
+/** Re-derive the cascade root from its parts — byte-identical to `ledger.cascadeRoot()`, which IS this. */
+export function cascadeRootFromParts(p: CascadeParts): string {
+  const h = createHash('sha256')
+    .update('kraynet\n', 'utf8')
+    .update(`seq:${p.seq}\n`, 'utf8')
+    .update(`emitted:${p.emitted}|burned:${p.burned}\n`, 'utf8')
+    .update(`money:${p.moneyRoot}\n`, 'utf8')
+    .update(`stars:${p.starsRoot}\n`, 'utf8')
+    .update(`${p.potCommitment}\n`, 'utf8')
+  if (p.seals) h.update(`seals:${p.seals.count}|${p.seals.root}\n`, 'utf8')
+  if (p.qcommits) h.update(`qcommits:${p.qcommits.count}|${p.qcommits.root}\n`, 'utf8')
+  if (p.qmigrated) h.update(`qmigrated:${p.qmigrated.join(',')}\n`, 'utf8')
+  h.update(`runes:${p.runesCommitment}\n`, 'utf8')
+  h.update(`contracts:${p.contractsRoot}\n`, 'utf8')
+  if (p.ammCommitment !== undefined) h.update(`amm:${p.ammCommitment}\n`, 'utf8')
+  if (p.inclusionRoot !== undefined) h.update(`inclusion:${p.inclusionRoot}\n`, 'utf8')
+  if (p.windowRoot !== undefined) h.update(`window:${p.windowRoot}\n`, 'utf8')
+  if (p.nonceRoot !== undefined) h.update(`nonce:${p.nonceRoot}\n`, 'utf8')   // ADR-3 (A3): undefined ⇒ byte-identical history
+  if (p.xRoot !== undefined) h.update(`x:${p.xRoot}\n`, 'utf8')               // Ӿ book (A3): undefined below activation ⇒ byte-identical
+  if (p.fireRoot !== undefined) h.update(`fire:${p.fireRoot}\n`, 'utf8')      // FIREBORN tank (A3): undefined below activation ⇒ byte-identical
+  if (p.laneRoot !== undefined) h.update(`lane:${p.laneRoot}\n`, 'utf8')      // TK-FOLD lane — appended LAST (A3): undefined below activation ⇒ byte-identical
+  if (p.marketCommitment !== undefined) h.update(`market:${p.marketCommitment}\n`, 'utf8')   // STAR MARKET (A3): undefined when no listing exists ⇒ byte-identical to a pre-market history
+  return h.digest('hex')
+}

@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Block</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* page-local only — the system lives in /kray.css. One lightning block, in
+     full: what it sealed, which Bitcoin block witnessed it, the district it raised. */
+  .crumb{font-family:var(--mono);font-size:11.5px;color:var(--ink-4);margin-bottom:var(--s5)}
+  .crumb a{color:var(--ink-3)} .crumb a:hover{color:var(--ink)}
+  .dtable td.hk{font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;font-size:10px;
+    color:var(--ink-3);white-space:nowrap;vertical-align:top;width:170px}
+  .dtable td.hx{word-break:break-all;white-space:normal;color:var(--ink-2)}
+  .dtable td.hx a{color:var(--ink)}
+  @media(max-width:560px){.dtable td.hk{width:auto}}
+  /* the SAME squarified treemap the land page draws, over the same parcel list */
+  .lmap{position:relative;width:100%;max-width:min(100%,520px);aspect-ratio:1/1;min-height:220px;
+    border:1px solid var(--line);border-radius:var(--r2);background:var(--void);overflow:hidden}
+  .llot{position:absolute;overflow:hidden;border:1px solid var(--line);background:var(--surface);
+    text-decoration:none;transition:transform .16s var(--ease),border-color .16s var(--ease)}
+  .llot:hover{border-color:var(--btc-line);z-index:4;transform:scale(1.04)}
+  .llot .lc{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .llot .lc img{width:100%;height:100%;object-fit:cover}
+  .llot .lg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:14px;color:var(--ink-4)}
+  .llot.here{border-color:var(--signal);box-shadow:0 0 0 2px var(--signal);z-index:5}
+  /* ── the receipts: every txid, what it did, its tags, its thumbnail ── */
+  .tx-list{display:flex;flex-direction:column;gap:var(--s2)}
+  .tx-card{display:flex;gap:var(--s4);padding:var(--s4);border:1px solid var(--line);border-radius:var(--r2);
+    background:var(--surface);transition:border-color .16s var(--ease),background .16s var(--ease)}
+  .tx-card:hover{border-color:var(--line-2);background:var(--surface-2)}
+  .tx-card.btc{border-color:var(--btc-line)}
+  .tx-card.mark{border-color:var(--ink)}
+  .tx-card.mark .tx-kind{background:var(--signal);color:var(--signal-ink)}
+  .tx-tag.mark{color:var(--ink);border-color:var(--ink);font-weight:600;letter-spacing:.1em}
+  .tx-thumb{flex:0 0 auto;width:60px;height:60px;border:1px solid var(--line-2);border-radius:var(--r1);
+    overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--void);color:var(--ink-4);
+    position:relative;text-decoration:none}
+  .tx-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .tx-thumb.play{color:var(--ink-2)}
+  .tx-thumb .tx-glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:0}
+  .tx-thumb.play img{position:relative;z-index:1}
+  .tx-play{position:absolute;right:4px;bottom:4px;z-index:2;width:16px;height:16px;border-radius:99px;
+    background:color-mix(in srgb,var(--void) 72%,transparent);color:var(--ink);display:flex;align-items:center;
+    justify-content:center;pointer-events:none;backdrop-filter:blur(4px)}
+  .tx-thumb.play:hover{border-color:var(--ink-3);color:var(--ink)}
+  .tx-main{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:6px}
+  .tx-top{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .tx-kind{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--void);background:var(--ink-2);padding:2px 7px;border-radius:3px;font-weight:600}
+  .tx-card.btc .tx-kind{background:var(--btc);color:#1a1205}
+  .tx-tag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-3);
+    border:1px solid var(--line-2);padding:2px 7px;border-radius:3px;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  .tx-tag.ct{color:var(--ink-2)} .tx-tag.nm{color:var(--ink)} .tx-tag.k{color:var(--ink-2)}
+  .tx-tag.btc{color:var(--btc);border-color:var(--btc-line)}
+  .tx-line{font-size:13.5px;line-height:1.5;color:var(--ink-2)} .tx-line b{color:var(--ink);font-weight:500}
+  .tx-line b.btc-ink{color:var(--btc)}
+  .tx-id{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);word-break:break-all;text-decoration:none;line-height:1.4}
+  .tx-id:hover{color:var(--ink-2)} .tx-id .idlab{color:var(--ink-3);letter-spacing:.1em;text-transform:uppercase;margin-right:6px}
+</style>
+</head>
+<body data-page="home">
+
+<div class="wrap" style="padding-top:var(--s6)">
+  <div class="spread" style="margin-bottom:var(--s5)">
+    <div class="label">KRAY · fast block</div>
+    <div class="mono" id="netlab" style="font-size:11px;letter-spacing:.06em;color:var(--ink-4)">—</div>
+  </div>
+  <div id="body"><div class="dim mono" style="padding:var(--s8) 0;text-align:center">loading…</div></div>
+</div>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var m=/^\/block\/(\d+)\/?$/.exec(location.pathname);
+  if(!m){ document.getElementById('body').innerHTML='<div class="card tick" style="text-align:center;padding:var(--s7);color:var(--ink-3)">not a block</div>'; return; }
+  var N=parseInt(m[1],10);
+/* The real Bitcoin block, on the explorer everyone already trusts. Only mainnet
+     and signet have a public explorer — a regtest height links nowhere, because a
+     link that 404s is worse than a number that stands on its own. */
+  function mempool(h, chain){
+    if(chain==='signet') return 'https://mempool.space/signet/block/'+h;
+    if(!chain || chain==='mainnet' || chain==='bitcoin') return 'https://mempool.space/block/'+h;
+    return '';
+  }
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function n(v){ return Number(v).toLocaleString(); }
+  function ka(v){
+    var x=Number(v||0), a=Math.abs(x), u=[[1e15,'Q'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];
+    for(var i=0;i<u.length;i++) if(a>=u[i][0]) return (x/u[i][0]).toFixed(a/u[i][0]>=100?0:a/u[i][0]>=10?1:2).replace(/\.0+$/,'')+u[i][1];
+    return String(x);
+  }
+  function when(t){ try{ return new Date(t).toLocaleString(); }catch(_){ return String(t); } }
+  function g(id,s){ s=s||16; return '<svg width="'+s+'" height="'+s+'" style="vertical-align:-0.16em" aria-hidden="true"><use href="#'+id+'"/></svg>'; }
+  function short(s){ s=String(s==null?'':s); return s.length>18?s.slice(0,9)+'…'+s.slice(-6):s; }
+  function workFace(t){
+    return (window.KRAY && KRAY.workFace) ? KRAY.workFace(t)
+      : { category:'file', label:'File', glyph:'g-cat-file', src:null, href:'/tx/'+t.hash, play:false };
+  }
+  function bytes(b){ b=Number(b||0); if(b>=1e6) return (b/1e6).toFixed(2)+' MB'; if(b>=1e3) return (b/1e3).toFixed(1)+' KB'; return b+' B'; }
+
+  // Every leaf, told in full: what it did, its protocol tags, and — when it carved
+  // real content — the thumbnail of exactly what was sealed. One receipt per txid.
+  function txDetail(t){
+    var star = t.star!=null ? 'star #'+n(t.star) : '';
+    switch(t.kind){
+      case 'genesis':
+        return {glyph:'g-glow', line:'Genesis — the network opened. No premine, no founder coinbase: ₭ is minted only by proof-of-donation.', tags:[{v:'GENESIS'},{v:'NO PREMINE'}]};
+      case 'settlement':
+        var po=t.payouts||[], who=po[0]&&po[0].who&&po[0].who.label, cnt=t.payoutCount!=null?t.payoutCount:po.length;
+        return {glyph:'g-anchor', line:'Block settlement — <b>'+ka(t.feesPaid||t.amount||0)+' ₭</b> in fees across <b>'+cnt+'</b> payout'+(cnt===1?'':'s')+(who?' → <b>'+esc(who)+'</b>':'')+'.', tags:[{v:'SETTLE'}]};
+      case 'inscribe': {
+        var fi=workFace(t);
+        return {glyph:fi.glyph, thumb:fi.src, href:fi.href, play:fi.play, line:'Inscription — carved <b>'+bytes(t.size)+'</b> of <b>'+esc(t.contentType||'data')+'</b> onto '+(star?'<b>'+star+'</b>':'a star')+' — its tattoo, forever.', tags:[{v:fi.label,cls:'ct'},{v:bytes(t.size)},{v:star||'—'}]};
+      }
+      case 'origin': {
+        var fo=workFace(t);
+        return {glyph:fo.glyph, thumb:fo.src, href:fo.href, play:fo.play, line:'Origin — raised a child inscription'+(t.parent?' under parent <b>'+short(t.parent)+'</b>':'')+' onto '+(star?'<b>'+star+'</b>':'a star')+'.', tags:[{v:'ORIGIN'},{v:fo.label,cls:'ct'},{v:star||'—'}]};
+      }
+      case 'name': case 'baptize':
+        return {glyph:'g-name', line:'Baptism — named '+(star?'<b>'+star+'</b>':'a star')+' <b>"'+esc(t.name)+'"</b> — its plate, forever.', tags:[{v:'NAME'},{v:'\u201c'+t.name+'\u201d',cls:'nm'},{v:star||'—'}]};
+      case 'transfer-star':
+        var ms=t.movedStars, c2=Array.isArray(ms)?ms.length:(Number(ms)||1);
+        var nm=t.starName||t.name;
+        var ft=workFace(t);
+        return {glyph:'g-send', thumb:ft.src, href:ft.play?ft.href:('/tx/'+t.hash), play:ft.play, line:'Star transfer — moved '+(star?'<b>'+star+'</b>':'<b>'+c2+'</b> star'+(c2===1?'':'s'))+(nm?' <b>“'+esc(nm)+'”</b>':'')+(t.to?' to <b>'+short(t.to)+'</b>':'')+', with everything written on it.', tags:[{v:'TRANSFER ★'},{v:star||(c2+' stars')}].concat(nm?[{v:'\u201c'+nm+'\u201d',cls:'nm'}]:[]).concat(t.contentType?[{v:ft.label,cls:'ct'}]:[])};
+      case 'transfer':
+        return {glyph:'g-send', line:'Payment — sent <b>'+ka(t.amount)+' ₭</b>'+(t.from?' from <b>'+short(t.from)+'</b>':'')+(t.to?' to <b>'+short(t.to)+'</b>':'')+'.', tags:[{v:'TRANSFER'},{v:ka(t.amount)+' ₭',cls:'k'}]};
+      case 'x-send':
+        return {glyph:'g-send', line:'Ӿ transfer — sent <b>Ӿ '+ka(t.amount)+'</b>'+(t.from?' from <b>'+short(t.from)+'</b>':'')+(t.to?' to <b>'+short(t.to)+'</b>':'')+' — the transferable light, born 1:1 from burned ₭ (₭ pays the gas).', tags:[{v:'TRANSFER Ӿ'},{v:'Ӿ '+ka(t.amount),cls:'k'}]};
+      case 'amm-add':
+        return t.createPool
+          ? {glyph:'g-name', mark:true, line:'<b>Create pool</b> — this hash is the first writer. The pair is unique like a star name. Anyone may add LP after.', tags:[{v:'CREATE POOL',cls:'mark'},{v:'UNIQUE',cls:'mark'}]}
+          : {glyph:'g-glow', line:'Added LP — '+ka(t.krayIn)+' ₭ + rune into the existing book.', tags:[{v:'ADD LP'}]};
+      case 'amm-rr-add':
+        return t.createPool
+          ? {glyph:'g-name', mark:true, line:'<b>Create pool</b> — this hash is the first writer. This rune/rune pair is unique like a star name.', tags:[{v:'CREATE POOL',cls:'mark'},{v:'UNIQUE',cls:'mark'}]}
+          : {glyph:'g-glow', line:'Added LP to the existing rune/rune book.', tags:[{v:'ADD LP'}]};
+      case 'amm-remove': case 'amm-rr-remove':
+        return {glyph:'g-glow', line:'Removed LP from the book.', tags:[{v:'REMOVE LP'}]};
+      case 'amm-swap': case 'amm-rr-swap':
+        return {glyph:'g-glow', line:'Swapped against the book. k did not fall.', tags:[{v:'SWAP'}]};
+      case 'anchor':
+        return {glyph:'g-anchor', btc:true, line:'Bitcoin anchor — sealed this history’s cascade root into a real Bitcoin block.', tags:[{v:'ANCHOR',cls:'btc'}]};
+      default:
+        return {glyph:'g-block', line:esc(t.summary||t.kind), tags:[{v:String(t.kind||'event').toUpperCase()}]};
+    }
+  }
+  function txReceipt(t){
+    var d=txDetail(t);
+    var href = d.href || ('/tx/'+t.hash);
+    var thumb = (d.thumb || d.play)
+      ? '<a class="tx-thumb'+(d.play?' play':'')+'" href="'+esc(href)+'" title="'+(d.play?'play':'sealed content')+'">'
+        +((d.play||!d.thumb)?'<span class="tx-glyph">'+g(d.glyph||'g-cat-file',22)+'</span>':'')
+        +(d.thumb?'<img loading="lazy" src="'+esc(d.thumb)+'" alt="" onerror="this.remove()">':'')
+        +(d.play?'<span class="tx-play">'+g('g-play',14)+'</span>':'')
+        +'</a>'
+      : '<div class="tx-thumb">'+g(d.glyph,26)+'</div>';
+    var tags=(d.tags||[]).map(function(tg){ return '<span class="tx-tag'+(tg.cls?' '+tg.cls:'')+'">'+esc(tg.v)+'</span>'; }).join('');
+    return '<div class="tx-card'+(d.btc?' btc':'')+(d.mark||t.createPool?' mark':'')+'">'
+      +thumb
+      +'<div class="tx-main">'
+        +'<div class="tx-top"><span class="tx-kind">'+(t.createPool?'Create pool':esc(t.kind))+'</span>'+tags+'</div>'
+        +'<div class="tx-line">'+d.line+'</div>'
+        +'<a class="tx-id" href="/tx/'+esc(t.hash)+'"><span class="idlab">txid</span>'+esc(t.hash)+' ↗</a>'
+      +'</div>'
+    +'</div>';
+  }
+  var SHELF=Object.assign({image:'▣',vector:'◈',video:'▶',audio:'♪',code:'⌘',markup:'❰',document:'▤',data:'⛁',text:'¶',model:'◉',font:'A',archive:'▦',file:'◇',name:'✦'}, (window.KRAY&&KRAY.SHELF)||{});
+
+  // the SAME squarified treemap the land page draws, over the same parcel list —
+  // a district that looked different here would be a district nobody could trust
+  function squarify(items,W,H){
+    var out=[], raw=items.map(function(it){return Math.max(1,Number(it.size)||1);});
+    var MINA=30*30, w2=raw.slice();
+    for(var p=0;p<3;p++){ var sum=w2.reduce(function(a,b){return a+b;},0)||1, minW=(MINA/(W*H))*sum;
+      w2=raw.map(function(v){ return v<minW?minW:v; }); }
+    var total=w2.reduce(function(a,b){return a+b;},0)||1, scale=(W*H)/total;
+    var areas=w2.map(function(v){return v*scale;});
+    var idx=items.map(function(_,i){return i;}).sort(function(a,b){return areas[b]-areas[a];});
+    var x=0,y=0,w=W,h=H,i=0;
+    function worst(row,side,sum){ var mx=0,mn=Infinity;
+      for(var k=0;k<row.length;k++){ mx=Math.max(mx,areas[row[k]]); mn=Math.min(mn,areas[row[k]]); }
+      var s2=sum*sum, sd2=side*side; return Math.max((sd2*mx)/s2, s2/(sd2*mn)); }
+    while(i<idx.length){
+      var side=Math.min(w,h), row=[idx[i]], sum=areas[idx[i]]; i++;
+      while(i<idx.length){ var ns=sum+areas[idx[i]];
+        if(worst(row.concat([idx[i]]),side,ns)<=worst(row,side,sum)){ row.push(idx[i]); sum=ns; i++; } else break; }
+      var thick=sum/side, off=0;
+      for(var k2=0;k2<row.length;k2++){ var len=areas[row[k2]]/thick;
+        if(w>=h) out.push({i:row[k2],x:x,y:y+off,w:thick,h:len}); else out.push({i:row[k2],x:x+off,y:y,w:len,h:thick});
+        off+=len; }
+      if(w>=h){ x+=thick; w-=thick; } else { y+=thick; h-=thick; }
+      if(w<0.5||h<0.5) break;
+    }
+    return out;
+  }
+  function drawLand(box,land,mine){
+    var W=box.clientWidth||900,H=box.clientHeight||380,ps=land.parcels||[];
+    if(!ps.length){ box.innerHTML='<div class="lg" style="position:absolute;inset:0">no lots</div>'; return; }
+    var cells=squarify(ps,W,H),h='';
+    cells.forEach(function(c){
+      var p=ps[c.i], here=mine.indexOf(String(p.star))>=0;
+      var kvk=(p.url&&window.KRAY&&KRAY.previewKindOf)?KRAY.previewKindOf(p.contentType||''):null;
+      var cover=p.url&&p.contentType&&/^image\//.test(p.contentType)
+        ? '<div class="lc"><img loading="lazy" src="'+esc(p.url)+'" alt=""></div>'
+        : (kvk==='md'||kvk==='txt'||kvk==='src'||kvk==='pdf'||kvk==='audio')
+          ? '<div class="lc kv-hyd" data-kvurl="'+esc(p.url)+'" data-kvct="'+esc(p.contentType)+'"></div>'
+          : '<div class="lg">'+esc(SHELF[p.category]||'✦')+'</div>';
+      h+='<a class="llot'+(here?' here':'')+'" href="/star/'+esc(p.star)+'" style="left:'+(c.x/W*100).toFixed(4)
+        +'%;top:'+(c.y/H*100).toFixed(4)+'%;width:'+(c.w/W*100).toFixed(4)+'%;height:'+(c.h/H*100).toFixed(4)+'%"'
+        +' title="lot #'+(p.lot||'—')+' · '+esc(p.category||'')+' · '+n(p.size)+' bytes'+(here?' — STAKED BY THIS BLOCK':'')+'">'+cover+'</a>';
+    });
+    box.innerHTML=h;
+    // document lots wear the site-wide FROZEN PORTRAIT (kray.js) — locked, inert, once
+    box.querySelectorAll('.kv-hyd[data-kvurl]:not([data-loaded])').forEach(function(el){ el.setAttribute('data-loaded','1');
+      if(window.KRAY && KRAY.frozenPreview) KRAY.frozenPreview(el, el.getAttribute('data-kvurl'), el.getAttribute('data-kvct'), {mini:true});
+    });
+  }
+
+  fetch('/api/kraynet/block/'+N).then(function(r){return r.json();}).then(function(b){
+    if(b.error) throw new Error(b.error);
+    var L=b.land||{}, a=b.anchor||null, sealed=!!(a&&a.txid), txs=b.transactions||[];
+    var mine=txs.filter(function(t){return t.star;}).map(function(t){return String(t.star);});
+
+    var h='<div class="crumb"><a href="/">← explorer</a> · <a href="/land">land</a></div>'
+      // ── the block, named — .shead + the two-line story it tells ──
+      +'<div class="shead" style="margin-bottom:var(--s6)">'
+        +'<h2>'+g('g-block',26)+' KRAY block #'+n(b.number)+'</h2>'
+        +'<span class="sub">a KRAY lightning block · '+(sealed?'already sealed into Bitcoin':'sealed here, waiting for the next Bitcoin block')
+          +' · one every ~3.5s · '+esc(when(b.at))+'</span>'
+      +'</div>'
+      // ── the monumental leaves count ──
+      +'<div class="spread" style="align-items:flex-end;gap:var(--s6);margin:0 0 var(--s7)">'
+        +'<div>'
+          +'<div class="display tnum" style="font-size:clamp(56px,13vw,128px)">'+n(b.txCount)+'</div>'
+          +'<div class="label" style="margin-top:var(--s3)">leaf'+(b.txCount===1?'':'s')+' · events sealed into this block</div>'
+        +'</div>'
+        +'<div style="text-align:right">'
+          +(sealed
+            ? '<span class="chip btc">'+g('g-anchor',13)+' sealed to Bitcoin</span>'
+            : '<span class="chip">'+g('g-anchor',13)+' anchor pending</span>')
+        +'</div>'
+      +'</div>'
+      // ── the details, at a glance ──
+      +'<div class="stats">'
+        +'<div class="stat tick"><div class="v tnum">'+n(b.fromSeq)+'</div><div class="k">first sequence</div></div>'
+        +'<div class="stat"><div class="v tnum">'+n(b.toSeq)+'</div><div class="k">last sequence</div></div>'
+        +'<div class="stat"><div class="v tnum">'+(L.land!=null?'#'+n(L.land):'—')+'</div><div class="k">land district</div></div>'
+        +'<div class="stat"><div class="v tnum">'+n(L.lots||0)+'</div><div class="k">lots staked here</div></div>'
+      +'</div>'
+      +'<div class="stack" style="margin-top:var(--s5)">'
+      // ── the Bitcoin seal — amber ONLY when it is truly sealed to L1 ──
+      +(sealed
+        ? '<div class="card btc tick">'
+            +'<div class="spread" style="margin-bottom:var(--s5)">'
+              +'<div class="label btc-ink" style="letter-spacing:.16em">'+g('g-anchor',15)+' sealed to Bitcoin</div>'
+              +'<div class="row" style="gap:var(--s2)">'
+                +(a.confirmations!=null?'<span class="chip btc">₿ '+n(a.confirmations)+' confirmation'+(a.confirmations===1?'':'s')+'</span>':'')
+                +(a.verified?'<span class="chip good">✓ verified on-chain</span>':'')
+              +'</div>'
+            +'</div>'
+            +'<div class="num btc-ink tnum" style="font-size:clamp(28px,5vw,44px)">'
+              +(b.btcHeight!=null
+                  ? '<a href="'+mempool(b.btcHeight,b.btcChain)+'" target="_blank" rel="noopener" style="color:inherit">₿ '+n(b.btcHeight)+' ↗</a>'
+                  : 'sealed')
+            +'</div>'
+            +'<div class="dim" style="font-size:13.5px;margin-top:var(--s2)">'
+              +(b.btcHeight!=null
+                  ? 'the real Bitcoin block that witnessed this history'+(b.btcChain?' on '+esc(b.btcChain):'')
+                  : 'the anchor is on Bitcoin; this node did not record which block')
+            +'</div>'
+            // ── this block was buried by a LATER seal, through the cascade — say so plainly ──
+            +((a.sealedBy!=null && a.sealedBy!==b.number)
+                ? '<div class="dim" style="font-size:12.5px;margin-top:var(--s2);opacity:.85">Sealed through the cascade by the anchor at <a href="/block/'+n(a.sealedBy)+'">block #'+n(a.sealedBy)+'</a> — its cumulative root commits this block\'s history too, so this block is on Bitcoin.</div>'
+                : '')
+            +'<table class="dtable" style="margin-top:var(--s5)"><tbody>'
+              +'<tr><td class="hk">anchor transaction</td><td class="hx">'
+                +(mempool(0,b.btcChain)
+                    ? '<a href="'+(b.btcChain==='signet'?'https://mempool.space/signet/tx/':'https://mempool.space/tx/')+esc(a.txid)+'" target="_blank" rel="noopener">'+esc(a.txid)+' ↗</a>'
+                    : esc(a.txid))
+              +'</td></tr>'
+              +(a.cascadeRoot?'<tr><td class="hk">cascade root</td><td class="hx btc-ink">'+esc(a.cascadeRoot)+'</td></tr>':'')
+            +'</tbody></table>'
+            +'<div class="av-prove" style="margin-top:var(--s5)"><button class="av-prove-btn" data-blk="'+n(b.number)+'">Prove this on Bitcoin yourself ↗</button>'
+              +'<div class="dim" style="font-size:12px;margin-top:8px;opacity:.85;max-width:60ch">Your own browser recomputes the seal from the cascade root and matches it against Bitcoin through a third-party explorer — this node is trusted for none of it.</div>'
+              +'<div class="av-out" style="margin-top:var(--s3)"></div></div>'
+          +'</div>'
+        : '<div class="card tick">'
+            +'<div class="label" style="letter-spacing:.16em">'+g('g-anchor',15)+' anchor pending</div>'
+            +'<div class="num tnum" style="font-size:clamp(24px,4vw,34px);margin-top:var(--s4)">waiting for Bitcoin</div>'
+            +'<div class="dim" style="font-size:13.5px;margin-top:var(--s3)">this block is sealed and anchor-ready — the next real Bitcoin block consolidates it</div>'
+            +((a&&a.cascadeRoot)?'<table class="dtable" style="margin-top:var(--s5)"><tbody><tr><td class="hk">cascade root</td><td class="hx">'+esc(a.cascadeRoot)+'</td></tr></tbody></table>':'')
+          +'</div>')
+      // ── the block itself — the hashes that make it a promise ──
+      +'<div class="card tick">'
+        +'<div class="label" style="margin-bottom:var(--s4)">'+g('g-block',15)+' the block itself</div>'
+        +'<table class="dtable"><tbody>'
+          +'<tr><td class="hk">block hash</td><td class="hx">'+esc(b.hash)+'</td></tr>'
+          +'<tr><td class="hk">previous hash</td><td class="hx"><a href="/block/'+(b.number-1)+'">'+esc(b.prevHash)+'</a></td></tr>'
+          +'<tr><td class="hk">merkle root</td><td class="hx">'+esc(b.merkleRoot)+'</td></tr>'
+        +'</tbody></table>'
+      +'</div>'
+      // ── what this block sealed — every txid, in full detail ──
+      +'<div class="card tick">'
+        +'<div class="spread" style="margin-bottom:var(--s3)">'
+          +'<div class="label">'+g('g-block',15)+' what this block sealed</div>'
+          +'<span class="mono dim2" style="font-size:11px">'+txs.length+' txid'+(txs.length===1?'':'s')+'</span>'
+        +'</div>'
+        +'<div class="dim" style="font-size:13px;margin-bottom:var(--s4)">Every leaf below is one txid under the merkle root above, in the exact order it was sealed — with its tags, what it did, and the thumbnail of what it carved.</div>'
+        +'<div class="tx-list">'
+          +(txs.map(txReceipt).join('') || '<div class="dim" style="text-align:center;padding:var(--s6)">this block sealed nothing — the network turned and conserved</div>')
+        +'</div>'
+      +'</div>';
+
+    // ── the land it helped raise — the SAME treemap the land page draws ──
+    if(L.land!=null){
+      h+='<div class="card tick">'
+        +'<div class="spread" style="margin-bottom:var(--s3)">'
+          +'<div class="label">◈ the land it helped raise</div>'
+          +'<a class="chip" href="/land/'+L.land+'">open the full district ↗</a>'
+        +'</div>'
+        +'<div class="dim" style="font-size:13px;margin-bottom:var(--s4)">'+esc(L.note||'')+' — the lots this block staked are lit. Lot area is the bytes actually sealed.</div>'
+        +'<div class="lmap" id="lmap"></div>'
+        +'<div class="row" style="margin-top:var(--s4);gap:var(--s2)">'
+          +'<span class="chip">▣ BITLAND · land #'+n(L.land)+'</span>'
+          +(b.btcHeight!=null?'<span class="chip btc">₿ '+n(b.btcHeight)+'</span>':'')
+          +'<span class="chip">'+n(L.lots||0)+' lot'+((L.lots||0)===1?'':'s')+' from this block</span>'
+        +'</div>'
+      +'</div>';
+    }
+    h+='</div>'; // close .stack
+    // ── walk the chain ──
+    h+='<div class="spread" style="margin:var(--s7) 0 var(--s8)">'
+      +(b.number>0?'<a class="btn ghost" href="/block/'+(b.number-1)+'">← block #'+n(b.number-1)+'</a>':'<span class="btn ghost" style="opacity:.4;cursor:default">← genesis</span>')
+      +'<a class="btn ghost" href="/block/'+(b.number+1)+'">block #'+n(b.number+1)+' →</a></div>';
+    document.getElementById('body').innerHTML=h;
+
+    if(L.land!=null){
+      fetch('/api/kraynet/land/'+L.land).then(function(r){return r.json();}).then(function(land){
+        var box=document.getElementById('lmap'); if(!box||land.error) return;
+        drawLand(box,land,mine);
+        var t=null; window.addEventListener('resize',function(){ clearTimeout(t); t=setTimeout(function(){drawLand(box,land,mine);},140); });
+      }).catch(function(){});
+    }
+    document.addEventListener('keydown',function(ev){
+      if(ev.key==='ArrowLeft'&&b.number>0) location.href='/block/'+(b.number-1);
+      if(ev.key==='ArrowRight') location.href='/block/'+(b.number+1);
+    });
+    fetch('/api/state').then(function(r){return r.json();}).then(function(s){
+      document.getElementById('netlab').textContent=s.network+(s.simulation?' · simulation':'');
+    }).catch(function(){});
+  }).catch(function(e){
+    document.getElementById('body').innerHTML='<div class="crumb"><a href="/">← explorer</a></div>'
+      +'<div class="card tick" style="text-align:center;padding:var(--s7);color:var(--ink-3)">'+esc((e&&e.message)||'no such block on this node')+'</div>';
+  });
+})();
+</script>
+
+<!-- the trustless anchor-verify widget (new, self-contained) — powers the "Prove this on Bitcoin yourself" button -->
+<script src="/burn-proof.js"></script>
+<script src="/verify.js"></script>
+<script type="module" src="/kray-spv.mjs"></script>
+<script src="/anchor-verify.js"></script>
+<script>
+(function () {
+  'use strict'
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target && ev.target.closest && ev.target.closest('.av-prove-btn'); if (!btn) return
+    var wrap = btn.parentNode, out = wrap && wrap.querySelector('.av-out'), blk = btn.getAttribute('data-blk'); if (!out) return
+    btn.disabled = true; out.innerHTML = '<div class="dim" style="font-size:12.5px;padding:8px 0">recomputing + asking Bitcoin…</div>'
+    ;(function go(tries) {
+      if (!(window.AnchorVerify && window.KraySPV && window.BurnProof && window.KrayVerify)) {
+        if ((tries || 0) > 60) { out.innerHTML = '<div class="dim" style="font-size:12.5px">the proof engine did not load — refresh.</div>'; btn.disabled = false; return }
+        return setTimeout(function () { go((tries || 0) + 1) }, 100)
+      }
+      fetch('/api/kraynet/anchor-opening/' + encodeURIComponent(blk)).then(function (r) { return r.ok ? r.json() : null }).then(function (op) {
+        if (!op) { out.innerHTML = '<div class="dim" style="font-size:12.5px">no anchor opening for this block yet.</div>'; btn.disabled = false; return }
+        window.AnchorVerify.run(out, op, op.network || 'signet')
+      }).catch(function () { out.innerHTML = '<div class="dim" style="font-size:12.5px">could not load the opening.</div>'; btn.disabled = false })
+    })(0)
+  })
+})()
+</script>
+</body>
+</html>

@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Library</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* page-local only — the design system lives in /kray.css. These are the
+     library-specific bits: the hero stamp line, the census sublabel, the browse
+     rail / shelves layout, and the entry cards with their cover-art thumbnails. */
+  .hero .stamp{display:flex;gap:var(--s5);flex-wrap:wrap;align-items:center;margin-top:var(--s7);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+  .hero .stamp b{color:var(--ink)}
+  .hero .stamp a{color:var(--ink-3)}
+  .hero .stamp a:hover{color:var(--ink)}
+
+  /* census — v2 .stat cards, plus a sublabel */
+  .stat .n{display:block;font-family:var(--sans);font-size:11.5px;color:var(--ink-4);line-height:1.45;margin-top:var(--s2)}
+
+  /* browse controls — filters as .tab, sorts + shelves as .chip, search as .input */
+  .rail{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center;margin-bottom:var(--s5)}
+  .rail .input{width:auto;flex:1 1 220px;min-width:0;min-height:44px;padding:10px 15px;font-size:12.5px}
+  .rail .chip b{color:var(--ink);font-weight:600}
+  .rail .chip.on b{color:var(--signal-ink)}
+  .railbtn{cursor:pointer}
+  /* FIX 3 — legible filter/sort chips (page-scoped; --ink-3 is too dim to read) */
+  .rail .tab.railbtn,.rail .chip.railbtn{color:var(--ink-2)}
+  .rail .tab.railbtn:hover,.rail .chip.railbtn:hover{color:var(--ink);border-color:var(--line-2)}
+  .rail .tab.railbtn.on,.rail .chip.railbtn.on{color:var(--signal-ink)}
+  .shelves{display:flex;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s6)}
+  .shelves .chip{cursor:pointer;min-height:44px}
+  .shelves .chip b{color:var(--ink);font-weight:600}
+  /* selected shelf = white ground; ink must invert or "All works" is white-on-white */
+  .shelves .chip.on,.shelves .chip.on b{color:var(--signal-ink)}
+
+  /* the list — v2 wireframe cards, one per name or work */
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:var(--s3)}
+  .entry{display:flex;gap:var(--s3);align-items:flex-start;padding:var(--s4);min-height:96px;
+    border:1px solid var(--line);border-radius:var(--r3);background:var(--surface)}
+  .entry .art{width:60px;height:60px;flex:0 0 auto;overflow:hidden;border:1px solid var(--line);border-radius:var(--r2);
+    background:var(--void);display:flex;align-items:center;justify-content:center;color:var(--ink-4);font-family:var(--mono);font-size:20px}
+  /* FIX 1 — the thumbnail shows the REAL content: raster + SVG in <img> (safe),
+     video in <video>, text fetched into a mono preview, glyph only as last resort */
+  .entry .art img,.entry .art video{width:100%;height:100%;object-fit:cover}
+  .entry .art .kv-hyd{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+  .entry .art .txt{width:100%;height:100%;padding:5px 6px;font-family:var(--mono);font-size:7.5px;line-height:1.28;color:var(--ink-2);overflow:hidden;text-align:left;word-break:break-word;white-space:pre-wrap}
+  .entry .art .gl{font-family:var(--mono);font-size:20px;color:var(--ink-4)}
+  .entry .m{display:block;flex:1;min-width:0}
+  .entry .nm{display:block;font-size:15.5px;font-weight:500;color:var(--ink);line-height:1.35;word-break:break-word}
+  .entry .kd{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-top:2px}
+  .entry .st2{display:block;font-family:var(--mono);font-size:10px;color:var(--ink-3);margin-top:2px}
+  .entry .st{display:block;font-family:var(--mono);font-size:10.5px;color:var(--ink-4);margin-top:4px}
+  .empty{grid-column:1/-1;padding:var(--s8) var(--s4);text-align:center;color:var(--ink-3)}
+
+  /* the law, in one paragraph — an achromatic callout (it is not sealed to Bitcoin) */
+  .law{margin-top:var(--s7);padding:var(--s5) var(--s6);border:1px solid var(--line-2);border-radius:var(--r3);
+    background:var(--surface);color:var(--ink-2);font-size:14px;line-height:1.6;box-shadow:var(--shadow)}
+  .law b{color:var(--ink)}
+  .law .t{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:var(--s2)}
+  @media(max-width:639px){
+    .list{grid-template-columns:minmax(0,1fr)}
+    .rail .input{flex:1 1 100%}
+    .entry{min-height:0}
+  }
+</style>
+</head>
+<body data-page="library">
+
+<div class="wrap">
+  <section class="hero" style="border-top:0">
+    <div class="eyebrow">EVERY NAME HUMANITY HAS WRITTEN · BAPTISM IS THE ONLY REGISTRY</div>
+    <h1>The library</h1>
+    <p class="lede">Every name written into this universe — one plain word, unique forever. A name is claimed by
+      <b>baptising a star</b>, and the baptism is the only registry there is — the first writer owns it, no owner can
+      rename, and every keyboard variation of the same name is the same name.</p>
+    <div class="cta row">
+      <a class="btn primary" href="/baptize"><svg width="15" height="15"><use href="#g-name"/></svg> Baptize a name</a>
+      <a class="btn" href="/inscribe"><svg width="15" height="15"><use href="#g-inscribe"/></svg> Inscribe a star</a>
+    </div>
+    <div class="stamp">
+      <span>network <b id="netlab">—</b></span>
+      <span id="stamp"></span>
+      <span>read from <b>/api/kraynet/library</b></span>
+      <a href="/dashboard">← dashboard</a>
+    </div>
+  </section>
+</div>
+
+<section><div class="wrap">
+  <div class="shead"><span class="n">01</span><h2><svg width="18" height="18" style="vertical-align:-3px"><use href="#g-star"/></svg> The census</h2>
+    <span class="sub">Everything written into this universe — the works on the shelves and the names that own the stars.</span></div>
+  <div class="stats" id="census"></div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="shead"><span class="n">02</span><h2><svg width="18" height="18" style="vertical-align:-3px"><use href="#g-name"/></svg> Browse the atlas</h2>
+    <span class="sub">Switch between names and the works on the shelves, sort by age or star number, search any keyboard variation.</span></div>
+  <div class="rail" id="rail"></div>
+  <div class="shelves" id="shelves"></div>
+  <div class="list" id="list"><div class="empty">loading…</div></div>
+  <div class="law" id="law"></div>
+</div></section>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function num(v){ return Number(v||0).toLocaleString(); }
+  var SHELF={image:'▣',vector:'◈',video:'▶',audio:'♪',code:'⌘',law:'⚖',markup:'❰',document:'▤',
+             data:'⛁',text:'¶',model:'◉',font:'A',archive:'▦',file:'◇'};
+  // protocol reading order — image → … → code → law → markup → text. The rail
+  // follows this, not first-seen. Always-on: the media a reader looks for.
+  var SHELF_ORDER=['image','vector','video','audio','code','law','markup','document','data','text','model','font','archive','file'];
+  var SHELF_ALWAYS={image:1,video:1,audio:1,text:1,code:1,law:1};
+  var SHELF_META={
+    image:{glyph:'▣',label:'Image'},vector:{glyph:'◈',label:'Vector'},
+    video:{glyph:'▶',label:'Video'},audio:{glyph:'♪',label:'Audio'},
+    code:{glyph:'⌘',label:'Code'},law:{glyph:'⚖',label:'Law'},
+    markup:{glyph:'❰',label:'Markup'},document:{glyph:'▤',label:'Document'},
+    data:{glyph:'⛁',label:'Data'},text:{glyph:'¶',label:'Text'},
+    model:{glyph:'◉',label:'3D'},font:{glyph:'A',label:'Font'},
+    archive:{glyph:'▦',label:'Archive'},file:{glyph:'◇',label:'File'}
+  };
+  // FIX 1 — render the REAL content of the thumbnail. SVG is safe inside <img>
+  // (the browser never executes scripts in image context), exactly as map.html
+  // (lotInner) and star.html do. Text is fetched into a mono preview; a glyph is
+  // only the last resort for a content type we can neither draw nor read.
+  function cellArt(ct, url, category){
+    ct = String(ct||'');
+    if(/^image\//.test(ct)) return '<img loading="lazy" src="'+esc(url)+'" alt="">';       // includes SVG — safe in <img>
+    if(/^video\//.test(ct)) return '<video src="'+esc(url)+'" muted playsinline loop></video>';
+    if(/^audio\//.test(ct)) return '<div class="kv-hyd" data-kvurl="'+esc(url)+'" data-kvct="'+esc(ct)+'"></div>';
+    if(/^application\/pdf\b/.test(ct) || /^text\/|json|javascript|xml|markdown|csv|yaml|html|x-python|x-java/.test(ct)) return '<div class="kv-hyd" data-kvurl="'+esc(url)+'" data-kvct="'+esc(ct)+'"></div>';
+    return '<span class="gl">'+esc((typeof SHELF!=='undefined' && SHELF[category])||'◇')+'</span>';
+  }
+  // paint each cover with the site-wide FROZEN PORTRAIT (kray.js) — md rendered,
+  // posts as letters, code as editor pages, pdf first page. Locked, inert, once.
+  function hydrateText(){
+    document.querySelectorAll('#list .art .kv-hyd[data-kvurl]:not([data-loaded])').forEach(function(el){
+      el.setAttribute('data-loaded','1');
+      if(window.KRAY && KRAY.frozenPreview) KRAY.frozenPreview(el, el.getAttribute('data-kvurl'), el.getAttribute('data-kvct'), {mini:true});
+      else el.textContent='…';
+    });
+  }
+  // BigInt-safe star compare (ascending) — star numbers are arbitrary-precision
+  function cmpStar(x, y){ var a=BigInt(x), b=BigInt(y); return a<b?-1:a>b?1:0; }
+
+  // FIX 2 — "everything" means EVERYTHING: works AND names. The rail maps each
+  // tab to a (mode, cur) pair; works/names each carry their own category filter.
+  var FILTERS=[{id:'all',label:'everything'},{id:'works',label:'works'},{id:'names',label:'names'}];
+  var cur='', q='', data=null;
+
+  function draw(){
+    if(!data) return;
+    document.getElementById('census').innerHTML=
+       '<div class="stat"><span class="k">works</span><div class="v">'+num(data.workCount||0)+'</div><span class="n">inscriptions sealed forever</span></div>'
+      +'<div class="stat"><span class="k">names</span><div class="v">'+num(data.count||0)+'</div><span class="n">baptisms — one plain word each</span></div>'
+      +(data.library && data.library.bytes!=null
+        ? '<div class="stat"><span class="k">bytes</span><div class="v">'+num(data.library.bytes)+'</div><span class="n">sealed into the library</span></div>'
+        : '');
+
+    // which tab is lit: 'all' / 'works' map straight from mode; in names mode the
+    // active tab is the kind filter ('' → the star-names tab)
+    var activeFilter = mode==='all' ? 'all' : mode==='works' ? 'works' : (cur||'names');
+    document.getElementById('rail').innerHTML=FILTERS.map(function(f){
+      return '<button class="tab railbtn'+(f.id===activeFilter?' on':'')+'" data-f="'+f.id+'">'+esc(f.label)+'</button>';
+    }).join('')
+      // NEWEST FIRST is the default, because a library is walked from what was
+      // just written. Oldest is one click away, and in a registry where the first
+      // writer owns forever, the oldest end is where the rarest things are.
+      // TWO INDEPENDENT AXES, and confusing them loses information.
+      //   inscription # — the order works were WRITTEN. #1 is the first work that
+      //                   ever existed here, and that never changes.
+      //   star #        — the star's creation-order number. A low number was
+      //                   created early — among the first stars ever written.
+      // They are not the same reading: an ancient star can receive a late
+      // inscription, and a brand-new star can hold inscription #1 if nobody wrote
+      // before. Offering only one of them would hide half of what happened.
+      +'<button class="chip railbtn'+(order==='new'?' on':'')+'" data-o="new">↓ newest</button>'
+      +'<button class="chip railbtn'+(order==='old'?' on':'')+'" data-o="old">↑ oldest</button>'
+      +(mode==='works'
+        ? '<button class="chip railbtn'+(order==='insc'?' on':'')+'" data-o="insc" title="the order works were written — #1 is the first work that ever existed on this network">✎ inscription #</button>'
+        : '')
+      +'<button class="chip railbtn'+(order==='star'?' on':'')+'" data-o="star" title="the star\'s own number — its creation order; a low number was created early">✦ star #</button>'
+      +'<input class="input" id="q" placeholder="search a name…" value="'+esc(q)+'">';
+    document.querySelectorAll('[data-o]').forEach(function(b){
+      b.addEventListener('click', function(){ order=b.getAttribute('data-o'); draw(); });
+    });
+    // filter tabs only (data-f) — the sort chips carry data-o and must NOT reset the mode
+    document.querySelectorAll('.tab.railbtn[data-f]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var f=b.getAttribute('data-f');
+        if(f==='all'){ mode='all'; cur=''; }
+        else if(f==='works'){ mode='works'; }
+        else { mode='names'; cur=''; }
+        shelf=''; draw();
+      });
+    });
+    var qi=document.getElementById('q');
+    qi.addEventListener('input', function(){ q=qi.value; drawList(); });
+
+    // THE SHELVES ARE THE WORKS, in protocol reading order. A zero on a first-class
+    // shelf (image · video · audio · text · code · law) is honest. Rare empty
+    // shelves stay hidden until someone writes to them.
+    var counts=data.shelfCount||{};
+    if(data.lawCount!=null) counts.law=data.lawCount;
+    var byId={};
+    (data.shelves||[]).forEach(function(s){ byId[s.id]=s; });
+    var sh=SHELF_ORDER.map(function(id){
+      return byId[id] || Object.assign({id:id}, SHELF_META[id]);
+    }).filter(function(s){ return SHELF_ALWAYS[s.id] || (counts[s.id]||0)>0; });
+    document.getElementById('shelves').innerHTML=
+      '<button class="chip'+(shelf===''?' on':'')+'" data-sh="">✦ <b>All works</b> '+num(data.workCount||0)+'</button>'
+      + sh.map(function(s){
+          return '<button class="chip'+(shelf===s.id?' on':'')+'" data-sh="'+esc(s.id)+'">'
+            +esc(s.glyph)+' <b>'+esc(s.label)+'</b> '+num(counts[s.id])+'</button>';
+        }).join('');
+    document.querySelectorAll('[data-sh]').forEach(function(b){
+      b.addEventListener('click', function(){
+        shelf=b.getAttribute('data-sh');
+        cur=shelf===''&&mode==='works' ? cur : cur; mode='works'; draw();
+      });
+    });
+
+    document.getElementById('law').innerHTML='<div class="t">the law, in one paragraph</div>'+esc(data.law);
+    drawList();
+  }
+
+/* ── THE SHELVES — browsing WORKS, not names ──────────────────────────────
+     Same list, same page: a filter chip switches which half of the library you
+     are walking through. Nothing is fetched again — both halves arrived in the
+     one response, so switching is instant and the node is asked nothing. */
+  // FIX 2 — "everything" (all) is the default arrival view: every work + name.
+  var mode='all', shelf='', order='new'; // newest first — what a reader wants on arrival
+
+  // ── card builders — one per work / name, each using cellArt for the thumbnail ──
+  function workCard(w){
+    var law = w.category==='law';
+    var art = law ? '<span class="gl">⚖</span>' : cellArt(w.contentType, w.url, w.category);
+    var href = law ? '/star/'+esc(w.star)+'#lawcard' : '/star/'+esc(w.star);
+    var tip = law
+      ? ((w.name?'“'+w.name+'” · ':'')+'living law sealed on this star')
+      : ((w.name?'“'+w.name+'” · ':'')+w.contentType+' · '+w.size+' bytes');
+    return '<a class="entry card-link" href="'+esc(href)+'" title="'+esc(tip)+'">'
+      +'<span class="art">'+art+'</span>'
+      +'<span class="m"><span class="nm">'+esc(w.name || ('#'+Number(w.star).toLocaleString()))+'</span>'
+      +'<span class="kd">'+(law?'law · sealed contract':esc(w.category))+(w.number!=null?' · inscription #'+num(w.number):'')+'</span>'
+      +'<span class="st2">✦ star #'+num(w.star)+'</span>'
+      +'<span class="st">'+(law?(w.contract?esc(String(w.contract).slice(0,18))+'…':'living law'):esc(w.contentType)+' · '+num(w.size)+' bytes')
+        +' · '+esc(w.rarity)+'</span></span></a>';
+  }
+  function nameCard(e){
+    var tip='The name of this star, unique in the whole universe forever — one plain word, and this writer was first.';
+    var art = e.inscription ? cellArt(e.inscription.contentType, e.inscription.url, e.inscription.category) : '<span class="gl">✦</span>';
+    return '<a class="entry card-link" href="/star/'+esc(e.star)+'" title="'+esc(tip)+'">'
+      +'<span class="art">'+art+'</span>'
+      +'<span class="m"><span class="nm">'+esc(e.name)+'</span>'
+      +'<span class="kd">star name</span>'
+      +'<span class="st">star #'+num(e.star)+' · '+esc(e.rarity)
+        +(e.inscription?' · '+esc(e.inscription.category)+' '+num(e.inscription.size)+' B':'')+'</span></span></a>';
+  }
+  function matchWork(w){
+    if(!q) return true;
+    var t=q.toLowerCase();
+    return String(w.star).indexOf(t)>=0 || (w.name||'').toLowerCase().indexOf(t)>=0
+        || (w.contentType||'').toLowerCase().indexOf(t)>=0 || (w.category||'').indexOf(t)>=0;
+  }
+  function matchName(e){
+    if(!q) return true;
+    var t=q.toLowerCase();
+    return e.name.toLowerCase().indexOf(t)>=0 || e.canonical.indexOf(t)>=0 || String(e.star).indexOf(t)>=0;
+  }
+
+  function drawWorks(){
+    var rows=(shelf==='law' ? (data.laws||[]) : (data.works||[])).slice();
+    // the endpoint hands works newest-first; laws arrive in star-number order
+    if(order==='old') rows.reverse();
+    else if(order==='insc') rows.sort(function(a,b){ return (a.number||0)-(b.number||0); });   // #1 upward
+    else if(order==='star') rows.sort(function(a,b){ return cmpStar(a.star,b.star); });         // lowest star first
+    rows=rows.filter(function(w){ return (shelf==='law' || !shelf || w.category===shelf) && matchWork(w); });
+    if(!rows.length){
+      document.getElementById('list').innerHTML='<div class="empty">'
+        +(q||shelf ? 'Nothing on this shelf matches. It has never been written — which means it is still free.'
+                   : 'No works sealed yet. The first inscription puts the first book on the shelf.')+'</div>';
+      return;
+    }
+    document.getElementById('list').innerHTML=rows.map(workCard).join('');
+    hydrateText();
+  }
+
+  // ── EVERYTHING — works AND names, merged and sorted by star number ──────────
+  function drawAll(){
+    var items=[];
+    (data.works||[]).forEach(function(w){ if(matchWork(w)) items.push({star:w.star, html:workCard(w)}); });
+    (data.entries||[]).forEach(function(e){ if(matchName(e)) items.push({star:e.star, html:nameCard(e)}); });
+    // newest first (star DESC) by default; oldest / star# read ascending
+    var asc = order==='old' || order==='star';
+    items.sort(function(a,b){ return asc ? cmpStar(a.star,b.star) : cmpStar(b.star,a.star); });
+    if(!items.length){
+      document.getElementById('list').innerHTML='<div class="empty">'
+        +(q? 'Nothing in the library matches “'+esc(q)+'”. It has never been written — which means it is still free.'
+           : 'The library is empty — no name and no work yet. Baptise a star or inscribe one to write the first line.')+'</div>';
+      return;
+    }
+    document.getElementById('list').innerHTML=items.map(function(x){ return x.html; }).join('');
+    hydrateText();
+  }
+
+  function drawList(){
+    if(mode==='works') return drawWorks();
+    if(mode==='all') return drawAll();
+    // names mode — every baptism is one plain name
+    var rows=(data.entries||[]).slice();
+    // the endpoint hands them in CLAIM ORDER; newest is that reversed
+    if(order==='star') rows.sort(function(a,b){ return cmpStar(a.star,b.star); });
+    else if(order==='new') rows.reverse();
+    rows=rows.filter(matchName);
+    if(!rows.length){
+      document.getElementById('list').innerHTML='<div class="empty">'
+        +(q? 'Nothing in the library matches “'+esc(q)+'”. It has never been written — which means it is still free.'
+           : 'No name written yet. Baptise a star and it becomes the first.')+'</div>';
+      return;
+    }
+    document.getElementById('list').innerHTML=rows.map(nameCard).join('');
+    hydrateText();
+  }
+
+  fetch('/api/kraynet/library').then(function(r){ return r.json(); }).then(function(d){
+    data=d; draw();
+    document.getElementById('stamp').textContent=' '+num(d.count)+' names read.';
+    fetch('/api/state').then(function(r){return r.json();}).then(function(s){
+      document.getElementById('netlab').textContent=s.network+(s.simulation?' · simulation':'');
+    }).catch(function(){});
+  }).catch(function(){
+    document.getElementById('list').innerHTML='<div class="empty">The node stopped answering. Nothing shown here is stale — nothing was read at all.</div>';
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Dashboard</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* dashboard-local — 8pt rhythm + 12-col. Chrome stays v2 (kray.css). */
+
+  .pulse{display:inline-block;width:var(--s2);height:var(--s2);border-radius:50%;background:var(--good);
+    margin-right:var(--s2);vertical-align:middle;animation:pulse 2s var(--ease) infinite}
+
+  /* instrument hero — same type as the rest of the site, section air (not landing s10) */
+  .hero{padding:var(--s8) 0 var(--s7)}
+  @media(min-width:1024px){.hero{padding:var(--s9) 0 var(--s8)}}
+  .hero .stamp{display:flex;gap:var(--s3) var(--s5);flex-wrap:wrap;margin-top:var(--s5);
+    font-family:var(--mono);font-size:12px;color:var(--ink-3);line-height:1.5}
+  .hero .stamp b{color:var(--ink)}
+
+  /* section titles sit on the 12-col: number + heading, dek aligned to the right on desktop */
+  .shead{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-areas:"n h" ". sub";
+    gap:var(--s2) var(--s4);align-items:baseline;margin-bottom:var(--s6)}
+  .shead .n{grid-area:n}
+  .shead h2{grid-area:h}
+  .shead .sub{grid-area:sub;margin-left:0;text-align:left;max-width:56ch}
+  @media(min-width:1024px){
+    .shead{grid-template-columns:auto minmax(0,1fr) minmax(240px,40ch);grid-template-areas:"n h sub";
+      align-items:end;margin-bottom:var(--s7)}
+    .shead .sub{text-align:right}
+  }
+
+  /* glance strip — 4 / 2 / 1, gutters on the same scale as .g12 */
+  .stats{gap:var(--s4)}
+  @media(min-width:1024px){.stats{gap:var(--s5)}}
+  @media(max-width:639px){.stats{grid-template-columns:1fr;gap:var(--s3)}}
+  a.stat{display:flex;flex-direction:column;gap:var(--s2);padding:var(--s5);
+    transition:border-color .18s var(--ease),transform .18s var(--ease)}
+  a.stat:hover{border-color:var(--line-2);transform:translateY(-2px)}
+  a.stat.btc:hover{border-color:var(--btc-2)}
+  .stat .v .u{font-size:.55em;color:var(--ink-4);font-weight:400}
+  .stat .k{margin-top:0}
+  .stat .note{font-family:var(--mono);font-size:11px;color:var(--ink-4);line-height:1.45;margin-top:var(--s1)}
+
+  /* compiled ledger — stretch to the cell, never a fake min-height */
+  .tiles{align-items:stretch}
+  .tiles .card{display:flex;flex-direction:column;height:100%;min-height:0;max-width:100%;overflow:hidden;padding:var(--s5)}
+  .tiles .card-hit{display:flex;flex-direction:column;flex:1;min-width:0;color:inherit;text-decoration:none}
+  @media(min-width:1024px){.tiles .card{padding:var(--s6)}}
+  .card.btc.card-link:hover{border-color:var(--btc-2)}
+  .ctop{display:flex;justify-content:space-between;align-items:center;gap:var(--s3);margin-bottom:var(--s3)}
+  .ctop .go{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--ink-4);white-space:nowrap}
+  .card:hover .ctop .go{color:var(--ink)}
+  .csub{font-size:14px;line-height:1.55;color:var(--ink-3);margin:0 0 var(--s5)}
+  .csub b{color:var(--ink-2)}
+
+  .kv{display:flex;justify-content:space-between;align-items:baseline;gap:var(--s4);padding:var(--s3) 0;
+    border-bottom:1px dashed var(--line);font-family:var(--mono);font-size:12px}
+  .kv:last-child{border-bottom:0}
+  .kv .kk{color:var(--ink-3)}
+  .kv .vv{color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+  .kv .vv.b{color:var(--btc)}.kv .vv.ok{color:var(--good)}.kv .vv.no{color:var(--crit)}
+
+  .bars{display:flex;flex-direction:column;gap:var(--s3);margin-top:var(--s4)}
+  .bar{display:grid;grid-template-columns:96px minmax(0,1fr) 64px;gap:var(--s3);align-items:center;
+    font-family:var(--mono);font-size:11px}
+  .bar .bl{color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bar .bt{height:var(--s2);border-radius:var(--r1);background:var(--void);overflow:hidden;border:1px solid var(--line)}
+  .bar .bf{height:100%;background:linear-gradient(90deg,var(--ink-4),var(--ink-2));border-radius:var(--r1);transition:width .5s var(--ease)}
+  .bar .bv{color:var(--ink-2);text-align:right;font-variant-numeric:tabular-nums}
+
+  .rank{display:flex;flex-direction:column;gap:var(--s2);margin-top:var(--s1)}
+  .rrow{display:grid;grid-template-columns:32px minmax(0,1fr) 96px 64px;gap:var(--s3);align-items:center;
+    border:1px solid var(--line);border-radius:var(--r1);padding:var(--s2) var(--s3);background:var(--surface-2);
+    font-family:var(--mono);font-size:12px;min-height:44px}
+  .rrow .rn{color:var(--ink-4)}
+  .rrow.top .rn{color:var(--ink)}
+  .rrow .rw{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rrow .rb{color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+  .rrow .rs{color:var(--ink-4);text-align:right;font-variant-numeric:tabular-nums}
+
+  .chips{display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:auto;padding-top:var(--s5)}
+  .chip.crit{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,transparent)}
+
+  .frozen{display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s4)}
+  .frozen .fz{width:var(--s7);height:var(--s7);border-radius:var(--r2);border:1px solid var(--line-2);background:var(--surface-2);
+    overflow:hidden;display:flex;align-items:center;justify-content:center;filter:grayscale(.75) brightness(.8);transition:filter .18s,border-color .18s}
+  .frozen .fz:hover{filter:none;border-color:var(--line-2)}
+  .frozen .fz img{width:100%;height:100%;object-fit:cover}
+  .frozen .fz .fg{font-family:var(--mono);font-size:16px;color:var(--ink-4)}
+
+  @media(max-width:639px){
+    .bar{grid-template-columns:80px minmax(0,1fr) 56px;gap:var(--s2)}
+    .rrow{grid-template-columns:24px minmax(0,1fr) 80px}
+    .rrow .rs{display:none}
+    .tiles .card{padding:var(--s4)}
+  }
+</style>
+</head>
+<body data-page="dashboard">
+
+<div class="wrap">
+  <section class="hero" style="border-top:0">
+    <div class="eyebrow">Dashboard · one compiled reading</div>
+    <h1>Everything that<br>has happened,<br><span class="dim">compiled once.</span></h1>
+    <p class="lede">Every number below is <b>derived</b> from the journal, the chain, the star map, the glow ledger and the
+      anchor log — nothing sampled, nothing estimated, so anyone replaying the same journal computes the same figures. Where
+      this node genuinely does not know a fact, it says so instead of guessing. Each card opens its own page.</p>
+    <div class="stamp">
+      <span id="netlab"><span class="pulse"></span>live</span>
+      <span id="stamp"></span>
+      <span>served from <b>/api/kraynet/analytics</b> · refreshes every 4s</span>
+    </div>
+  </section>
+</div>
+
+<main id="body">
+  <section><div class="wrap">
+    <div class="dim mono" style="padding:var(--s6);text-align:center">reading the journal…</div>
+  </div></section>
+</main>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function sink(kind, word){
+    if(window.KRAY && typeof KRAY.sink==='function') return KRAY.sink(kind, word);
+    var burn=kind==='burn'||kind==='burned'||kind==='fire';
+    var label=word||(burn?'BURNED':'FREEZE');
+    return '<span class="sink sink-'+(burn?'burn':'freeze')+'" title="'
+      +(burn?'Fungible ₭ destroyed in the fire — not a frozen star':'Star frozen in the black hole — visible, beyond reach')
+      +'">'+label+' <i aria-hidden="true">'+(burn?'🔥':'❄')+'</i></span>';
+  }
+
+  // ── ₭ SCALED, so a very large balance never breaks its container ─────────
+  // K / M / B / T / Q, and the exact figure always available on hover — the
+  // reader gets a number they can hold AND the number that is true.
+  function ka(v){
+    var n=Number(v||0), a=Math.abs(n);
+    var u=[[1e15,'Q'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];
+    for(var i=0;i<u.length;i++) if(a>=u[i][0]) return (n/u[i][0]).toFixed(a/u[i][0]>=100?0:a/u[i][0]>=10?1:2).replace(/\.0+$/,'')+u[i][1];
+    return String(n);
+  }
+  function full(v){ try{ return BigInt(v).toLocaleString(); }catch(_){ return String(v); } }
+  function num(v){ return Number(v||0).toLocaleString(); }
+  function bytes(b){
+    var n=Number(b||0);
+    if(n<1024) return n+' B';
+    if(n<1048576) return (n/1024).toFixed(1)+' KB';
+    if(n<1073741824) return (n/1048576).toFixed(2)+' MB';
+    return (n/1073741824).toFixed(2)+' GB';
+  }
+  var SHELF={image:'▣',vector:'◈',video:'▶',audio:'♪',code:'⌘',law:'⚖',markup:'❰',document:'▤',
+             data:'⛁',text:'¶',model:'◉',font:'A',archive:'▦',file:'◇'};
+
+  function bar(label,value,max,shown){
+    var pct = max>0 ? Math.max(1.5, (value/max)*100) : 0;
+    return '<div class="bar"><span class="bl">'+esc(label)+'</span>'
+      +'<span class="bt"><span class="bf" style="width:'+pct.toFixed(2)+'%"></span></span>'
+      +'<span class="bv">'+esc(shown==null?num(value):shown)+'</span></div>';
+  }
+  function kv(k,v,cls,title){
+    return '<div class="kv"><span class="kk">'+esc(k)+'</span><span class="vv '+(cls||'')+'"'
+      +(title?' title="'+esc(title)+'"':'')+'>'+v+'</span></div>';
+  }
+
+  function render(d){
+    var b=d.bitcoin||{}, L=b.latest||null;
+    var LAND=d.land||d.city||{};   // the current analytics field is `land`; `city` was the old name
+    var h='';
+
+    // ── SECTION 01 · the four numbers that describe the network ──────────
+    h+='<section><div class="wrap">'
+      +'<div class="shead"><span class="n">01</span><h2>The network at a glance</h2>'
+      +'<span class="sub">Four numbers derived from the journal, the chain and the anchor log — nothing sampled, nothing estimated.</span></div>'
+      +'<div class="stats">'
+        +'<a class="stat" href="/rank" title="'+esc(full(d.supply.heldByCitizens))+' ₭ held by '+num(d.supply.holders)+' addresses">'
+          +'<div class="v">'+ka(d.supply.heldByCitizens)+' <span class="u">₭</span></div>'
+          +'<div class="k">held by citizens</div>'
+          +'<div class="note">'+num(d.supply.holders)+' address'+(d.supply.holders===1?'':'es')+' · of '+ka(d.supply.circulating)+' ₭ circulating</div></a>'
+        +'<a class="stat" href="/blocks" title="the fast chain, sealing every ~3.5s">'
+          +'<div class="v">'+num(d.chain.height)+'</div>'
+          +'<div class="k">fast blocks sealed</div>'
+          +'<div class="note">'+num(d.chain.events)+' events · '+(d.chain.blocksPerMin==null?'—':d.chain.blocksPerMin)+'/min measured</div></a>'
+        +'<a class="stat btc" href="/land" title="'+(L&&L.txid?esc(L.txid):'no anchor yet')+'">'
+          +'<div class="v btc">'+num(b.anchors)+'</div>'
+          +'<div class="k">anchored to bitcoin</div>'
+          +'<div class="note">'+(L
+              ? (L.btcHeight!=null?'₿ '+num(L.btcHeight)+' · ':'')
+                +(L.confirmationsKnown?num(L.confirmations)+' conf':'confirmations unknown here')
+              : 'waiting for the first real ₿ block')+'</div></a>'
+        +'<a class="stat" href="/land" title="one land per anchor that had something written beneath it">'
+          +'<div class="v">'+num(LAND.totalLands)+'</div>'
+          +'<div class="k">land minted</div>'
+          +'<div class="note">'+num(LAND.totalLots)+' lot'+(LAND.totalLots===1?'':'s')+' built</div></a>'
+      +'</div></div></section>';
+
+    // ── SECTION 02 · the compiled ledger, one card per page ──────────────
+    h+='<section><div class="wrap">'
+      +'<div class="shead"><span class="n">02</span><h2>The ledger, compiled</h2>'
+      +'<span class="sub">Each card opens its own page. Amber marks only what is sealed to Bitcoin.</span></div>'
+      +'<div class="g12 tiles">';
+
+    // ── RANK — the leaderboard, its own page at /rank ────────────────────
+    var R=d.rank||[];
+    h+='<a class="card card-link tick c6" href="/rank">'
+      +'<div class="ctop"><span class="label">Richest addresses</span><span class="go">open /rank →</span></div>'
+      +'<p class="csub">Ranked by ₭ held. The sacrifice ledger and the treasury are protocol accounts, not citizens, and are excluded — counting them would misstate how ₭ is actually distributed.</p>'
+      +'<div class="rank">';
+    if(!R.length) h+='<div class="kv"><span class="kk">nobody holds ₭ yet</span><span class="vv">—</span></div>';
+    R.slice(0,6).forEach(function(r,i){
+      h+='<span class="rrow'+(i===0?' top':'')+'">'
+        +'<span class="rn">'+(i+1)+'</span>'
+        +'<span class="rw" title="'+esc(r.address)+'">'+esc(r.who||(r.address.slice(0,12)+'…'+r.address.slice(-6)))
+        +(r.simulated?' <span class="dim2">sim</span>':'')+'</span>'
+        +'<span class="rb" title="'+esc(full(r.balance))+' ₭">'+ka(r.balance)+' ₭</span>'
+        +'<span class="rs">'+r.share.toFixed(2)+'%</span></span>';
+    });
+    h+='</div><div class="chips"><span class="chip">'+num(d.rankTotal)+' holders in total</span>'
+      +'<span class="chip on">top holder '+(R.length?R[0].share.toFixed(2):'0')+'%</span></div></a>';
+
+    // ── THE LIBRARY — three namespaces + the shelves ─────────────────────
+    var c=d.library.census||{}, sh=d.library.shelves||{};
+    var shelfMax=Math.max.apply(null,[1].concat(Object.keys(sh).map(function(k){return sh[k];})));
+    h+='<a class="card card-link tick c6" href="/library">'
+      +'<div class="ctop"><span class="label">The library</span><span class="go">open /library →</span></div>'
+      +'<p class="csub">Every work ever sealed, shelved by the content type its author <b>signed</b> — so a shelf cannot be changed later by anyone, this node included.</p>'
+      +kv('works sealed','<b>'+num(d.library.works)+'</b>')
+      +kv('bytes written',bytes(d.library.bytes),'',num(d.library.bytes)+' bytes')
+      +kv('domains','<b>'+num(c.domain)+'</b> · handles <b>'+num(c.handle)+'</b> · names <b>'+num(c.name)+'</b>')
+      +'<div class="bars">';
+    Object.keys(sh).sort(function(a,b){return sh[b]-sh[a];}).slice(0,7).forEach(function(k){
+      h+=bar((SHELF[k]||'◇')+' '+k, sh[k], shelfMax);
+    });
+    h+='</div></a>';
+
+    // ── THE FLOW — what the recent window was actually made of ───────────
+    var f=d.flow||{}, kinds=f.kinds||{};
+    var kmax=Math.max.apply(null,[1].concat(Object.keys(kinds).map(function(k){return kinds[k];})));
+    h+='<a class="card card-link tick c6" href="/blocks">'
+      +'<div class="ctop"><span class="label">What history is made of</span><span class="go">open /blocks →</span></div>'
+      +'<p class="csub">The last '+num(f.windowBlocks)+' block'+(f.windowBlocks===1?'':'s')
+      +' (block '+num(f.fromBlock)+'–'+num(f.toBlock)+'), broken down by the kind of act. One journal pass, not a sample.</p>'
+      +'<div class="bars">';
+    Object.keys(kinds).sort(function(a,b){return kinds[b]-kinds[a];}).forEach(function(k){
+      h+=bar(k, kinds[k], kmax);
+    });
+    if(!Object.keys(kinds).length) h+='<div class="kv"><span class="kk">nothing sealed in this window</span><span class="vv">—</span></div>';
+    h+='</div><div class="chips">'
+      +'<span class="chip">'+num(f.events)+' events</span>'
+      +'<span class="chip">'+num(f.feesBurnedToDistribution)+' ₭ in fees</span>'
+      +'<span class="chip">'+bytes(f.bytesWritten)+' written</span></div></a>';
+
+    // ── BITCOIN — only what this node genuinely knows ─────────────────────
+    h+='<a class="card card-link tick btc c6" href="/land">'
+      +'<div class="ctop"><span class="label btc-ink">Anchored to Bitcoin</span><span class="go">open /land →</span></div>'
+      +'<p class="csub">Each anchor is a promise: at this height, history compiled to exactly this root. The node is held to every one of them at boot, and halts rather than serve a contradiction.</p>'
+      +kv('anchors sent','<b>'+num(b.anchors)+'</b>','b')
+      +kv('confirmed on chain',num(b.confirmed)+' of '+num(b.anchors), b.confirmed===b.anchors&&b.anchors>0?'ok':'')
+      +kv('cascade root','<span title="'+esc(d.chain.cascadeRoot||'')+'">'+esc((d.chain.cascadeRoot||'—').slice(0,20))+'…</span>')
+      +kv('conservation', d.chain.conserves?'holds — emitted − burned':'BROKEN', d.chain.conserves?'ok':'no')
+      +'<div class="chips">'
+      +(L&&L.land!=null?'<span class="chip btc">▣ latest: land #'+num(L.land)+'</span>':'')
+      +(L&&L.btcHeight!=null?'<span class="chip btc">₿ block '+num(L.btcHeight)+(L.btcChain?' · '+esc(L.btcChain):'')+'</span>':'')
+      +'<span class="chip '+(d.chain.conserves?'good':'crit')+'">'+(d.chain.conserves?'supply proven':'supply broken')+'</span>'
+      +'</div></a>';
+
+    // ── THE BURN (proof-of-burn mint) ─────────────────────────────────────
+    var pot=d.pot||{};
+    h+='<a class="card card-link tick c6" href="/mine">'
+      +'<div class="ctop"><span class="label">The burn</span><span class="go">donate → mint →</span></div>'
+      +'<p class="csub">The ONLY source of new ₭: real satoshis destroyed forever at a keyless address mint 1 ₭ each, capped at the deficit — and each donation seals the network onto Bitcoin by itself. Anti-whale, atemporal, no custodian.</p>'
+      +kv('mintable now (deficit)','<b>'+ka(pot.deficit)+' ₭</b>','b',full(pot.deficit)+' ₭')
+      +kv('sats donated',ka(pot.donated),'',full(pot.donated)+' sats')
+      +kv('spent on anchoring',ka(pot.spent),'',full(pot.spent)+' sats')
+      +'</a>';
+
+    // ── SUPPLY ────────────────────────────────────────────────────────────
+    var emitted=Number(d.supply.emitted), circ=Number(d.supply.circulating);
+    h+='<a class="card card-link tick c6" href="/docs">'
+      +'<div class="ctop"><span class="label">Supply</span><span class="ctop-meta">'+sink('burn')+'<span class="go">open /docs →</span></span></div>'
+      +'<p class="csub">There is no fixed supply and no premine — ₭ is fungible fuel. Minted only by proof-of-donation, burned in the fire when a star is written. circulating = emitted − burned. The more that is written, the scarcer the fuel.</p>'
+      +kv('circulating',ka(d.supply.circulating)+' ₭','',full(d.supply.circulating)+' ₭')
+      +kv('emitted (minted by donation)',ka(d.supply.emitted)+' ₭','',full(d.supply.emitted)+' ₭')
+      +kv('burned in the fire',ka(d.supply.burned)+' ₭','',full(d.supply.burned)+' ₭')
+      +'<div class="bars">'+bar('still circulating', circ, emitted||1, (emitted>0?((circ/emitted)*100).toFixed(2):'100')+'%')
+      +bar('burned in the fire', Number(d.supply.burned||0), emitted||1, (emitted>0?((Number(d.supply.burned||0)/emitted)*100).toFixed(2):'0')+'%')+'</div>'
+      +'</a>';
+
+    // ── THE BLACK HOLE ────────────────────────────────────────────────────
+    // Stars freeze. Fungible ₭ burns in the fire (inscriptions + chosen sends).
+    var bh=d.blackHole||{kray:'0',stars:0,relics:[],fire:null};
+    var fire=bh.fire||d.supply.fire||{destroyed:d.supply.burned||'0',chosen:bh.kray||'0',total:'0'};
+    var anyFrozen = bh.stars>0;
+    h+='<div class="card card-link tick c6">'
+      +'<a class="card-hit" href="/blackhole">'
+      +'<div class="ctop"><span class="label">The fire · the freeze</span><span class="ctop-meta">'+sink('burn')+sink('freeze')+'<span class="go">open /blackhole →</span></span></div>'
+      +'<p class="csub">Stars freeze — visible forever, beyond reach. Fungible ₭ burns in the fire: every inscription, every name, every law, and every chosen send. That is the elastic balance.</p>'
+      +kv('the fire','<b>'+ka(fire.total)+' ₭</b>','',full(fire.total)+' ₭')
+      +kv('destroyed into stars',ka(fire.destroyed)+' ₭','',full(fire.destroyed)+' ₭')
+      +kv('sent by choice',ka(fire.chosen)+' ₭','',full(fire.chosen)+' ₭')
+      +kv('stars frozen',num(bh.stars))
+      +(anyFrozen?'':'<p class="csub" style="margin-top:var(--s3);margin-bottom:0">No star has been frozen yet. ₭ that already died in the fire is on /blackhole — the fire tab.</p>')
+      +'</a>'
+      +(anyFrozen
+        ? '<div class="frozen">'+bh.relics.slice(0,16).map(function(r){
+            return '<a class="fz" href="/star/'+esc(r.star)+'" title="'+esc((r.name?'“'+r.name+'” · ':'')+'star #'+num(r.star)+' · '+r.category+(r.size?' · '+num(r.size)+' B':'')+' — frozen forever')+'">'
+              +(r.url && r.category==='image'
+                  ? '<img loading="lazy" src="'+esc(r.url)+'" alt="">'
+                  : '<span class="fg">'+esc(SHELF[r.category]||'✦')+'</span>')
+              +'</a>';
+          }).join('')+'</div>'
+        : '')
+      +'</div>';
+
+    // ── THE CITY ──────────────────────────────────────────────────────────
+    h+='<a class="card card-link tick c6" href="/land">'
+      +'<div class="ctop"><span class="label">The city</span><span class="go">open /land →</span></div>'
+      +'<p class="csub">A land is minted when a real Bitcoin block anchors — but only if something was written beneath it. An anchor with nothing written mints no land at all.</p>'
+      +kv('lands minted','<b>'+num(LAND.totalLands)+'</b>')
+      +kv('lots built',num(LAND.totalLots))
+      +'</a>';
+
+    h+='</div></div></section>';
+
+    document.getElementById('body').innerHTML=h;
+    document.getElementById('stamp').textContent='Last read '+new Date(d.at).toLocaleTimeString()+'.';
+    document.getElementById('netlab').innerHTML='<span class="pulse"></span>'+esc(d.network)
+      +(d.simulation?' · simulation':'');
+  }
+
+  function tick(){
+    // pull analytics AND the anchor log together — the unified anchoring (self-anchoring donations + any
+    // operator/guardian seal) is what the "anchored to bitcoin" figure should reflect on the current network.
+    Promise.all([
+      fetch('/api/kraynet/analytics').then(function(r){ return r.json(); }),
+      fetch('/api/kraynet/anchors').then(function(r){ return r.json(); }).catch(function(){ return {anchors:[]}; })
+    ]).then(function(both){
+      var d=both[0], anc=(both[1]&&both[1].anchors)||[];
+      // synthesize the `bitcoin` view the render expects, from the real anchor log
+      var latest=anc.length?anc[anc.length-1]:null;
+      d.bitcoin={ anchors: anc.length, latest: latest?{ txid: latest.txid, btcHeight: null, confirmations: 0, confirmationsKnown: false, kind: latest.kind } : null };
+      render(d);
+    }).catch(function(){
+      // A dashboard that silently freezes is worse than one that admits the node
+      // stopped answering — the reader must never mistake stale figures for live.
+      var s=document.getElementById('stamp');
+      if(s) s.textContent='The node stopped answering — figures above are the last good reading.';
+    });
+  }
+  tick();
+  setInterval(tick, 4000);
+})();
+</script>
+</body>
+</html>

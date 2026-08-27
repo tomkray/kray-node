@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · The Black Hole</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* ==========================================================================
+     THE BLACK HOLE — page-local only. The system lives in /kray.css.
+     This page is already a void, so it leans into the Blueprint void aesthetic:
+     achromatic (no amber — nothing here is sealed to Bitcoin), a permanent dark
+     core drawn in wireframe, monumental tabular numbers for what sits beyond reach.
+     ========================================================================== */
+
+  /* ── hero ── */
+  .blackhole-hero{padding:var(--s7) 0 var(--s6)}
+  .bh-crumb{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--ink-4);display:inline-block;margin-bottom:var(--s5)}
+  .bh-crumb:hover{color:var(--ink-2)}
+  .bh-hero-in{display:flex;gap:var(--s6);align-items:center;flex-wrap:wrap}
+  .bh-hero-t{flex:1;min-width:0}
+  .bh-net{margin:0 0 var(--s3)}
+  .blackhole-hero h1{font-weight:500;font-size:clamp(34px,5.5vw,64px);line-height:.95;letter-spacing:-.03em;margin:0}
+  .blackhole-hero .lede{margin-top:var(--s4)}
+  .bh-hero-mark{display:flex;flex-direction:column;align-items:center;gap:var(--s3);flex:0 0 auto}
+  .bh-hero-mark .sink-row{justify-content:center}
+  .ent{position:relative}
+  .ent > .sink{position:absolute;top:var(--s2);right:var(--s2)}
+  @media(min-width:601px){.ent .when{padding-top:22px}}
+  @media(max-width:600px){.ent{padding-right:var(--s8)}}
+
+  /* ── the hole — a horizon in wireframe, a core that stays a void in either theme ── */
+  .hole-vis{width:148px;height:148px;flex:0 0 auto;position:relative;display:grid;place-items:center;border-radius:50%;
+    background:radial-gradient(circle at 50% 42%,#000 40%,rgba(0,0,0,.55) 56%,transparent 74%)}
+  .hole-vis::before,.hole-vis::after{content:"";position:absolute;border-radius:50%;border:1px solid var(--line-2);pointer-events:none}
+  .hole-vis::before{inset:6px}
+  .hole-vis::after{inset:30px;border-color:var(--line)}
+  .hole-vis .core{position:relative;width:58px;height:58px;border-radius:50%;display:grid;place-items:center;
+    background:#050608;border:1px solid var(--line-2);box-shadow:0 0 34px rgba(0,0,0,.85),inset 0 0 16px rgba(0,0,0,.9)}
+  .hole-vis .core svg{width:26px;height:26px;color:var(--ink-2)}
+
+  /* ── readout: the monument + supporting stats ── */
+  .readout{display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;gap:var(--s3);margin:var(--s6) 0 var(--s4)}
+  .readout .stat .n{font-family:var(--mono);font-size:11px;color:var(--ink-4);line-height:1.4;margin-top:var(--s1)}
+  .readout .lead .v{font-size:clamp(30px,5vw,54px);line-height:1;word-break:break-word}
+  .readout .stat .v.ok{color:var(--good);font-size:clamp(16px,2vw,19px)}
+  .readout .stat .v.bad{color:var(--crit);font-size:clamp(16px,2vw,19px)}
+  .elas{margin:0 0 var(--s7)}
+  .elas .bar{display:grid;grid-template-columns:120px 1fr 72px;gap:var(--s3);align-items:center;font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  .elas .bt{height:8px;border-radius:var(--r1);background:var(--void);overflow:hidden;border:1px solid var(--line)}
+  .elas .bf{height:100%;background:linear-gradient(90deg,var(--ink-4),var(--ink-2));border-radius:var(--r1)}
+  .elas .bv{text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
+  @media(max-width:1023px){.readout{grid-template-columns:repeat(2,minmax(0,1fr))}.elas .bar{grid-template-columns:minmax(0,1fr) 64px}.elas .bl{display:none}}
+  @media(max-width:639px){.readout{grid-template-columns:minmax(0,1fr)}}
+
+  /* ── register head + tabs (achromatic — override the amber blueprint number) ── */
+  .bh-shead{margin-top:var(--s2)}
+  .bh-shead .n{color:var(--ink-3)}
+  .bh-rail{margin:0 0 var(--s4)}
+
+  /* ── the register ── */
+  .bh-list{display:flex;flex-direction:column;gap:var(--s2)}
+  .ent{display:grid;grid-template-columns:64px 1fr auto;gap:var(--s4);align-items:center;
+    border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:var(--s3) var(--s4);min-height:84px;
+    transition:border-color .18s var(--ease),transform .18s var(--ease)}
+  a.ent:hover{border-color:var(--line-2);text-decoration:none;transform:translateY(-2px)}
+  .ent .ic{width:64px;height:64px;border-radius:var(--r1);border:1px solid var(--line-2);background:var(--void);overflow:hidden;
+    display:grid;place-items:center;position:relative;filter:grayscale(1) brightness(.9)}
+  a.ent:hover .ic{filter:grayscale(.35) brightness(1)}
+  .ent .ic img{width:100%;height:100%;object-fit:cover}
+  .ent .ic .gl{font-family:var(--mono);font-size:22px;color:var(--ink-3)}
+  /* the frozen portrait fills the 64px window — tiny type, still THE real content */
+  .ent .ic .kv-hyd{display:block;width:100%;height:100%}
+  .ent .ic .kv-mdprev{font-size:4.5px;line-height:1.5;padding:5px}
+  .ent .ic .kv-mdprev h1,.ent .ic .kv-mdprev h2,.ent .ic .kv-mdprev h3{font-size:6px;margin:0 0 2px}
+  .ent .ic .kv-txtprev{font-size:4.5px;line-height:1.55;padding:5px}
+  .ent .ic .kv-srcprev{font-size:4px;padding:4px}
+  .ent .ic .kv-codehead{display:none}
+  .ent .m{min-width:0}
+  .ent .ttl{display:block;font-size:15.5px;font-weight:600;color:var(--ink);line-height:1.3;word-break:break-word}
+  .ent .kd{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-top:2px}
+  .ent .meta{display:block;font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:5px;word-break:break-all}
+  .ent .when{font-family:var(--mono);font-size:11px;color:var(--ink-3);text-align:right;white-space:nowrap}
+  .ent .when b{display:block;color:var(--ink-2);font-weight:500;font-size:12.5px}
+  .ent.kray .ic .gl{color:var(--ink)}
+  .ent.kray .kd{color:var(--ink-2)}
+  .empty{border:1px dashed var(--line-2);border-radius:var(--r3);padding:var(--s8) var(--s5);text-align:center;
+    color:var(--ink-3);font-family:var(--mono);font-size:13px;line-height:1.6}
+  .empty .big{font-family:var(--mono);font-size:16px;color:var(--ink-2);margin-bottom:var(--s2)}
+  @media(max-width:600px){.ent{grid-template-columns:52px 1fr}.ent .when{display:none}.ent .ic{width:52px;height:52px}}
+
+  /* ── the law ── */
+  .bh-law{margin:var(--s5) 0 var(--s3);color:var(--ink-2);font-size:14px;line-height:1.65}
+  .bh-law .t{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);margin-bottom:var(--s2)}
+
+  /* ── read note ── */
+  .bh-readnote{padding:var(--s5) 0 var(--s7);color:var(--ink-4);font-size:12.5px;font-family:var(--mono);line-height:1.6}
+  .bh-readnote code{color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+</style>
+</head>
+<body data-page="blackhole">
+
+<div class="wrap">
+
+  <!-- ── HERO — the hole itself, drawn ─────────────────────────────────────── -->
+  <header class="hero blackhole-hero">
+    <a class="bh-crumb" href="/dashboard">← dashboard</a>
+    <div class="bh-hero-in">
+      <div class="bh-hero-mark">
+        <div class="hole-vis" aria-hidden="true"><span class="core"><svg><use href="#g-darkstar"/></svg></span></div>
+        <div class="sink-row">
+          <span class="sink sink-freeze" title="Star frozen in the black hole — visible, beyond reach">FREEZE <i aria-hidden="true">❄</i></span>
+          <span class="sink sink-burn" title="Fungible ₭ destroyed in the fire — not a frozen star">BURNED <i aria-hidden="true">🔥</i></span>
+        </div>
+      </div>
+      <div class="bh-hero-t">
+        <span class="chip bh-net" id="netlab">—</span>
+        <h1>The black hole</h1>
+        <p class="lede"><b>Stars freeze. Fungible ₭ burns in the fire.</b>
+          A star sent here keeps its inscription, its name and its family tree — visible forever, beyond reach:
+          no key encodes to this account, and the reducer refuses to spend from it. ₭ does not freeze.
+          It dies when a star is born from fire, when a law is sealed, or when a citizen sends it here by choice.
+          That is the elastic balance: the more that is written, the scarcer the fuel. circulating ₭ = emitted − burned.</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── READOUT — the fire first, then the freeze ─────────────────────────── -->
+  <div class="readout" id="strip"></div>
+  <div class="elas" id="elas"></div>
+
+  <!-- ── THE REGISTER ──────────────────────────────────────────────────────── -->
+  <div class="shead bh-shead"><span class="n">R</span><h2>The register</h2>
+    <span class="sub">The fire is every ₭ that died. The freeze is every star that can never move again.</span></div>
+  <div class="tabs bh-rail" id="rail"></div>
+  <div class="bh-list" id="list"><div class="empty">reading the register…</div></div>
+
+  <div class="card bh-law" id="law"></div>
+
+  <p class="bh-readnote">Read from <code>/api/kraynet/analytics</code>, derived from the journal on every request. <span id="stamp"></span></p>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function sink(kind, word){
+    if(window.KRAY && typeof KRAY.sink==='function') return KRAY.sink(kind, word);
+    var burn=kind==='burn'||kind==='burned'||kind==='fire';
+    var label=word||(burn?'BURNED':'FREEZE');
+    return '<span class="sink sink-'+(burn?'burn':'freeze')+'" title="'
+      +(burn?'Fungible ₭ destroyed in the fire — not a frozen star':'Star frozen in the black hole — visible, beyond reach')
+      +'">'+label+' <i aria-hidden="true">'+(burn?'🔥':'❄')+'</i></span>';
+  }
+  function num(v){ return Number(v||0).toLocaleString(); }
+  function ka(v){
+    var n=Number(v||0), a=Math.abs(n);
+    var u=[[1e15,'Q'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];
+    for(var i=0;i<u.length;i++) if(a>=u[i][0]) return (n/u[i][0]).toFixed(a/u[i][0]>=100?0:a/u[i][0]>=10?1:2).replace(/\.0+$/,'')+u[i][1];
+    return String(n);
+  }
+  function full(v){ try{ return BigInt(v).toLocaleString(); }catch(_){ return String(v); } }
+  function when(t){ try{ return new Date(t).toLocaleString(); }catch(_){ return String(t); } }
+  function ago(t){
+    var s=Math.max(0,Math.floor((Date.now()-Number(t))/1000));
+    if(s<60) return s+'s ago';
+    if(s<3600) return Math.floor(s/60)+'m ago';
+    if(s<86400) return Math.floor(s/3600)+'h ago';
+    return Math.floor(s/86400)+'d ago';
+  }
+  function bytes(b){
+    var n=Number(b||0);
+    if(n<1024) return n+' B';
+    if(n<1048576) return (n/1024).toFixed(1)+' KB';
+    return (n/1048576).toFixed(2)+' MB';
+  }
+  var SHELF={image:'▣',vector:'◈',video:'▶',audio:'♪',code:'⌘',markup:'❰',document:'▤',
+             data:'⛁',text:'¶',model:'◉',font:'A',archive:'▦',file:'◇',name:'✦'};
+
+  var FILTERS=[{id:'fire',label:'the fire'},{id:'chosen',label:'chosen ₭'},{id:'freeze',label:'the freeze'}];
+  var FIRE_KD={inscribe:'inscribe · born from fire',origin:'origin · born from L1',name:'name · baptism',law:'law · sealed on a star',chosen:'chosen · you sent this ₭ into the fire'};
+  var cur='fire', order='new', data=null; // fire first — that is the missing status
+
+  function draw(){
+    var bh=data.blackHole||{kray:'0',stars:0,entombed:[],entombedCount:0,frozen:[],fire:null};
+    var fire=bh.fire||(data.supply&&data.supply.fire)||{destroyed:'0',chosen:bh.kray||'0',total:'0',acts:0,into:{},log:[],tallyMatches:true};
+    var frozen=bh.frozen||bh.entombed.filter(function(e){ return e.kind!=='kray'; });
+    var emitted=(data.supply&&data.supply.emitted)||'0';
+    var circ=(data.supply&&data.supply.circulating)||'0';
+    var burned=(data.supply&&data.supply.burned)||fire.destroyed||'0';
+    var into=fire.into||{};
+    var intoStars=(function(){
+      try{ return (BigInt(into.inscribe||0)+BigInt(into.origin||0)+BigInt(into.name||0)+BigInt(into.law||0)).toString(); }
+      catch(_){ return fire.destroyed||'0'; }
+    })();
+    // THE TRUTH OF THE FIRE (the burn law): destroyed = truly burned (consensus, each birth minting Ӿ 1:1);
+    // chosen = pre-law ₭ frozen at the hole — NOT yet burned, awaiting the one-shot thaw that redeems it into
+    // a true burn (Ӿ to the original senders). After the thaw, chosen reads 0 and everything is fire.
+    var chosenNote = (fire.chosen && fire.chosen !== '0')
+      ? ka(fire.chosen)+' frozen by the old path — the thaw will burn them exact'
+      : (fire.thawed ? 'the thaw ran — every chosen ₭ was redeemed into the fire' : 'no ₭ frozen — the law holds');
+    document.getElementById('strip').innerHTML=
+       '<div class="stat lead">'+sink('burn')+'<div class="v display" title="'+esc(full(fire.destroyed))+' ₭ truly burned (consensus)">'+ka(fire.destroyed)+' ₭</div>'
+      +'<div class="k">truly burned · Ӿ born 1:1</div><div class="n">'+chosenNote+'</div></div>'
+      +'<div class="stat">'+sink('burn')+'<div class="v" title="'+esc(full(intoStars))+' ₭">'+ka(intoStars)+' ₭</div>'
+      +'<div class="k">born from fire</div><div class="n">inscribe '+ka(into.inscribe||0)+' · name '+ka(into.name||0)+' · law '+ka(into.law||0)+(into.sporadic&&into.sporadic!=='0'?' · by choice '+ka(into.sporadic):'')+(into.origin&&into.origin!=='0'?' · origin '+ka(into.origin):'')+'</div></div>'
+      +'<div class="stat">'+sink('freeze')+'<div class="v">'+num(bh.stars)+'</div>'
+      +'<div class="k">stars frozen</div><div class="n">visible forever, beyond reach — never destroyed</div></div>'
+      +'<div class="stat"><div class="v '+(data.chain.conserves?'ok':'bad')+'">'+(data.chain.conserves?'emitted − burned':'BROKEN')+'</div>'
+      +'<div class="k">supply</div><div class="n">'+ka(circ)+' circulating of '+ka(emitted)+' emitted · '+ka(burned)+' burned</div></div>';
+    var pct=0;
+    try{ var eN=Number(emitted), cN=Number(circ); pct=eN>0?(cN/eN)*100:100; }catch(_){ pct=100; }
+    var burnedPct=Math.max(0,100-pct);
+    var elas=document.getElementById('elas');
+    if(elas) elas.innerHTML='<div class="bar"><span class="bl">still circulating</span>'
+      +'<span class="bt"><span class="bf" style="width:'+(pct>0?Math.max(1.5,pct):0).toFixed(2)+'%"></span></span>'
+      +'<span class="bv">'+pct.toFixed(1)+'%</span></div>'
+      +'<div class="bar" style="margin-top:var(--s2)"><span class="bl">burned in the fire</span>'
+      +'<span class="bt"><span class="bf" style="width:'+(burnedPct>0?Math.max(1.5,burnedPct):0).toFixed(2)+'%"></span></span>'
+      +'<span class="bv">'+burnedPct.toFixed(1)+'%</span></div>';
+
+    var fireRows=fire.log||[];
+    var chosenRows=fireRows.filter(function(e){ return e.kind==='chosen'; });
+    document.getElementById('rail').innerHTML=FILTERS.map(function(f){
+      var n=f.id==='fire' ? fireRows.length : f.id==='chosen' ? chosenRows.length : frozen.length;
+      return '<button class="tab'+(f.id===cur?' on':'')+'" data-f="'+f.id+'">'+esc(f.label)+' '+n+'</button>';
+    }).join('')
+      +'<button class="tab'+(order==='new'?' on':'')+'" data-o="new">↓ newest</button>'
+      +'<button class="tab'+(order==='old'?' on':'')+'" data-o="old">↑ oldest</button>';
+    document.querySelectorAll('[data-f]').forEach(function(b){
+      b.addEventListener('click', function(){ cur=b.getAttribute('data-f'); draw(); });
+    });
+    document.querySelectorAll('[data-o]').forEach(function(b){
+      b.addEventListener('click', function(){ order=b.getAttribute('data-o'); draw(); });
+    });
+
+    document.getElementById('law').innerHTML='<div class="t">the law</div>'+esc((fire.law?fire.law+' ':'')+(bh.law||''));
+    document.getElementById('stamp').textContent=' Last read '+new Date(data.at).toLocaleTimeString()+'.';
+    document.getElementById('netlab').textContent=data.network+(data.simulation?' · simulation':'');
+
+    var rows=cur==='freeze' ? frozen.slice() : (cur==='chosen' ? chosenRows.slice() : fireRows.slice());
+    if(order==='old') rows=rows.slice().reverse();
+    var listKey = cur+'|'+order+'|'+rows.map(function(e){
+      return e.kind==='chosen'||e.kind==='kray' ? 'k'+(e.txHash||'') : (e.kind||'s')+(e.star||'')+(e.txHash||'');
+    }).join(',');
+    if(listKey===window.__bhListKey && document.querySelectorAll('#list .ent').length===rows.length){
+      document.querySelectorAll('#list .ent').forEach(function(el,i){
+        var e=rows[i]; if(!e) return;
+        var w=el.querySelector('.when'); if(w) w.innerHTML='<b>'+esc(ago(e.at))+'</b>'+esc(when(e.at));
+      });
+      return;
+    }
+    window.__bhListKey=listKey;
+    if(!rows.length){
+      document.getElementById('list').innerHTML='<div class="empty"><div class="big">'
+        +(cur==='freeze' ? 'No star has been frozen yet.'
+          : cur==='chosen' ? 'No one has sent ₭ here by choice yet.'
+          : 'Nothing has burned in the fire yet.')+'</div>'
+        +(cur==='freeze'
+          ? 'When someone sends a star here, it appears frozen — what it was, when it went in, and who signed it away.'
+          : cur==='chosen'
+            ? 'When a citizen burns pure ₭ (Send → black hole), that amount appears here — not as a frozen star.'
+            : 'When someone inscribes, baptises, seals a law, or sends ₭ here, the ₭ that died appears in this register.')
+        +'</div>';
+      return;
+    }
+    document.getElementById('list').innerHTML=rows.map(function(e){
+      if(cur!=='freeze'){
+        var href=e.star ? '/star/'+encodeURIComponent(e.star) : (e.txHash ? '/tx/'+encodeURIComponent(e.txHash) : '/blackhole');
+        var title=e.kind==='name' && e.name ? e.name
+          : e.star ? ('star #'+num(e.star))
+          : (ka(e.amount)+' ₭');
+        return '<a class="ent kray" href="'+esc(href)+'">'
+          +sink('burn')
+          +'<span class="ic"><span class="gl">₭</span></span>'
+          +'<span class="m"><span class="ttl" title="'+esc(full(e.amount))+' ₭">'+ka(e.amount)+' ₭</span>'
+          +'<span class="kd">'+esc(FIRE_KD[e.kind]||e.kind)+'</span>'
+          +'<span class="meta">'+esc(title)+(e.size?' · '+bytes(e.size):'')+(e.contentType?' · '+esc(e.contentType):'')
+            +(e.by?' · '+esc(e.by):'')+'</span></span>'
+          +'<span class="when"><b>'+esc(ago(e.at))+'</b>'+esc(when(e.at))+'</span></a>';
+      }
+      var pk = (e.url && window.KRAY && KRAY.previewKindOf) ? KRAY.previewKindOf(e.contentType||'') : null;
+      var art = e.url && e.category==='image'
+        ? '<img loading="lazy" src="'+esc(e.url)+'" alt="">'
+        : (pk==='md'||pk==='txt'||pk==='src'||pk==='pdf'||pk==='audio')
+          ? '<span class="kv-hyd" data-kvurl="'+esc(e.url)+'" data-kvct="'+esc(e.contentType||'')+'"></span>'
+          : '<span class="gl">'+esc(SHELF[e.category]||'✦')+'</span>';
+      var stitle = e.name ? e.name : ('star #'+num(e.star));
+      var kd = 'frozen · '+(e.name ? 'named star' : 'star')+' · '+(e.category||'work')+(e.rarity&&e.rarity!=='common'?' · '+e.rarity:'');
+      return '<a class="ent" href="/star/'+esc(e.star)+'">'
+        +sink('freeze')
+        +'<span class="ic">'+art+'</span>'
+        +'<span class="m"><span class="ttl">'+esc(stitle)+'</span>'
+        +'<span class="kd">'+esc(kd)+'</span>'
+        +'<span class="meta">star #'+num(e.star)+(e.size?' · '+bytes(e.size):'')
+          +(e.contentType?' · '+esc(e.contentType):'')+' · sent by '+esc(e.by)+'</span></span>'
+        +'<span class="when"><b>'+esc(ago(e.at))+'</b>'+esc(when(e.at))+'</span></a>';
+    }).join('');
+    // hydrate the frozen portraits once per entry — locked, inert, the site-wide law
+    document.querySelectorAll('#list .kv-hyd[data-kvurl]:not([data-loaded])').forEach(function(el){
+      el.setAttribute('data-loaded','1');
+      if(window.KRAY && KRAY.frozenPreview) KRAY.frozenPreview(el, el.getAttribute('data-kvurl'), el.getAttribute('data-kvct'), {mini:true});
+    });
+  }
+
+  function tick(){
+    fetch('/api/kraynet/analytics').then(function(r){ return r.json(); }).then(function(d){ data=d; draw(); })
+      .catch(function(){
+        var s=document.getElementById('stamp');
+        if(s) s.textContent=' The node stopped answering — the register above is the last good reading.';
+      });
+  }
+  tick(); setInterval(tick, 8000);
+})();
+</script>
+<script src="/kray.js" defer></script>
+</body>
+</html>

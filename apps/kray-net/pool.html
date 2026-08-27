@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Pool</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  .dhead{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;padding:var(--s7) 0 var(--s5)}
+  .faces{display:flex;align-items:center;flex:none}
+  .faces .rface{width:64px;height:64px;border-radius:14px;object-fit:cover;border:1px solid var(--line-2);background:var(--surface-2)}
+  .faces .rface.fb{display:grid;place-items:center;font-size:22px;color:var(--ink)}
+  .faces .rface + .rface{margin-left:-16px;box-shadow:0 0 0 3px var(--bg)}
+  .faces .kface{width:64px;height:64px;border-radius:14px;border:1px solid var(--line-2);background:var(--surface);display:grid;place-items:center;font-size:28px;font-weight:600}
+  .dhead h1{font-size:clamp(28px,4.2vw,44px);margin:0;letter-spacing:-.03em;font-weight:500}
+  .dhead .did{font-family:var(--mono);font-size:12.5px;color:var(--ink-4);margin-top:6px;line-height:1.55}
+  .dhead .did a{color:var(--ink-2);border-bottom:1px solid var(--line-2)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:var(--s4);margin:var(--s5) 0}
+  .kpi{border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);padding:var(--s4) var(--s5)}
+  .kpi .v{font-size:22px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .kpi .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-top:4px}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);box-shadow:var(--shadow)}
+  .dtable{width:100%;border-collapse:collapse}
+  .dtable th,.dtable td{padding:11px 14px;text-align:left;font-size:13px;border-bottom:1px solid var(--line)}
+  .dtable th{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .dtable td.r,.dtable th.r{text-align:right;font-variant-numeric:tabular-nums}
+  .dtable td.a a{color:var(--ink);font-family:var(--mono);font-size:12px}
+  .dtable td.a small{display:block;color:var(--ink-4);font-size:10px}
+  .dtable tr:last-child td{border-bottom:0}
+  .dtable tr.dead td{color:var(--ink-4)}
+  .shr{height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line);margin-top:5px;min-width:80px}
+  .shr i{display:block;height:100%;background:var(--ink)}
+  .tx{display:flex;align-items:center;gap:var(--s3);padding:11px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+  .tx:last-child{border-bottom:0}
+  .tx:hover{background:var(--surface-2)}
+  .txtag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:var(--r-pill);border:1px solid var(--line-2);color:var(--ink-3);flex:none;white-space:nowrap}
+  .txtag.create{color:var(--signal-ink);background:var(--signal);border-color:var(--signal);font-weight:600;letter-spacing:.1em}
+  .txtag.buy{color:var(--good);border-color:color-mix(in srgb,var(--good) 35%,transparent)}
+  .txtag.sell{color:var(--btc);border-color:var(--btc-line)}
+  .tx .txmeta{flex:1;min-width:0}
+  .tx .txl{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tx .txs{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:1px}
+  .empty{padding:var(--s7) var(--s4);text-align:center;color:var(--ink-3);font-size:14px}
+  .card.mark{border-color:var(--ink);margin-top:var(--s5)}
+  .mark-lede{font-size:14.5px;line-height:1.55;color:var(--ink-2);margin:0 0 var(--s4);max-width:68ch}
+  .ph{font-family:var(--mono);font-weight:500;font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);margin-bottom:var(--s4);display:flex;align-items:center;gap:var(--s2)}
+  .kv{display:grid;grid-template-columns:160px 1fr;gap:var(--s3) var(--s5)}
+  .kv dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);padding-top:2px}
+  .kv dd{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);word-break:break-word}
+  .kv dd a{color:var(--ink);border-bottom:1px solid var(--line-2)}
+  .note{font-family:var(--mono);font-size:11px;color:var(--ink-4);line-height:1.55}
+  .actions{display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s4)}
+  @media(max-width:640px){.kv{grid-template-columns:1fr}}
+</style>
+</head>
+<body data-page="defi">
+
+<div class="wrap">
+  <div id="view"><div class="empty">opening the book…</div></div>
+</div>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function grp(w){ try{ return BigInt(String(w).replace(/[^0-9]/g,'')||'0').toLocaleString(); }catch(_){ return String(w); } }
+  function amt(raw,div){ div=Number(div||0); var s=String(raw==null?'0':raw).replace(/[^0-9]/g,'')||'0'; if(div<=0) return grp(s); while(s.length<=div) s='0'+s; var wh=s.slice(0,s.length-div),fr=s.slice(s.length-div).replace(/0+$/,''); return grp(wh)+(fr?'.'+fr:''); }
+  function face(thumb,symbol,cls){ var fb='<span class="'+cls+' fb"'+(thumb?' style="display:none"':'')+'>'+esc(symbol||'ᚱ')+'</span>'; if(!thumb) return fb; return '<img class="'+cls+'" src="'+esc(thumb)+'" alt="" loading="lazy" onerror="this.style.display=&quot;none&quot;;if(this.nextElementSibling)this.nextElementSibling.style.display=&quot;grid&quot;">'+fb; }
+  function shortA(a){ a=String(a||''); return a.length>24?a.slice(0,10)+'…'+a.slice(-6):a; }
+  function age(at){ at=Number(at||0); if(!at) return ''; var s=Math.max(0,Math.floor((Date.now()-at)/1000)); if(s<60) return s+'s ago'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
+  function parts(){
+    var segs=location.pathname.replace(/^\/pool\/?/,'').split('/').filter(Boolean).map(function(s){ try{return decodeURIComponent(s);}catch(_){return s;} });
+    return segs;
+  }
+  function bookUrl(){
+    var s=parts();
+    if(!s.length) return '/api/kraynet/amm/book';
+    if(s[0].indexOf('KRAY_AMM_')===0) return '/api/kraynet/amm/book?pot='+encodeURIComponent(s[0]);
+    if(s.length>=2 && /^\d+:\d+$/.test(s[0]) && /^\d+:\d+$/.test(s[1]))
+      return '/api/kraynet/amm/book?runeId='+encodeURIComponent(s[0])+'&otherRuneId='+encodeURIComponent(s[1]);
+    if(s.length===1 && /^\d+:\d+$/.test(s[0])) return '/api/kraynet/amm/book?runeId='+encodeURIComponent(s[0]);
+    if(s.length>=2) return '/api/kraynet/amm/book?name='+encodeURIComponent(s[0])+'&other='+encodeURIComponent(s[1]);
+    return '/api/kraynet/amm/book?name='+encodeURIComponent(s[0]);
+  }
+  function deskHref(p){
+    if(p.kind==='rr') return '/defi#'+encodeURIComponent(p.runeId+'|'+p.otherRuneId);
+    return '/defi#'+encodeURIComponent(p.runeId);
+  }
+  function tapeUrl(p){
+    if(p.kind==='rr') return '/api/kraynet/amm/tape?runeId='+encodeURIComponent(p.runeId)+'&otherRuneId='+encodeURIComponent(p.otherRuneId)+'&limit=48';
+    return '/api/kraynet/amm/tape?runeId='+encodeURIComponent(p.runeId)+'&limit=48';
+  }
+
+  function draw(p, tape){
+    var rr=p.kind==='rr';
+    var title=p.title||(rr?(p.callA+' / '+p.callB):('₭ / '+(p.callB||p.name)));
+    document.title='KRAY.NETWORK · '+title;
+    if(p.href && location.pathname!==p.href) try{ history.replaceState(null,'',p.href); }catch(_){}
+
+    var faces=rr
+      ? (face(p.thumbnail,p.symbol,'rface')+face(p.otherThumbnail,p.otherSymbol,'rface'))
+      : ('<span class="kface">₭</span>'+face(p.thumbnail,p.symbol,'rface'));
+    var full=rr
+      ? (esc(p.name||p.runeId)+' / '+esc(p.otherName||p.otherRuneId))
+      : ('₭ / '+esc(p.name||p.runeId));
+    var origin=p.origin&&p.origin.hash
+      ? '<a href="/tx/'+esc(p.origin.hash)+'">Create pool</a> · first writer'
+      : 'unique and eternal';
+
+    var html='<div class="dhead"><div class="faces">'+faces+'</div>'
+      +'<div><h1>'+esc(title)+'</h1>'
+      +'<div class="did">'+full+' · '+esc(p.kindLabel|| (rr?'rune / rune':'₭ pair'))+' · '+origin+'</div></div>'
+      +'<div style="margin-left:auto;display:flex;gap:var(--s2);flex-wrap:wrap">'
+      +'<span class="chip mark">the book</span>'
+      +'<span class="chip">UNIQUE</span>'
+      +'<a class="btn" href="'+esc(deskHref(p))+'">Trade →</a>'
+      +'</div></div>';
+
+    var resA=rr?amt(p.reserveA,p.divisibility):grp(p.krayReserve)+' ₭';
+    var resB=rr?amt(p.reserveB,p.otherDivisibility):amt(p.runeReserve,p.divisibility);
+    var labA=rr?(p.callA||'A'):'₭';
+    var labB=p.callB||p.name||'rune';
+    html+='<div class="kpis">'
+      +'<div class="kpi"><div class="v">'+resA+'</div><div class="k">'+esc(labA)+' in the pot</div></div>'
+      +'<div class="kpi"><div class="v">'+resB+'</div><div class="k">'+esc(labB)+' in the pot</div></div>'
+      +'<div class="kpi"><div class="v">'+grp(p.lpSupply)+'</div><div class="k">LP supply</div></div>'
+      +'<div class="kpi"><div class="v">'+(p.holders||[]).length+'</div><div class="k">LP holders</div></div>'
+      +'<div class="kpi"><div class="v">1,000</div><div class="k">dead shares · stay</div></div>'
+      +'</div>';
+
+    if(p.origin&&p.origin.hash){
+      html+='<div class="card mark tick"><div class="ph"><svg width="15" height="15"><use href="#g-name"/></svg> The mark</div>'
+        +'<p class="mark-lede">This pair was born on the first signed add. Anyone may add LP after. Nobody can create this pair again — same law as a star name.</p>'
+        +'<dl class="kv">'
+        +'<dt>Create pool</dt><dd><a href="/tx/'+esc(p.origin.hash)+'">'+esc(p.origin.hash)+'</a></dd>'
+        +(p.pairKey?'<dt>pair</dt><dd class="mono">'+esc(p.pairKey)+'</dd>':'')
+        +'<dt>ledger pot</dt><dd class="mono" title="no key encodes here — reserves move only by signed AMM acts">'+esc(p.pot)+'</dd>'
+        +'</dl></div>';
+    }
+
+    var holders=p.holders||[];
+    var max=holders.reduce(function(m,h){ return Math.max(m, Number(h.share)||0); },0)||1;
+    var sup=0n; try{ sup=BigInt(p.lpSupply||0); }catch(_){}
+    html+='<div class="shead" style="margin-top:var(--s6)"><span class="n">01</span><h2>Who is offering liquidity</h2><span class="sub">Ranked by LP. Share is of the whole supply, including the 1,000 dead shares that keep the pool alive.</span></div>';
+    html+='<div class="tblwrap"><table class="dtable"><thead><tr><th>#</th><th>address</th><th class="r">in the pot</th><th class="r">LP</th><th class="r">share</th></tr></thead><tbody>';
+    html+=holders.length?holders.map(function(h,i){
+      var potAmt=rr
+        ? (amt(h.aOut,p.divisibility)+' '+esc(labA)+' + '+amt(h.bOut,p.otherDivisibility)+' '+esc(labB))
+        : (grp(h.aOut)+' ₭ + '+amt(h.bOut,p.divisibility)+' '+esc(labB));
+      return '<tr><td style="color:var(--ink-4)">'+(i+1)+'</td>'
+        +'<td class="a"><a href="/address/'+esc(h.address)+'">'+esc(shortA(h.address))+'</a>'+(h.who?'<small>'+esc(h.who)+'</small>':'')+'</td>'
+        +'<td class="r">'+potAmt+'</td>'
+        +'<td class="r">'+grp(h.lp)+'</td>'
+        +'<td class="r">'+(Number(h.share)||0).toFixed(2)+'%<div class="shr"><i style="width:'+Math.max(3,Math.min(100,((Number(h.share)||0)/max)*100))+'%"></i></div></td></tr>';
+    }).join(''):'<tr><td colspan="5" class="empty">no LP holders yet</td></tr>';
+    if(sup>0n){
+      var deadPct=Number((1000n*10000n)/sup)/100;
+      html+='<tr class="dead"><td>—</td><td class="a">dead shares<small>stay in the book · the pool cannot vanish</small></td><td class="r">—</td><td class="r">1,000</td><td class="r">'+deadPct.toFixed(2)+'%</td></tr>';
+    }
+    html+='</tbody></table></div>';
+
+    html+='<div class="shead" style="margin-top:var(--s6)"><span class="n">02</span><h2>Tape</h2><span class="sub">Every signed act on this pair — Create pool is the mark. Add is later, and anyone may do it.</span></div>';
+    var acts=tape||[];
+    html+='<div class="tblwrap">'+(acts.length?acts.map(function(t){
+      var tag=t.createPool?'CREATE POOL':(t.kind==='amm-swap'||t.kind==='amm-rr-swap'?'swap':(String(t.kind||'').indexOf('remove')>=0?'remove':'add'));
+      var cls=t.createPool?'create':(tag==='swap'?'buy':'');
+      var line=t.createPool?'the pair was born':tag;
+      return '<a class="tx" href="/tx/'+esc(t.hash)+'"><span class="txtag '+cls+'">'+tag+'</span>'
+        +'<div class="txmeta"><div class="txl">'+esc(line)+' · '+esc(shortA(t.from))+'</div>'
+        +'<div class="txs">'+(t.sealed?'#'+t.block:'open')+' · '+esc(age(t.at))+'</div></div></a>';
+    }).join(''):'<div class="empty">no tape yet</div>')+'</div>';
+
+    html+='<p class="note" style="margin-top:var(--s5)">People see <b>'+esc(title)+'</b>. The ledger pot is a no-key escrow — it has no wallet page. Reserves move only by a signed add, remove or swap.</p>';
+    document.getElementById('view').innerHTML=html;
+  }
+
+  function fail(msg){
+    document.getElementById('view').innerHTML='<div class="dhead"><div><h1>No book</h1><div class="did">'+esc(msg)+'</div></div></div>'
+      +'<div class="actions"><a class="btn primary" href="/defi">← DeFi desk</a></div>';
+  }
+
+  function tick(){
+    var segs=parts();
+    if(!segs.length){ location.replace('/defi'); return; }
+    fetch(bookUrl()).then(function(r){ return r.json().then(function(j){ return {ok:r.ok,j:j}; }); }).then(function(x){
+      if(!x.ok||x.j.error){ fail(x.j.error||'this pair is not born on this node'); return; }
+      var p=x.j;
+      fetch(tapeUrl(p)).then(function(r){return r.json();}).then(function(t){
+        draw(p, t.tape||[]);
+      }).catch(function(){ draw(p, []); });
+    }).catch(function(){ fail('the node is not answering'); });
+  }
+  tick();
+})();
+</script>
+</body>
+</html>

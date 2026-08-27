@@ -1,0 +1,15 @@
+[package]
+name = "kray-fold-verifier-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "THE TK-FOLD verifier for Node — sp1-verifier (Groth16 over bn254) wrapped in WASM: the validator-burden law's delivery (clone, install, run — zero toolchain)."
+
+# its own workspace on purpose: this crate targets wasm32 and must not inherit the forge's profile
+[workspace]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+sp1-verifier = { version = "6.0.1", default-features = false }

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Runes L2</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* runes explorer — page-local; the system lives in /kray.css */
+  .rgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:var(--s4)}
+  .rcard{display:flex;flex-direction:column;gap:var(--s3);padding:var(--s5);border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);box-shadow:var(--shadow);cursor:pointer;transition:border-color .15s,transform .15s;text-decoration:none;color:inherit}
+  .rcard:hover{border-color:var(--btc-line);transform:translateY(-2px)}
+  .rcard .top{display:flex;align-items:center;gap:var(--s3)}
+  .rface{width:40px;height:40px;border-radius:9px;object-fit:cover;flex:0 0 auto;background:var(--surface-2);border:1px solid var(--line-2)}
+  .rface.fb{display:grid;place-items:center;font-size:19px;color:var(--btc);background:var(--btc-soft);border-color:var(--btc-line)}
+  .rcard .nm{font-weight:600;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rcard .rid{font-family:var(--mono);font-size:11px;color:var(--ink-4)}
+  .rcard .rows{display:grid;gap:6px;margin-top:2px}
+  .rrow{display:flex;justify-content:space-between;font-size:13px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .rrow .k{color:var(--ink-3)} .rrow .v{color:var(--ink)}
+  .badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:4px 10px;border-radius:var(--r-pill);border:1px solid}
+  .badge.ok{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent);background:color-mix(in srgb,var(--good) 10%,transparent)}
+  .badge.bad{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,transparent);background:color-mix(in srgb,var(--crit) 12%,transparent)}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 7px currentColor}
+  /* detail */
+  .dhead{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
+  .dhead .dface{width:64px;height:64px;border-radius:14px}
+  .dhead h1{font-size:clamp(26px,4vw,40px);margin:0;letter-spacing:-.02em}
+  .dhead .did{font-family:var(--mono);font-size:13px;color:var(--ink-4)}
+  .eq{font-family:var(--mono);font-size:15px;font-variant-numeric:tabular-nums;background:var(--surface);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4) var(--s5);display:flex;align-items:center;justify-content:space-between;gap:var(--s4);flex-wrap:wrap}
+  .eq b{color:var(--ink)} .eq .op{color:var(--ink-4);margin:0 6px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:var(--s4);margin:var(--s5) 0}
+  .kpi{border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);padding:var(--s4) var(--s5)}
+  .kpi .v{font-size:24px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .kpi .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-top:4px}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);box-shadow:var(--shadow)}
+  .dtable{width:100%;border-collapse:collapse}
+  .dtable th,.dtable td{padding:11px 14px;text-align:left;font-size:13px;border-bottom:1px solid var(--line)}
+  .dtable th{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .dtable td.r,.dtable th.r{text-align:right;font-variant-numeric:tabular-nums}
+  .dtable td.a a{color:var(--ink);font-family:var(--mono);font-size:12px}
+  .dtable td.a small{display:block;color:var(--ink-4);font-size:10px}
+  .dtable tr:last-child td{border-bottom:0}
+  .shr{height:4px;border-radius:2px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line);margin-top:5px;min-width:80px}
+  .shr i{display:block;height:100%;background:var(--btc)}
+  .tx{display:flex;align-items:center;gap:var(--s3);padding:11px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+  .tx:last-child{border-bottom:0}
+  .tx:hover{background:var(--surface-2)}
+  .txtag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:var(--r-pill);border:1px solid var(--line-2);color:var(--ink-3);flex:0 0 auto;white-space:nowrap}
+  .txtag.in{color:var(--good);border-color:color-mix(in srgb,var(--good) 35%,transparent)}
+  .txtag.out{color:var(--btc);border-color:var(--btc-line)}
+  .txtag.mid{color:var(--ink-2)}
+  .tx .txmeta{flex:1;min-width:0}
+  .tx .txl{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tx .txs{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tx .txa{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;flex:0 0 auto}
+  .back{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;color:var(--ink-3);cursor:pointer;margin-bottom:var(--s4)}
+  .back:hover{color:var(--btc)}
+  .empty{padding:var(--s7) var(--s4);text-align:center;color:var(--ink-3);font-size:14px}
+  .srcline{font-family:var(--mono);font-size:12px;color:var(--ink-4);margin-top:var(--s5)}
+</style>
+</head>
+<body data-page="runes">
+
+<div class="wrap">
+  <section class="hero" style="border-top:0;padding-top:var(--s8)">
+    <div class="eyebrow">THE RUNE L2 · reserve == Σ credits + Σ locked, or the node HALTS</div>
+    <h1>Runes on the L2</h1>
+    <p class="lede">Every Bitcoin rune bridged onto KRAY.NETWORK, with its <b>vault backing on Bitcoin</b>, who holds it, and everything that has moved. The one invariant is checked after every act and shown here live: <b>every L2 credit is a real rune sitting in a vault on Bitcoin</b>.</p>
+    <div class="stamp" style="display:flex;gap:var(--s5);flex-wrap:wrap;margin-top:var(--s6);font-family:var(--mono);font-size:12px;color:var(--ink-3)">
+      <span>network <b id="netlab">—</b></span>
+      <span id="solv">—</span>
+      <span>refreshed every <b>6s</b></span>
+    </div>
+  </section>
+</div>
+
+<section style="padding-top:var(--s6)"><div class="wrap">
+  <div id="view"><div class="empty">loading the rune books…</div></div>
+  <div class="srcline">Read from <span class="mono">/api/kraynet/runes</span> and <span class="mono">/api/kraynet/rune/&lt;id&gt;</span>, re-derived from the journal + the anchored vault-watch. <span id="stamp"></span></div>
+</div></section>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function grp(w){ try{ return BigInt(String(w).replace(/[^0-9]/g,'')||'0').toLocaleString(); }catch(_){ return String(w); } }
+  // exact base-unit → display by the rune's OWN divisibility (never a float)
+  function amt(raw,div){ div=Number(div||0); var s=String(raw==null?'0':raw).replace(/[^0-9]/g,'')||'0'; if(div<=0) return grp(s); while(s.length<=div) s='0'+s; var wh=s.slice(0,s.length-div),fr=s.slice(s.length-div).replace(/0+$/,''); return grp(wh)+(fr?'.'+fr:''); }
+  function shortA(a){ a=String(a||''); if(a.indexOf('KRAY_')===0) return a; return a.length>24?a.slice(0,10)+'…'+a.slice(-6):a; }
+  // fallback = hidden SIBLING toggled on error — HTML inside the onerror attribute would break on its double quotes
+  function face(thumb,symbol,cls){ var fb='<span class="'+cls+' fb"'+(thumb?' style="display:none"':'')+'>'+esc(symbol||'ᚱ')+'</span>'; if(!thumb) return fb; return '<img class="'+cls+'" src="'+esc(thumb)+'" alt="" loading="lazy" onerror="this.style.display=&quot;none&quot;;if(this.nextElementSibling)this.nextElementSibling.style.display=&quot;grid&quot;">'+fb; }
+  function timeAgo(at){ at=Number(at||0); if(!at) return 'sealed'; var s=Math.max(0,Math.floor((Date.now()-at)/1000)); if(s<60) return s+'s ago'; if(s<3600) return Math.floor(s/60)+'m ago'; if(s<86400) return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
+
+  var TAG={ 'rune-deposit':{t:'in',lb:'↧ deposit',story:'proven from Bitcoin · backed 1:1'},
+            'rune-send':{t:'mid',lb:'→ send',story:'instant on the L2 · backing never moved · fee 1 ₭'},
+            'rune-exit':{t:'out',lb:'↥ exit',story:'credits locked · pays L1 · burns on proof'},
+            'rune-lodge':{t:'out',lb:'⚓ lodge',story:'payout armed on Bitcoin · lock can only settle'},
+            'rune-settle':{t:'out',lb:'⚖ settle',story:'payout proven · lock burned · home on Bitcoin'} };
+
+  function solvBadge(ok){ return '<span class="badge '+(ok?'ok':'bad')+'"><span class="dot"></span>'+(ok?'SOLVENT':'INSOLVENT — HALT')+'</span>'; }
+  // pot subtitle = the pair (₭ / IRON or IRON / GOLD). Old nodes still send "the pool · no key".
+  function poolSub(h, r){
+    var who=h.who, a=String(h.address||'');
+    if(who && who.indexOf('the pool')!==0) return who;
+    if(a.indexOf('KRAY_AMM_')!==0) return who;
+    if(a.indexOf('KRAY_AMM_RR_')===0) return who;
+    return (window.KRAY&&KRAY.poolTitle) ? KRAY.poolTitle(r.name||r.runeId) : ('₭ / '+(r.name||r.runeId||''));
+  }
+
+  function drawOverview(d){
+    var runes=d.runes||[];
+    document.getElementById('solv').innerHTML='the whole book '+solvBadge(d.solvent!==false);
+    if(!runes.length){ document.getElementById('view').innerHTML='<div class="empty">No runes bridged onto the L2 yet. When someone deposits a Bitcoin rune, its book — and its whole story — appears here.</div>'; return; }
+    var html='<div class="rgrid">'+runes.map(function(r){
+      return '<a class="rcard" href="#'+esc(r.runeId)+'">'
+        +'<div class="top">'+face(r.thumbnail,r.symbol,'rface')
+          +'<div style="min-width:0"><div class="nm">'+esc(r.name)+(r.symbol?' <span style="color:var(--ink-4)">'+esc(r.symbol)+'</span>':'')+'</div><div class="rid">'+esc(r.runeId)+(r.divisibility?' · '+r.divisibility+' decimals':'')+'</div></div></div>'
+        +'<div class="rows">'
+          +'<div class="rrow"><span class="k">reserve (backing)</span><span class="v">'+amt(r.reserve,r.divisibility)+'</span></div>'
+          +'<div class="rrow"><span class="k">holders</span><span class="v">'+grp(r.holderCount)+(Number(r.exits)>0?' · '+r.exits+' exiting':'')+'</span></div>'
+        +'</div>'
+        +'<div>'+solvBadge(r.solvent!==false)+'</div>'
+      +'</a>';
+    }).join('')+'</div>';
+    document.getElementById('view').innerHTML=html;
+  }
+
+  function drawDetail(r){
+    var div=r.divisibility;
+    var holders=(r.holders||[]);
+    var maxShare=holders.reduce(function(m,h){ return Math.max(m,h.share||0); },0)||1;
+    var html='<div class="back" onclick="location.hash=\'\'">← all runes</div>'
+      +'<div class="dhead">'+face(r.thumbnail,r.symbol,'rface dface')
+        +'<div><h1>'+esc(r.name)+(r.symbol?' <span style="color:var(--ink-3);font-size:.6em">'+esc(r.symbol)+'</span>':'')+'</h1>'
+          +'<div class="did">rune '+esc(r.runeId)+(div?' · '+div+' decimals':'')+(r.parent?' · parent '+esc(String(r.parent).slice(0,16))+'…':'')+'</div></div>'
+        +'<div style="margin-left:auto">'+solvBadge(r.solvent!==false)+'</div></div>'
+      // the proof, in plain arithmetic
+      +'<div class="eq" style="margin-top:var(--s5)"><span><b>'+amt(r.credits,div)+'</b> credits <span class="op">+</span> <b>'+amt(r.locked,div)+'</b> locked <span class="op">=</span> <b>'+amt(r.reserve,div)+'</b> reserve</span><span>'+solvBadge(r.solvent!==false)+'</span></div>'
+      +'<div class="kpis">'
+        +'<div class="kpi"><div class="v">'+amt(r.reserve,div)+'</div><div class="k">Reserve on Bitcoin</div></div>'
+        +'<div class="kpi"><div class="v">'+grp(holders.length)+'</div><div class="k">Holders</div></div>'
+        +'<div class="kpi"><div class="v">'+amt(r.locked,div)+'</div><div class="k">Exiting to L1</div></div>'
+        +'<div class="kpi"><div class="v">'+grp((r.backing||[]).filter(function(b){return !b.released;}).length)+'</div><div class="k">Vault outpoints backing</div></div>'
+      +'</div>';
+    // holders rank
+    html+='<div class="shead"><span class="n">01</span><h2>Who holds it</h2><span class="sub">Ranked by amount — each figure a real credit, backed 1:1 by the reserve.</span></div>';
+    html+='<div class="tblwrap"><table class="dtable"><thead><tr><th>#</th><th>address</th><th class="r">amount</th><th class="r hidem">share</th></tr></thead><tbody>';
+    html+=holders.length?holders.map(function(h,i){
+      return '<tr><td style="color:var(--ink-4)">'+(i+1)+'</td>'
+        +'<td class="a"><a href="'+(h.address&&String(h.address).indexOf('KRAY_AMM_')===0?'/pool/'+encodeURIComponent(h.address):'/address/'+esc(h.address))+'">'+(h.address&&String(h.address).indexOf('KRAY_AMM_')===0?'the pool':esc(shortA(h.address)))+'</a>'+(function(){ var sub=poolSub(h,r); return sub?'<small title="ledger pot · no key">'+esc(sub)+'</small>':''; })()+'</td>'
+        +'<td class="r" style="font-weight:600">'+amt(h.amount,div)+(r.symbol?' '+esc(r.symbol):'')+'</td>'
+        +'<td class="r hidem">'+(h.share||0).toFixed(2)+'%<div class="shr"><i style="width:'+Math.max(3,(h.share/maxShare)*100)+'%"></i></div></td></tr>';
+    }).join(''):'<tr><td colspan="4" class="empty">no holders yet</td></tr>';
+    html+='</tbody></table></div>';
+    // vault backing on Bitcoin
+    html+='<div class="shead" style="margin-top:var(--s6)"><span class="n">02</span><h2>Backing on Bitcoin</h2><span class="sub">The vault outpoints holding this rune\'s reserve — watched on L1, released only by a proven settle.</span></div>';
+    html+='<div class="tblwrap"><table class="dtable"><thead><tr><th>outpoint</th><th>vault</th><th class="r">amount</th><th>state</th></tr></thead><tbody>';
+    var bk=(r.backing||[]);
+    html+=bk.length?bk.map(function(b){
+      return '<tr><td class="a"><a href="/tx/'+esc(String(b.outpoint).split(':')[0])+'">'+esc(String(b.outpoint).slice(0,18))+'…</a></td>'
+        +'<td class="a">'+esc(String(b.vault).slice(0,20))+(String(b.vault).length>20?'…':'')+'</td>'
+        +'<td class="r">'+amt(b.amount,div)+'</td>'
+        +'<td>'+(b.released?'<span class="badge" style="color:var(--ink-4);border-color:var(--line-2)">released</span>':'<span class="badge ok"><span class="dot"></span>backing</span>')+(b.kind==='consolidation'?' <span class="txtag mid">pool</span>':'')+'</td></tr>';
+    }).join(''):'<tr><td colspan="4" class="empty">no watched backing (deposits register here when proven)</td></tr>';
+    html+='</tbody></table></div>';
+    // activity feed with tags
+    html+='<div class="shead" style="margin-top:var(--s6)"><span class="n">03</span><h2>Everything that moved</h2><span class="sub">Every L2 act on this rune — deposit, send, exit, settle — newest first, each proven.</span></div>';
+    var acts=(r.activity||[]);
+    html+='<div class="tblwrap">'+(acts.length?acts.map(function(a){
+      var tg=TAG[a.kind]||{t:'mid',lb:a.kind,story:''};
+      var who=a.kind==='rune-send'?('to '+esc(shortA(a.to))):(a.l1Address?('L1 '+esc(shortA(a.l1Address))):(a.outpoint?('utxo '+esc(String(a.outpoint).slice(0,12))+'…'):''));
+      return '<a class="tx" href="/tx/'+esc(a.hash)+'"><span class="txtag '+tg.t+'">'+tg.lb+'</span>'
+        +'<div class="txmeta"><div class="txl"><b>'+amt(a.amount,div)+(r.symbol?' '+esc(r.symbol):'')+'</b> · '+tg.story+'</div>'
+        +'<div class="txs">'+who+' · '+timeAgo(a.at)+(a.sealed?' · sealed #'+a.block:' · pending')+'</div></div></a>';
+    }).join(''):'<div class="empty">no activity yet</div>')+'</div>';
+    document.getElementById('view').innerHTML=html;
+  }
+
+  function tick(){
+    var hash=(location.hash||'').replace(/^#/,'');
+    var nl=document.getElementById('netlab');
+    // an id ("3967:1") or a rune NAME ("KRAYNETLTWODEMOAAA") — the node resolves a name through ord
+    if(hash && (/^\d+:\d+$/.test(hash) || /^[A-Za-z][A-Za-z0-9•.]*$/.test(decodeURIComponent(hash)))){
+      fetch('/api/kraynet/rune/'+encodeURIComponent(hash)).then(function(r){ return r.ok?r.json():Promise.reject(); }).then(function(r){
+        if(nl) nl.textContent=(window.KRAY&&KRAY.net)||'—';
+        drawDetail(r);
+        var s=document.getElementById('stamp'); if(s) s.textContent='Last read '+new Date().toLocaleTimeString()+'.';
+      }).catch(function(){ document.getElementById('view').innerHTML='<div class="back" onclick="location.hash=\'\'">← all runes</div><div class="empty">No L2 book for rune <b>'+esc(hash)+'</b> on this node.</div>'; });
+    } else {
+      fetch('/api/kraynet/runes').then(function(r){ return r.json(); }).then(function(d){
+        if(nl) nl.textContent=(window.KRAY&&KRAY.net)||'—';
+        drawOverview(d);
+        var s=document.getElementById('stamp'); if(s) s.textContent='Last read '+new Date().toLocaleTimeString()+'.';
+      }).catch(function(){ var s=document.getElementById('stamp'); if(s) s.textContent='The node stopped answering.'; });
+    }
+  }
+  window.addEventListener('hashchange', tick);
+  tick();
+  setInterval(tick, 6000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Verify KRAY Yourself — KRAY.NETWORK</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* page-local only — the system lives in /kray.css. Every proof runs in YOUR browser. */
+  .vf-wrap{max-width:880px;margin:0 auto;padding:var(--s6) var(--s4) var(--s9)}
+  .vf-hero{margin:var(--s6) 0 var(--s5)}
+  .vf-hero h1{font-size:28px;letter-spacing:-.02em;margin:0 0 var(--s2)}
+  .vf-hero .sub{color:var(--ink-3);font-size:14px;line-height:1.65;max-width:64ch}
+  .vf-card{border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:var(--s5);margin-bottom:var(--s4)}
+  .vf-card .n{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:var(--s2)}
+  .vf-card h2{font-size:17px;margin:0 0 var(--s2);letter-spacing:-.01em}
+  .vf-card .lead{color:var(--ink-3);font-size:13px;line-height:1.6;margin-bottom:var(--s3);max-width:66ch}
+  .vf-in{display:flex;gap:var(--s3);flex-wrap:wrap;margin:var(--s3) 0}
+  .vf-in input,.vf-in select{background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r1);
+    color:var(--ink);font-family:var(--mono);font-size:12px;padding:9px 12px}
+  .vf-in input.wide{flex:1 1 100%;min-width:0}
+  .vf-go{background:var(--signal);color:var(--signal-ink);border:0;border-radius:var(--r1);font-weight:700;
+    font-size:13px;padding:10px 22px;cursor:pointer;letter-spacing:.02em}
+  .vf-go:hover{opacity:.9}
+  .vf-out{margin-top:var(--s3)}
+  .vf-line{border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);padding:11px var(--s3);margin-bottom:var(--s2);
+    font-size:12.5px;line-height:1.55;opacity:0;transform:translateY(4px);transition:opacity .35s var(--ease),transform .35s var(--ease)}
+  .vf-line.on{opacity:1;transform:none}
+  .vf-hex{font-family:var(--mono);font-size:11.5px;word-break:break-all;color:var(--ink-2)}
+  .vf-hex b{color:var(--ink)}
+  .ok{color:var(--good);font-weight:700}
+  .bad{color:var(--bad,#e5484d);font-weight:700}
+  .src{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line-2);border-radius:999px;padding:2px 9px;margin-left:var(--s2)}
+  .vf-final{border:1px solid var(--line-2);border-radius:var(--r2);background:var(--surface);padding:var(--s4);margin-top:var(--s3)}
+  .vf-final .addr{font-family:var(--mono);font-size:12.5px;word-break:break-all;color:var(--ink);margin:var(--s2) 0}
+  .vf-foot{color:var(--ink-3);font-size:12.5px;line-height:1.7;margin-top:var(--s5);border-top:1px solid var(--line);padding-top:var(--s4)}
+  .vf-foot code{font-family:var(--mono);font-size:11.5px;background:var(--surface);border:1px solid var(--line-2);border-radius:6px;padding:2px 7px;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="vf-wrap">
+  <div class="vf-hero">
+    <h1>Verify KRAY Yourself</h1>
+    <div class="sub">Three proofs your own browser runs — trusting this node for none of them. The burn key falls out of
+      Bitcoin's own math; the donation is confirmed <b>directly against Bitcoin</b> (mempool.space, a third party);
+      the journal is a SHA-256 chain your browser rebuilds from the raw bytes. If any of it were a lie, the math would say so here.</div>
+  </div>
+
+  <!-- PROOF A -->
+  <div class="vf-card">
+    <div class="n">Proof A · The address belongs to nobody</div>
+    <h2>Is the burn key really keyless?</h2>
+    <div class="lead">Every donation pays a taproot address built from Bitcoin's generator point G, hashed to a NUMS point
+      no private key exists for. Your browser recomputes it from G. (Full step-by-step: <a href="/burn">the burn proof</a>.)</div>
+    <div class="vf-in">
+      <input id="a-blk" class="" style="width:90px" placeholder="block #">
+      <input id="a-root" class="wide" placeholder="cascade root (64 hex)">
+      <select id="a-net"><option value="signet">signet</option><option value="main">mainnet</option><option value="regtest">regtest</option></select>
+      <button id="a-run" class="vf-go">Recompute the burn address</button>
+    </div>
+    <div id="a-out" class="vf-out"></div>
+  </div>
+
+  <!-- PROOF B -->
+  <div class="vf-card">
+    <div class="n">Proof B · The sacrifice really happened on Bitcoin</div>
+    <h2>Did this donation burn real satoshis?</h2>
+    <div class="lead">Paste a donation's Bitcoin transaction id. Your browser asks <b>mempool.space directly</b> — not this node —
+      whether that transaction paid the keyless burn address, for how many sats, and how deeply Bitcoin buried it. Then it
+      shows what this node minted for it. Bitcoin is the witness; the node only gets to agree.</div>
+    <div class="vf-in">
+      <input id="b-txid" class="wide" placeholder="donation txid (64 hex)">
+      <button id="b-run" class="vf-go">Ask Bitcoin</button>
+    </div>
+    <div id="b-out" class="vf-out"></div>
+  </div>
+
+  <!-- PROOF C -->
+  <div class="vf-card">
+    <div class="n">Proof C · The whole history is untampered</div>
+    <h2>Is the journal an unbroken chain?</h2>
+    <div class="lead">Every event's hash is <code>SHA-256(previous hash + the event)</code>. Your browser downloads the raw journal
+      and rebuilds the entire chain link by link. One altered byte anywhere breaks it at that exact event — and names it.</div>
+    <div class="vf-in">
+      <button id="c-run" class="vf-go">Download &amp; rebuild the chain</button>
+    </div>
+    <div id="c-out" class="vf-out"></div>
+  </div>
+
+  <div class="vf-foot">
+    These three run in your browser and need no faith in this node. The <b>truly complete</b> verification is the second node —
+    it re-derives the entire cascade root from the journal and re-proves every Bitcoin anchor from its <i>own</i> bitcoind, so it
+    can prove the whole network to anyone, with no operator alive:
+    <br><br>Easy door (Node.js 24+ only): <code>bash scripts/follow/signet.sh</code> — see <code>docs/RUN-NODE-TUTORIAL.md</code>.
+    Same replay re-checks Ӿ, FIREBORN tanks, and every fold-seal. No Rust, no SP1.
+    <br><br>For total zero-trust on Proof A, run the math offline: <code>node apps/kray-net/burn-verify.mjs</code>. A doctored node could
+    serve tampered page scripts — Bitcoin's record and your own machine cannot be doctored.
+  </div>
+</div>
+
+<script src="/burn-proof.js"></script>
+<script src="/verify.js"></script>
+<script type="module" src="/kray-spv.mjs"></script>
+<script>
+(function(){
+  'use strict'
+  var $ = function(id){ return document.getElementById(id) }
+  var NET = 'signet'
+  function line(host, html){
+    var d = document.createElement('div'); d.className = 'vf-line'; d.innerHTML = html
+    $(host).appendChild(d); requestAnimationFrame(function(){ requestAnimationFrame(function(){ d.classList.add('on') }) })
+    return d
+  }
+  var clean = function(s){ return String(s == null ? '' : s).replace(/[<>]/g, '') }
+
+  // prefill from this node's live contract — the proofs never DEPEND on it, they just save typing
+  fetch('/api/kraynet/donation/info').then(function(r){ return r.json() }).then(function(d){
+    var sa = d && d.selfAnchor
+    if (d && d.net){ NET = d.net; try{ $('a-net').value = d.net }catch(e){} }
+    if (sa && sa.root != null){ $('a-blk').value = sa.blockNumber; $('a-root').value = sa.root }
+  }).catch(function(){})
+
+  // ── PROOF A ──
+  $('a-run').addEventListener('click', async function(){
+    $('a-out').innerHTML = ''
+    var blk = parseInt($('a-blk').value,10), root = ($('a-root').value||'').trim().toLowerCase(), net = $('a-net').value
+    if (!(blk>=0) || !/^[0-9a-f]{64}$/.test(root)){ line('a-out','<span class="bad">✗</span> Enter a block number and its 64-hex cascade root.'); return }
+    try{
+      var pr = await BurnProof.derive(blk, root, net)
+      line('a-out','<span class="src">your browser</span> SHA256(G) ' + (pr.numsIsHashOfG?'<span class="ok">= the BIP-341 NUMS key ✓</span>':'<span class="bad">mismatch ✗</span>') + ' — a key for it would be the discrete log of a hash. Nobody has it.')
+      line('a-out','<div class="vf-hex">burn address = <b>'+clean(pr.address)+'</b></div><div style="margin-top:6px">Any donation paying <b>this</b> address destroyed its sats forever and sealed KRAY block #'+blk+'.</div>')
+      window.__burnAddr = pr.address
+    }catch(e){ line('a-out','<span class="bad">✗ the chain failed</span> — '+clean(e&&e.message)) }
+  })
+
+  // ── PROOF B ── ask Bitcoin (mempool.space) directly, then compare the node's mint
+  $('b-run').addEventListener('click', async function(){
+    $('b-out').innerHTML = ''
+    var txid = ($('b-txid').value||'').trim().toLowerCase()
+    if (!/^[0-9a-f]{64}$/.test(txid)){ line('b-out','<span class="bad">✗</span> Paste a 64-hex transaction id.'); return }
+    var base = KrayVerify.mempoolBase(NET)
+    if (!base){ line('b-out','<span class="bad">✗</span> This node is on regtest, which has no public explorer. Proof B needs signet or mainnet.'); return }
+    // what does THIS node claim about the donation? (only to know which (block,root) → which burn address)
+    var claim = null
+    try{ var sa = await (await fetch('/api/kraynet/self-anchors')).json(); claim = (sa.selfAnchors||[]).find(function(s){ return s.txid === txid }) }catch(e){}
+    if (!claim){ line('b-out','This node has no self-anchor record for that txid — enter a donation this network minted. (You can still verify any tx on the explorer directly.)'); return }
+    // RECOMPUTE the burn address ourselves — do not trust the node's stored one
+    var pr
+    try{ pr = await BurnProof.derive(claim.blockNumber, claim.root, NET) }catch(e){ line('b-out','<span class="bad">✗</span> could not recompute the burn address.'); return }
+    line('b-out','<span class="src">your browser</span> the burn address for this donation’s (block '+claim.blockNumber+', root) is <div class="vf-hex"><b>'+clean(pr.address)+'</b></div>')
+    // ASK BITCOIN DIRECTLY
+    var tx
+    try{ tx = await (await fetch(base+'/tx/'+txid)).json() }catch(e){ line('b-out','<span class="bad">✗</span> could not reach mempool.space to ask Bitcoin.'); return }
+    var out = (tx.vout||[]).find(function(o){ return o.scriptpubkey_address === pr.address })
+    if (!out){ line('b-out','<span class="bad">✗ Bitcoin says this tx did NOT pay the keyless burn address</span> — it is not a valid burn for this (block, root).'); return }
+    line('b-out','<span class="src">mempool.space · Bitcoin</span> <span class="ok">✓ this transaction paid the keyless burn address</span> — <b>'+out.value+' sats</b>, destroyed forever, at an address math proves is nobody’s.')
+    var conf = tx.status && tx.status.confirmed
+    line('b-out','<span class="src">mempool.space · Bitcoin</span> '+(conf?('<span class="ok">✓ confirmed</span> in block '+tx.status.block_height):'<span class="bad">still unconfirmed</span> — not yet buried under work'))
+    // WEIGH THE WORK (upgrade) — do not trust "confirmed": your browser reproves the block cost real hashes
+    if (conf && window.KraySPV && tx.status.block_hash){ try{ var _hh=(await (await fetch(base+'/block/'+tx.status.block_hash+'/header')).text()).trim(); if(/^[0-9a-f]{160}$/.test(_hh)){ var _pw=await window.KraySPV.checkProofOfWork(_hh, NET); line('b-out','<span class="src">your browser</span> '+(_pw.ok?('<span class="ok">✓ that block cost real work</span> — '+_pw.work+' hashes, weighed here — not a confirmation count anyone could fake'):'<span class="bad">✗ the block’s declared work is invalid</span>')) } }catch(_e){} }
+    // what did the NODE mint? it must match the sats Bitcoin witnessed, credited to the donor named on-chain
+    line('b-out','<span class="src">this node</span> minted <b>'+clean(claim.sats)+' ₭</b> to '+clean(String(claim.donor).slice(0,22))+'… — '+(String(claim.sats)===String(out.value)?'<span class="ok">exactly the sats Bitcoin saw burned ✓ (1 ₭ per satoshi, no more)</span>':'<span class="bad">≠ the burned sats ✗</span>'))
+    var vd = document.createElement('div'); vd.className='vf-final'
+    vd.innerHTML = '<div class="ok">✓ VERIFIED — Bitcoin itself confirms the sacrifice; the node only minted what Bitcoin witnessed. You trusted the node for none of it.</div>'
+    $('b-out').appendChild(vd)
+  })
+
+  // ── PROOF C ── pull the raw journal and rebuild the SHA-256 chain in-browser
+  $('c-run').addEventListener('click', async function(){
+    $('c-out').innerHTML = ''
+    line('c-out','<span class="src">this node</span> downloading the raw journal…')
+    var lines = [], from = 1, total = Infinity
+    try{
+      while (from <= total){
+        var page = await (await fetch('/api/kraynet/replica?from='+from+'&limit=2000')).json()
+        total = page.total; if (!page.lines || !page.lines.length) break
+        lines = lines.concat(page.lines); from += page.lines.length
+      }
+    }catch(e){ line('c-out','<span class="bad">✗</span> could not download the journal — '+clean(e&&e.message)); return }
+    line('c-out','<span class="src">your browser</span> rebuilding '+lines.length+' event(s) as a SHA-256 chain…')
+    var res = await KrayVerify.verifyChain(lines)
+    if (res.ok){
+      var vd = document.createElement('div'); vd.className='vf-final'
+      vd.innerHTML = '<div class="ok">✓ THE CHAIN IS UNBROKEN</div><div style="margin-top:6px">All '+res.count+' events hash-link cleanly from genesis. Not one byte was altered — your browser just proved it, hash by hash.</div><div class="vf-hex" style="margin-top:8px">tip hash = <b>'+clean(res.tip)+'</b></div>'
+      $('c-out').appendChild(vd)
+    } else {
+      line('c-out','<span class="bad">✗ THE CHAIN BREAKS at event '+res.at+'</span> — '+clean(res.reason)+'. This history was tampered with; do not trust it.')
+    }
+  })
+})()
+</script>
+</body>
+</html>

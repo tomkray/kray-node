@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · The Constellation</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  .stage{position:relative;height:min(82vh,820px);border:1px solid var(--line);border-radius:var(--r3);overflow:hidden;
+    background:radial-gradient(120% 100% at 50% 40%, #0d0e15 0%, var(--void) 70%)}
+  #scene{position:absolute;inset:0}#scene canvas{display:block;cursor:grab}#scene canvas:active{cursor:grabbing}
+  .hint{position:absolute;left:var(--s4);bottom:var(--s4);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4);pointer-events:none}
+  .zoombar{position:absolute;right:var(--s4);bottom:var(--s4);display:flex;gap:6px}
+  .zoombar button{width:34px;height:34px;border:1px solid var(--line-2);border-radius:var(--r1);background:rgba(8,9,10,.7);color:var(--ink-2);font-family:var(--mono);font-size:16px;cursor:pointer}
+  .zoombar button:hover{color:var(--ink);border-color:var(--ink-3)}
+  .scope{position:absolute;left:var(--s4);top:var(--s4);font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);pointer-events:none}
+  .scope b{color:var(--btc)}
+  .btip{position:fixed;pointer-events:none;opacity:0;transform:translate(-50%,-120%);transition:opacity .1s;z-index:60;
+    background:rgba(8,9,10,.96);border:1px solid var(--line-2);border-radius:var(--r2);padding:10px 13px;font-family:var(--mono);font-size:11.5px;white-space:nowrap;min-width:180px}
+  .btip .hh{color:var(--ink);font-size:13px;margin-bottom:5px}
+  .btip .r{display:flex;justify-content:space-between;gap:22px;color:var(--ink-3);padding:2px 0}
+  .btip .r b{color:var(--ink)} .btip .r.btc b{color:var(--btc)}
+  .fallback{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,120px),1fr));gap:var(--s3);padding:var(--s5)}
+  .fb{border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);background:var(--surface);text-align:center}
+  .fb.anc{border-color:var(--btc-line)} .fb .h{font-family:var(--mono);font-size:12px} .fb .n{font-weight:500;font-size:24px;font-variant-numeric:tabular-nums}
+  .legend{display:flex;gap:var(--s5);flex-wrap:wrap;margin-top:var(--s5);font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+</style>
+</head>
+<body data-page="blocks">
+<div class="wrap">
+  <section class="hero" style="border-top:0;padding-bottom:var(--s6)">
+    <div class="eyebrow">FAST BLOCKS CLUSTER · BITCOIN SEALS THE MASTER NODE</div>
+    <h1 style="font-size:clamp(40px,7vw,84px)">The constellation</h1>
+    <p class="lede">Every fast block of a range belongs to one neuron — its <b class="btc-ink">master node</b>, the Bitcoin block that sealed it. Until then they cluster as the district still forming; when Bitcoin mints it, the master lights <b class="btc-ink">amber</b> and its blocks fall into orbit around it. Stars hang off the block that sealed them. Drag to orbit, hover to trace, click to open.</p>
+  </section>
+</div>
+<div class="wrap">
+  <div class="spread" style="align-items:baseline;margin-bottom:var(--s2)">
+    <div class="label">◇ the last fast blocks · newest first</div>
+    <a class="chip" href="/land" style="margin-left:0">◈ view the land →</a>
+    <a class="chip" href="/network">✦ who is proving it now →</a>
+  </div>
+  <div class="mblocks" id="strip"><div class="dim mono" style="padding:var(--s6)">reading the chain…</div></div>
+  <div class="mpager" id="pager" hidden><button id="pg-new" title="jump to newest">‹ newest</button><span class="pg" id="pg-lab">—</span></div>
+</div>
+<div class="wrap" style="margin-top:var(--s5)">
+  <div class="stage">
+    <div id="scene"></div>
+    <div class="scope" id="scope">—</div>
+    <div class="hint">drag · scroll · hover to trace links · click a node</div>
+    <div class="zoombar"><button id="zin" title="zoom in">+</button><button id="zout" title="zoom out">−</button></div>
+    <div id="fallback" class="fallback hidden"></div>
+  </div>
+  <div class="legend">
+    <span><i style="background:#f7931a"></i>Bitcoin seal · the anchor (neuron)</span>
+    <span><i style="background:#6b7488"></i>block · sealed by KRAY, awaiting Bitcoin</span>
+    <span><i style="background:#a8863f"></i>block · Bitcoin sees it · 0-conf</span>
+    <span><i style="background:#d8b878"></i>block · buried in Bitcoin · verified</span>
+    <span><i style="background:#8c99cc;border-radius:0;height:2px;width:14px;margin-bottom:4px"></i>hash-chain · block → next block</span>
+    <span><i style="background:#e8cd93"></i>star / inscription</span>
+    <span><i style="background:#8b5cf6"></i>rune · bridge</span>
+    <span><i style="background:#2dd4bf"></i>DeFi · AMM</span>
+    <span><i style="background:#54e0a0"></i>₭ money</span>
+    <span><i style="background:#ff3b3b"></i>Ӿ x-send · the transferable light</span>
+    <span><i style="background:#5b8def"></i>contract · law</span>
+    <span><i style="background:#f5776b"></i>fire · black hole</span>
+    <span style="margin-left:auto" id="totals">—</span>
+  </div>
+</div>
+<div class="btip" id="btip"></div>
+
+<script src="/kray.js" defer></script>
+<script src="/vendor/three.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  var scene, camera, renderer, root, raf, glowTex, starfield;
+  var nodes=[], edges=[], adj=[], baseLines, hiLines, sprites=[];
+  var hovered=-1, blocksData=[], worldData={lands:[],live:null}, runeFlow=[];
+  // RUNE ACTS — each its own hue so the river reads at a glance (violet family = the L2 bridge life)
+  // EACH TXID FAMILY ITS OWN COLOUR — read the sky at a glance. The family is decided by the node (act-flow),
+  // the hue mirrors the legend, and the per-kind label names the exact act on hover.
+  var FAM_COL={ rune:0x8b5cf6, defi:0x2dd4bf, money:0x54e0a0, law:0x5b8def, fire:0xf5776b, quantum:0xd946ef, starmove:0xe8cd93 };
+  var FAM_LB={ rune:'rune · L2 bridge', defi:'DeFi · AMM', money:'₭ money', law:'contract · law', fire:'fire · into the black hole', quantum:'quantum', starmove:'star moved' };
+  // Ӿ wears its own red — the transferable light stands apart from plain ₭ money at a glance
+  function actCol(rv){ return (rv&&(rv.kind==='x-send'||rv.kind==='lane-enter'||rv.kind==='lane-exit'||rv.kind==='fold-seal')) ? 0xff3b3b : (FAM_COL[rv.family]||0x8b5cf6); } // every Ӿ act wears the X-red
+  var KIND_LB={ 'rune-deposit':'bridged in', 'rune-send':'sent on L2', 'rune-exit':'exiting', 'rune-cancel':'cancelled', 'rune-lodge':'armed', 'rune-settle':'settled home', 'rune-rehome':'re-homed', 'amm-add':'add LP', 'amm-remove':'remove LP', 'amm-swap':'swap', 'amm-rr-add':'add LP', 'amm-rr-remove':'remove LP', 'amm-rr-swap':'swap', 'transfer':'₭ transfer', 'x-send':'Ӿ sent — the transferable light', 'reward':'network reward', 'donate':'donate → mint', 'contract':'law sealed', 'contract-call':'law called', 'quantum-commit':'quantum key', 'quantum-migrate':'quantum move', 'transfer-star':'star moved', 'lane-enter':'Ӿ entered the lane', 'lane-exit':'Ӿ left the lane', 'fold-seal':'fold-seal — one proven breath' };
+  var el=function(id){return document.getElementById(id);}, tip=el('btip');
+  var CAT={ image:0xcfd6e6, vector:0xbfe6d4, video:0xd8c6ee, audio:0xeed8b0, code:0xbcd2ee, markup:0xc8dae6,
+    document:0xdad8c4, data:0xc6cae2, text:0xdadada, model:0xc8e0d2, font:0xe0d2c6, archive:0xcccccc,
+    name:0xe8cd93, domain:0xe8cd93, file:0xc8ceda };
+  function catColor(c){ return CAT[c]||CAT.file; }
+  function bytes(b){ b=Number(b||0); if(b>=1e6) return (b/1e6).toFixed(1)+' MB'; if(b>=1e3) return (b/1e3).toFixed(0)+' KB'; return b+' B'; }
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+  /* ── the fast-block strip above the graph: fixed 3D cubes, horizontal scroll, INFINITE.
+     Scroll to the end → loads 10 older; a block Bitcoin seals turns GOLD + rings the sound. ── */
+  var SPAGE=10, sLoaded=[], sBefore=null, sDone=false, sLoading=false, sSealTop=-1, snd=null, sndOn=false;
+  try{ snd=new Audio('/sound/bitcoin-validate-block.mp3'); snd.preload='auto'; snd.volume=.75; }catch(_){}
+  ['pointerdown','keydown','touchstart'].forEach(function(ev){ window.addEventListener(ev, function(){ if(snd&&!sndOn){ snd.play().then(function(){snd.pause();snd.currentTime=0;sndOn=true;}).catch(function(){}); } }); });
+  function ding(){ if(snd&&sndOn){ try{ snd.currentTime=0; snd.play().catch(function(){}); }catch(_){} } }
+  function scube(b, burst, slide){
+    // GOLD ⟺ SEALED BY BITCOIN: the anchor is buried ≥ ANCHOR_CONF (verified), or a dev placeholder
+    // when no bitcoind is live (simulated). A block that is only broadcast (has a txid but still
+    // 0..ANCHOR_CONF-1 conf) is NOT gold yet — it stays a forming block showing its confirmation count.
+    var sealed=!!(b.verified||b.simulated), anc=!!(b.anchored&&b.txid), age=window.KRAY?KRAY.age(b.at):'';
+    var status=anc?('₿ '+(b.conf||0)+' conf'):(b.latest?'just sealed':'sealed');
+    var cls='mblock'+(sealed?' anc':'')+(b.latest?' new':'')+(burst?' burst':'')+(slide?' slidein':'');
+    return '<a class="'+cls+'" href="/block/'+b.h+'"><span class="tp"></span><span class="rt"></span>'
+      +'<span class="fc"><span class="top">'+(sealed?'◈ ':'')+status+'</span>'
+      +'<span class="mid"><b>'+Number(b.leaves||0).toLocaleString()+'</b><em>'+(Number(b.leaves)===1?'leaf':'leaves')+'</em></span>'
+      +'<span class="bot">'+(age?age+' <em>ago</em>':'&nbsp;')+'</span></span>'
+      +'<span class="cap">#'+Number(b.h).toLocaleString()+'</span></a>';
+  }
+  function sSealTopOf(list){ var t=-1; list.forEach(function(b){ if(b.verified||b.simulated) t=Math.max(t,Number(b.h)); }); return t; }
+  function sLabel(){ var lab=el('pg-lab'); if(!lab||!sLoaded.length) return;
+    var a=Number(sLoaded[0].h), z=Number(sLoaded[sLoaded.length-1].h);
+    lab.innerHTML='<b>#'+a.toLocaleString()+'</b> – #'+z.toLocaleString()+' · '+sLoaded.length+' loaded'+(sDone?' · genesis reached':' · scroll for older →');
+    if(el('pager')) el('pager').hidden=false; }
+  function stripNewest(slide){
+    return fetch('/api/kraynet/blocks?limit='+SPAGE,{cache:'no-store'}).then(function(r){return r.json();}).then(function(p){
+      var list=(p&&p.blocks)||[], st=sSealTopOf(list), just=(sSealTop>=0&&st>sSealTop)?st:-1; if(just>=0) ding();
+      sLoaded=list; sBefore=(p&&p.nextBefore!=null)?p.nextBefore:null; sDone=!!(p&&p.done)||sBefore==null;
+      var wrap=el('strip'); if(wrap) wrap.innerHTML=list.length?list.map(function(b,i){return scube(b, just>=0&&Number(b.h)===just, slide&&i===0);}).join(''):'<div class="dim mono" style="padding:var(--s6)">no blocks yet</div>';
+      sSealTop=st; sLabel();
+    }).catch(function(){});
+  }
+  function stripOlder(){
+    if(sLoading||sDone||sBefore==null) return; sLoading=true;
+    fetch('/api/kraynet/blocks?before='+sBefore+'&limit='+SPAGE,{cache:'no-store'}).then(function(r){return r.json();}).then(function(p){
+      var list=(p&&p.blocks)||[], seen={}; sLoaded.forEach(function(b){seen[b.h]=1;});
+      var fresh=list.filter(function(b){return !seen[b.h];});
+      sLoaded=sLoaded.concat(fresh); sBefore=(p&&p.nextBefore!=null)?p.nextBefore:null; sDone=!!(p&&p.done)||sBefore==null;
+      var wrap=el('strip'); if(wrap&&fresh.length) wrap.insertAdjacentHTML('beforeend', fresh.map(function(b){return scube(b,false,false);}).join(''));
+      sLabel(); sLoading=false;
+    }).catch(function(){ sLoading=false; });
+  }
+  (function(){ var wrap=el('strip');
+    if(wrap) wrap.addEventListener('scroll', function(){ if(wrap.scrollLeft+wrap.clientWidth >= wrap.scrollWidth-260) stripOlder(); });
+    var jb=el('pg-new'); if(jb) jb.onclick=function(){ var w=el('strip'); if(w) w.scrollTo({left:0,behavior:'smooth'}); };
+  })();
+  stripNewest(false);
+  function load(){
+    Promise.all([
+      fetch('/api/kraynet/blocks?limit=60').then(function(r){return r.json();}).catch(function(){return{};}),
+      fetch('/api/kraynet/world').then(function(r){return r.json();}).catch(function(){return{};}),
+      fetch('/api/kraynet/act-flow').then(function(r){return r.json();}).catch(function(){return{};})
+    ]).then(function(res){
+      var bl=res[0]||{}, w=res[1]||{}, rf=res[2]||{};
+      blocksData=((bl.blocks)||[]).slice().sort(function(a,b){return Number(a.h)-Number(b.h);});
+      runeFlow=(rf.flow||[]);
+      worldData={lands:(w.lands||[]), live:(w.live||null), totalLands:w.totalLands||0};
+      if(el('totals')) el('totals').textContent=(worldData.totalLands||0)+' master'+(worldData.totalLands===1?'':'s')+' sealed · '+blocksData.length+' fast block'+(blocksData.length===1?'':'s');
+      boot();
+    });
+  }
+  function fallback(){
+    var f=el('fallback'); if(!f) return; f.classList.remove('hidden'); el('scene').classList.add('hidden');
+    f.innerHTML=blocksData.map(function(b){var a=!!(b.verified||b.simulated);
+      return '<a class="fb'+(a?' anc':'')+'" href="/block/'+b.h+'"><div class="h">#'+Number(b.h).toLocaleString()+(a?' <span style="color:var(--btc)">◈</span>':'')+'</div><div class="n">'+Number(b.leaves||0)+'</div></a>';}).join('')||'<div class="dim mono" style="grid-column:1/-1;text-align:center;padding:40px">no blocks yet</div>';
+  }
+
+  function makeGlow(){
+    var c=document.createElement('canvas'); c.width=c.height=128; var x=c.getContext('2d');
+    var g=x.createRadialGradient(64,64,0,64,64,64);
+    g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(0.18,'rgba(255,255,255,0.92)');
+    g.addColorStop(0.42,'rgba(255,255,255,0.35)'); g.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=g; x.fillRect(0,0,128,128); return new THREE.CanvasTexture(c);
+  }
+  // a flat text label that floats above a master node
+  function makeLabel(text, hex){
+    var c=document.createElement('canvas'); c.width=256; c.height=64; var x=c.getContext('2d');
+    x.clearRect(0,0,256,64); x.font='600 26px "SF Mono",monospace'; x.textAlign='center'; x.textBaseline='middle';
+    x.fillStyle='#'+('000000'+hex.toString(16)).slice(-6); x.fillText(text,128,34);
+    var t=new THREE.CanvasTexture(c);
+    var s=new THREE.Sprite(new THREE.SpriteMaterial({map:t, transparent:true, opacity:0.92, depthWrite:false, depthTest:false}));
+    s.scale.set(6,1.5,1); return s;
+  }
+
+  function buildGraph(){
+    nodes=[]; edges=[]; sprites=[]; hovered=-1;
+    // ── MASTER NODES — every Bitcoin seal, plus the district still forming ──
+    var masters=[]; // {ref, fromBlock, toBlock, amber, forming}
+    worldData.lands.slice().sort(function(a,b){return (a.height||0)-(b.height||0);}).forEach(function(L){
+      var toB=Number(L.height), fromB=toB-(Number(L.blocks)||1)+1;
+      masters.push({ref:L, fromBlock:fromB, toBlock:toB, amber:true, forming:false});
+    });
+    if(worldData.live){ var lv=worldData.live;
+      masters.push({ref:lv, fromBlock:Number(lv.fromBlock), toBlock:Number(lv.toBlock), amber:false, forming:true}); }
+    else if(blocksData.length){
+      // THE FORMING NEURON EXISTS EVEN WITH NO NEW STARS — /world returns live:null when no unsealed
+      // star exists, but fast blocks past the last land are still truthfully "not yet sealed into a
+      // land". Without this neuron the fallback below glued them to the LAST land (a lie) and the whole
+      // recent chain collapsed into one unreadable clump on a young or star-quiet book (the :4477 bug).
+      var lastTo=masters.length?masters[masters.length-1].toBlock:-1;
+      var maxH=Number(blocksData[blocksData.length-1].h);
+      if(maxH>lastTo) masters.push({ref:{blocks:maxH-lastTo, parcelCount:0}, fromBlock:lastTo+1, toBlock:maxH, amber:false, forming:true});
+    }
+    var masterIdx=[]; // node index of each master, parallel to masters[]
+    masters.forEach(function(mm,mi){
+      var r=mm.amber?1.9:1.7, col=mm.amber?0xf7931a:0x8b95b8;
+      var n={type:'master', ref:mm, amber:mm.amber, forming:mm.forming, r:r, color:col,
+        x:(mi-masters.length/2)*16+(Math.random()-0.5)*4, y:(Math.random()-0.5)*4, z:(Math.random()-0.5)*4, vx:0,vy:0,vz:0};
+      masterIdx.push(nodes.length); nodes.push(n);
+      if(mi>0) edges.push({a:masterIdx[mi-1], b:masterIdx[mi], kind:'spine'}); // the anchor backbone
+      // floating label
+      var lab=makeLabel(mm.amber?('LAND #'+mm.ref.land):'FORMING', mm.amber?0xf7931a:0x9aa2b4);
+      n.label=lab; root.add(lab);
+    });
+    function masterOf(h){ for(var i=0;i<masters.length;i++){ if(h>=masters[i].fromBlock && h<=masters[i].toBlock) return masterIdx[i]; }
+      return masterIdx.length?masterIdx[masterIdx.length-1]:-1; } // fallback: the forming node
+    // ── FAST BLOCK NODES — each clings to its master (same neuron) ──
+    var blockIdx={};
+    blocksData.forEach(function(b,i){
+      var latest=(i===blocksData.length-1), mi=masterOf(Number(b.h)), host=mi>=0?nodes[mi]:null;
+      var r=0.5+Math.min(20,Number(b.leaves)||0)*0.02+(latest?0.2:0);
+      // BURIAL TIER — honest to the Supreme Law: a fast block is hash-chained AND cascade-sealed the instant it
+      // is born (2 of the 3 legs — signature ‖ Merkle ‖ Bitcoin — already spent); only the Bitcoin witness is
+      // pending. Colour by how deep Bitcoin has buried it, NEVER as "uncommitted": verified (buried, conf ≥ the
+      // network's ANCHOR_CONF) · seen (a covering anchor is broadcast, 0-conf) · pending (sealed by KRAY,
+      // awaiting the Bitcoin witness). The tip is pending until an anchor confirms — then it snaps to gold.
+      var tier=(b.verified||b.simulated)?'verified':((b.anchored&&b.txid)?'seen':'pending');
+      var col=latest?(tier==='pending'?0x9aa4bf:0xf4f5fa):(tier==='verified'?0xd8b878:(tier==='seen'?0xa8863f:0x6b7488));
+      var n={type:'block', ref:b, latest:latest, tier:tier, r:r, color:col,
+        x:(host?host.x:0)+(Math.random()-0.5)*6, y:(host?host.y:0)+(Math.random()-0.5)*6, z:(host?host.z:0)+(Math.random()-0.5)*6, vx:0,vy:0,vz:0};
+      var self=nodes.length; blockIdx[String(b.h)]=self; nodes.push(n);
+      if(mi>=0) edges.push({a:mi, b:self, kind:'hub'});
+      // THE CHAIN IS A FACT, NOT DECOR — every fast block hash-chains to its predecessor; drawing that
+      // link is what makes /chain read as a chain instead of loose dots around the neurons.
+      if(i>0){ var prevIdx=blockIdx[String(blocksData[i-1].h)]; if(prevIdx!=null) edges.push({a:prevIdx, b:self, kind:'chain'}); }
+    });
+    // ── STAR NODES — hang off the block that sealed them ──
+    var allParcels=[]; worldData.lands.forEach(function(L){ (L.parcels||[]).forEach(function(p){ allParcels.push(p); }); });
+    if(worldData.live&&worldData.live.parcels) worldData.live.parcels.forEach(function(p){ allParcels.push(p); });
+    allParcels.forEach(function(p){
+      // hang off the fast block if it is still on screen, ELSE the neuron (the Bitcoin seal) that anchored its
+      // range — a star sealed long ago is part of an anchored cascade, so it is NEVER loose: it traces to the
+      // seal that committed it. masterOf() maps any height to its neuron (the amber Bitcoin anchor).
+      var bi=blockIdx[String(p.blockNumber)], hi=(bi!=null)?bi:masterOf(Number(p.blockNumber)), host=(hi>=0)?nodes[hi]:null;
+      var r=Math.min(1.05, 0.32+Math.log10(1+(Number(p.size)||1)/1000)*0.2);
+      var n={type:'star', ref:p, r:r, color:catColor(p.category),
+        x:(host?host.x:0)+(Math.random()-0.5)*3, y:(host?host.y:0)+(Math.random()-0.5)*3, z:(host?host.z:0)+(Math.random()-0.5)*3, vx:0,vy:0,vz:0};
+      nodes.push(n);
+      if(hi>=0) edges.push({a:hi, b:nodes.length-1, kind:'star'});
+    });
+    // ── ACT NODES — every user act (rune · DeFi · money · law · fire · quantum · star-move) hung off the block
+    //    that sealed it, ONE COLOUR PER FAMILY so the whole sky reads at a glance. Additive; stars are separate. ──
+    runeFlow.forEach(function(rv){
+      // same law as stars: the block if drawn, else the neuron that anchored it — an act is never loose.
+      var bi=blockIdx[String(rv.block)], hi=(bi!=null)?bi:masterOf(Number(rv.block)), host=(hi>=0)?nodes[hi]:null;
+      var n={type:'act', ref:rv, r:(rv.family==='money'||rv.family==='law'?0.5:0.55), color:actCol(rv),
+        x:(host?host.x:0)+(Math.random()-0.5)*4, y:(host?host.y:0)+(Math.random()-0.5)*4, z:(host?host.z:0)+(Math.random()-0.5)*4, vx:0,vy:0,vz:0};
+      nodes.push(n);
+      if(hi>=0) edges.push({a:hi, b:nodes.length-1, kind:'rune'});
+    });
+    // adjacency
+    adj=nodes.map(function(){return [];});
+    edges.forEach(function(e){ adj[e.a].push(e.b); adj[e.b].push(e.a); });
+    // sprites
+    nodes.forEach(function(n,idx){
+      var m=new THREE.SpriteMaterial({map:glowTex, color:n.color, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:false});
+      var s=new THREE.Sprite(m); var sc=n.r*3.4; s.scale.set(sc,sc,1); s.position.set(n.x,n.y,n.z); s.userData={ni:idx};
+      n.sprite=s; n.mat=m; root.add(s); sprites.push(s);
+    });
+    // base edges buffer
+    var pos=new Float32Array(edges.length*6), col=new Float32Array(edges.length*6);
+    edges.forEach(function(e,k){ var c=e.kind==='spine'?[0.62,0.42,0.14]:e.kind==='chain'?[0.55,0.60,0.80]:e.kind==='hub'?[0.34,0.39,0.55]:e.kind==='rune'?[0.42,0.30,0.62]:[0.20,0.23,0.34];
+      for(var s=0;s<2;s++){ col[k*6+s*3]=c[0]; col[k*6+s*3+1]=c[1]; col[k*6+s*3+2]=c[2]; } });
+    var bg=new THREE.BufferGeometry();
+    bg.setAttribute('position', new THREE.BufferAttribute(pos,3)); bg.setAttribute('color', new THREE.BufferAttribute(col,3));
+    baseLines=new THREE.LineSegments(bg, new THREE.LineBasicMaterial({vertexColors:true, transparent:true, opacity:0.66, blending:THREE.AdditiveBlending, depthWrite:false}));
+    root.add(baseLines);
+    hiLines=new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({color:0xffffff, transparent:true, opacity:0.9, blending:THREE.AdditiveBlending, depthWrite:false}));
+    root.add(hiLines);
+  }
+  function updateLines(){
+    if(!baseLines) return; var pa=baseLines.geometry.attributes.position, arr=pa.array;
+    edges.forEach(function(e,k){ var A=nodes[e.a], B=nodes[e.b];
+      arr[k*6]=A.x;arr[k*6+1]=A.y;arr[k*6+2]=A.z;arr[k*6+3]=B.x;arr[k*6+4]=B.y;arr[k*6+5]=B.z; });
+    pa.needsUpdate=true;
+    // keep master labels floating just above their node
+    nodes.forEach(function(n){ if(n.label){ n.label.position.set(n.x, n.y+n.r*2.4, n.z); } });
+  }
+
+  function boot(){
+    if(!window.THREE){ fallback(); return; }
+    if(raf){ cancelAnimationFrame(raf); raf=null; }
+    if(renderer){ try{ renderer.dispose(); }catch(_){} }
+    var cont=el('scene');
+    try{ renderer=new THREE.WebGLRenderer({antialias:true, alpha:true}); }catch(e){ fallback(); return; }
+    var W=cont.clientWidth, H=cont.clientHeight||560;
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1)); renderer.setSize(W,H); cont.innerHTML=''; cont.appendChild(renderer.domElement);
+    scene=new THREE.Scene(); camera=new THREE.PerspectiveCamera(52, W/H, 0.1, 3000); root=new THREE.Group(); scene.add(root);
+    glowTex=glowTex||makeGlow();
+    var sfN=520, sp=new Float32Array(sfN*3);
+    for(var i=0;i<sfN;i++){ var rr=140+Math.random()*300, th=Math.random()*6.283, ph=Math.acos(2*Math.random()-1);
+      sp[i*3]=rr*Math.sin(ph)*Math.cos(th); sp[i*3+1]=rr*Math.sin(ph)*Math.sin(th); sp[i*3+2]=rr*Math.cos(ph); }
+    var sg=new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp,3));
+    starfield=new THREE.Points(sg, new THREE.PointsMaterial({color:0x2a2f3e, size:0.9, sizeAttenuation:true, transparent:true, opacity:0.7}));
+    scene.add(starfield);
+    buildGraph(); fit(); bindInput(cont); animate();
+    if(!boot._bound){ boot._bound=true; window.addEventListener('resize', onResize); setupStream(); }
+  }
+  var _es=null;
+  function setupStream(){ try{ _es=new EventSource('/api/kraynet/stream');
+    _es.addEventListener('block', function(){ refresh(); var w=el('strip'); if(w&&w.scrollLeft<60) stripNewest(true); });
+    _es.addEventListener('anchor', function(){ refresh(); ding(); var w=el('strip'); if(w&&w.scrollLeft<60) stripNewest(true); });
+  }catch(_){}}
+  var refreshT=null;
+  function refresh(){ clearTimeout(refreshT); refreshT=setTimeout(load, 400); }
+
+  var stepN=0;
+  function step(){
+    var N=nodes.length, REP=44, DAMP=0.85, G=0.006;
+    // BUILT FOR SCALE: the O(N²) repulsion breathes every other frame past 500 nodes (springs and
+    // integration stay per-frame) — the constellation keeps 60fps as the book grows, no cap on nodes.
+    if(N<=500 || (stepN++ % 2)===0){
+    for(var i=0;i<N;i++){ var A=nodes[i];
+      for(var j=i+1;j<N;j++){ var B=nodes[j];
+        var dx=A.x-B.x, dy=A.y-B.y, dz=A.z-B.z, d2=dx*dx+dy*dy+dz*dz+0.5, d=Math.sqrt(d2);
+        var f=REP*(A.r+B.r)*0.5/d2; if(f>3.5)f=3.5; var ux=dx/d,uy=dy/d,uz=dz/d;
+        A.vx+=f*ux;A.vy+=f*uy;A.vz+=f*uz; B.vx-=f*ux;B.vy-=f*uy;B.vz-=f*uz;
+      }
+    }
+    }
+    // springs — base physics for every ordinary node. ONE invisible stability law on top: a node
+    // holding MORE than 8 springs receives its pull scaled to that budget. Without it, a neuron
+    // with hundreds of children sums hundreds of stiffnesses, crosses the explicit integrator's
+    // stability limit, and every position amplifies frame after frame until it overflows to NaN —
+    // the "nothing appears" bug on a big book. Children/chains/spine feel exactly the base force.
+    edges.forEach(function(e){ var A=nodes[e.a], B=nodes[e.b];
+      var rest=e.kind==='spine'?18:e.kind==='chain'?3.4:e.kind==='hub'?4.6:e.kind==='rune'?2.0:2.4, K=e.kind==='spine'?0.02:e.kind==='chain'?0.05:e.kind==='hub'?0.07:0.06;
+      var dx=B.x-A.x,dy=B.y-A.y,dz=B.z-A.z, d=Math.sqrt(dx*dx+dy*dy+dz*dz)+0.001, f=K*(d-rest), ux=dx/d,uy=dy/d,uz=dz/d;
+      var na=Math.min(1, 8/Math.max(1,(adj[e.a]||[]).length)), nb=Math.min(1, 8/Math.max(1,(adj[e.b]||[]).length));
+      A.vx+=f*ux*na;A.vy+=f*uy*na;A.vz+=f*uz*na; B.vx-=f*ux*nb;B.vy-=f*uy*nb;B.vz-=f*uz*nb;
+    });
+    var VMAX=9; // parachute only — far above any speed the settling base physics ever reaches
+    for(var k=0;k<N;k++){ var n=nodes[k];
+      n.vx-=n.x*G; n.vy-=n.y*G; n.vz-=n.z*G; n.vx*=DAMP;n.vy*=DAMP;n.vz*=DAMP;
+      var sp2=n.vx*n.vx+n.vy*n.vy+n.vz*n.vz;
+      if(sp2>VMAX*VMAX){ var sc=VMAX/Math.sqrt(sp2); n.vx*=sc;n.vy*=sc;n.vz*=sc; }
+      n.x+=n.vx;n.y+=n.vy;n.z+=n.vz;
+      // NaN tripwire — a non-finite position re-seeds near the origin instead of poisoning the
+      // bounding sphere and dragging the auto-fit camera to infinity
+      if(!isFinite(n.x+n.y+n.z)){ n.x=(Math.random()-0.5)*6; n.y=(Math.random()-0.5)*6; n.z=(Math.random()-0.5)*6; n.vx=n.vy=n.vz=0; }
+      if(n.sprite) n.sprite.position.set(n.x,n.y,n.z);
+    }
+  }
+
+  var yaw=0, pitch=0.42, tYaw=0, tPitch=0.42, drag=false, px=0, py=0, dist=1, tDist=0.66, MAXR=1, autspin=true;
+  function fit(){ MAXR=Math.max(14, Math.sqrt(nodes.length)*8); dist=tDist*MAXR; }
+  // AUTO-FIT, FOREVER: every ~half second the camera re-measures the REAL bounding radius of the living
+  // graph and grows its range to hold it — more transactions, more neurons, more stars: the deep zoom-out
+  // always contains everything, automatically. It only ever expands the range (never yanks the view in),
+  // and pushes the far plane + starfield backdrop out with it so nothing is ever clipped at scale.
+  var fitN=0;
+  function autoFit(){
+    var r2=0; for(var i=0;i<nodes.length;i++){ var n=nodes[i]; var q=n.x*n.x+n.y*n.y+n.z*n.z; if(isFinite(q)&&q>r2) r2=q; }
+    var need=Math.max(14, Math.sqrt(nodes.length)*8, Math.sqrt(r2)*2.0);
+    if(need>MAXR) MAXR+=(need-MAXR)*0.3;
+    var far=Math.max(3000, MAXR*12);
+    if(camera && camera.far<far){ camera.far=far; camera.updateProjectionMatrix(); }
+    if(starfield){ var s=Math.max(1, MAXR/120); starfield.scale.set(s,s,s); }
+  }
+  function bindInput(cont){
+    var cv=renderer.domElement;
+    cv.addEventListener('pointerdown', function(e){ drag=true; autspin=false; px=e.clientX; py=e.clientY; });
+    window.addEventListener('pointerup', function(){ drag=false; });
+    window.addEventListener('pointermove', function(e){ if(drag){ tYaw+=(e.clientX-px)*0.006; tPitch=Math.max(-1.3,Math.min(1.3,tPitch+(e.clientY-py)*0.005)); px=e.clientX; py=e.clientY; } hover(e); });
+    cont.addEventListener('wheel', function(e){ e.preventDefault(); tDist=Math.max(0.12, Math.min(2.8, tDist*(e.deltaY>0?1.12:0.89))); }, {passive:false});
+    el('zin').addEventListener('click', function(){ tDist=Math.max(0.12, tDist*0.75); });
+    el('zout').addEventListener('click', function(){ tDist=Math.min(2.8, tDist*1.33); });
+    cv.addEventListener('click', function(){ if(hovered<0) return; var n=nodes[hovered];
+      if(n.type==='master'){ window.location.href = n.amber ? '/land/'+n.ref.ref.land : '/land'; }
+      else if(n.type==='block') window.location.href='/block/'+n.ref.h;
+      else if(n.type==='act'&&n.ref&&n.ref.runeId) window.location.href='/rune#'+encodeURIComponent(n.ref.runeId);
+      else if(n.ref&&n.ref.star!=null) window.location.href='/star/'+n.ref.star;
+    });
+    cv.addEventListener('pointerleave', function(){ tip.style.opacity='0'; setHover(-1); });
+  }
+  var ray=new THREE.Raycaster(), m2=new THREE.Vector2();
+  function hover(e){
+    if(!renderer) return; var r=renderer.domElement.getBoundingClientRect();
+    if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom){ tip.style.opacity='0'; return; }
+    m2.x=((e.clientX-r.left)/r.width)*2-1; m2.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(m2, camera);
+    var hits=ray.intersectObjects(sprites, false), ni=hits.length?hits[0].object.userData.ni:-1;
+    if(ni!==hovered) setHover(ni);
+    if(hovered>=0){ var n=nodes[hovered];
+      if(n.type==='master'){ var mm=n.ref, L=mm.ref;
+        tip.innerHTML='<div class="hh">'+(mm.amber?'land #'+L.land+' · master':'district · forming')+'</div>'
+          +'<div class="r"><span>fast blocks</span><b>'+(L.blocks!=null?L.blocks:'—')+'</b></div>'
+          +'<div class="r"><span>stars</span><b>'+(L.parcelCount!=null?L.parcelCount:'—')+'</b></div>'
+          +(mm.amber?'<div class="r btc"><span>bitcoin</span><b>◈ '+(L.confirmations!=null?L.confirmations+' conf':'sealed')+'</b></div>':'<div class="r"><span>bitcoin</span><b>next block seals it</b></div>')
+          +'<div class="r"><span></span><b style="color:var(--ink-4)">click to open →</b></div>';
+      } else if(n.type==='block'){ var b=n.ref;
+        var tl=n.tier==='verified'?'◈ buried · verified':(n.tier==='seen'?'₿ seen · 0-conf':'sealed by KRAY · awaiting Bitcoin');
+        tip.innerHTML='<div class="hh">block #'+Number(b.h).toLocaleString()+(n.latest?' · newest':'')+'</div>'
+          +'<div class="r"><span>stars sealed</span><b>'+(b.leaves!=null?b.leaves:'—')+'</b></div>'
+          +'<div class="r'+(n.tier==='verified'?' btc':'')+'"><span>bitcoin</span><b>'+esc(tl)+'</b></div>'
+          +'<div class="r"><span></span><b style="color:var(--ink-4)">click → open block</b></div>';
+      } else if(n.type==='act'){ var rv=n.ref, hex='#'+('000000'+actCol(rv).toString(16)).slice(-6);
+        tip.innerHTML='<div class="hh" style="color:'+hex+'">'+esc(KIND_LB[rv.kind]||rv.kind)+'</div>'
+          +'<div style="color:var(--ink-4);font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;margin:-2px 0 6px">'+esc(FAM_LB[rv.family]||rv.family)+'</div>'
+          +(rv.runeId?'<div class="r"><span>rune</span><b>'+esc(rv.runeId)+'</b></div>':'')
+          +(rv.amount!=null?'<div class="r"><span>amount</span><b>'+esc(String(rv.amount))+'</b></div>':'')
+          +'<div class="r"><span>in block</span><b>#'+esc(rv.block)+'</b></div>'
+          +(rv.runeId?'<div class="r"><span></span><b style="color:var(--ink-4)">click → open the rune book →</b></div>':'');
+      } else { var p=n.ref;
+        tip.innerHTML='<div class="hh">'+(p.name?esc(p.name):('star #'+esc(p.star)))+'</div>'
+          +'<div class="r"><span>kind</span><b>'+(p.kind==='inscription'?'inscription':'name')+'</b></div>'
+          +'<div class="r"><span>bytes</span><b>'+bytes(p.size)+'</b></div>'
+          +'<div class="r"><span>in block</span><b>#'+esc(p.blockNumber)+'</b></div>'
+          +'<div class="r"><span></span><b style="color:var(--ink-4)">click → star #'+esc(p.star)+'</b></div>';
+      }
+      tip.style.left=e.clientX+'px'; tip.style.top=(e.clientY-14)+'px'; tip.style.opacity='1'; renderer.domElement.style.cursor='pointer';
+    } else { tip.style.opacity='0'; renderer.domElement.style.cursor=drag?'grabbing':'grab'; }
+  }
+  function setHover(ni){
+    hovered=ni;
+    if(ni<0){ nodes.forEach(function(n){ if(n.mat) n.mat.opacity=1; if(n.label) n.label.material.opacity=0.92; });
+      if(baseLines) baseLines.material.opacity=0.66;
+      if(hiLines) hiLines.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0),3)); return; }
+    var near={}; near[ni]=1; (adj[ni]||[]).forEach(function(j){ near[j]=1; });
+    nodes.forEach(function(n,idx){ if(n.mat) n.mat.opacity = near[idx]?1:0.13; if(n.label) n.label.material.opacity = near[idx]?0.95:0.12; });
+    if(baseLines) baseLines.material.opacity=0.1;
+    var inc=edges.filter(function(e){ return e.a===ni||e.b===ni; });
+    var arr=new Float32Array(inc.length*6);
+    inc.forEach(function(e,k){ var A=nodes[e.a],B=nodes[e.b]; arr[k*6]=A.x;arr[k*6+1]=A.y;arr[k*6+2]=A.z;arr[k*6+3]=B.x;arr[k*6+4]=B.y;arr[k*6+5]=B.z; });
+    hiLines.geometry.setAttribute('position', new THREE.BufferAttribute(arr,3)); hiLines._inc=inc;
+  }
+
+  var t=0;
+  function animate(){
+    raf=requestAnimationFrame(animate); t+=0.016;
+    step(); updateLines();
+    if((fitN++ % 30)===0) autoFit();
+    if(hovered>=0 && hiLines._inc){ var a2=hiLines.geometry.attributes.position;
+      if(a2){ hiLines._inc.forEach(function(e,k){ var A=nodes[e.a],B=nodes[e.b]; a2.array[k*6]=A.x;a2.array[k*6+1]=A.y;a2.array[k*6+2]=A.z;a2.array[k*6+3]=B.x;a2.array[k*6+4]=B.y;a2.array[k*6+5]=B.z; }); a2.needsUpdate=true; } }
+    nodes.forEach(function(n){ if((n.type==='master'||n.latest)&&n.sprite){ var base=n.r*3.4, p=1+Math.sin(t*2+n.x)*0.07; n.sprite.scale.set(base*p,base*p,1); } });
+    if(autspin && !drag) tYaw+=0.0015;
+    yaw+=(tYaw-yaw)*0.08; pitch+=(tPitch-pitch)*0.08; dist+=(tDist*MAXR-dist)*0.08;
+    var cy=dist*Math.sin(pitch), rr=dist*Math.cos(pitch);
+    camera.position.set(Math.sin(yaw)*rr, cy, Math.cos(yaw)*rr); camera.lookAt(0,0,0);
+    if(starfield) starfield.rotation.y+=0.0003;
+    var far=tDist>1.2; if(el('scope')) el('scope').innerHTML = far
+      ? 'the whole constellation · <b>'+(worldData.totalLands||0)+' master'+(worldData.totalLands===1?'':'s')+'</b>'
+      : (hovered>=0 ? 'tracing links…' : (worldData.totalLands? 'one neuron per Bitcoin seal' : 'one district forming — waiting for Bitcoin'));
+    renderer.render(scene, camera);
+  }
+  function onResize(){ if(!renderer) return; var c=el('scene'), W=c.clientWidth, H=c.clientHeight||560; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H); }
+  load();
+})();
+</script>
+</body>
+</html>

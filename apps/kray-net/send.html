@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Send</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+</head>
+<body data-page="home">
+<div class="wrap-narrow">
+  <section class="hero" style="border-top:0;padding-bottom:var(--s6)">
+    <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; TRANSFER · SIGNED</div>
+    <h1 style="font-size:clamp(38px,7vw,72px)">Send ₭</h1>
+    <p class="lede">Move ₭ to any taproot address. The <b>1&nbsp;₭ fee</b> is a fixed amount of pure fungible fuel — it never spends a star; your inscribed and named stars are only ever moved on purpose, by Send Star. Signed by KrayWallet; sealed in the next fast block.</p>
+  </section>
+
+  <section style="border-top:0;padding-top:0">
+    <div class="card tick">
+      <div id="acct" class="chip" style="margin-bottom:var(--s5)">connect your KrayWallet above</div>
+      <div class="field">
+        <label for="to">To · a KRAY / Bitcoin taproot address</label>
+        <input class="input" id="to" placeholder="bcrt1p… · bc1p…" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="amount">Amount · KRAY (integer — stars are indivisible)</label>
+        <input class="input" id="amount" inputmode="numeric" placeholder="0" autocomplete="off">
+      </div>
+      <button class="btn primary block" id="go" disabled><svg width="15" height="15"><use href="#g-send"/></svg> <span id="golabel">Send — + 1 ₭ fee</span></button>
+      <div class="out hidden" id="out"></div>
+      <p class="dim mono" style="font-size:11px;margin-top:var(--s4);letter-spacing:.04em">plain ₭ only — an inscribed / named star never leaves in a payment. to move a star, use Send Star on its page.</p>
+    </div>
+  </section>
+</div>
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){return document.getElementById(id);};
+  var me=null, busy=false;
+  function valid(){ var to=$('to').value.trim(), amt=$('amount').value.trim(); return me && /^[a-z0-9]{20,90}$/i.test(to) && /^[0-9]+$/.test(amt) && Number(amt)>0; }
+  function paint(){ $('go').disabled=busy||!valid();
+    $('acct').textContent = me ? ('signed in as '+(window.KRAY?KRAY.short(me):me)) : 'connect your KrayWallet above';
+    $('acct').className='chip'+(me?' btc':'');
+    var amt=Number($('amount').value.trim()||0); $('golabel').textContent = amt>0 ? ('Send '+amt.toLocaleString()+' ₭ — + 1 ₭ fee') : 'Send — + 1 ₭ fee'; }
+  function show(cls,html){ var o=$('out'); o.className='out '+cls; o.classList.remove('hidden'); o.innerHTML=html; }
+  window.addEventListener('kray-connected', function(e){ me=e.detail.address; paint(); });
+  window.addEventListener('kray-disconnected', function(){ me=null; paint(); });
+  document.addEventListener('DOMContentLoaded', function(){
+    me=window.__krayAddr||null; paint();
+    $('to').addEventListener('input', paint); $('amount').addEventListener('input', paint);
+    $('go').addEventListener('click', async function(){
+      if(busy||!valid()) return; busy=true; paint();
+      try{
+        var to=$('to').value.trim(), amount=$('amount').value.trim();
+        show('', 'preparing…');
+        var res=await KRAY.act('transfer', {to:to, amount:amount}, {onstep:function(s){ show('', s); }});
+        show('ok', '✓ sent — '+Number(amount).toLocaleString()+' ₭ to '+(window.KRAY?KRAY.short(to):to)+' · sealed in the next block');
+        $('amount').value=''; paint();
+      }catch(err){ show('err', '✗ '+(err&&err.message||'refused')); }
+      busy=false; paint();
+    });
+  });
+})();
+</script>
+</body>
+</html>

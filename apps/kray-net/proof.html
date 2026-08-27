@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Proof — this KRAY block is sealed in Bitcoin</title>
+<!--OG-META-->
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  .pf-wrap{max-width:820px;margin:0 auto;padding:var(--s6) var(--s4) var(--s9)}
+  .pf-hero{margin:var(--s6) 0 var(--s5)}
+  .pf-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:var(--s2)}
+  .pf-hero h1{font-size:26px;letter-spacing:-.02em;margin:0 0 var(--s2);text-wrap:balance}
+  .pf-hero .sub{color:var(--ink-3);font-size:14px;line-height:1.65;max-width:62ch}
+  .pf-card{border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:var(--s5);margin-bottom:var(--s4)}
+  .pf-meta{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s5);margin-bottom:var(--s3)}
+  .pf-meta .k{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+  .pf-meta .v{font-family:var(--mono);font-size:12.5px;color:var(--ink);word-break:break-all}
+  .pf-meta a{color:var(--signal,#5b8cff);text-decoration:none}
+  .pf-meta a:hover{text-decoration:underline}
+  .pf-go{background:var(--signal);color:var(--signal-ink);border:0;border-radius:var(--r1);font-weight:700;font-size:13px;padding:10px 22px;cursor:pointer;letter-spacing:.02em}
+  .pf-go:hover{opacity:.9}
+  .pf-ghost{background:transparent;color:var(--ink-2);border:1px solid var(--line-2);border-radius:var(--r1);font-size:12.5px;padding:9px 16px;cursor:pointer;margin-left:var(--s2)}
+  .vf-line{border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);padding:11px var(--s3);margin-bottom:var(--s2);font-size:12.5px;line-height:1.55;opacity:0;transform:translateY(4px);transition:opacity .35s var(--ease),transform .35s var(--ease)}
+  .vf-line.on{opacity:1;transform:none}
+  .vf-hex{font-family:var(--mono);font-size:11.5px;word-break:break-all;color:var(--ink-2);margin:6px 0}
+  .vf-hex b{color:var(--ink)}
+  .ok{color:var(--good);font-weight:700}
+  .bad{color:var(--bad,#e5484d);font-weight:700}
+  .src{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line-2);border-radius:999px;padding:2px 9px;margin-right:6px}
+  .av-badge{border-radius:var(--r2);padding:var(--s4);margin-top:var(--s3);opacity:0;transform:translateY(4px);transition:opacity .4s var(--ease),transform .4s var(--ease);border:1px solid var(--line-2)}
+  .av-badge.on{opacity:1;transform:none}
+  .av-badge__t{font-weight:800;font-size:15px;letter-spacing:.01em}
+  .av-badge__s{color:var(--ink-2);font-size:12.5px;line-height:1.6;margin-top:6px}
+  .av-badge.green{border-color:var(--good);background:color-mix(in srgb,var(--good) 12%,var(--surface))}
+  .av-badge.green .av-badge__t{color:var(--good)}
+  .av-badge.amber{border-color:#d9a441;background:color-mix(in srgb,#d9a441 12%,var(--surface))}
+  .av-badge.amber .av-badge__t{color:#d9a441}
+  .av-badge.grey .av-badge__t{color:var(--ink-2)}
+  .av-badge.blue{border-color:#5b8cff;background:color-mix(in srgb,#5b8cff 10%,var(--surface))}
+  .av-badge.blue .av-badge__t{color:#5b8cff}
+  .pf-foot{color:var(--ink-3);font-size:12.5px;line-height:1.7;margin-top:var(--s5);border-top:1px solid var(--line);padding-top:var(--s4)}
+  .pf-foot code{font-family:var(--mono);font-size:11.5px;background:var(--surface);border:1px solid var(--line-2);border-radius:6px;padding:2px 7px;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="pf-wrap">
+  <div class="pf-hero">
+    <div class="pf-eyebrow">KRAY.NETWORK · proof of anchor</div>
+    <h1 id="pf-title">This KRAY block is sealed into Bitcoin.</h1>
+    <div class="sub" style="color:var(--ink-3);font-size:14px;line-height:1.65;max-width:62ch">Not a claim on this page — a fact your own browser reproves against Bitcoin. It recomputes the exact output key from the block's cascade root and matches it on-chain through an explorer <b>you</b> choose. Trust this node for none of it.</div>
+  </div>
+
+  <img id="pf-card" alt="KRAY proof — this block sealed into Bitcoin" style="width:100%;max-width:680px;border:1px solid var(--line);border-radius:var(--r2);display:none;margin-bottom:var(--s4)">
+
+  <div class="pf-card">
+    <div class="pf-meta" id="pf-meta"><div class="v" style="color:var(--ink-3)">loading the opening…</div></div>
+    <div><button id="pf-run" class="pf-go">Verify on Bitcoin</button><button id="pf-share" class="pf-ghost">Copy proof link</button></div>
+    <div id="pf-out" style="margin-top:var(--s3)"></div>
+  </div>
+
+  <div class="pf-foot">
+    Every step above runs in your browser. The math itself: <a href="/verify" style="color:var(--signal,#5b8cff)">the three proofs</a> · <a href="/burn" style="color:var(--signal,#5b8cff)">the keyless burn</a>.
+    For total zero-trust, run it offline: <code>node apps/kray-net/burn-verify.mjs</code>, or run the whole network as a second node: <code>node scripts/kray-follow.mjs</code>. A doctored node could serve tampered page scripts — Bitcoin's record and your own machine cannot be doctored.
+  </div>
+</div>
+
+<script src="/burn-proof.js"></script>
+<script src="/verify.js"></script>
+<script type="module" src="/kray-spv.mjs"></script>
+<script src="/anchor-verify.js"></script>
+<script>
+(function () {
+  'use strict'
+  var $ = function (id) { return document.getElementById(id) }
+  var clean = function (s) { return String(s == null ? '' : s).replace(/[<>]/g, '') }
+  // block number from /proof/<n>, or ?tx=<txid>
+  var m = location.pathname.match(/\/proof\/(\d+)/)
+  var blockNumber = m ? parseInt(m[1], 10) : null
+  var qtx = new URLSearchParams(location.search).get('tx')
+  var NET = 'signet', opening = null
+
+  function meta(o) {
+    var exp = (o.explorerHints && o.explorerHints[0]) || null
+    var txlink = exp ? exp.txPage : '#'
+    $('pf-meta').innerHTML =
+      '<div><div class="k">KRAY block</div><div class="v">#' + clean(o.blockNumber) + '</div></div>' +
+      '<div><div class="k">carrier</div><div class="v">' + clean(o.carrier) + (o.keyIsNums ? ' · keyless burn' : '') + '</div></div>' +
+      '<div style="flex-basis:100%"><div class="k">cascade root</div><div class="v">' + clean(o.root) + '</div></div>' +
+      '<div style="flex-basis:100%"><div class="k">bitcoin tx</div><div class="v"><a href="' + clean(txlink) + '" target="_blank" rel="noopener">' + clean(o.txid) + ' ↗</a></div></div>'
+  }
+
+  async function load() {
+    try {
+      var head = await (await fetch('/api/kraynet/head')).json(); if (head && head.network) NET = head.network
+    } catch (e) {}
+    try {
+      if (blockNumber == null) {
+        // no /proof/<n> and no ?tx= → prove the LATEST anchor, so a bare /proof link is always meaningful
+        try { var sa = await (await fetch('/api/kraynet/self-anchors')).json(); var list = sa.selfAnchors || []
+          var hit = qtx ? list.find(function (s) { return s.txid === qtx }) : list[0]; if (hit) blockNumber = hit.blockNumber } catch (e) {}
+      }
+      if (blockNumber == null) { $('pf-meta').innerHTML = '<div class="v">No anchor to prove yet — the first donation seals it. Try /proof/&lt;block&gt; for a specific one.</div>'; return }
+      var r = await fetch('/api/kraynet/anchor-opening/' + blockNumber)
+      if (!r.ok) { $('pf-meta').innerHTML = '<div class="v">KRAY block #' + blockNumber + ' is not sealed into Bitcoin yet (or unknown to this node).</div>'; return }
+      opening = await r.json(); if (opening.network) NET = opening.network
+      $('pf-title').textContent = 'KRAY block #' + opening.blockNumber + ' is sealed into Bitcoin.'
+      meta(opening)
+      var card = $('pf-card'); if (card) { card.src = '/proof/' + opening.blockNumber + '/card.svg'; card.style.display = 'block' }
+    } catch (e) { $('pf-meta').innerHTML = '<div class="v bad">could not load the opening — ' + clean(e && e.message) + '</div>' }
+  }
+
+  function waitEngine(cb, tries) {
+    if (window.KraySPV && window.AnchorVerify && window.BurnProof && window.KrayVerify) return cb()
+    if ((tries || 0) > 60) { $('pf-out').innerHTML = '<div class="vf-line on"><span class="bad">✗</span> the proof engine did not load.</div>'; return }
+    setTimeout(function () { waitEngine(cb, (tries || 0) + 1) }, 100)
+  }
+
+  $('pf-run').addEventListener('click', function () {
+    if (!opening) return
+    $('pf-out').innerHTML = '<div class="vf-line on">recomputing + asking Bitcoin…</div>'
+    waitEngine(function () { window.AnchorVerify.run($('pf-out'), opening, NET) })
+  })
+  $('pf-share').addEventListener('click', function () {
+    var url = location.origin + '/proof/' + (opening ? opening.blockNumber : blockNumber)
+    navigator.clipboard && navigator.clipboard.writeText(url)
+    $('pf-share').textContent = 'Copied ✓'; setTimeout(function () { $('pf-share').textContent = 'Copy proof link' }, 1800)
+  })
+
+  load().then(function () { if (opening) waitEngine(function () { $('pf-run').click() }) })
+})()
+</script>
+</body>
+</html>

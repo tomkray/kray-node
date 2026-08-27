@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK — the book</title>
+<meta name="description" content="The KRAY book: sacrifice becomes ₭, ₭ writes stars, work earns Glow. This node holds the journal and the atlas. DeFi is an app on the book — not the node.">
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* page-local only — the design system lives in /kray.css */
+  .ex-wrap{max-width:1100px;margin:0 auto;padding:var(--s6) var(--s4) var(--s9)}
+  .ex-hero{margin:var(--s6) 0 var(--s5)}
+  .ex-hero h1{font-size:clamp(26px,4vw,40px);letter-spacing:-.02em;margin:0 0 var(--s2)}
+  .ex-hero .sub{color:var(--ink-3);font-size:14px;line-height:1.65;max-width:70ch}
+  .ex-stats{display:flex;flex-wrap:wrap;gap:var(--s3) var(--s6);margin:var(--s5) 0}
+  .ex-stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+  .ex-stat .v{font-family:var(--mono);font-size:16px;margin-top:2px}
+  /* search */
+  .ex-search{margin:var(--s5) 0 var(--s6)}
+  .ex-search form{display:flex;gap:var(--s2);max-width:640px}
+  .ex-search input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r1);color:inherit;font:14px/1.4 var(--mono,ui-monospace);padding:11px 14px}
+  .ex-search input:focus{outline:none;border-color:var(--btc)}
+  .ex-search button{border:1px solid var(--btc);background:transparent;color:var(--btc);border-radius:var(--r1);padding:0 18px;font-size:13px;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
+  .ex-search button:hover{background:var(--btc);color:#000}
+  .ex-result{margin-top:var(--s3)}
+  .ex-card2{display:flex;gap:var(--s4);border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:var(--s3);align-items:center}
+  .ex-card2 .rthumb{width:96px;height:96px;flex:none;border-radius:var(--r1);overflow:hidden;background:#0000;display:flex;align-items:center;justify-content:center;border:1px solid var(--line)}
+  .ex-card2 .rthumb img{width:100%;height:100%;object-fit:cover}
+  .ex-card2 .rthumb .glyph{font-family:var(--mono);font-size:34px;color:var(--ink-3)}
+  .ex-card2 .rmeta{min-width:0;font-size:13px;line-height:1.7}
+  .ex-card2 .rtitle{font-size:16px;margin-bottom:4px}
+  .ex-card2 .rrow{color:var(--ink-3)}.ex-card2 .rrow span{display:inline-block;width:52px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase}
+  .ex-card2 code{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+  .ex-card2 .rlinks{margin-top:6px}.ex-card2 .rlinks a{color:var(--btc);text-decoration:none;margin-right:14px;font-size:13px}
+  .ex-miss{color:var(--ink-3);font-size:13px;border:1px dashed var(--line);border-radius:var(--r2);padding:var(--s4);text-align:center}
+  /* nav + border */
+  .ex-nav{display:flex;flex-wrap:wrap;gap:var(--s2);margin:var(--s5) 0 var(--s6)}
+  .ex-nav a{border:1px solid var(--line);border-radius:var(--r1);background:var(--panel);padding:8px 14px;font-size:13px;text-decoration:none;color:inherit;transition:border-color .15s}
+  .ex-nav a:hover{border-color:var(--btc)}
+  .ex-border{border-left:3px solid var(--btc);padding:var(--s2) var(--s4);margin:var(--s4) 0;color:var(--ink-3);font-size:13px;line-height:1.65}
+  /* library */
+  .ex-sec h2{font-size:19px;letter-spacing:-.01em;margin:0 0 var(--s2)}
+  .ex-sec .sub{color:var(--ink-3);font-size:13px;line-height:1.6;margin-bottom:var(--s4);max-width:72ch}
+  .ex-census{display:flex;flex-wrap:wrap;gap:var(--s2);margin-bottom:var(--s4)}
+  .ex-chip{font-family:var(--mono);font-size:11px;color:var(--ink-3);border:1px solid var(--line);border-radius:100px;padding:3px 10px}
+  .ex-tabs{display:flex;flex-wrap:wrap;gap:var(--s2);margin-bottom:var(--s4)}
+  .ex-tab{border:1px solid var(--line);background:var(--panel);color:var(--ink-3);border-radius:100px;padding:5px 13px;font-family:var(--mono);font-size:11px;cursor:pointer;transition:border-color .15s,color .15s}
+  .ex-tab:hover{border-color:var(--btc)}
+  .ex-tab.active{border-color:var(--btc);color:var(--ink-1)}
+  .ex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:var(--s3)}
+  .ex-card{position:relative;display:block;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;background:var(--panel);text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+  .ex-card:hover{border-color:var(--btc);transform:translateY(-2px)}
+  .ex-card .thumb{display:block;aspect-ratio:1;overflow:hidden}
+  .ex-card .thumb img{width:100%;height:100%;object-fit:cover;display:block;background:#0000}
+  .ex-card .thumb.noimg{display:flex;align-items:center;justify-content:center}
+  .ex-card .thumb.noimg .glyph{font-family:var(--mono);font-size:30px;color:var(--ink-3)}
+  .ex-card .meta{display:block;padding:8px 10px;font-size:12px;line-height:1.35;border-top:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ex-card .meta b{font-family:var(--mono);color:var(--ink-3);font-weight:400;margin-right:4px}
+  .ex-empty{color:var(--ink-3);font-size:13px;padding:var(--s5);border:1px dashed var(--line);border-radius:var(--r2);text-align:center}
+  .ex-foot{margin-top:var(--s7);padding-top:var(--s5);border-top:1px solid var(--line);color:var(--ink-3);font-size:13px;line-height:1.9}
+  .ex-foot a{color:var(--btc);text-decoration:none}.ex-foot a:hover{text-decoration:underline}
+</style>
+</head>
+<body data-page="home">
+<div class="ex-wrap">
+  <header class="ex-hero">
+    <h1>The book</h1>
+    <p class="sub">This node is <b>KRAY.NETWORK</b> — the ledger, not a product. <b>Donate</b> burns real sats and ₭ is born. <b>Inscribe</b> spends ₭ and a star stays in the atlas. <b>Validate</b> is work; Glow is honor. One cascade root is sealed to Bitcoin. Anyone who clones <i>kray-node</i> and follows this head re-derives the same bytes. DeFi and the rune bridge are <b>apps on this book</b>.</p>
+    <div class="ex-stats" id="stats"></div>
+  </header>
+
+  <section class="ex-search">
+    <form id="searchform" autocomplete="off">
+      <input id="q" type="text" inputmode="search" placeholder="Find a star — number (e.g. 42), name, or 64-char content hash" aria-label="Search the library">
+      <button type="submit">Find</button>
+    </form>
+    <div class="ex-result" id="search-result"></div>
+  </section>
+
+  <nav class="ex-nav" aria-label="The story of the book">
+    <a href="/mine">1 Donate — ₭ is born</a>
+    <a href="/inscribe">2 Inscribe — write a star</a>
+    <a href="/validate">3 Validate — earn honor</a>
+    <a href="/rank">4 Rank — who honored</a>
+    <a href="/blackhole">5 Black hole — the void</a>
+    <a href="/docs">6 Docs — the law</a>
+  </nav>
+
+  <div class="ex-border">
+    <b>Honest border.</b> One writer orders the journal today — it cannot forge (signature ‖ Merkle proof ‖ Bitcoin anchor is the only way state moves), but it can stall. <b>Verification never depends on it:</b> anyone replays the journal against Bitcoin, forever.
+  </div>
+
+  <section class="ex-sec">
+    <h2>The library <span id="lib-count" style="color:var(--ink-3);font-weight:400"></span></h2>
+    <p class="sub">The atlas: every star this node holds — image, page, sound, law — addressed by SHA-256, hash-checked on every boot. A written star is a relic. Click one to open the bytes this node serves.</p>
+    <div class="ex-census" id="census"></div>
+    <div class="ex-tabs" id="shelves"></div>
+    <div class="ex-grid" id="grid"><div class="ex-empty">reading the library…</div></div>
+  </section>
+
+  <div class="ex-foot">
+    Follow this book → <a href="https://github.com/tomkray/kray-node#readme">github.com/tomkray/kray-node</a> · universe <b>main</b> · never a second writer<br>
+    Apps on the book (DeFi, runes) live in the footer — they are not the node.
+  </div>
+</div>
+
+<script>
+  (function () {
+    var $ = function (id) { return document.getElementById(id) }
+    var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] }) }
+    var j = function (p) { return fetch(p).then(function (r) { return r.json() }) }
+    function stat(k, v) { return '<div class="ex-stat"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>' }
+    var GLYPH = { image: '▣', vector: '◈', video: '▶', audio: '♪', code: '⌘', markup: '❰', document: '▤', data: '⛁', text: '¶', model: '◉', font: 'A', archive: '▦', file: '◇', law: '⚖', name: '✶' }
+
+    // shared state for the search box (filled once the library loads)
+    var WORKS = [], ENTRIES = [], BYHASH = {}
+
+    function isImageType(ct) { return !!ct && /^image\//i.test(ct) }
+    function thumbFor(url, category, ct) {
+      var img = (category === 'image' || category === 'vector' || isImageType(ct))
+      if (img && url) return { html: '<img loading="lazy" src="' + esc(url) + '" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.outerHTML=\'<span class=&quot;glyph&quot;>' + (GLYPH[category] || '◇') + '</span>\'">', img: true }
+      return { html: '<span class="glyph">' + (GLYPH[category] || '◇') + '</span>', img: false }
+    }
+
+    function card(w) {
+      var hash = w.url ? w.url.replace('/content/', '') : ''
+      var t = thumbFor(w.url, w.category, w.contentType)
+      var label = w.name ? esc(w.name) : esc(w.category || 'work')
+      var href = hash ? '/render/' + esc(hash) : '#'
+      return '<a class="ex-card" href="' + href + '" target="_blank" rel="noopener" title="' + esc(hash) + '" data-cat="' + esc(w.category || 'file') + '">' +
+        '<span class="thumb' + (t.img ? '' : ' noimg') + '">' + t.html + '</span>' +
+        '<span class="meta"><b>#' + esc(w.star) + '</b>' + label + '</span>' +
+        '</a>'
+    }
+
+    function starCard(s) {
+      var hash = s.contentHash ? esc(s.contentHash) : ''
+      var t = thumbFor(hash ? '/content/' + hash : '', null, s.contentType)
+      if (!hash) t = { html: '<span class="glyph">✶</span>', img: false }
+      return '<div class="ex-card2">' +
+        '<div class="rthumb' + (t.img ? '' : ' noimg') + '">' + t.html + '</div>' +
+        '<div class="rmeta">' +
+          '<div class="rtitle">Star #' + esc(s.no) + (s.name ? ' · ' + esc(s.name) : '') + '</div>' +
+          '<div class="rrow"><span>owner</span> <code>' + esc(String(s.owner || '—')).slice(0, 22) + (String(s.owner || '').length > 22 ? '…' : '') + '</code></div>' +
+          (s.contentType ? '<div class="rrow"><span>type</span> <code>' + esc(s.contentType) + '</code></div>' : '') +
+          (hash ? '<div class="rrow"><span>hash</span> <code>' + hash.slice(0, 24) + '…</code></div>' : '') +
+          (hash ? '<div class="rlinks"><a href="/render/' + hash + '" target="_blank" rel="noopener">Open ↗</a><a href="/content/' + hash + '" target="_blank" rel="noopener">Raw bytes</a></div>' : '') +
+        '</div></div>'
+    }
+    function miss(what) { return '<div class="ex-miss">Nothing here for <b>' + esc(what) + '</b> — this node has not inscribed it (try a star number, a claimed name, or a 64-char content hash).</div>' }
+    function linkCard(h) {
+      return '<div class="ex-card2"><div class="rthumb noimg"><span class="glyph">◇</span></div>' +
+        '<div class="rmeta"><div class="rtitle">Content ' + esc(h.slice(0, 12)) + '…</div>' +
+        '<div class="rrow"><span>hash</span> <code>' + esc(h.slice(0, 24)) + '…</code></div>' +
+        '<div class="rlinks"><a href="/render/' + esc(h) + '" target="_blank" rel="noopener">Open ↗</a><a href="/content/' + esc(h) + '" target="_blank" rel="noopener">Raw bytes</a></div>' +
+        '</div></div>'
+    }
+
+    function doSearch(raw) {
+      var q = String(raw || '').trim()
+      var el = $('search-result')
+      if (!q) { el.innerHTML = ''; return }
+      el.innerHTML = '<div class="ex-miss">searching…</div>'
+      if (/^\d+$/.test(q)) {                                   // a star number
+        j('/api/kraynet/star/' + q).then(function (s) {
+          el.innerHTML = (s && s.no != null && !s.error) ? starCard(s) : miss('star #' + q)
+        }).catch(function () { el.innerHTML = miss('star #' + q) })
+        return
+      }
+      if (/^[0-9a-f]{64}$/i.test(q)) {                          // a content hash
+        var h = q.toLowerCase(), w = BYHASH[h]
+        if (w) { j('/api/kraynet/star/' + w.star).then(function (s) { el.innerHTML = (s && s.no != null && !s.error) ? starCard(s) : linkCard(h) }).catch(function () { el.innerHTML = linkCard(h) }) }
+        else el.innerHTML = linkCard(h)
+        return
+      }
+      var ql = q.toLowerCase().replace(/^@/, '')               // a name
+      var hit = ENTRIES.filter(function (e) { return String(e.canonical || '').toLowerCase() === ql || String(e.name || '').toLowerCase() === ql })
+      if (!hit.length) hit = ENTRIES.filter(function (e) { return String(e.name || '').toLowerCase().indexOf(ql) >= 0 })
+      if (!hit.length) { el.innerHTML = miss(q); return }
+      j('/api/kraynet/star/' + hit[0].star).then(function (s) {
+        el.innerHTML = (s && s.no != null && !s.error) ? starCard(s) : miss(q)
+      }).catch(function () { el.innerHTML = miss(q) })
+    }
+
+    $('searchform').addEventListener('submit', function (e) { e.preventDefault(); doSearch($('q').value) })
+
+    Promise.all([
+      j('/api/kraynet/head').catch(function () { return {} }),
+      j('/api/kraynet/supply').catch(function () { return {} }),
+      j('/api/kraynet/atlas').catch(function () { return { contents: [] } }),
+      j('/api/kraynet/library').catch(function () { return {} })
+    ]).then(function (r) {
+      var head = r[0], sup = r[1], atlas = r[2], lib = r[3]
+      var root = head.cascadeRoot || ''
+      WORKS = lib.works || []
+      ENTRIES = lib.entries || []
+      WORKS.forEach(function (w) { if (w.url) BYHASH[w.url.replace('/content/', '')] = w })
+
+      $('stats').innerHTML =
+        stat('network', esc(head.network || '—')) +
+        stat('height', esc(head.seq != null ? head.seq : (head.height != null ? head.height : '—'))) +
+        stat('cascade root', root ? esc(String(root).slice(0, 12)) + '…' : '—') +
+        stat('circulating ₭', sup.circulating != null ? Number(sup.circulating).toLocaleString() : '—') +
+        stat('works', esc(atlas.size != null ? atlas.size : WORKS.length)) +
+        stat('names', esc(lib.count != null ? lib.count : '—'))
+
+      var shelf = lib.shelfCount || {}
+      var chips = []
+      if (lib.count != null) chips.push('<span class="ex-chip">names · ' + esc(lib.count) + '</span>')
+      Object.keys(shelf).filter(function (k) { return shelf[k] > 0 }).forEach(function (k) { chips.push('<span class="ex-chip">' + esc(k) + ' · ' + esc(shelf[k]) + '</span>') })
+      $('census').innerHTML = chips.join('')
+
+      $('lib-count').textContent = '(' + WORKS.length + ')'
+      if (!WORKS.length) { $('grid').innerHTML = '<div class="ex-empty">no inscribed work yet — the library fills as stars are named</div>'; $('shelves').innerHTML = ''; return }
+
+      // shelf filter tabs (only shelves that hold something)
+      var tabs = ['<button class="ex-tab active" data-cat="*">All (' + WORKS.length + ')</button>']
+      ;(lib.shelves || []).forEach(function (sh) {
+        var c = shelf[sh.id] || 0
+        if (!c) return
+        tabs.push('<button class="ex-tab" data-cat="' + esc(sh.id) + '">' + esc(sh.glyph || GLYPH[sh.id] || '◇') + ' ' + esc(sh.label || sh.id) + ' (' + c + ')</button>')
+      })
+      $('shelves').innerHTML = tabs.join('')
+      $('shelves').addEventListener('click', function (e) {
+        var b = e.target.closest('.ex-tab'); if (!b) return
+        var cat = b.getAttribute('data-cat')
+        Array.prototype.forEach.call($('shelves').children, function (x) { x.classList.toggle('active', x === b) })
+        Array.prototype.forEach.call($('grid').children, function (c) { c.style.display = (cat === '*' || c.getAttribute('data-cat') === cat) ? '' : 'none' })
+      })
+
+      $('grid').innerHTML = WORKS.map(card).join('')
+    })
+  })()
+</script>
+<script src="/kray.js" defer></script>
+</body>
+</html>

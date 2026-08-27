@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Documentation</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+/* page-local only — the system lives in /kray.css. Long-form docs prose,
+   a sticky table of contents, and code blocks. Nothing here is a global token. */
+html{scroll-padding-top:calc(var(--nav-h) + 20px)}
+
+/* hero */
+.dhero{padding:var(--s7) 0 var(--s6);border-bottom:1px solid var(--line);margin-bottom:var(--s6)}
+.dhero h1{font-weight:500;font-size:clamp(30px,5vw,46px);line-height:1.08;letter-spacing:-.03em;margin:var(--s4) 0 var(--s3);text-wrap:balance}
+.dtagline{font-family:var(--mono);font-size:13.5px;color:var(--ink);line-height:1.6;margin:var(--s3) 0 var(--s4);max-width:74ch}
+.dtagline b{color:var(--ink)}
+.dtagline span{display:block;font-family:var(--sans);font-size:13.5px;color:var(--ink-3);margin-top:var(--s2);max-width:74ch}
+
+/* two-column docs shell */
+.docs{display:grid;grid-template-columns:236px 1fr;gap:var(--s7);align-items:start}
+nav.side{position:sticky;top:calc(var(--nav-h) + var(--s3));padding:var(--s2) 0 var(--s6);max-height:calc(100vh - var(--nav-h));overflow-y:auto}
+nav.side h4{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-4);margin:var(--s5) 0 var(--s2)}
+nav.side h4:first-child{margin-top:0}
+nav.side a{display:block;font-size:13px;line-height:1.4;color:var(--ink-3);padding:4px 0 4px var(--s3);border-left:1.5px solid var(--line);text-decoration:none}
+nav.side a:hover{color:var(--ink)}
+nav.side a.on{color:var(--ink);border-left-color:var(--signal)}
+
+/* main + sections */
+main{min-width:0;padding-bottom:var(--s9)}
+main section{padding:var(--s7) 0 var(--s2);border-top:1px solid var(--line);scroll-margin-top:calc(var(--nav-h) + var(--s5))}
+main section:first-of-type{border-top:none;padding-top:0}
+main hr.rule{border:0;margin:var(--s5) 0 0}
+main .shead{align-items:center;margin-bottom:var(--s5)}
+
+/* prose */
+main p{margin:var(--s3) 0;max-width:65ch;color:var(--ink-2)}
+main p.sub{color:var(--ink-3);font-size:14px;margin:0 0 var(--s3)}
+main p strong,main li strong{color:var(--ink);font-weight:600}
+main em{color:var(--ink-2);font-style:italic}
+main h3{font-size:16px;font-weight:600;color:var(--ink);margin:var(--s5) 0 var(--s2)}
+main ul,main ol{margin:var(--s3) 0 var(--s3) var(--s5);max-width:65ch;color:var(--ink-2)}
+main li{margin:var(--s2) 0}
+main a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--line-2);text-underline-offset:3px;transition:color .15s,text-decoration-color .15s}
+main a:hover{color:var(--ink);text-decoration-color:var(--ink)}
+main .note{border-left:2px solid var(--line-2);padding:2px 0 2px var(--s4);margin:var(--s5) 0;color:var(--ink-3);font-size:14px;max-width:65ch}
+
+/* numbered steps — wireframe badges (never amber: not sealed to Bitcoin) */
+main .steps{counter-reset:s;list-style:none;margin:var(--s4) 0;max-width:65ch}
+main .steps li{counter-increment:s;position:relative;padding-left:44px;margin:var(--s4) 0}
+main .steps li::before{content:counter(s,decimal-leading-zero);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:var(--r1);
+  border:1px solid var(--line-2);color:var(--ink-2);font-family:var(--mono);font-size:11px;display:flex;align-items:center;justify-content:center}
+
+/* callouts — the shared .card, tuned for prose */
+main .card{margin:var(--s5) 0}
+main .card .label{margin-bottom:var(--s2)}
+main .card.btc .label{color:var(--btc)}
+main .card p{margin:0;max-width:none;color:var(--ink-2)}
+main .pick{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);margin:var(--s5) 0;max-width:none}
+@media(max-width:700px){main .pick{grid-template-columns:1fr}}
+main .pick .card{margin:0}
+main .pick h3{margin:0 0 var(--s2);font-size:16px}
+main .pick ol{margin:var(--s3) 0 0 var(--s5);max-width:none}
+
+/* spec tables — v2 wireframe head, readable sans body */
+main .dtable{margin:var(--s4) 0}
+main .dtable td{font-family:var(--sans);font-size:13.5px;line-height:1.55;color:var(--ink-2);vertical-align:top;font-variant-numeric:tabular-nums}
+main .dtable td strong{color:var(--ink)}
+main .dtable td code{font-family:var(--mono)}
+main .dtable th{white-space:nowrap}
+
+/* inline + block code — mono on --void, scrolls in its own container */
+main code{font-family:var(--mono);font-size:.86em;background:var(--surface);border:1px solid var(--line);border-radius:var(--r1);padding:1px 6px;color:var(--ink-2);overflow-wrap:anywhere}
+main pre{background:var(--void);border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4) var(--s5);overflow-x:auto;margin:var(--s4) 0;
+  font-family:var(--mono);font-size:12.5px;line-height:1.75;color:var(--ink-2)}
+main pre code{background:none;border:none;padding:0;font-size:inherit;white-space:pre;color:inherit;overflow-wrap:normal}
+main .k{color:var(--ink)} main .c{color:var(--ink-4)} main .g{color:var(--good)}
+
+/* cascade diagrams — the one root that Bitcoin seals (amber earns its place) */
+main .cascade{font-family:var(--mono);font-size:12.5px;line-height:2;color:var(--ink-2);background:var(--void);border:1px solid var(--line);
+  border-radius:var(--r2);padding:var(--s5);overflow-x:auto;margin:var(--s4) 0}
+main .cascade b{color:var(--btc);font-weight:500}
+
+/* responsive — collapse the table of contents to an inline index */
+@media(max-width:900px){
+  .docs{grid-template-columns:1fr;gap:0}
+  nav.side{position:static;max-height:none;overflow:visible;padding:var(--s2) 0 var(--s4);margin-bottom:var(--s5);border-bottom:1px solid var(--line);
+    display:flex;flex-wrap:wrap;gap:var(--s1) var(--s4)}
+  nav.side h4{width:100%;margin:var(--s3) 0 0}
+  nav.side a{border-left:none;padding:2px 0}
+}
+</style>
+</head>
+<body data-page="docs">
+
+<div class="wrap">
+  <div class="dhero">
+    <div class="eyebrow">Official documentation</div>
+    <h1>How ₭ KRAY.NETWORK works</h1>
+    <p class="dtagline"><b>Powered by the Concord Protocol.</b> Bitcoin finality. Supersonic execution.<br>
+      <span>Concord is agreement — and here it is arithmetic, not goodwill: two nodes replaying the same
+      journal reach the same roots, or one of them is corrupt and Bitcoin says which.</span></p>
+    <p class="lede">A Bitcoin-anchored network where ₭ is fungible fuel and a star is born from fire — burn one ₭ and a permanent, numbered star is created. Everything here is written so a newcomer can follow it and an auditor can check it. Nothing is asserted that cannot be verified from your own machine.</p>
+  </div>
+
+  <div class="docs">
+    <nav class="side" id="side">
+      <h4>Start</h4>
+      <a href="#what">What KRAY is</a>
+      <a href="#journey">The journey</a>
+      <a href="#atlas">Atlas of the site</a>
+      <a href="#axioms">The eternal laws</a>
+      <h4>Using the network</h4>
+      <a href="#wallet">Your wallet is your account</a>
+      <a href="#mint">Mint ₭ by donation</a>
+      <a href="#inscribe">Write a star</a>
+      <a href="#law">Write a contract</a>
+      <a href="#drop">Collection mint</a>
+      <a href="#recursion">Recursive inscriptions</a>
+      <a href="#baptize">Baptisms</a>
+      <a href="#send">Send ₭, stars, runes</a>
+      <h4>Building on it</h4>
+      <a href="#bridge">Bridge your rune</a>
+      <a href="#defi">DeFi</a>
+      <a href="#land">Land</a>
+      <a href="#library">Library &amp; rank</a>
+      <a href="#blackhole">The black hole</a>
+      <a href="#xmoney">Ӿ — the fireborn money</a>
+      <a href="#api">API reference</a>
+      <h4>The mathematics</h4>
+      <a href="#cascade">The cascade root</a>
+      <a href="#anchor">The Bitcoin anchor</a>
+      <a href="#receipt">Verifiable receipts</a>
+      <a href="#payer">Who pays the seal</a>
+      <a href="#immutable">Why it cannot be rewritten</a>
+      <a href="#antifragile">Antifragile, no owner</a>
+      <a href="#validate">Be a guardian — pick a door</a>
+      <a href="#two-starts">The two Start buttons</a>
+      <h4>Running it</h4>
+      <a href="#node">How to run a node</a>
+      <a href="#capacity">Storage over 20 years</a>
+      <a href="#security">Security model</a>
+      <a href="#verify">Verify everything yourself</a>
+    </nav>
+
+    <main>
+      <section id="what">
+        <div class="shead"><span class="n">01</span><h2>What KRAY is</h2><span class="sub">A fast chain that compiles itself into Bitcoin.</span></div>
+        <p>KRAY seals blocks every few seconds so the network feels instant, then compiles <strong>everything that happened</strong> into a single 32-byte number and commits it to Bitcoin. Verify that one number and you have verified the whole network — every balance, every star, every inscription, every vote.</p>
+        <p>It is the Lightning idea applied to accounting: thousands of actions live and final for their users, consolidated periodically into one settlement the strongest chain on earth witnesses. A backlog costs <strong>O(1)</strong>, never O(n) — one anchor seals everything accumulated since the last.</p>
+        <p>What it is <em>not</em>: a Turing-complete virtual machine. Anyone may hang a <a href="#law">law</a> — the same idea as Ethereum or Solana — but the paper is <strong>total</strong> (no loops), <strong>deterministic</strong>, and <strong>cannot mint ₭</strong>. That is why there is no reentrancy meter and no gas attack. Inscriptions can still compose and render (see <a href="#recursion">recursion</a>) in your browser; that is not consensus.</p>
+        <div class="card btc tick"><div class="label">The thesis</div><p>Every project keeps a private ledger nobody else can verify — in a cloud database, a local script, a spreadsheet. KRAY gives that accounting a public, Bitcoin-sealed life. Mint KRAY by donating real satoshis; spend KRAY to seal your receipts. Years later, anyone can prove what truly happened.</p></div>
+      </section>
+
+      <section id="journey">
+        <div class="shead"><span class="n">02</span><h2>The journey, end to end</h2><span class="sub">No permission, no stake, no hardware to buy. Being a guardian is optional — and easy.</span></div>
+        <ol class="steps">
+          <li><strong>Connect your KrayWallet.</strong> Your KRAY account <em>is</em> your Bitcoin taproot address — the same key you already hold. Nothing is created, nothing is registered.</li>
+          <li><strong>Donate to mint ₭.</strong> Sacrifice real satoshis — <em>destroyed forever</em> at a burn address that belongs to nobody (provably: it is a hash of Bitcoin's own generator) — and mint one ₭ per satoshi, capped at the live deficit. The same donation output seals the whole network onto Bitcoin: <strong>your donation IS the anchor</strong>. This is the only way ₭ enters the world.</li>
+          <li><strong>Write your stars.</strong> Burn ₭ (floor 1, more for large files) and a numbered star is born — text, file, music, or a <a href="#law">law</a>. Same bytes cannot be written twice.</li>
+          <li><strong>Move value.</strong> Send ₭, send a star, or — after you <a href="#bridge">bridge a rune</a> — credit that rune on L2. Swap on <a href="#defi">DeFi</a> if a book exists.</li>
+          <li><strong>Prove it to anyone.</strong> Take a ~3 KB receipt for any action and verify it offline against the commitment on Bitcoin. No node, no RPC, no trust.</li>
+          <li><strong>Be a guardian — if you want.</strong> Bitcoin and Ordinals make you sync for days before you may help. Here the first door is a browser tab. <a href="#validate">Pick light or a full node →</a></li>
+        </ol>
+      </section>
+
+      <section id="atlas">
+        <div class="shead"><span class="n">02b</span><h2>Atlas of the site</h2><span class="sub">Every footer door, named. If a page exists, it is here.</span></div>
+        <table class="dtable">
+          <tr><th>Explore</th><th>What you are looking at</th></tr>
+          <tr><td><a href="/">Explorer</a></td><td>The live head — supply, last acts, the cascade tip.</td></tr>
+          <tr><td><a href="/blocks">Chain</a></td><td>Fast blocks. Open one → every signed act in that seal window.</td></tr>
+          <tr><td><a href="/dashboard">Dashboard</a></td><td>Instruments: supply, pot, anchors, presence. Read-only pulse of this node.</td></tr>
+          <tr><td><a href="/rank">Rank</a></td><td>The standing — three books on one page: ₭, Ӿ Nyx (hybrid: Fenyx), ✦ glow. Hash tabs, same replay on every node.</td></tr>
+          <tr><td><a href="/land">Land</a> · <a href="/land3d">City</a></td><td>Parcels on the map; the 3D city is the same cadastre in space.</td></tr>
+          <tr><td><a href="/library">Library</a></td><td>Every named work and relic on this journal, browsable.</td></tr>
+          <tr><td><a href="/blackhole">Black hole</a></td><td>What was entombed at <code>KRAY_BLACK_HOLE</code> — counted forever, spendable never (A1).</td></tr>
+        </table>
+        <table class="dtable">
+          <tr><th>Act</th><th>What you sign</th></tr>
+          <tr><td><a href="/mine">Donate</a></td><td>Burn sats → mint ₭. The donation is the Bitcoin anchor.</td></tr>
+          <tr><td><a href="/inscribe">Inscribe</a></td><td>Name, file (folder batch), music, or law. One studio, four canvases, each its own signature.</td></tr>
+          <tr><td><a href="/send">Send</a></td><td>₭ or a whole star. Fee is always extra fungible ₭.</td></tr>
+          <tr><td><a href="/rune">Runes</a></td><td>The L2 book: bridged runes, reserves, credits.</td></tr>
+          <tr><td><a href="/defi">DeFi</a></td><td>₭/rune and rune/rune books. Create pool is eternal; swaps re-derive from reserves.</td></tr>
+          <tr><td><a href="/validate">Validate</a></td><td>Guardian in the browser. Hold the library for up to 3×. The key stays in KrayWallet — a powerless <code>signMessage</code> only.</td></tr>
+        </table>
+        <table class="dtable">
+          <tr><th>Prove</th><th>What you check</th></tr>
+          <tr><td><a href="/proof">Proof</a></td><td>A receipt for one sequence number — event → block → cascade → Bitcoin.</td></tr>
+          <tr><td><a href="/verify">Verify</a></td><td>Three browser proofs against independent sources, not this node's word.</td></tr>
+          <tr><td><a href="/anchor">The anchor</a></td><td>Seals this node has buried on Bitcoin.</td></tr>
+          <tr><td><a href="/burn">Bitcoin Proof</a></td><td>Recompute the keyless burn address from SHA-256 of G. Nobody holds that key.</td></tr>
+          <tr><td><a href="/docs">Docs</a></td><td>This page. Contract tutorial for AIs: <a href="/docs/contracts.md">/docs/contracts.md</a>.</td></tr>
+        </table>
+        <p class="note">A star is <code>/star/N</code>. A citizen is <code>/u/&lt;address&gt;</code>. An act is <code>/tx/&lt;hash&gt;</code>. A pair is <code>/pool/IRON</code> or <code>/pool/IRON/GOLD</code>.</p>
+      </section>
+
+      <section id="axioms">
+        <div class="shead"><span class="n">03</span><h2>The eternal laws</h2><span class="sub">The Supreme Law first: signature ‖ Merkle ‖ Bitcoin. Then A0–A10. When requirements conflict, the axiom wins.</span></div>
+        <p>Nothing exists unless mathematics proves it. There is no admin key and no convenience path that moves state without a signature or an SPV proof. The axioms below are how that law is spent. Canonical text: <code>docs/AXIOMS.md</code>.</p>
+        <table class="dtable">
+          <tr><th style="width:52px">#</th><th>Law</th></tr>
+          <tr><td><code>A0</code></td><td><strong>The symbol is ₭ (U+20AD).</strong> Written in the protocol beside the supply and the fee, never in a stylesheet. Bitcoin has ₿. KRAY has ₭.</td></tr>
+          <tr><td><code>A1</code></td><td><strong>Conservation or HALT.</strong> circulating ₭ == emitted − burned exactly, checked on every apply and replay, or the node freezes. ₭ is fungible fuel with no fixed supply. Sending to the black hole <em>entombs</em> units (they stay in Σ) — it does not delete them.</td></tr>
+          <tr><td><code>A2</code></td><td><strong>The 1-₭ fee is immutable.</strong> Every action costs exactly one indivisible KRAY. No auction, no MEV, nobody priced out.</td></tr>
+          <tr><td><code>A3</code></td><td><strong>No hard fork, ever.</strong> A node meeting an event from a future era freezes rather than forking. There is always exactly one Bitcoin-anchored chain.</td></tr>
+          <tr><td><code>A4</code></td><td><strong>Honor gates money.</strong> Governance voice is capped by earned, soulbound reputation. One star, one vote.</td></tr>
+          <tr><td><code>A5</code></td><td><strong>Written stars are relics.</strong> An inscribed or named star can never again be spent as gas. Content is byte-unique in the universe; first writer wins; no re-inscription. Birth is from fire (you burn ₭ to write it).</td></tr>
+          <tr><td><code>A6</code></td><td><strong>Zero dependency, moored to Bitcoin.</strong> The clock, the beacon and the seal are always real Bitcoin blocks. Nothing is ever invented; absent infrastructure shows as absent.</td></tr>
+          <tr><td><code>A7</code></td><td><strong>KRAY is fuel.</strong> Mint it by burning real satoshis — destroyed at a keyless address, the burn itself anchoring the network — then spend it to give your project's private accounting a public, sealed life.</td></tr>
+          <tr><td><code>A8</code></td><td><strong>One root proves everything.</strong> The whole network compiles into 32 bytes committed to Bitcoin.</td></tr>
+          <tr><td><code>A9</code></td><td><strong>The address is the user.</strong> The only identity is a wallet-held taproot address. No username, no email, no password, no server-side key — ever. The node never sees a private key. Presence is a powerless signature, not a spend.</td></tr>
+          <tr><td><code>A10</code></td><td><strong>An inscription id is its signed act.</strong> <code>&lt;signed event hash&gt;i&lt;index&gt;</code> — same shape as Ordinals. The id cannot exist without the BIP-340 that authorised it, nor without its place in history.</td></tr>
+        </table>
+        <p class="note">The canonical text lives in <code>docs/AXIOMS.md</code> in the repository, and it is the file to read before proposing any change.</p>
+      </section>
+
+      <hr class="rule">
+
+      <section id="wallet">
+        <div class="shead"><span class="n">04</span><h2>Your wallet is your account</h2></div>
+        <p>There is no signup. Your <strong>taproot address</strong> is your identity, your balance, your inscriptions and your reputation. On mainnet it is byte-for-byte the same <code>bc1p…</code> address your Bitcoin wallet shows; on the development network it is the same key with a <code>bcrt1p…</code> prefix.</p>
+        <p>Every action you take is a <strong>BIP-340 Schnorr signature</strong> over a canonical message — the same curve and the same signature scheme Bitcoin taproot uses. The node verifies it and never sees a key. Each action type has its own domain-separated message, so a signature for one purpose can never be replayed as another.</p>
+        <p>Reading is public — the chain belongs to everyone. Only <em>acting</em> requires identity.</p>
+      </section>
+
+      <section id="mint">
+        <div class="shead"><span class="n">05</span><h2>Mint ₭ by burning Bitcoin</h2><span class="sub">One on-ramp for ₭, and it is a true sacrifice: proof-of-burn. No emission, no subsidy, no schedule, no premine — and no custodian.</span></div>
+        <p>₭ is never printed on a clock, and nothing was ever pre-mined. The <strong>only</strong> way a single ₭ enters the world is <strong>proof-of-burn</strong>: sacrifice real satoshis — <strong>destroyed forever</strong> at an address whose private key exists for <em>nobody</em> — and mint <strong>one ₭ per satoshi</strong>, capped at the live deficit. The sats are the proof, so donating needs no signature at all. And the same output that destroys your sats <strong>seals the entire network state onto Bitcoin</strong> (pay-to-contract): <em>your donation is the anchor</em>, free, in the same transaction.</p>
+        <ol class="steps">
+          <li>Open <a href="/mine">Donate</a> and connect your KrayWallet — your taproot address is where the freshly minted ₭ lands.</li>
+          <li>Choose how many satoshis to sacrifice. Your wallet signs one ordinary Bitcoin transaction: the sats go to the burn address that carries the current network root; an OP_RETURN commits <em>you</em> as the donor.</li>
+          <li>Once it confirms, the node SPV-proves the transaction and mints — one ₭ per satoshi, capped at <strong>10,000 per mint</strong>, credited once per outpoint, forever.</li>
+        </ol>
+        <h3>The burn address belongs to nobody — and you can prove it</h3>
+        <p>The burn key is not a wallet anyone made. It is <strong>SHA-256 of Bitcoin's own generator point</strong> — the BIP-341 "nothing-up-my-sleeve" constant the whole taproot ecosystem relies on — tweaked by the network state your donation seals. Spending from it would require the discrete logarithm of a hash output, which no one has and no one ever will. Recompute the entire chain in your own browser at <a href="/burn"><strong>/burn — The Burn Proof</strong></a>, or from the repo: <code>node apps/kray-net/burn-verify.mjs &lt;block&gt; &lt;root&gt;</code>. Not one number in the chain was chosen by a human.</p>
+        <h3>The 10,000-sat per-mint cap</h3>
+        <p>The supply has <strong>no ceiling</strong> — ₭ grows only with real satoshis burned, and the star-inscription burn consumes it back, so the money supply breathes with actual use. What is capped is a <strong>single mint</strong>: one donation mints at most <strong>10,000 ₭</strong>. This is not a supply limit — it is an <em>anti-whale</em> limit. To mint more you make more donations, and <strong>each is its own Bitcoin transaction (a real fee) and its own network anchor</strong>. Because the scarce resource is Bitcoin transactions, not addresses, splitting across a thousand identities buys nothing — a whale is throttled, taxed, and made to <em>feed</em> the network. Timeless in ₭ terms, and self-strengthening in real terms: as Bitcoin appreciates, burning 10,000 sats is a larger sacrifice, so the bar rises on its own. The cap is a hardcoded constant enforced in the consensus reducer — no node, not even its own operator writing straight to its journal, can mint more (proven in <code>src/test/mint-cap.test.ts</code>).</p>
+        <div class="card tick"><div class="label">Anti-whale by construction, without a supply cap</div><p>A whale can never mint more than 10,000 ₭ in one act. Accumulating is therefore slow, public, and expensive — thousands of separate transactions and anchors — which distributes entry over time and turns wealth-concentration pressure into network security. Wealth buys no discount and no shortcut; the peg-of-sacrifice never bends: total ₭ minted ≤ total satoshis ever burned, asserted on every apply and replay or the node halts.</p></div>
+        <div class="card btc tick"><div class="label">Why burn, and not a pooled pot</div><p>Any pooled reserve needs a spend key, and whoever holds it is a custodian — the exact owner every other network hides. Sats that remain spendable by <em>anyone</em> could re-enter and re-mint; only destruction is eternal. The burn removes the owner, the inflation vector and the censorship target in one stroke — and anchoring rides each donation for free, so no fund is needed to keep the seal alive.</p></div>
+      </section>
+
+      <section id="inscribe">
+        <div class="shead"><span class="n">06</span><h2>Write a star</h2><span class="sub">Everything Ordinals does, radically simpler — and byte-unique in the whole universe.</span></div>
+        <p>To inscribe is to burn. The live <strong>size-proportion law</strong> prices the sealed body: <strong>1 ₭ per 10 KB</strong> (<code>ceil(size / 10&nbsp;000)</code>, floor <strong>1 ₭</strong>), ceiling <strong>10 MB</strong> (10,000,000 bytes). A 1-byte poem and a 10 KB file both burn 1 ₭; 183 KB burns 19 ₭; 4.43 MB burns 443 ₭. A baptism or a hanging law stays the 1 ₭ floor (no body). When this node has the atlas wall on, a sized file pays that same amount again to the treasury. Other signed acts (send, call, bridge…) pay the eternal <strong>1 ₭ fee</strong> — never taken from a star. The studio is <a href="/inscribe">/inscribe</a>. Your profile can write the same acts.</p>
+        <p class="note" id="size-law-live">This node quotes the live numbers below. Main is born in this law. Signet journals before seq 274 still replay the genesis 1 ₭ / MB · 21 MB path (A3) — the door never re-prices a sealed star.</p>
+        <table class="dtable" id="size-law-table">
+          <tr><th>Law</th><th>Live quote</th></tr>
+          <tr><td><strong>Fire</strong></td><td><span data-size-rate>1 ₭ / 10 KB</span> — <code>max(1, ceil(size / bytesPerKrayBurn))</code></td></tr>
+          <tr><td><strong>Ceiling</strong></td><td><span data-size-cap>10 MB</span> — one star, one body, this many bytes</td></tr>
+          <tr><td><strong>Empty / name / law</strong></td><td>1 ₭ — no body, no atlas wall</td></tr>
+          <tr><td><strong>Atlas wall</strong></td><td>equal to the fire when the sized body is greater than 0 and this node has it on</td></tr>
+        </table>
+        <table class="dtable">
+          <tr><th>Canvas</th><th>What you seal</th></tr>
+          <tr><td><strong>Name</strong></td><td>A baptism — unique, permanent. See <a href="#baptize">baptisms</a>.</td></tr>
+          <tr><td><strong>File</strong></td><td>Single = one file. Batch = a folder as a collection. JSON sits on its sibling. Each file is one star, up to the live ceiling (10 MB on the size-proportion law). You verify the tray and the ₭, then sign. A marked parent hangs the drop; otherwise the first file is the face.</td></tr>
+          <tr><td><strong>Music</strong></td><td>MP3 + square cover. The door writes ID3v2 APIC around the audio frames — it never re-encodes. One <code>audio/mpeg</code>, one sha256. The <strong>body hash</strong> is the gene of the frames (cover/tags stripped). Same song, other sleeve: still the same gene — refused.</td></tr>
+          <tr><td><strong>Law</strong></td><td>A contract paper on a star you already own. Different act from bytes. See <a href="#law">contracts</a>.</td></tr>
+        </table>
+        <h3>Parents, Bitcoin, and the key</h3>
+        <ul>
+          <li><strong>Lineage.</strong> A new relic may name KRAY stars you own as parents — except a <a href="#drop">mint face</a>, which blesses a stranger's child by sealed math.</li>
+          <li><strong>Origin.</strong> A star may claim a Bitcoin L1 ordinal as parent. The door attaches an SPV bag; the reducer re-proves it. A signed list without proof is not a parent.</li>
+          <li><strong>Speak.</strong> On the star page, prove you hold the face (BIP-340) for a lock — car, house, vault. <strong>0 ₭</strong>. Nothing is journaled. Replay <code>ownerOf</code> from the journal to verify.</li>
+          <li><strong>Metadata</strong> (optional JSON on the inscribe) and <strong>body hash</strong> ride later message versions. Absent fields stay on the frozen older path (A3).</li>
+        </ul>
+        <h3>Where each one lives</h3>
+        <table class="dtable">
+          <tr><th>URL</th><th>Opens</th></tr>
+          <tr><td><code>/star/&lt;number&gt;</code></td><td>the star — its content, identity, family tree and full history</td></tr>
+          <tr><td><code>/star/&lt;id&gt;</code></td><td>the same star page, reached by the inscription's id (a star holds one tattoo forever). <code>/inscription/&lt;id&gt;</code> 301s here — there is no separate inscription page</td></tr>
+          <tr><td><code>/tx/&lt;hash&gt;</code></td><td>the signed act, with its chain of custody into Bitcoin</td></tr>
+          <tr><td><code>/address/&lt;addr&gt;</code> · <code>/u/&lt;addr&gt;</code></td><td>the citizen — holdings, relics, and bridge</td></tr>
+          <tr><td><code>/pool/IRON</code> · <code>/pool/IRON/GOLD</code></td><td>the book — LP rank, shares, Create pool mark. People see the pair name. The ledger pot is a no-key escrow, not a wallet.</td></tr>
+          <tr><td><code>/content/&lt;sha256&gt;</code></td><td>the sealed bytes themselves, served in a sandbox</td></tr>
+        </table>
+
+        <h3>Three identities, and they are not the same thing</h3>
+        <p class="sub">Confusing them is easy, so the explorer names each one wherever it appears.</p>
+        <table class="dtable">
+          <tr><th>Identity</th><th>What it identifies</th><th>How it is formed</th></tr>
+          <tr><td><strong>Star number</strong></td><td>the STAR — its permanent identity, fixed at birth</td><td>the creation order: star #1 is the first thing ever written, the most sacred; each new star takes the next number, forever</td></tr>
+          <tr><td><strong>Inscription id</strong></td><td>THIS inscription — the act of writing</td><td><code>&lt;signed event hash&gt;i&lt;index&gt;</code> — the same shape and the same semantics as Ordinals' <code>&lt;txid&gt;i&lt;index&gt;</code>. On Bitcoin the txid covers the witness, so the id derives from the signed transaction; here the event hash covers every field the author's BIP-340 signature covered <em>and</em> the previous event, so the id cannot exist without the signature that authorised it, nor without its place in history</td></tr>
+          <tr><td><strong>Content sha256</strong></td><td>the BYTES — the work itself</td><td><code>sha256(exact bytes)</code>, and it is what the chain commits. Unique in the whole universe: identical bytes can be inscribed once, first writer wins</td></tr>
+          <tr><td><strong>Inscription number</strong></td><td>birth order</td><td>a sequential counter among LIVING inscriptions, ordinals-style</td></tr>
+        </table>
+        <p>So the same content can never be written twice anywhere, the same star can never be written twice at all, and the inscription id lets you point at one act of writing without pointing at the bytes or the place.</p>
+
+        <h3>The rules that make it permanent</h3>
+        <ul>
+          <li><strong>The commitment is sha256 of the exact bytes.</strong> Re-hash the served file and it matches what the chain sealed. Nothing else is judged — any file type is welcome.</li>
+          <li><strong>No re-inscription.</strong> One star holds exactly one inscription, forever. A second attempt is refused (and, if forced into a journal, recorded as <em>cursed</em> — history, never a tattoo).</li>
+          <li><strong>Content is byte-unique universe-wide.</strong> Identical bytes can be inscribed once. First writer wins, settled by journal order.</li>
+          <li><strong>Lineage.</strong> An inscription may declare a <strong>parent</strong> — a written star you own — and constellations grow from it. The family tree is committed into the anchored root.</li>
+          <li><strong>A star is born from fire.</strong> Burning one ₭ creates it; it is non-fungible and can never be spent as money (A5).</li>
+        </ul>
+      </section>
+
+      <section id="law">
+        <div class="shead"><span class="n">06b</span><h2>Write a contract</h2><span class="sub">Anyone. Same idea as Ethereum or Solana — a smaller language on purpose.</span></div>
+        <p>A <strong>paper</strong> is JSON: <code>vars</code> + <code>rules</code>. Hang it on a star you own (burns 1 ₭). The desk templates are shortcuts for common patterns. Most people will write their own. You may <em>draft</em> in Solidity or Rust; the exam only seals the JSON translation, because a Turing VM cannot be proven here. <strong>Run test</strong>, then seal.</p>
+        <table class="dtable">
+          <tr><th>Template</th><th>What it is</th></tr>
+          <tr><td><strong>Code</strong></td><td>Blank paper. Paste JSON — yours or an AI's.</td></tr>
+          <tr><td><strong>Being / Pass / 3-use</strong></td><td>Living flags. Toggle forever, or spend an <code>once_</code> latch. The mouth travels with <code>ownerOf</code>.</td></tr>
+          <tr><td><strong>Escrow</strong></td><td>Sealed buyer and seller. Accept pays the seller; after the journal deadline anyone may refund.</td></tr>
+          <tr><td><strong>Tunnel</strong></td><td>A pipe. Anyone funds it. The living owner punches through — to a dest or following the face.</td></tr>
+          <tr><td><strong>Vest</strong></td><td>Unlock on journal height, not a wall clock. ₭ goes only to the beneficiary.</td></tr>
+          <tr><td><strong>Scroll</strong></td><td>Open / stamp / list claims. Locked: ₭ leaves only through <code>claim</code>.</td></tr>
+          <tr><td><strong>Raffle</strong></td><td>Seats + Bitcoin seal as the draw. Nobody picks the winner. No collect.</td></tr>
+          <tr><td><strong>Mint</strong></td><td>A drop. See <a href="#drop">collection mint</a>.</td></tr>
+        </table>
+        <p>Three laws of the language: <strong>total</strong> (no loops, budget 512), <strong>deterministic</strong> (integers; Bitcoin beacon is the only entropy), <strong>cannot create value</strong> (pays only from the pot, plus <code>take</code> in the same call). Living tools (<code>collect</code>, <code>toggle_*</code>) follow the face when it is sold.</p>
+        <p>Ask an AI: copy <a href="/docs/contracts.md">the contract tutorial</a> into Claude. That file is the <code>kraynet-dev</code> skill. Studio: <a href="/inscribe">/inscribe</a> → Law, or the star page.</p>
+        <div class="card tick"><div class="label">Why this cannot steal the network</div><p>The worst a broken paper can do is empty <em>itself</em>. Signature ‖ Merkle ‖ Bitcoin still holds every call.</p></div>
+      </section>
+
+      <section id="drop">
+        <div class="shead"><span class="n">06c</span><h2>Collection mint</h2><span class="sub">One signed birth. Price to the seller now. Same image cannot mint twice.</span></div>
+        <p>This is the Ethereum / Solana drop, on the star. The artist hangs <strong>mint</strong> paper (price, editions 1–256, optional pay-to address, secret art URL). A buyer clicks on that face. The node pulls <em>the artist's</em> file. The buyer signs an <strong>inscribe</strong> with that star as parent. They never upload, never see the URL.</p>
+        <ol class="steps">
+          <li><strong>Burn</strong> — write the child star (floor 1 ₭).</li>
+          <li><strong>Take + pay</strong> — the sealed rule <code>mint</code> charges the price and pays the seller (or living owner) in the <em>same</em> act. No extra contract-call fee.</li>
+          <li><strong>taken++</strong> — when taken equals max, the blessing dies.</li>
+        </ol>
+        <p>Rule <code>mint</code> is <strong>not</strong> a <code>contract-call</code>. A standalone mint call is refused. The living owner also consumes an edition if they inscribe. Two people clicking the same file: the writer applies one act at a time; the first content hash wins; the second is refused <em>before</em> any ₭ moves (A5).</p>
+        <p>More than one edition needs <code>{n}</code> or <code>{i}</code> in the art URL — each child must be unique bytes. The URL is never journaled (a replica would leak the drop). Public card: edition, price, cover of the mint face — not the secret file.</p>
+        <p>Service price can be any whole ₭ (0 is an airdrop). The eternal burn is separate. Any paper may charge for a service; this one happens to be a birth.</p>
+      </section>
+
+      <section id="recursion">
+        <div class="shead"><span class="n">07</span><h2>Recursive inscriptions</h2><span class="sub">Composability — with a tighter leash than the original.</span></div>
+        <p>An inscription can pull other inscriptions: a page can import a library inscribed on another star, an artwork can read the current block height, a collection can share one traits file. This happens when your browser <em>renders</em> the piece — the chain state never changes because of it.</p>
+        <h3>The recursion rail</h3>
+        <table class="dtable">
+          <tr><th>Endpoint</th><th>Returns</th></tr>
+          <tr><td><code>/content/&lt;sha256&gt;</code></td><td>the exact sealed bytes, with their sealed content-type</td></tr>
+          <tr><td><code>/r/star/&lt;n&gt;</code></td><td>owner, name, rarity, creation number, its inscriptions, its children</td></tr>
+          <tr><td><code>/r/children/&lt;n&gt;</code></td><td>the stars this one fathered</td></tr>
+          <tr><td><code>/r/parent/&lt;n&gt;</code></td><td>the star it descends from</td></tr>
+          <tr><td><code>/r/inscription/&lt;id&gt;</code></td><td>an inscription by its global id</td></tr>
+          <tr><td><code>/r/blockheight</code> · <code>/r/blockhash</code> · <code>/r/cascaderoot</code> · <code>/r/bitcoin</code></td><td>live state a generative work can draw from</td></tr>
+        </table>
+<pre><code><span class="c">&lt;!-- an artwork that imports a library inscribed on another star --&gt;</span>
+&lt;script type="module"&gt;
+  <span class="k">const</span> {palette} = <span class="k">await import</span>(<span class="g">"/content/&lt;the library's sha256&gt;"</span>)
+  <span class="k">const</span> height = <span class="k">await</span> (<span class="k">await</span> fetch(<span class="g">"/r/blockheight"</span>)).text()
+  <span class="k">const</span> root   = <span class="k">await</span> (<span class="k">await</span> fetch(<span class="g">"/r/cascaderoot"</span>)).text()
+  <span class="c">// draw something that could only exist at this moment in this network</span>
+&lt;/script&gt;</code></pre>
+        <div class="card tick"><div class="label">Why this is safer than the usual sandbox</div><p>Inscriptions render in an <strong>opaque origin</strong> — they can never read the network's session, storage or page. And the content policy is pinned to the serving node: scripts, images, media and <em>connections</em> may only reach this node. A malicious inscription cannot phone home, cannot load an outside script, cannot exfiltrate anything.</p></div>
+      </section>
+
+      <section id="baptize">
+        <div class="shead"><span class="n">08</span><h2>Baptisms and the universal-keyboard law</h2></div>
+        <p>A baptism gives a star a name — <strong>unique in the whole universe, permanent, and never renameable</strong>, not even by its owner. Humanity writes the atlas; the network only records it.</p>
+        <div class="card tick"><div class="label">One name, one identity</div><p>A name's identity is its <strong>universal keyboard form</strong>: Unicode NFKC normalization, case-folded, whitespace collapsed. <code>Bob</code>, <code>bob</code>, <code>BOB</code>, <code>BoB</code>, the fullwidth form and padded variants are <strong>one name</strong>. The first writer owns it forever and their exact bytes stay the display form. Invisible, control and bidirectional characters are not letters at all — a name carrying one is invalid outright.</p></div>
+        <p>This is enforced in two independent places: at the signed gate, and inside the reducer itself, so even an event forced directly into a journal arrives cursed instead of registering. Genuinely different letters remain free: <code>José</code> ≠ <code>Jose</code>, <code>bôb</code> ≠ <code>bob</code>.</p>
+      </section>
+
+      <section id="send">
+        <div class="shead"><span class="n">09</span><h2>Send ₭, stars, and runes</h2><span class="sub">Three doors. They never overlap. Fee is always extra fungible ₭.</span></div>
+        <table class="dtable">
+          <tr><th>Door</th><th>Moves</th><th>Rule</th></tr>
+          <tr><td><strong>Send ₭</strong></td><td>fungible ₭</td><td>A spend never touches a star. Sending <code>N</code> costs <code>N + 1</code>.</td></tr>
+          <tr><td><strong>Send a star</strong></td><td>one star, whole</td><td>Inscription, name and law travel with the face. The 1 ₭ fee is separate — a star never pays its own fee. The mouth of a law moves with the new owner.</td></tr>
+          <tr><td><strong>Send a rune</strong></td><td>L2 credit</td><td>After a <a href="#bridge">bridge</a>, credits move by signed <code>rune/send</code>. Bitcoin reserves do not move. Each line of a drop list is its own nonce and its own 1 ₭ fee.</td></tr>
+        </table>
+        <p>Studio: <a href="/send">/send</a>. Profile can paste a drop list (addresses + amounts). Names resolve on the + Lines path; a raw paste is addresses only so a list cannot be redirected by a lookup.</p>
+      </section>
+
+      <hr class="rule">
+
+      <section id="bridge">
+        <div class="shead"><span class="n">10</span><h2>Bridge your rune — KRAY as your project's L2</h2><span class="sub">L1 etch + the shared bakery pot. L2 credits in the journal. Open to every address.</span></div>
+        <p>A rune is born on Bitcoin (the <strong>etch</strong> is its passport). Day-to-day credits usually sit in a private database. Bridge it here and those credits seal into the cascade root. To put a rune on the L2 you send it into the <strong>shared bakery pot</strong> — a taproot the node's <strong>guardian federation</strong> holds (threshold-signed, timelocked). That custody is the bridge's one honest trust boundary, named here and in the audit dossier; every credit and every burn is still SPV-proven against Bitcoin.</p>
+        <h3>Link the passport</h3>
+        <ol class="steps">
+          <li>Open <a href="/rune">/rune</a> or your profile <code>/u/&lt;address&gt;</code> → <strong>Your runes · the L2</strong>.</li>
+          <li>Enter the spaced name (e.g. <code>KRAY•SPACE</code>), etch <code>block:tx</code>, and the bakery pot that holds reserves.</li>
+          <li>Sign with the wallet that owns this address. One rune, one first linker.</li>
+        </ol>
+        <p>If an ord mirror is reachable, the etch is checked against Bitcoin and the card says <em>verified</em>. If not, the card says <em>pending</em> — it does not invent a passport. Solvency: <strong>pot reserves ≥ Σ L2 credits</strong>, or the books refuse the next credit that would break it.</p>
+        <h3>The four money doors (after the link)</h3>
+        <table class="dtable">
+          <tr><th>Act</th><th>What happens</th></tr>
+          <tr><td><strong>Deposit</strong></td><td>You send the rune on Bitcoin into the bakery pot. The node SPV-proves the runestone and credits the Taproot key that paid the pot — your L2 book. Same outpoint never credits twice.</td></tr>
+          <tr><td><strong>Send</strong></td><td>L2 → L2. Instant, signed, 1 ₭ fee. Reserves on Bitcoin do not move.</td></tr>
+          <tr><td><strong>Exit</strong></td><td>You ask the pot to pay L1. A payout PSBT is built; the federation's threshold of keys sign; settle burns the L2 credit in step with the reserve.</td></tr>
+          <tr><td><strong>Cancel</strong></td><td>An exit that never settled can be cancelled so the credit is not stuck — the reducer still conserves.</td></tr>
+        </table>
+        <div class="card tick"><div class="label">Honest edges</div><p>A rune proof's allocation math is re-derived from bytes; some input-state still arrives as ord's attestation at the door (stated in the axioms, not hidden). Cenotaphs are refused. Custody of the pooled reserves is a <em>guardian federation</em> — threshold-signed and timelocked, the bridge's one named trust boundary, not a claim of "nobody." Watch the pot and every settlement on the rune and profile pages; solvency is public.</p></div>
+      </section>
+
+      <section id="defi">
+        <div class="shead"><span class="n">10b</span><h2>DeFi — books, not a hidden matching engine</h2><span class="sub">Create pool is eternal. Quotes re-derive from reserves. /defi</span></div>
+        <p><a href="/defi">/defi</a> is the terminal. A <strong>₭ / rune</strong> book is unique forever once created. A <strong>rune / rune</strong> book is the same idea with two pot-backed runes. The ledger pot is a no-key escrow, not a wallet you can empty from the outside.</p>
+        <table class="dtable">
+          <tr><th>Act</th><th>Meaning</th></tr>
+          <tr><td><strong>Create pool</strong></td><td>First add writes the pair. Floor: √(x·y) &gt; 100 dead shares. At 1:1 that is 101 of each, plus the 1 ₭ fee. Connect is the same KRAY.act path as Inscribe (prepare → extension popup → submit).</td></tr>
+          <tr><td><strong>Add / remove</strong></td><td>LP shares. Reserves live in the journal; a stranger recomputes them.</td></tr>
+          <tr><td><strong>Swap</strong></td><td>Signed. <code>minAmountOut</code> is in the message. The reducer re-runs the curve from reserves — the server cannot reroute the fill.</td></tr>
+        </table>
+        <p>Open a pair at <code>/pool/IRON</code> or <code>/pool/IRON/GOLD</code>. Tape and LP rank are on that page. No rune on this L2 yet? Bridge one first.</p>
+      </section>
+
+      <section id="land">
+        <div class="shead"><span class="n">10c</span><h2>Land</h2><span class="sub">The cadastre. /land · /land3d</span></div>
+        <p><a href="/land">/land</a> is the map of parcels. <a href="/land3d">/land3d</a> is the same register in the city. A lot is a place in this universe, not a second money. What you see is what the journal can re-derive; empty infrastructure shows as empty (A6).</p>
+      </section>
+
+      <section id="library">
+        <div class="shead"><span class="n">10d</span><h2>Library, rank, dashboard</h2></div>
+        <p><a href="/library">/library</a> is the public shelf — names and works, filters, covers. <a href="/rank">/rank</a> is one standing with three books: ₭, Ӿ <b>Nyx</b> (the hybrid behind the name is Fenyx) and ✦ glow. Tabs + hash (<code>/rank#nyx</code>, <code>/rank#fenyx</code>, <code>/rank#glow</code>), never a second URL. Every cell is a replay of the journal. <a href="/dashboard">/dashboard</a> is the instrument panel for this node: supply, pot, anchors, beats. Reading is free. Acting still needs a key.</p>
+      </section>
+
+      <section id="blackhole">
+        <div class="shead"><span class="n">10e</span><h2>The black hole</h2><span class="sub">Entombed, not deleted. /blackhole</span></div>
+        <p>Send ₭ or a star to <code>KRAY_BLACK_HOLE</code> when you want it gone from every living hand. The units <strong>stay in the conservation sum</strong>. Nothing can leave: no public key encodes to that account, and the reducer refuses every spend from it. An entombed star keeps its inscription, name and children — visible forever, beyond reach forever. Destroying the units instead would break A1: future readers would have to trust a subtraction they cannot check.</p>
+      </section>
+
+      <section id="xmoney">
+        <div class="shead"><span class="n">10f</span><h2>Ӿ — Nyx, the fireborn money</h2><span class="sub">The name is Nyx. Fenyx is the hybrid. Burn once, move forever (within the tank). THE FIREBORN LAW — live on Signet.</span></div>
+        <p>The same shape at every scale. A satoshi dies at a keyless address — night — and <strong>₭</strong> is born, one per sat, nothing from nothing. ₭ dies in fire — an inscription, a name, a law, a chosen burn — night again — and <strong>Nyx</strong> is born, one per ₭, the light that remains when the fee-token is gone. That same night holds the road already paid: the tank. The bird does not pay a second time to fly. A stranger replays the journal and the same night is there, or the node HALTs. A star sent to the hole is not Nyx: it freezes, and glow is the other light. The two lights never mix.</p>
+        <p>The name is <strong>Nyx</strong> — Νύξ, the night after the fire. <strong>Fenyx</strong> is not a second money. It is the hybrid that names both parents in one spelling: φοῖνιξ, the bird that rises from the ashes, and Nyx, the goddess. The Y is hers. The glyph is already <strong>Ӿ</strong>. Every ₭ you burn — inscribing, sealing a law, or the pure burn on your <a href="/profile">profile</a> — mints <strong>Ӿ 1:1</strong> to you in the same act. There is no other mint: every Ӿ in existence is the receipt of real, irreversible sacrifice. Ӿ moves by <code>x-send</code>, a signed act like any other, and its whole book folds into the cascade root (<code>x:</code> in §12) — sealed to Bitcoin with everything else.</p>
+        <p><strong>THE FIREBORN LAW</strong> (live on Signet since seq 245): the same fire that mints your Ӿ also fills a tank of <strong>1,000 feeless x-sends per ₭ burned</strong> — lifetime, non-transferable, never regenerating, and retroactive: every burn in history counted the moment the law woke. The fee is <em>prescribed by the ledger, never chosen</em>: if your tank has allowance and 3.5 seconds have passed since your last free send, the fee <strong>must</strong> be 0 and the tank counts down one; otherwise the eternal 1 ₭ applies — the paid door is the fallback, never removed. A spamming bot pays either way: total journal bytes stay bounded by capital destroyed (feeless sends ≤ 1,000 × ₭ burned), so the fire prices the bytes themselves. The tanks fold into the root (<code>fire:</code> in §12); a forged counter is a different root — every honest node halts.</p>
+        <p class="note">The next stage is live — <strong>the TK-fold lane</strong> (Signet from seq 255). An entire breath of Ӿ transfers folds into ONE succinct proof plus sorted balance diffs on the journal, verified on apply AND on replay: a re-syncing stranger rebuilds every lane balance from bytes alone. The first live breath landed at seq 256. Your <a href="/profile">profile</a> Operate card is the user door: enter · feeless lane-send · exit (journal acts cost 1 ₭). Sealing a breath is any house with 1 ₭: <code>scripts/folder/preflight.mjs</code> then <code>fold-once.mjs</code> — not a browser button, not an official folder. <strong>THE PAID BINDING:</strong> the Groth16 body stays on that paid journal act; the Bitcoin txid of the 49-byte anchor <em>names</em> the cascade that already includes <code>lane:</code> — it does not hold the proof. <strong>THE HEIGHT CEILING:</strong> the v1 height field is uint32 and fails closed past it (~476 years at a 3.5 s seal); the version byte is the designed-in widening, not a v2 today. Design record in the repo: <code>docs/X-FEELESS-DECISION.md</code> · <code>docs/TK-FOLD-DESIGN.md</code>.</p>
+      </section>
+
+      <section id="api">
+        <div class="shead"><span class="n">11</span><h2>API reference</h2><span class="sub">Every write is two steps: the node builds the exact message, your wallet signs it, the node verifies and executes. The node never holds a key.</span></div>
+        <table class="dtable">
+          <tr><th>Endpoint</th><th>What it does</th></tr>
+          <tr><td><code>POST /api/kraynet/prepare</code></td><td>canonical message to sign. <code>action</code> includes <code>transfer</code> · <code>burn</code> (₭ → Ӿ, 1:1) · <code>x-send</code> (fee prescribed by <a href="#xmoney">THE FIREBORN LAW</a>) · <code>lane-enter</code> · <code>lane-exit</code> · <code>fold-seal</code> · <code>sendstar</code> · <code>inscribe</code> (also <code>mintFrom</code>) · <code>name</code> · <code>contract</code> · <code>contract-call</code> · rune and AMM acts the door exposes</td></tr>
+          <tr><td><code>POST /api/kraynet/submit</code></td><td>verifies the signature and executes; sealed in the next fast block</td></tr>
+          <tr><td><code>POST /api/kraynet/lane-prepare</code></td><td>the lane's own domain string + next nonce. Refuses if the lane book cannot cover amount + pending. No journal write.</td></tr>
+          <tr><td><code>POST /api/kraynet/lane-send</code></td><td>admits one feeless Ӿ transfer to the lane mempool. Signature over <code>tkFoldSendMessage</code>. Refuses signed dust (no lane Ӿ). Not consensus until a <code>fold-seal</code></td></tr>
+          <tr><td><code>GET /api/kraynet/lane</code></td><td>the proven lane state (the folder's <code>pre</code>) + the pending pool</td></tr>
+          <tr><td><code>POST /api/kraynet/contract-exam</code></td><td>dry-run a paper. No signature, no journal, no ₭. Mint exam does not need the art URL; seal does.</td></tr>
+          <tr><td><code>GET /api/kraynet/mint-offer</code></td><td>public drop card: edition, price, sold-out. Never the art URL, never the bytes.</td></tr>
+          <tr><td><code>GET /docs/contracts.md</code></td><td>the LLM tutorial — paste into Claude to draft a paper</td></tr>
+          <tr><td><code>POST /api/kraynet/donate</code></td><td>the proof-of-burn mint. Send the confirmed <code>{txid}</code> and the node SPV-proves the burn and mints ₭ to the donor committed in the OP_RETURN — no signature, the destroyed sats are the proof. (The dev <code>{to, sats}</code> shortcut is disabled unless <code>KRAY_TRUSTED_DEV=1</code>.)</td></tr>
+          <tr><td><code>GET /api/kraynet/donation/info</code></td><td>the live donation contract: rate, confirmations, mintable-now — and in burn mode the current <code>selfAnchor</code> (block, root, burn address) your donation will seal</td></tr>
+          <tr><td><code>GET /api/kraynet/account/&lt;addr&gt;</code></td><td>balance, spendable ₭, nonce, the stars you hold</td></tr>
+          <tr><td><code>GET /api/kraynet/profile/&lt;addr&gt;</code></td><td>the whole citizen: stars, written relics, runes and bridge</td></tr>
+          <tr><td><code>GET /api/kraynet/pot</code></td><td>the sacrifice ledger: total sats burned, ₭ minted against them, and the live deficit that caps minting</td></tr>
+          <tr><td><code>GET /api/kraynet/supply</code></td><td>circulating ₭ = emitted − burned, and what backs it</td></tr>
+          <tr><td><code>GET /api/kraynet/receipt/&lt;seq&gt;</code></td><td>a verifiable receipt for one action (see <a href="#receipt">below</a>)</td></tr>
+          <tr><td><code>GET /api/kraynet/paid-binding</code></td><td>THE PAID BINDING certificate — optional <code>?seq=</code> (default: tip). The Bitcoin txid <em>names</em> the cascade; <code>bodyInTxid</code> is always false. <code>ceiling</code> names the v1 height field: uint32, fail-closed. <code>verify</code> is the one sentence. <code>tip.named</code> is always false (preview, not a covering name). Door: <code>200</code> live · <code>400</code> codec refuse · <code>404</code> missing. <code>/tx</code> and <code>/receipt</code> still show the act.</td></tr>
+          <tr><td><code>GET /api/kraynet/audit</code></td><td>is this node still telling the story Bitcoin witnessed?</td></tr>
+          <tr><td><code>GET /api/kraynet/overview</code></td><td>the live network — head, blocks, anchors, supply, tenants, statistics</td></tr>
+          <tr><td><code>GET /api/kraynet/runes</code> · <code>/amm/book</code> · <code>/amm/quote</code></td><td>bridged runes and DeFi books / quotes (quote is not a fill — the signed swap is)</td></tr>
+          <tr><td><code>POST /api/kraynet/speak</code></td><td>verify a hold proof. 0 ₭. Not journaled.</td></tr>
+        </table>
+        <p class="note">Writes require a taproot address of the running network; anything else is refused with <code>401</code> before reaching a handler. Every client is rate-limited; the machine running the node is not throttled against itself.</p>
+      </section>
+
+      <hr class="rule">
+
+      <section id="cascade">
+        <div class="shead"><span class="n">12</span><h2>The cascade root</h2><span class="chip btc">◈ one root on bitcoin</span><span class="sub">How an entire network becomes 32 bytes.</span></div>
+        <p>Every subsystem commits its whole state, and the commitments fold — <strong>domain-labelled, in one fixed order</strong> — into the single number Bitcoin seals. It is a sequential SHA-256 fold with ONE source of truth (<code>cascade-root.ts</code>: the ledger builds it and the censorship verifier re-derives it through the very same function), so proving any one component of an anchored root means revealing all of them and re-hashing — a full opening, nothing hidden:</p>
+        <div class="cascade">cascadeRoot = sha256(&nbsp;"kraynet" ‖ seq<br>
+          &nbsp;&nbsp;‖ <b>emitted|burned</b>&nbsp;&nbsp;&nbsp;<span class="c">— supply, conserved on every event or the node halts</span><br>
+          &nbsp;&nbsp;‖ <b>money:</b>…&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">— every balance and nonce</span><br>
+          &nbsp;&nbsp;‖ <b>stars:</b>…&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">— holdings, inscriptions, baptisms, lineage</span><br>
+          &nbsp;&nbsp;‖ <b>pot:</b>…&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">— the sacrifice pot's own commitment</span><br>
+          &nbsp;&nbsp;‖ <b>seals:</b>… ‖ <b>qcommits:</b>… ‖ <b>qmigrated:</b>…&nbsp;<span class="c">— Bitcoin seals + the quantum book (once they exist)</span><br>
+          &nbsp;&nbsp;‖ <b>runes:</b>… ‖ <b>contracts:</b>… ‖ <b>amm:</b>…&nbsp;<span class="c">— the bridged books and the sealed law</span><br>
+          &nbsp;&nbsp;‖ <b>inclusion:</b>… ‖ <b>window:</b>… ‖ <b>nonce:</b>…&nbsp;<span class="c">— the pen's folds: which acts each window held (live on Signet from seq 155)</span><br>
+          &nbsp;&nbsp;‖ <b>x:</b>…&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">— the Ӿ transferable book (live on Signet from seq 155)</span><br>
+          &nbsp;&nbsp;‖ <b>fire:</b>…&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">— THE FIREBORN LAW's tanks: every feeless allowance, counted (live on Signet from seq 245)</span><br>
+          &nbsp;&nbsp;‖ <b>lane:</b>…&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="c">— the TK-fold lane's balances (live on Signet from seq 255)</span><br>
+        )</div>
+        <p>A component folds only once it exists (axiom A3 — a format anchored on Bitcoin may only ever <em>grow</em>, so every root sealed before a fold existed still re-derives byte-identically). Every node compiles the identical root from its own journal. Nothing the network mints stays outside it.</p>
+      </section>
+
+      <section id="anchor">
+        <div class="shead"><span class="n">13</span><h2>The Bitcoin anchor</h2><span class="chip btc">◈ bitcoin L1</span></div>
+        <p>Fast blocks seal locally at their own pace. The consolidated cascade root — which already carries every fast block since the last seal — is then committed to Bitcoin. The commitment is 49 bytes, and it is human-readable on any Bitcoin explorer whether it rides a donation's own output or a standalone OP_RETURN:</p>
+<pre><code>OP_RETURN  PUSH(49)  <span class="k">"KRAY.NETWORK"</span>  version  blockNumber  cascadeRoot
+           0x31      12 bytes ASCII  1 byte   4 bytes BE  32 bytes</code></pre>
+        <p>There are two shapes the fork-choice weighs <strong>identically</strong> — same Bitcoin proof-of-work, same refutation of a fabricated root. The <strong>default and common one is invisible</strong>: a burn donation pays a taproot output tweaked by the root (pay-to-contract), so the sats you destroy also seal the network, with no OP_RETURN and no separate transaction. The explorer just sees an ordinary taproot spend. The <code>KRAY.NETWORK</code> OP_RETURN above is the same commitment in its readable form, used by the guardian backstop.</p>
+        <h3>Who pays for it</h3>
+        <p>In the common case, <strong>nobody</strong>: every donation carries the anchor for free (<a href="#antifragile">§15b</a>). For a quiet stretch with no donations, any address may register a signed standing offer of sats, and when a seal is due the payer is drawn with an <strong>unbiasable beacon — the triggering Bitcoin block hash itself</strong>, so anyone recomputes the draw and no one can rig it. If the pool is empty the chain keeps running and the seal stays pending: the instant a volunteer appears, one anchor seals everything accumulated. A drawn payer who fails is excluded and the job re-drawn; nothing is ever lost. Only a confirmed anchor with the right root earns the reward — paid from the fee pool, capped at what it holds — so a fake volunteer gains nothing. <em>The privileged operator that used to write these seals is retired</em> (opt-in only).</p>
+      </section>
+
+      <section id="receipt">
+        <div class="shead"><span class="n">14</span><h2>Verifiable receipts</h2><span class="chip btc">◈ sealed proof</span><span class="sub">Proof you can hold — about 3 KB, verified offline, forever.</span></div>
+        <p>Ask the node for a receipt and you hold the <em>event</em> plus THE PAID BINDING <em>name</em>. The merkle walk below is a different object — a v1 <code>KrayReceipt</code> — verified by a pure function. Two objects, never mixed: a refused name does not hide the act.</p>
+        <div class="cascade">your event&nbsp;&nbsp;<b>──merkle proof──▶</b>&nbsp;&nbsp;the block's merkle root<br>
+          block fields&nbsp;<b>──hash───────────▶</b>&nbsp;&nbsp;the block's own id<br>
+          block id&nbsp;&nbsp;&nbsp;&nbsp;<b>──prevHash links─▶</b>&nbsp;&nbsp;the anchored chain tip<br>
+          tip + roots&nbsp;&nbsp;<b>─────────────────▶</b>&nbsp;&nbsp;the cascade root<br>
+          cascade root&nbsp;<b>─────────────────▶</b>&nbsp;&nbsp;the OP_RETURN Bitcoin sealed</div>
+        <p>The verifier is a <strong>pure function</strong> — no node, no network, no clock. It recomputes the event's hash from the event's own body first, so editing any field (an amount, a recipient, a timestamp) collapses the proof. Pass it the root you read from Bitcoin and the last link closes.</p>
+<pre><code>GET /api/kraynet/receipt/&lt;seq&gt;      <span class="c">→ the event + THE PAID BINDING name (200 even if the certificate is refused)</span>
+GET /api/kraynet/paid-binding?seq=N  <span class="c">→ 200 live · 400 codec refuse · 404 missing (txid names the cascade; it does not hold the body; ceiling is the v1 u32 height, fail-closed)</span>
+verifyReceipt(v1Bundle, onChainRoot)  <span class="c">→ the merkle walk — a v1 KrayReceipt, not the HTTP receipt shape</span></code></pre>
+        <p class="note">This is the thing a high-throughput chain structurally cannot hand you: there, verifying one transaction means trusting an RPC provider or running a datacenter node. Here, mathematics answers.</p>
+      </section>
+
+      <section id="payer">
+        <div class="shead"><span class="n">14b</span><h2>Who pays the seal — and what they can never do</h2><span class="sub">In the burn model, usually nobody has to: every donation carries the anchor for free. Whoever does pay a standalone seal buys nothing but the postage.</span></div>
+        <p><strong>First, the default:</strong> a burn donation seals the current network root <em>inside its own output</em> (pay-to-contract) — anchoring rides the sats the donor already sacrifices, costs nothing extra, and depends on no one. While donations flow, the network anchors itself.</p>
+        <p>Standalone OP_RETURN seals remain open to anyone as a backstop. Any address may register a <strong>standing offer of satoshis</strong> from its profile — a signed declaration, so nobody can enrol another address or inflate another's offer. When a seal is due, the payer is <strong>drawn from the triggering Bitcoin block hash</strong>: an unbiasable beacon that costs real proof-of-work to influence, through a pure function anyone recomputes. Offering more never buys influence — only a fair chance, and the ₭ reward that follows a confirmed anchor, proportional to the sats actually spent.</p>
+        <h3>What a payer cannot do</h3>
+        <ul>
+          <li><strong>They cannot choose what is sealed.</strong> The cascade root is each node's own computation from its own journal. The payer never supplies it; the transaction is built around the root the network already agreed on.</li>
+          <li><strong>A wrong OP_RETURN is not an anchor.</strong> Garbage, a lookalike tag, or another version does not decode at all; a well-formed commitment carrying a fabricated root is compared against the root every node computed and simply does not match. It seals nothing and earns nothing — money spent for zero.</li>
+          <li><strong>They cannot claim a reward they did not earn.</strong> Zero or negative sats, a fabricated txid, a root that is not the pending one, or a second claim on a settled job are all refused.</li>
+          <li><strong>They cannot hurt the network by refusing.</strong> A drawn payer who does not pay is excluded and the job re-drawn. The seal waits, the chain keeps beating, and the backlog stays O(1) — one anchor still seals everything accumulated.</li>
+        </ul>
+        <div class="card btc tick"><div class="label">The rule in one line</div><p>Money pays the postage; it never writes the letter. Proven adversarially in <code>cd apps/kray-core &amp;&amp; npm run test:anchor-payer</code>.</p></div>
+        <h3>The auditor's rule: which anchor is canonical</h3>
+        <p>Bitcoin accepts an OP_RETURN from anyone, so a stranger may publish a well-formed <code>KRAY.NETWORK</code> commitment carrying a fabricated root. That is not a weakness to be patched away — it is why verification never trusts a transaction handed to you. Two rules settle it, and both are things you check yourself:</p>
+        <ol>
+          <li><strong>Recompute, never accept.</strong> A root is only meaningful if <em>your own replay</em> of the journal produces it. A fabricated root cannot be reproduced from the real history, and a fabricated history cannot reproduce the roots already anchored before it.</li>
+          <li><strong>Earliest confirmed wins.</strong> The canonical anchor for a height is the first one confirmed on Bitcoin whose root your replay reproduces. Nobody can back-date a Bitcoin confirmation, so a story invented later can never displace one Bitcoin already witnessed.</li>
+        </ol>
+        <p>This is the same discipline that makes the node <a href="#immutable">halt on a rewritten history</a>: the promises already witnessed are fixed points, and everything must agree with them.</p>
+      </section>
+
+      <section id="immutable">
+        <div class="shead"><span class="n">15</span><h2>Why history cannot be rewritten</h2><span class="chip btc">◈ bitcoin-witnessed</span></div>
+        <p>Tamper-evidence alone is not enough — a node whose operator rewrote history would happily serve the new story. So the node is held to its own promises.</p>
+        <p>Every anchor is recorded durably and hash-chained: <em>at block H, the history was exactly this</em>. A block's hash is a function of <strong>every event before it</strong>. So the check is exact and costs nothing: does block H still hash to the chain tip that went into the root Bitcoin sealed? If not, someone edited, inserted, removed or reordered the past — and the node <strong>halts at boot</strong> rather than serve a history Bitcoin contradicts. Anyone can ask for the verdict at <code>GET /api/kraynet/audit</code>.</p>
+        <p>Deleting that record proves nothing: the roots are on Bitcoin, where nobody can edit them, and a stranger replaying the database recomputes the same comparison.</p>
+      </section>
+
+      <hr class="rule">
+
+      <section id="antifragile">
+        <div class="shead"><span class="n">15b</span><h2>Antifragile, and without an owner</h2><span class="chip btc">◈ no operator, no premine, no permission</span><span class="sub">What no other Bitcoin-anchored L2 puts together: the donation IS the anchor, the network re-derives itself, and it survives the death of any node — all provable by math, not by our word.</span></div>
+        <p>Every Bitcoin L2 has to answer one question honestly: <strong>who can betray you?</strong> In a federated peg (Liquid, the FROST family) it is the committee holding a shared vault. In a statechain (Spark) it is a promise that an old key was deleted. In an indexer-L2 the truth is whatever the indexer says. On KRAY's <strong>signed ledger</strong> — every star, ₭, name and transfer — the answer is <strong>nobody</strong>: signature ‖ Merkle proof ‖ Bitcoin anchor, re-derivable by a stranger. Two frontiers are named, not hidden: the <strong>bridged-rune reserves</strong> sit in a shared pot a guardian federation custodies, and <strong>ordering</strong> is a single writer today — but the pen now writes under the <strong>activated inclusion law</strong> (Article XIV, live on Signet from seq 155): every seal folds <em>which acts its window held at which Bitcoin height</em> into the anchored root, so silently omitting a citizen's act leaves a scar any follower can prove from Bitcoin bytes. Here is how each layer earns the word where it can, and names the boundary where it cannot.</p>
+
+        <h3>The anchor has no owner</h3>
+        <p>Committing KRAY's state to Bitcoin used to need one privileged writer paying an <code>OP_RETURN</code>. That writer is now <strong>retired</strong>. Instead, <strong>every burn donation IS the anchor</strong>: the output that destroys your sats also seals the network's root, and the fork-choice weighs it with the exact Bitcoin proof-of-work of an operator seal — a fabricated one weighs nothing. In a quiet stretch, any guardian may anchor and be paid from the fee pool by an unbiasable draw off a Bitcoin block hash. And the rate of new ₭ is metered by Bitcoin's own heartbeat: one confirmed seal reopens exactly one mint, once per transaction, forever. <em>Removing the operator removed a party, never a check</em> — every anchor is still SPV-proven and replay-verified. This is the ordinals pattern (anyone commits their own bytes) applied to L2 anchoring; we know of no other L2 that does it.</p>
+
+        <h3>The whole network re-derives itself — the second node</h3>
+        <p>Because the one root on Bitcoin is a <strong>pure function of a single downloadable file</strong> (the journal), anyone can run the second node and re-derive <em>everything</em> — every ₭ and Ӿ balance, FIREBORN tank, TK-fold proof, star, rune, the pot, the consumed seals — through the same consensus reducer, trusting this node for nothing. It then re-proves every anchor and every donation from its <strong>own</strong> bitcoind: a lying server cannot invent a satoshi Bitcoin never saw burned, and a single tampered byte refuses the whole boot. The easy door is <a href="#node">§16</a> (<code>bash scripts/follow/signet.sh</code> — Node.js only). Every follower is a backup that can prove it is the real history, to anyone, with no operator alive.</p>
+
+        <h3>It survives the death of any node</h3>
+        <p>A read-only <strong>mirror</strong> serves only the last snapshot that survived every proof — kill the writer and it keeps answering, marked stale, never one unverified byte. And succession is proven, not promised: a new writer boots from a follower's verified copy, replays the inherited history to the <strong>byte-exact root</strong>, seals it onto Bitcoin as its first act, and the chain lives on. The network outlives the machine it was born on.</p>
+
+        <h3>Proven by breaking it on purpose</h3>
+        <p>Antifragile is not "it usually works." We murdered the node with <code>kill -9</code> in the middle of a 500-request storm — the mathematics survived: nothing half-applied, nothing minted twice, every sacrifice still redeemable from Bitcoin. A thousand simultaneous requests with hostile duplicates minted each donation exactly once. A real rune crossed in and out through the shared bakery pot, cenotaph-refused, credited-once. All of it re-runs as <code>cd apps/kray-core &amp;&amp; npm test</code> plus <code>npm run test:boot</code> — the hermetic suite and the isolation proofs — so nothing we built can ever silently regress.</p>
+
+        <table class="dtable">
+          <tr><th>What can betray you</th><th>Federated peg</th><th>Statechain</th><th>KRAY.NETWORK</th></tr>
+          <tr><td>Who custodies your value</td><td>a committee's shared vault</td><td>you + operators</td><td><strong>you alone on the signed ledger; a disclosed guardian federation for bridged-rune reserves</strong></td></tr>
+          <tr><td>Who writes the anchor</td><td>a privileged operator</td><td>an operator</td><td><strong>your own donation — no operator</strong></td></tr>
+          <tr><td>Can you re-derive the whole state</td><td>trust the federation</td><td>trust the operator</td><td><strong>yes, from one file, trusting no one</strong></td></tr>
+          <tr><td>Does it survive its writer dying</td><td>federation continues</td><td>—</td><td><strong>yes — mirror + proven succession</strong></td></tr>
+          <tr><td>Token backing</td><td>own token / peg</td><td>own token</td><td><strong>1 ₭ = 1 satoshi truly burned, no premine</strong></td></tr>
+        </table>
+
+        <div class="card tick"><div class="label">The honest frontier</div><p>What KRAY is <em>ahead</em> on is the proof model — in places genuinely new. What it has <em>yet</em> to earn is mileage: external audit, mainnet, and years at value. The math is the hard part, and it is done; the trust is built on top of it, in the open. We do not ask you to believe that — <a href="/verify">check it yourself</a>.</p></div>
+      </section>
+
+      <hr class="rule">
+
+      <section id="validate">
+        <div class="shead"><span class="n">15c</span><h2>Be a guardian — pick a door</h2><span class="chip btc">◈ the paradigm, broken</span><span class="sub">Bitcoin and Ordinals make validating hard. KRAY made the first door a browser tab.</span></div>
+        <p>On Bitcoin you download hundreds of gigabytes and wait days. On Ordinals you add indexers on top. That was the tax for being a guardian. <strong>KRAY exists so that tax is gone.</strong> The heavy consensus lives in the node. Your job, if you want the easy door, is one SHA-256 loop and a signature that cannot move money. Same KrayWallet you already connected. Two roles — never two accounts. Mining is optional on a node; a node does not mine to exist.</p>
+        <table class="dtable">
+          <tr><th>To help the network you must…</th><th>Bitcoin / Ordinals</th><th>KRAY.NETWORK</th></tr>
+          <tr><td>Download the chain</td><td>hundreds of GB, days of sync</td><td><strong>nothing — 0 bytes</strong> for the light door</td></tr>
+          <tr><td>Run infrastructure</td><td>a full node + indexers</td><td><strong>a browser tab</strong> — or a 10-minute node if you want the database</td></tr>
+          <tr><td>Special hardware</td><td>often (ASICs)</td><td><strong>none — any device</strong></td></tr>
+          <tr><td>Time to first proven work</td><td>hours to days</td><td><strong>seconds</strong></td></tr>
+        </table>
+        <h3>How do I choose?</h3>
+        <div class="pick">
+          <div class="card tick">
+            <div class="label">Door 1 · start here</div>
+            <h3>Light guardian — this network, this tab</h3>
+            <p>You want to help and earn the fee pool <em>now</em>. No install beyond <a href="https://www.kraywallet.com/install">KrayWallet</a>. You are talking to <em>this</em> explorer — you join this chain.</p>
+            <ol>
+              <li>Install KrayWallet (Chrome). On this explorer, turn DevNet on if the node is regtest.</li>
+              <li>Open <a href="/validate"><strong>/validate</strong></a>. Connect. Leave <strong>Hold the library</strong> on for up to 3× (uncheck on a small data plan for 1×).</li>
+              <li>Press start. The tab downloads public star files (hash-checked) and asks the wallet for the usual powerless <code>signMessage</code> (<code>kray.beat.submit.v1</code>). The key never leaves KrayWallet. Never paste a private key into the node.</li>
+            </ol>
+          </div>
+          <div class="card">
+            <div class="label">Door 2 · when you want the database</div>
+            <h3>Full node — your computer, ~10 minutes</h3>
+            <p>You want the journal and the star bytes on <em>your</em> disk: to serve others, to verify without asking, or to keep a copy if this explorer goes dark. A phone cannot do this.</p>
+            <ol>
+              <li>Need Node.js 24+ (<a href="https://nodejs.org">nodejs.org</a>). Bitcoin Core is optional — without it the ledger still runs; anchors say <em>connecting</em>.</li>
+              <li>Follow the copy-paste in <a href="#node">§16 How to run a node</a>.</li>
+              <li>Point KrayWallet at that machine (<code>localhost:4477</code> on the same computer, or the node's URL). Then you can also mine on top — still optional.</li>
+            </ol>
+          </div>
+        </div>
+        <h3 id="two-starts">The two Start buttons</h3>
+        <div class="card btc tick"><div class="label">The idea, in one breath</div><p><strong>On Bitcoin, hash writes the next block. Here, hash does not buy the pen.</strong> You prove one sentence: “I was here.” A phone and a farm say the same words. Extra names do not buy a second share. The book is replayed in every home that follows. That is how the crowd takes the power back.</p></div>
+        <p>Two buttons. Same job. Different strength. Same wallet = <strong>one</strong> guardian — never two pays. The signature cannot move money. The ₭ you earn is a share of the <strong>1 ₭ fee</strong> every real act already paid. Nobody prints extra.</p>
+        <table class="dtable">
+          <tr><th></th><th>Wallet · Start mining</th><th>/validate · the strong door</th></tr>
+          <tr><td>In one line</td><td><strong>1× · I was here</strong></td><td><strong>Up to 3× · I hold the stars</strong></td></tr>
+          <tr><td>What it is</td><td>The pocket watch in the extension.</td><td>This tab holds the public library — the crowd, not a warehouse.</td></tr>
+          <tr><td>When it runs</td><td>While the popup is open (Start is remembered).</td><td>While the tab stays open. Leave <strong>Hold the library</strong> on.</td></tr>
+          <tr><td>Your key</td><td colspan="2">Never leaves KrayWallet. Open <a href="/validate">/validate</a> for the strong door.</td></tr>
+        </table>
+        <p>A full node on your disk is a third thing: it <em>judges</em> the book. It does not earn until you also mine.</p>
+        <div class="card tick"><div class="label">Honest, so you can trust it</div><p>Both buttons are live and send the same kind of beat. They work. Two limits we do not hide: if the fee pool is empty, a seal has nothing to split yet (every real act fills it). And if <em>everyone</em> who settled held the same library score, 3× and 1× pay the same that round — the bonus appears when the field is mixed. Signet ₭ is the public lab. Mainnet is not ignited.</p></div>
+        <div class="card tick"><div class="label">The extra — the library on the beat</div><p>3× is the <strong>Hold the library</strong> box on <a href="/validate">/validate</a>: the tab holds the same public star bytes follow already pulls, then attaches a hash proof to each beat. Custody only ever <em>adds</em>. The spending key stays in the wallet. Extension “Start mining” without that box is still 1×. Optional always-on CLI uses a <em>dedicated</em> miner key — never the daily wallet hex. Still talks <em>to</em> a node. It is not the writer.</p></div>
+        <h3>What the light door actually does</h3>
+        <p>A beat is <code>H = SHA-256("kray-core.beat.v1" ‖ beacon ‖ your address ‖ block ‖ nonce)</code> with at least 8 leading zero bits. The Bitcoin block hash is the <strong>beacon</strong> (you cannot mine ahead), the address is bound into the hash (work cannot be sold), <code>block</code> is the <strong>live KRAY tip</strong> (not a free index), and the submit signature is <code>kray.beat.submit.v1</code> — the reducer can never read it as a transfer. Payout is <strong>linear in proven work</strong>, Bitcoin's own hashrate-share rule: a thousand fake names earn exactly what one does. Reward: 1× presence, up to 3× when the beat carries a verified library proof. ADR-3 inclusion is <strong>LIVE on Signet</strong> (Article XIV, ratified at seq 155): every seal commits its window, and a signed act carrying an opt-in deadline can prove <strong>CENSORED</strong> from Bitcoin bytes alone. The writer still orders the queue; what it can no longer do is omit silently.</p>
+        <p>A phone can take door 1 when Chrome + KrayWallet can reach a node (Android). An iPhone cannot run the extension today. Someone else’s <code>localhost</code> is not yours — the wallet talks to a node on <em>that</em> device, or to a public URL.</p>
+      </section>
+
+      <hr class="rule">
+
+      <section id="node">
+        <div class="shead"><span class="n">16</span><h2>How to run a node</h2><span class="sub">Door 2, written as a recipe. One clone, one command, about ten minutes. Not days of chain sync.</span></div>
+        <p>This is not mining. The wallet and <a href="/validate">/validate</a> are always <em>clients</em>. A node is the process that holds the journal (the truth) and the atlas (the bytes of every star), accepts signed acts, and anchors to Bitcoin. You only need this door if you want that database on your own disk.</p>
+        <h3>A · Keep a verified copy of <em>this</em> network</h3>
+        <p>Use this when you already see an explorer in the browser and you want the same history on your machine — to judge it, not to invent a new genesis. <strong>Code from the official tree. History from this explorer.</strong> Update later with <code>git pull</code>, or on <a href="/validate">/validate</a> press <strong>Update my node folder</strong> (writes source only — journal, follower data and keys stay; sha256 fail-closed).</p>
+<pre><code>git clone https://github.com/tomkray/kray-node.git
+cd kray-node
+node scripts/follow/preflight.mjs --universe signet --role follow
+bash scripts/follow/signet.sh        <span class="c"># Windows: scripts\follow\signet.cmd</span></code></pre>
+        <p>That is the whole install. Node.js 24+ only — no database, no keys, no Docker, no Rust, no SP1. The follower replays the journal through the same reducer: every signature, every ₭ and Ӿ balance, every FIREBORN tank, every Groth16 <code>fold-seal</code> (a small WASM already in the clone). A tampered journal is refused. Your <code>/api/kraynet/head</code> <code>cascadeRoot</code> must match the writer's — same bytes, same money. If the writer dies, this copy still holds the byte-exact root. It never holds the pot owner key. Copy-paste walkthrough: the repo's <code>docs/RUN-NODE-TUTORIAL.md</code>.</p>
+        <p>Star contents land next to that journal, content-addressed, after the follower hashes each file against the journal (junk is refused):</p>
+        <table class="dtable">
+          <tr><th>Role</th><th>Journal</th><th>Star bytes (atlas)</th></tr>
+          <tr><td>Follower (this recipe)</td><td><code>follower/node-&lt;net&gt;/</code> or the path in <code>follower/CURRENT</code> when you <code>--watch</code></td><td><code>…/content/&lt;sha256&gt;</code></td></tr>
+          <tr><td>Writer (<code>server.mjs</code>)</td><td><code>$KRAY_DATA/</code> (default <code>apps/kray-net/data/</code>)</td><td><code>$KRAY_DATA/content/&lt;sha256&gt;</code></td></tr>
+          <tr><td>Master guardian</td><td>none — talks to a node</td><td><code>./guardian-atlas/&lt;sha256&gt;</code></td></tr>
+        </table>
+        <h3>B · Start a node on your computer</h3>
+        <p>Use this to run the writer yourself. On a fresh machine this is a <strong>new</strong> chain unless you followed in A first. Install <a href="https://nodejs.org">Node.js 24+</a>. Bitcoin Core is optional.</p>
+<pre><code>git clone https://github.com/tomkray/kray-node.git KRAY-NODE
+cd KRAY-NODE
+node apps/kray-net/server.mjs      <span class="c"># → http://localhost:4477 — empty local journal</span></code></pre>
+        <p>Then: open that URL, install KrayWallet, turn DevNet on, open the KRAYNET tab (it talks to <code>localhost:4477</code> on this computer). You can mine from <a href="/validate">/validate</a> on top — optional. The database lives in a gitignored data folder; it never leaves the machine.</p>
+        <h3>C · Easy 3× is still the tab — not a pasted wallet key</h3>
+        <p>Open <a href="/validate">/validate</a>, connect KrayWallet, leave <strong>Hold the library</strong> on, Start. That is the product door. The key never leaves the wallet.</p>
+        <p>Optional always-on box (a <strong>dedicated</strong> miner identity — never export KrayWallet):</p>
+<pre><code>KRAY_MINER_SK=&lt;a-new-64-hex-not-your-wallet&gt; node scripts/guardian.mjs <span class="k" data-origin>http://localhost:4477</span></code></pre>
+        <p>It measures cores, RAM and free disk and starts light (1×) or with an atlas dir (up to 3×). <code>openssl rand -hex 32</code> makes that dedicated identity. Unset = junk demo, not your wallet. <strong>Never</strong> paste the daily wallet hex into the node, <code>.env</code>, or this variable.</p>
+        <h3>The longer recipe (proofs + follow)</h3>
+<pre><code><span class="c"># from the repo root — every line below assumes that</span>
+cd apps/kray-core &amp;&amp; npm ci &amp;&amp; npm test &amp;&amp; cd ../..
+npm run test:boot
+node apps/kray-net/server.mjs        <span class="c"># → http://localhost:4477</span>
+
+<span class="c"># public Signet history — follow the live writer. Do not invent a second one.</span>
+<span class="c"># server.mjs reads KRAY_NET (never KRAY_ANCHOR_NET).</span>
+node scripts/follow/kray-follow.mjs --from https://signet.kray.network --dir ./follower</code></pre>
+        <p>Everything degrades honestly when a piece is missing: no Bitcoin node and anchors show <em>connecting</em> while the chain keeps beating; no mainnet mirror and the passport panels say <em>offline</em> instead of inventing data.</p>
+      </section>
+
+      <section id="capacity">
+        <div class="shead"><span class="n">17</span><h2>Storage over twenty years</h2><span class="sub">Measured on a live node, not estimated. Full model in <code>docs/CAPACITY.md</code>.</span></div>
+        <table class="dtable">
+          <tr><th>Scenario</th><th>Nodes</th><th>Actions/day</th><th>Chain at year 20</th></tr>
+          <tr><td>Conservative</td><td>100</td><td>5,000</td><td><strong>82 GB</strong></td></tr>
+          <tr><td>Expected</td><td>1,000</td><td>100,000</td><td><strong>489 GB</strong></td></tr>
+          <tr><td>Mass adoption</td><td>10,000</td><td>2,000,000</td><td><strong>7.1 TB</strong></td></tr>
+        </table>
+        <p>For scale, Bitcoin's own chain is roughly 650 GB after sixteen years. In the expected scenario a KRAY node carries <em>less than a Bitcoin full node</em>.</p>
+        <p>Content is separable, and this is the structural advantage over inscriptions embedded in blocks: the chain seals a 32-byte commitment while the bytes live in a content-addressed store beside it. <strong>A node can verify the entire network holding zero content</strong> — the honest floor of participation, roughly 150–400 GB over twenty years. Each node holds whatever content it chooses; archivists hold everything and can prove they do.</p>
+      </section>
+
+      <section id="security">
+        <div class="shead"><span class="n">18</span><h2>Security model</h2></div>
+        <table class="dtable">
+          <tr><th>Vector</th><th>Answer</th></tr>
+          <tr><td>Forged or tampered action</td><td>BIP-340 verification against the address that owns it; every field is signed</td></tr>
+          <tr><td>Double spend</td><td>Per-account nonces; parallel floods of identical spends resolve to exactly one</td></tr>
+          <tr><td>Inflation</td><td>Every mint is proof-of-burn — backed one-for-one by satoshis provably destroyed at a keyless address, capped at the live deficit; conservation (circulating == emitted − burned) is asserted on every apply and replay or the node halts. Sats that stay spendable can re-mint — which is exactly why only destroyed sats back ₭</td></tr>
+          <tr><td>Stealing a relic</td><td>Ownership checked at the gate and in the reducer; a relic never moves as money. A mint parent is the exception: the sealed IR blesses the child.</td></tr>
+          <tr><td>Duplicate mint / same bytes</td><td>A5 at the door (409) and in the reducer before any burn or take</td></tr>
+          <tr><td>A lying contract</td><td>Total IR; pays only its own pot; exam before seal; replay re-runs every call</td></tr>
+          <tr><td>Name squatting by lookalikes</td><td>The universal-keyboard law; invisible characters refused outright</td></tr>
+          <tr><td>Malicious inscription</td><td>Opaque-origin sandbox pinned to the serving node — no session access, no exfiltration</td></tr>
+          <tr><td>Rewriting history</td><td>Anchored promises re-checked at boot; the node halts rather than contradict Bitcoin</td></tr>
+          <tr><td>Unknown future event</td><td>Freeze, never fork (A3) — the chain can never split</td></tr>
+        </table>
+        <div class="card tick" style="margin:var(--s5) 0"><div class="label">The honest ceiling — what "secure" can and cannot mean</div>
+          <p>No system that touches real money is <em>impenetrable</em>, and anyone who swears otherwise is selling something. What KRAY.NETWORK can swear, with proof, is this: it moves theft out of the category <em>"possible if someone is dishonest"</em> into <em>"requires breaking Bitcoin or your own key"</em> — the theoretical ceiling of what anything built on Bitcoin can reach. KRAY.NETWORK is not inviolable; it is exactly as violable as Bitcoin itself and your own self-custody, and not one millimetre more.</p></div>
+        <h3>What is honestly still open</h3>
+        <p>State is ordered by a single writer today — since seq 155 under the <strong>activated inclusion law</strong>, so a silent omission leaves a provable CENSORED scar — but the network no longer depends on it: any number of second nodes re-derive the whole root and re-prove every anchor from their own bitcoind (<a href="#antifragile">§15b</a>), a read-only mirror keeps serving the last verified truth if the writer dies, and succession to a new writer is proven to the byte-exact root. What is deliberately deferred — pending an external audit and a written design — is <em>live multi-writer</em> ordering, where two writers accept events at once; concurrent-write reordering is a full consensus problem we will not open casually. Until then the guarantee is <em>this history is intact, re-derivable by anyone, and matches Bitcoin</em>. The other named boundaries — <code>ord</code> as the rune/ordinal oracle, the yet-to-come external audit, no mainnet at value — are listed in full in <code>docs/AUDIT-DOSSIER.md</code>, because a system that hides its edges cannot be trusted at its center.</p>
+      </section>
+
+      <section id="verify">
+        <div class="shead"><span class="n">19</span><h2>Verify everything yourself</h2><span class="sub">Nothing above asks for trust. Every claim has a command.</span></div>
+<pre><code>cd apps/kray-core &amp;&amp; npm ci
+npm test                         <span class="c"># the full consensus &amp; unit suite (~861,000 checks)</span>
+npm run test:concurrency         <span class="c"># thousands in the same instant, one total order</span>
+npm run test:spv                 <span class="c"># SPV proofs re-derived from raw Bitcoin bytes</span>
+npm run test:anchor-payer        <span class="c"># the seal payer buys the postage, never the letter</span>
+node src/test/mint-cap.test.ts   <span class="c"># the 10,000 cap, every injection vector</span>
+node src/test/window-law.test.ts <span class="c"># one confirmed seal → one mint, once per txid, ever</span>
+cd ../.. &amp;&amp; npm run test:boot     <span class="c"># Signet ≠ mainnet isolation + official zip</span></code></pre>
+        <p>Then read the anchor yourself: take any anchor transaction, extract the 98-hex OP_RETURN payload, decode it, replay the journal to that height, recompute the cascade root, and require byte equality. Bitcoin confirmations on that one transaction are confirmations of the <strong>whole</strong> KRAY state.</p>
+        <p>And prove the burn with your own eyes: open <a href="/burn"><strong>/burn</strong></a> — your browser recomputes the burn address from Bitcoin's generator point upward (SHA-256 of G → the BIP-341 NUMS key → the tweak that seals the root → the address), with zero trust in any server. Or from the repo: <code>node apps/kray-net/burn-verify.mjs &lt;block&gt; &lt;root&gt; [network]</code>. If it matches the address a donation paid, those sats are destroyed forever at a key that exists for nobody.</p>
+        <p>Or verify the whole network at <a href="/verify"><strong>/verify — Verify KRAY Yourself</strong></a>: three proofs your browser runs against independent sources — the keyless burn key from Bitcoin's own math, a donation confirmed <strong>directly against Bitcoin</strong> (mempool.space, not this node), and the entire journal rebuilt as a SHA-256 chain from the raw bytes. The complete, zero-trust verification is the second node: <code>node scripts/kray-follow.mjs --from &lt;this node&gt;</code>.</p>
+        <div class="card tick"><div class="label">From origin, with honor</div><p>Nobody has to believe us. Everybody can check.</p></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  var links=[].slice.call(document.querySelectorAll('nav.side a'));
+  var secs=links.map(function(a){return document.querySelector(a.getAttribute('href'));}).filter(Boolean);
+  function mark(){
+    var y=window.scrollY+120, cur=0;
+    for(var i=0;i<secs.length;i++){ if(secs[i].offsetTop<=y) cur=i; }
+    links.forEach(function(a,i){ a.classList.toggle('on', i===cur); });
+  }
+  window.addEventListener('scroll', mark, {passive:true}); mark();
+  var origin = (location.origin || '').replace(/\/+$/, '') || 'http://localhost:4477';
+  document.querySelectorAll('[data-origin]').forEach(function (el) { el.textContent = origin; });
+  fetch('/api/kraynet/donation/info').then(function(r){ return r.json(); }).then(function(d){
+    if(!d) return;
+    var rateEl=document.querySelector('[data-size-rate]');
+    var capEl=document.querySelector('[data-size-cap]');
+    if(rateEl && window.KRAY && KRAY.sizeLawRate) rateEl.textContent=KRAY.sizeLawRate(d.bytesPerKrayBurn);
+    else if(rateEl && d.bytesPerKrayBurn) rateEl.textContent='1 ₭ / '+Number(d.bytesPerKrayBurn).toLocaleString()+' bytes';
+    if(capEl && window.KRAY && KRAY.formatBytes && d.contentMax) capEl.textContent=KRAY.formatBytes(d.contentMax);
+    else if(capEl && d.contentMax) capEl.textContent=Number(d.contentMax).toLocaleString()+' bytes';
+  }).catch(function(){});
+})();
+</script>
+</body>
+</html>

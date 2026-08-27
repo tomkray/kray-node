@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Donate → Mint ₭</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+/* donate → mint — the only page-specific bits: the 3 steps, the pot gauge, the
+   sats field, the signed output. Everything else comes from /kray.css. */
+.vsteps{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s3);margin-bottom:var(--s5)}
+.vstep{border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);background:var(--surface)}
+.vstep b{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin-bottom:var(--s2)}
+.vstep span{font-size:12.5px;line-height:1.55;color:var(--ink-3)}
+.vstep.done{border-color:var(--line-2)}
+.vstep.done b{color:var(--ink)}
+/* the pot gauge — how much the network still wants (deficit = mintable now) */
+.pot{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s6);margin-bottom:var(--s5);padding:var(--s4);
+  border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);font-family:var(--mono);font-size:12.5px}
+.pot .kv{display:flex;flex-direction:column;gap:2px}
+.pot .kv b{font-size:16px;color:var(--ink);font-weight:600;letter-spacing:.02em}
+.pot .kv span{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4)}
+.pot .kv b.btc{color:var(--btc)}
+.satsrow{display:flex;gap:var(--s3);align-items:stretch;margin-bottom:var(--s3)}
+.satsrow input{flex:1;font-family:var(--mono);font-size:16px;padding:var(--s3) var(--s4);
+  border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);color:var(--ink)}
+.satsrow input:focus{outline:none;border-color:var(--btc)}
+.mintline{font-family:var(--mono);font-size:12.5px;color:var(--ink-3);margin-bottom:var(--s4)}
+.mintline b{color:var(--ink)}
+.iout{font-family:var(--mono);font-size:12.5px;line-height:1.6;color:var(--ink-2);margin-top:var(--s4);
+  padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r1);white-space:pre-wrap;word-break:break-word}
+.iout:empty{display:none}
+.iout.ok{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent);background:color-mix(in srgb,var(--good) 8%,transparent)}
+.iout.err{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,transparent);background:color-mix(in srgb,var(--crit) 8%,transparent)}
+.iout a{color:var(--btc)}
+@media(max-width:640px){.vsteps{grid-template-columns:1fr}}
+</style>
+</head>
+<body data-page="mine">
+<div class="wrap-narrow">
+
+  <section class="hero" style="border-top:0;padding-bottom:var(--s6)">
+    <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; PROOF-OF-DONATION</div>
+    <h1 style="font-size:clamp(38px,7vw,72px)">Donate → mint ₭</h1>
+    <p class="lede">There is no premine, no emission curve. The <b>only</b> way ₭ is born is by
+      <b>proof-of-burn</b>: sacrifice real satoshis — <b>destroyed forever at an address that belongs to nobody</b>
+      (prove it yourself at <a href="/burn">/burn</a>) — and mint <b>1&nbsp;₭ per satoshi</b>, capped at the live
+      deficit. The same donation output seals the whole network onto Bitcoin: <b>your donation IS the anchor</b>.
+      Self-regulating and atemporal: no clock, no schedule, no custodian.</p>
+  </section>
+
+  <section style="border-top:0;padding-top:0">
+    <div class="card tick" id="mintpanel">
+      <div class="vsteps">
+        <div class="vstep" data-vs="1"><b>1 · KrayWallet</b><span>Connect — your taproot address is where the freshly-minted ₭ lands. Same key as Bitcoin.</span></div>
+        <div class="vstep" data-vs="2"><b>2 · Sacrifice sats</b><span>Choose how many satoshis to burn. They are destroyed forever at a keyless address that carries the network's root — the sacrifice and the anchor in one output.</span></div>
+        <div class="vstep" data-vs="3"><b>3 · Mint</b><span>1 ₭ per satoshi, capped at the current deficit (anti-whale). The peg never bends: total minted ≤ total ever donated.</span></div>
+      </div>
+
+      <div class="pot" id="pot" hidden>
+        <div class="kv"><b class="btc" id="p-deficit">—</b><span>mintable now (deficit)</span></div>
+        <div class="kv"><b id="p-donated">—</b><span>sats donated</span></div>
+        <div class="kv"><b id="p-minted">—</b><span>₭ minted</span></div>
+        <div class="kv"><b id="p-target">—</b><span>pot target</span></div>
+      </div>
+
+      <div class="satsrow">
+        <input id="sats" type="number" min="1" step="1" placeholder="satoshis to sacrifice — e.g. 100000" inputmode="numeric">
+      </div>
+      <div class="mintline" id="mintline">connect your KrayWallet to mint ₭ to your address.</div>
+      <button class="btn primary block" id="m-go"><svg width="16" height="16"><use href="#g-anchor"/></svg> <span id="m-golabel">Connect KrayWallet first</span></button>
+      <div class="iout" id="m-out"></div>
+      <p class="dim mono" style="font-size:11px;margin-top:var(--s4);letter-spacing:.04em">This node mints only from a real Bitcoin burn (SPV). Connect KrayWallet on <b>this network</b> (Signet → <code>tb1…</code>), fund it, then donate. The wallet signs; the node broadcasts and mints after confirmations.</p>
+    </div>
+  </section>
+
+  <!-- Donate births ₭. Validate earns the fee pool that every 1-₭ act funds.
+       Same wallet, next door — not a second mint path. -->
+  <section style="border-top:0;padding-top:0">
+    <div class="card">
+      <div class="eyebrow" style="margin-bottom:var(--s3)">THE PARADIGM, BROKEN</div>
+      <h2 style="font-size:22px;margin:0 0 var(--s3)">Already have ₭? Be a guardian — pick a door</h2>
+      <p class="lede" style="margin:0 0 var(--s5)">Donate is how ₭ is <b>born</b>. Guarding is how the fee pool is <b>earned</b>. Bitcoin and Ordinals make you sync for days first. Here door 1 is this browser. Door 2 is still ~10 minutes on a computer — not a phone. Same wallet. Never two account types.</p>
+      <div class="vsteps" style="margin-bottom:var(--s5)">
+        <div class="vstep done"><b>Door 1 · this tab</b><span>Install KrayWallet → <a href="/validate">/validate</a> → Connect → leave <b>Hold the library</b> on → Start. Public stars + a powerless signature. The key never leaves the wallet. Uncheck the box for 1×.</span></div>
+        <div class="vstep done"><b>Door 2 · your node</b><span>Node.js 24+ → <code>git clone https://github.com/tomkray/kray-node.git</code> → follow this explorer. Recipe: <a href="/docs#node">/docs#node</a>. Do not invent a second public writer.</span></div>
+        <div class="vstep"><b>Extra · 3×</b><span>The library box on /validate is the easy 3×. Never paste a wallet private key into the node.</span></div>
+      </div>
+      <div class="row" style="gap:var(--s3)">
+        <a class="btn primary" href="/validate"><svg width="16" height="16"><use href="#g-vote"/></svg> Door 1 — start in this tab</a>
+        <a class="btn" href="/docs#node">Door 2 — how to run a node</a>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============ SCRIPTS ============ -->
+<!-- v2 shell first: injects glyphs + header/nav (wallet connect) + footer, fires
+     kray-connected / kray-disconnected, sets window.__krayAddr. -->
+<script src="/kray.js" defer></script>
+
+<script>
+/* ---- DONATE → MINT ₭ — proof-of-donation is the ONE on-ramp for ₭.
+   Shortcut {to,sats} is closed on this node (403). Path: prepare PSBT → wallet
+   signPsbt → donate/broadcast → wait for confirmations → POST {txid}.
+   ---- */
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id);};
+  // node-supplied strings (error text, the network word) are escaped before they touch innerHTML
+  var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+  var panel=$('mintpanel'); if(!panel) return;
+  var go=$('m-go'), lab=$('m-golabel'), out=$('m-out'), potBox=$('pot'), line=$('mintline'), satsEl=$('sats');
+  var me=null, busy=false, deficit=0, donateInfo=null;
+  function short(a){return a.slice(0,8)+'…'+a.slice(-5);}
+  function fmt(n){ try{ return BigInt(n).toLocaleString(); }catch(_){ return String(n); } }
+  function step(n){ panel.querySelectorAll('.vstep').forEach(function(s){ s.classList.toggle('done', parseInt(s.getAttribute('data-vs'),10)<=n); }); }
+  function netHrp(net){ return net==='signet'||net==='testnet'?'tb': net==='regtest'?'bcrt':'bc'; }
+  function addrOk(addr, net){ var h=netHrp(net); return !!(addr && h && addr.indexOf(h+'1')===0); }
+  function paintLine(){
+    if(!me){ line.textContent='connect your KrayWallet to mint ₭ to your address.'; return; }
+    if(donateInfo && donateInfo.net && !addrOk(me, donateInfo.net)){
+      line.innerHTML='this node is <b>'+donateInfo.net+'</b> — switch KrayWallet to that network (address must start with <b>'+netHrp(donateInfo.net)+'1</b>), then reconnect.';
+      return;
+    }
+    var s=parseInt(satsEl.value,10)||0;
+    var mint=Math.max(0, Math.min(s, deficit));
+    if(!s){ line.innerHTML='minting to <b>'+short(me)+'</b> — enter satoshis above.'; return; }
+    line.innerHTML='sacrifice <b>'+fmt(s)+'</b> sats → mint <b>'+fmt(mint)+' ₭</b> to <b>'+short(me)+'</b>'
+      +(s>deficit ? ' <span style="color:var(--ink-4)">('+fmt(s-deficit)+' sats over the deficit become anchoring runway)</span>' : '');
+  }
+  function paint(){
+    if(!me){ lab.textContent='Connect KrayWallet first'; step(1); return; }
+    lab.textContent='Donate & mint ₭'; step((parseInt(satsEl.value,10)||0)>0?3:2); paintLine();
+  }
+  async function loadPot(){
+    try{
+      var p=await (await fetch('/api/kraynet/pot')).json();
+      deficit=Number(p.deficit||0);
+      potBox.hidden=false;
+      $('p-deficit').textContent=fmt(p.deficit)+' ₭';
+      $('p-donated').textContent=fmt(p.donated);
+      $('p-minted').textContent=fmt(p.minted)+' ₭';
+      $('p-target').textContent=fmt(p.target);
+      if(!p.open){ $('p-deficit').textContent='0 ₭'; }
+      paintLine();
+    }catch(_){ /* pot unreadable → the node is restarting; the mint still validates server-side */ }
+  }
+  async function loadInfo(){
+    try{ donateInfo=await (await fetch('/api/kraynet/donation/info')).json(); }catch(_){ donateInfo=null; }
+    paintLine();
+  }
+  satsEl.addEventListener('input', paint);
+  go.addEventListener('click', async function(){
+    if(busy) return;
+    if(!me){ var c=document.getElementById('kray-connect'); if(c) c.click(); return; }
+    var sats=parseInt(satsEl.value,10)||0;
+    if(sats<1){ out.className='iout err'; out.textContent='enter a positive number of satoshis to sacrifice.'; return; }
+    if(donateInfo && donateInfo.net && !addrOk(me, donateInfo.net)){
+      out.className='iout err';
+      out.textContent='wallet is on the wrong network. This node is '+donateInfo.net+' — turn on DevNet Signet in KrayWallet (tb1…) and reconnect.';
+      return;
+    }
+    busy=true; go.disabled=true; out.className='iout'; out.textContent='building the Bitcoin burn…';
+    try{
+      // UNIFIED DONATE — if the wallet exposes donate(), open its OWN donate popup (fee selector + password +
+      // sign, all in-extension): ONE popup, shared with the in-wallet donate, and the page never sees the
+      // password. Fall back to the legacy inline flow only for older wallets without the method.
+      if(window.krayWallet && typeof window.krayWallet.donate==='function'){
+        out.textContent='opening KrayWallet…';
+        try{ await window.krayWallet.donate(sats); out.className='iout'; out.textContent='complete the donation in the KrayWallet popup — it mints after confirmations.'; busy=false; go.disabled=false; return; }
+        catch(_e){ /* the wallet refused/failed to open → fall through to the proven legacy flow */ }
+      }
+      if(!window.krayWallet || !window.krayWallet.signPsbt) throw new Error('KrayWallet not found — install the extension');
+      var pk=await window.krayWallet.getPublicKey();
+      var pub=(pk && pk.publicKey)||pk;
+      if(!pub) throw new Error('could not read your public key — unlock the wallet');
+      var prep=await (await fetch('/api/kraynet/donate/prepare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({donor:me,donorPubkey:pub,sats:String(sats)})})).json();
+      if(!prep || prep.error || !prep.psbtB64) throw new Error((prep && prep.error) || (donateInfo && donateInfo.net==='regtest' ? 'could not build the payment — fund this bcrt1 address via POST /api/kraynet/regtest/faucet' : 'could not build the payment — fund this Signet address (signetfaucet.com) first'));
+      out.textContent='sign the burn in KrayWallet…';
+      var inputs=[]; for(var i=0;i<(prep.inputs||1);i++) inputs.push({index:i});
+      var sr=await window.krayWallet.signPsbt(prep.psbtB64,{
+        toSignInputs:inputs,
+        autoFinalized:false,
+        display:{
+          intent: (prep.selfAnchor && prep.selfAnchor.keyIsNums) ? 'burn' : 'donate',
+          title: (prep.selfAnchor && prep.selfAnchor.keyIsNums) ? 'Burn sats → mint ₭' : 'Donate → mint ₭',
+          description: 'Sacrifice satoshis on Bitcoin. After confirmation this node mints 1 ₭ per sat to your address. Not a marketplace swap.',
+          amountSats: sats,
+          feeSats: prep.fee,
+          mintKray: sats,
+          inputCount: prep.inputs,
+          changeSats: prep.change,
+          network: (donateInfo && donateInfo.net) || 'signet',
+          pot: prep.pot || '',
+          site: location.origin
+        }
+      });
+      var signed=sr && (sr.signedPsbt || sr.psbt);
+      if(!sr || sr.success===false || !signed) throw new Error((sr && sr.error) || 'signing refused');
+      out.textContent='broadcasting the sacrifice…';
+      var bc=await (await fetch('/api/kraynet/donate/broadcast',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({psbt:signed})})).json();
+      if(!bc || bc.error || !bc.txid) throw new Error((bc && bc.error) || 'broadcast failed');
+      var need=(donateInfo && donateInfo.minConfirmations) || 1;
+      // the explorer + the network word follow the NODE's real network, never a hardcoded 'Signet'
+      var _net=(donateInfo && donateInfo.net) || 'signet';
+      var _base=_net==='main'?'https://mempool.space':_net==='testnet'?'https://mempool.space/testnet4':_net==='signet'?'https://mempool.space/signet':'';
+      var explorer=_base?_base+'/tx/'+bc.txid:'';
+      var _word=_net==='main'?'Bitcoin':_net.charAt(0).toUpperCase()+_net.slice(1);
+      var _link=explorer?' <a href="'+explorer+'" target="_blank" rel="noopener">watch tx →</a>':'';
+      out.className='iout';
+      out.innerHTML='sacrificed on '+esc(_word)+' — waiting for '+need+' confirmation(s).'+_link;
+      var minted=null;
+      for(var n=0;n<360;n++){
+        var st=await fetch('/api/kraynet/donate/status/'+bc.txid).then(function(r){return r.json();}).catch(function(){return null;});
+        var conf=st && st.seen ? (st.confirmations||0) : 0;
+        out.innerHTML=(st && st.seen ? (conf+' / '+need+' confirmations') : 'broadcast — waiting for the node to see the tx')
+          +' · <a href="'+explorer+'" target="_blank" rel="noopener">'+bc.txid.slice(0,12)+'…</a>';
+        if(st && st.seen && conf>=need){
+          var mint=await (await fetch('/api/kraynet/donate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(prep.selfAnchor?{txid:bc.txid,selfAnchor:prep.selfAnchor}:{txid:bc.txid})})).json();
+          if(mint && mint.ok){ minted=mint; break; }
+          if(mint && mint.error) out.innerHTML='✗ '+esc(mint.error)+' · <a href="'+explorer+'">tx</a>';
+        }
+        await new Promise(function(r){setTimeout(r,5000);});
+      }
+      if(!minted) throw new Error('Bitcoin is still confirming — keep this tab, or reopen /mine after the tx has '+need+' confirmation(s). tx '+bc.txid);
+      out.className='iout ok';
+      out.innerHTML='✓ donation sealed — ₭ minted to your address. seq <b>#'+minted.seq+'</b>. <a href="/u/'+me+'">see your balance →</a>';
+      satsEl.value=''; await loadPot(); paint();
+    }catch(e){
+      out.className='iout err';
+      out.textContent='✗ '+(e && e.message ? e.message : 'refused');
+    }
+    finally{ busy=false; go.disabled=false; }
+  });
+  window.addEventListener('kray-connected',function(ev){ me=ev.detail.address; paint(); });
+  window.addEventListener('kray-disconnected',function(){ me=null; out.textContent=''; paint(); });
+  if(window.__krayAddr){ me=window.__krayAddr; }
+  loadPot(); loadInfo(); paint();
+})();
+</script>
+
+</body>
+</html>

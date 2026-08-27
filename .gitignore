@@ -1,0 +1,91 @@
+node_modules/
+.DS_Store
+# Cursor local cache — ship skills/rules so any clone's LLM finds the door
+.cursor/*
+!.cursor/skills/
+!.cursor/rules/
+data/
+devnet/
+*.log
+_*.mjs
+_*.json
+devnet-wallet/
+# operator houses at the repo root only — never networks/signet or networks/mainnet
+/signet/
+/mainnet/
+/follower-main/
+vault-keys.env
+owner.box
+node-hot.env
+*.box
+
+# archived chains — a reset never deletes, it moves the old universe aside.
+# They are history worth keeping on disk and never worth carrying in git.
+data-archive-*/
+archive/
+apps/kray-net/archive/
+guardian-atlas/
+gauntlet-*/
+
+# live node state — each network's own universe, never source
+apps/kray-net/data/
+apps/kray-net/data-lab/
+apps/kray-net/data-v2/
+apps/kray-net/data-signet/
+apps/kray-net/data-main/
+apps/kray-net/data-pre-*/
+apps/kray-net/data-backup-*/
+data-backup-*/
+follower/
+.kray-api.json
+apps/kray-net/.kray-api.json
+**/.kray-api.json
+apps/kray-net/regtest-harness/
+
+# live test harnesses hold the node's Bitcoin RPC password — NEVER source
+apps/kray-net/signet-harness/
+signet-harness/
+# reset/backup universes moved aside on a data reset — history on disk, never git
+apps/kray-net/data-v2.bak*/
+apps/kray-net/data-v2.reset-bak*/
+data-v2.bak*/
+data-v2.reset-bak*/
+
+# any backup file, anywhere — a .bak is never source
+*.bak
+# any per-network live state dir this repo may grow — state is never source
+apps/kray-net/data-*/
+data-signet-local/
+
+# operator-local (SSH pubkeys, host maps) — never the public tree
+ops/
+logs/
+
+# Operator handoff (house names, deploy rite) — keep on this disk, never the public door
+docs/HANDOFF-*.md
+
+# Private scroll — keep on this disk, never the public door
+manifesto/
+
+# External tenants (KRILL, Radiola, Satspace, Station, …) — other houses, not this node
+apps/kray-core/src/adapter/
+
+# Workshop leftover — official tree must not grow exam/lab (house detector)
+scripts/exam/
+scripts/lab/
+
+# L1 Bitcoin/ord gateway — this machine's oracle, not the ledger strangers clone
+apps/kray-api/
+
+# Operator RUN-LAYER — your machine-specific launch wrappers/units, NOT the public consensus
+# tree. Keep these gitignored so a code update (checkout/pull) never removes your node's own
+# launch wrapper. Your run-layer is yours; it never affects consensus.
+bin/
+.oss-guard-local
+
+# opsec — private operator tooling + agent config never ship to the public door
+.cursor/
+scripts/operator/
+docs/HANDOFF-*.md
+docs/KRAYOS-MIND.md
+.vscode/

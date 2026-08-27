@@ -1,0 +1,1965 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · DeFi</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* Terminal — page-local. Tokens stay in /kray.css (8pt, one amber). Impact / spark / volume are presentation. */
+  body[data-page="defi"] .hero{padding:var(--s6) 0 var(--s4)}
+  body[data-page="defi"] .hero .lede{margin-top:var(--s3);font-size:15px;max-width:68ch}
+  .proofbar{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s4)}
+  .live{display:inline-flex;align-items:center;gap:var(--s2)}
+  .live i{width:6px;height:6px;border-radius:50%;background:var(--ink-4)}
+  .live.on i{background:var(--good);box-shadow:0 0 8px var(--good);animation:pulse 1.8s ease infinite}
+  .board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3);margin-bottom:var(--s5)}
+  @media(max-width:640px){.board{grid-template-columns:1fr}}
+  .board .stat .v{font-size:clamp(18px,2.2vw,22px)}
+  .desk-key{display:grid;grid-template-columns:1fr 1fr;gap:var(--s2);margin-bottom:var(--s5)}
+  .desk-key .tab{justify-content:center;min-height:48px;width:100%;font-size:13px}
+  .desk-note{font-family:var(--mono);font-size:12px;color:var(--ink-4);margin:0 0 var(--s5);line-height:1.45}
+  .tools{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:center;margin-bottom:var(--s4)}
+  .tools .search{flex:1 1 200px;min-width:0;margin:0}
+  .pos-strip{display:flex;gap:var(--s3);overflow-x:auto;padding-bottom:var(--s2);margin-bottom:var(--s5);-webkit-overflow-scrolling:touch}
+  .posc{flex:none;width:min(280px,100%);text-align:left;padding:var(--s4);border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);color:inherit;cursor:pointer;min-height:72px}
+  .posc:hover{border-color:var(--btc-line)}
+  .posc .nm,.posc .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .posc .nm{font-weight:600;font-size:15px}
+  .posc .sub{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:var(--s1)}
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,400px);gap:var(--s5);align-items:start}
+  .stage > div{min-width:0}
+  @media(max-width:1024px){
+    .stage{display:flex;flex-direction:column}
+    .desk-trade{order:-1;position:static;max-width:none}
+  }
+  .desk-trade{position:sticky;top:calc(var(--nav-h) + var(--s4));width:100%;max-width:400px}
+  .ident{display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap;min-width:0}
+  .ident > div{flex:1 1 auto;min-width:min-content}
+  .ident .face{width:56px;height:56px;border-radius:var(--r2);object-fit:cover;background:var(--surface-2);border:1px solid var(--line-2);flex:none}
+  .ident .face.fb{display:grid;place-items:center;font-size:22px;color:var(--btc);background:var(--btc-soft);border-color:var(--btc-line)}
+  .ident .faces,.mrow .faces{display:flex;flex:none;align-items:center}
+  .ident .faces .face{margin-left:-14px}
+  .ident .faces .face:first-child{margin-left:0;z-index:1}
+  .mrow .faces .face{width:32px;height:32px;margin-left:-10px}
+  .mrow .faces .face:first-child{margin-left:0;z-index:1}
+  .ident h2{font-size:clamp(20px,3.2vw,36px);letter-spacing:-.03em;line-height:1.15;margin:0;white-space:nowrap}
+  @media(max-width:639px){.ident h2{white-space:normal;overflow-wrap:anywhere}}
+  .ident .rid{font-family:var(--mono);font-size:12px;color:var(--ink-4);margin-top:var(--s1);overflow-wrap:anywhere}
+  .ident .chg{min-height:44px}
+  .kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s3);margin-top:var(--s5)}
+  .kpis .stat .s{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:var(--s2);line-height:1.4;overflow-wrap:anywhere;text-transform:none;letter-spacing:0}
+  @media(min-width:768px) and (max-width:1023px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  @media(min-width:1280px){.kpis{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .spark{height:36px;width:120px;display:block}
+  .curve{height:168px;width:100%;display:block;border-radius:var(--r2);background:var(--void);border:1px solid var(--line)}
+  .plot-card{padding:var(--s4)}
+  .plot-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--s3) var(--s5);margin:0 0 var(--s3);min-width:0;min-height:44px}
+  .plot-bar .plot-left{display:flex;align-items:center;gap:var(--s2);min-width:0;flex:1 1 auto}
+  .plot-bar #plot-kind{flex:none}
+  .plot-tag{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);margin:0;padding:0 var(--s1)}
+  .plot-well{position:relative;background:var(--void);border:1px solid var(--line);border-radius:var(--r2);overflow:hidden}
+  .plot-well .curve,.plot-well .candles{border:0;border-radius:0;background:transparent;display:block;width:100%}
+  .candles{height:auto;aspect-ratio:1.618/1;max-height:420px}
+  .plot-hl{position:absolute;top:0;left:0;z-index:1;display:grid;gap:var(--s1);padding:var(--s3) var(--s4);max-width:58%;pointer-events:none}
+  .plot-hl .hl{display:flex;align-items:baseline;gap:var(--s2);min-width:0}
+  .plot-hl .hl span{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;flex:none}
+  .plot-hl .hl.up span{color:var(--good)}
+  .plot-hl .hl.dn span{color:var(--crit)}
+  .plot-hl .hl b{font-size:13px;font-weight:600;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  body[data-page="defi"] .tf-line{gap:0;margin:0;justify-content:flex-start;width:auto;flex-wrap:nowrap}
+  body[data-page="defi"] .tf-line .tab{border:0;background:transparent;border-radius:0;padding:var(--s2) var(--s4);min-height:44px;min-width:44px}
+  body[data-page="defi"] .tf-line .tab.on{color:var(--ink);background:transparent;border-color:transparent;box-shadow:inset 0 -2px 0 var(--signal)}
+  #candle-lab,#curve-lab{margin:var(--s3) 0 0;font-size:11px}
+  @media(max-width:640px){
+    .plot-bar{flex-direction:column;align-items:stretch;gap:var(--s2)}
+    .plot-bar #plot-kind{align-self:flex-end}
+    .plot-hl .hl b{font-size:12px}
+  }
+  .mrow{display:grid;grid-template-columns:auto minmax(0,1.4fr) minmax(0,auto) minmax(0,auto) auto auto auto;gap:var(--s3);align-items:center;padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);cursor:pointer;width:100%;color:inherit;min-height:72px;transition:border-color .15s}
+  .mrow:hover,.mrow.on{border-color:var(--btc-line)}
+  .mrow .face{width:40px;height:40px;border-radius:var(--r1);object-fit:cover;background:var(--surface-2);border:1px solid var(--line-2);flex:none}
+  .mrow .face.fb{display:grid;place-items:center;font-size:16px;color:var(--btc);background:var(--btc-soft);border-color:var(--btc-line)}
+  .mrow .nm,.mrow .sub{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mrow .nm{font-weight:600;font-size:15px}
+  .mrow .sub{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:2px}
+  .mrow .px,.mrow .tv{font-variant-numeric:tabular-nums;font-weight:500;text-align:right;min-width:0}
+  .mrow .px b,.mrow .tv b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mrow .px i,.mrow .tv i{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--ink-3);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .qbuys{display:flex;gap:var(--s1);flex-wrap:wrap;justify-content:flex-end}
+  .qbuys button{min-height:44px;padding:0 var(--s3);font-family:var(--mono);font-size:11px;letter-spacing:.04em;border:1px solid var(--line);border-radius:var(--r1);background:var(--void);color:var(--ink-3);cursor:pointer}
+  .qbuys button:hover{color:var(--btc);border-color:var(--btc-line)}
+  @media(max-width:860px){
+    .mrow{grid-template-columns:auto 1fr auto}
+    .mrow .tv,.mrow .qbuys{display:none}
+  }
+  .mlist{display:grid;gap:var(--s3)}
+  .leg{border:1px solid var(--line-2);border-radius:var(--r2);background:var(--void);padding:var(--s4)}
+  .leg .top{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--s3);margin-bottom:var(--s2);font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  .leg .top > span{letter-spacing:.12em;text-transform:uppercase;flex:none;padding-top:10px}
+  .leg .tok{background:none;border:0;color:var(--btc);cursor:pointer;font-family:var(--mono);font-size:12px;min-height:44px;text-align:right;max-width:72%;overflow-wrap:anywhere;letter-spacing:0;text-transform:none;line-height:1.35}
+  .amt-row{display:flex;align-items:center;gap:var(--s3);min-width:0}
+  .leg .amt{flex:1;min-width:0;width:auto;border:0;background:transparent;color:var(--ink);font-size:clamp(20px,2.4vw,28px);font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums;min-height:44px;padding:0;overflow-wrap:anywhere}
+  .leg .amt:focus{outline:none}
+  .amt-sym{flex:none;font-size:clamp(22px,2.6vw,30px);line-height:1;min-width:28px;text-align:right}
+  .leg .bal{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:var(--s2)}
+  .flip{display:flex;justify-content:center;margin:-6px 0}
+  .flip button{width:44px;height:44px;border-radius:var(--r-pill);border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);cursor:pointer}
+  .flip button:hover{border-color:var(--btc-line);color:var(--btc)}
+  .pcts,.slips{display:flex;gap:var(--s2);flex-wrap:wrap;margin:var(--s3) 0}
+  .pcts button,.slips button{min-height:44px;padding:0 var(--s3);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);color:var(--ink-3);cursor:pointer}
+  .pcts button:hover,.slips button:hover{color:var(--ink);border-color:var(--line-2)}
+  .slips button.on{color:var(--btc);border-color:var(--btc-line);background:var(--btc-soft)}
+  .slips input{width:72px;min-height:44px;padding:0 var(--s2);font-family:var(--mono);font-size:12px;background:var(--void);border:1px solid var(--line);border-radius:var(--r1);color:var(--ink)}
+  .impact{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:var(--s3)}
+  .impact.warn{color:var(--btc)}
+  .impact.crit{color:var(--crit)}
+  .holders{display:grid;gap:var(--s2)}
+  .hbar{display:grid;grid-template-columns:1fr auto;gap:var(--s2);align-items:center;font-family:var(--mono);font-size:12px}
+  .hbar i{display:block;height:4px;border-radius:2px;background:var(--btc);margin-top:4px}
+  .lptbl{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r2);background:var(--void)}
+  .lptbl table{width:100%;border-collapse:collapse}
+  .lptbl th,.lptbl td{padding:var(--s3) var(--s4);text-align:left;font-size:13px;border-bottom:1px solid var(--line)}
+  .lptbl th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4)}
+  .lptbl td.r,.lptbl th.r{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:12px}
+  .lptbl td.rk{color:var(--ink-4);font-family:var(--mono);width:36px}
+  .lptbl td.who a{display:block;color:var(--ink);font-weight:600}
+  .lptbl td.who small{display:block;color:var(--ink-4);font-family:var(--mono);font-size:10px;font-weight:400;margin-top:2px;overflow:hidden;text-overflow:ellipsis}
+  .lptbl tr.you td.who a{color:var(--btc)}
+  .lptbl tr:last-child td{border-bottom:0}
+  .lptbl .track{margin-top:4px}
+  .track{height:4px;border-radius:2px;background:var(--surface-2);border:1px solid var(--line);overflow:hidden}
+  .track i{display:block;height:100%;background:var(--btc)}
+  .tx{display:flex;gap:var(--s3);align-items:center;padding:var(--s3) 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+  .tx:last-child{border-bottom:0}
+  .tx:hover .txl{color:var(--btc)}
+  .txtag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:var(--r-pill);border:1px solid var(--line-2);color:var(--ink-3);flex:none}
+  .txtag.buy{color:var(--good);border-color:color-mix(in srgb,var(--good) 35%,transparent)}
+  .txtag.sell{color:var(--btc);border-color:var(--btc-line)}
+  .txtag.create{color:var(--signal-ink);background:var(--signal);border-color:var(--signal);font-weight:600;letter-spacing:.1em}
+  .txl{font-size:13.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .txa{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:12px;color:var(--ink-2)}
+  .ph{font-family:var(--mono);font-weight:500;font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);margin-bottom:var(--s4)}
+  .ov{position:fixed;inset:0;z-index:80;display:grid;place-items:end center;padding:var(--s4)}
+  .ov[hidden]{display:none!important}
+  @media(min-width:720px){.ov{place-items:center}}
+  .ov-bg{position:absolute;inset:0;background:rgba(0,0,0,.72)}
+  .ov-card{position:relative;width:min(480px,100%);max-height:min(88vh,760px);overflow:auto;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r3);padding:var(--s5);box-shadow:0 24px 64px rgba(0,0,0,.6)}
+  .ov.picker .ov-card{width:min(560px,100%)}
+  .rev-row{display:flex;justify-content:space-between;gap:var(--s4);padding:var(--s3) 0;border-bottom:1px solid var(--line);font-size:14px}
+  .rev-row span{color:var(--ink-3)}
+  .rev-row b{font-variant-numeric:tabular-nums;text-align:right;font-weight:600}
+  .rev-acts{display:flex;gap:var(--s3);margin-top:var(--s5)}
+  .rev-acts .btn{flex:1;justify-content:center;min-height:48px}
+  .bal-btn{display:block;width:100%;text-align:left;background:none;border:0;padding:0;cursor:pointer;font:inherit;color:inherit}
+  .bal-btn:hover{color:var(--btc)}
+  .recv-btn{background:none;border:0;color:var(--btc);cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;min-height:44px;padding:0}
+  .pot{margin-top:var(--s3)}
+  .pot .track{height:6px}
+  .pot .lab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-bottom:var(--s1)}
+  .kpill{display:inline-flex;align-items:center;min-height:32px;padding:0 var(--s3);border-radius:var(--r-pill);border:1px solid var(--line-2);font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:var(--s3)}
+  .kpill.ok{color:var(--good);border-color:color-mix(in srgb,var(--good) 35%,transparent)}
+  .kpill.bad{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,transparent)}
+  .birth{border:1px solid var(--btc-line);background:var(--btc-soft);border-radius:var(--r2);padding:var(--s4);margin-bottom:var(--s4);font-size:14px}
+  .keys{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:var(--s4)}
+  .sig{font-family:var(--mono);font-size:12px;line-height:1.55;background:var(--void);border:1px solid var(--line);border-radius:var(--r1);padding:var(--s4);margin-top:var(--s4);white-space:pre-wrap;color:var(--ink-2)}
+  .pin{min-height:44px;padding:0 var(--s3);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:var(--r1);background:var(--void);color:var(--ink-4);cursor:pointer}
+  .pin.on{color:var(--btc);border-color:var(--btc-line)}
+  .amt.hold{color:var(--ink-3)}
+  .weight{display:grid;gap:var(--s2);margin-top:var(--s4)}
+  .wrow{display:grid;grid-template-columns:52px minmax(0,1fr) minmax(0,1fr);gap:var(--s3);align-items:center;min-height:44px;padding:0 var(--s3);border:1px solid var(--line);border-radius:var(--r1);background:var(--void);width:100%}
+  .wrow:hover{border-color:var(--btc-line)}
+  .wrow b{font-family:var(--mono);font-size:12px;color:var(--btc)}
+  .wrow span,.wrow button{font-family:var(--mono);font-size:11px;color:var(--ink-3);background:none;border:0;padding:0;min-height:44px;text-align:left;cursor:pointer}
+  .wrow button:hover{color:var(--btc)}
+  .seal{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:var(--s3);line-height:1.5}
+  .seal a{color:var(--btc)}
+  .gift{color:var(--btc);font-family:var(--mono);font-size:12px;margin-top:var(--s2)}
+  #candle-lab,#curve-lab,.seal{overflow-wrap:anywhere}
+  .card{overflow:hidden}
+</style>
+</head>
+<body data-page="defi">
+<div class="wrap">
+  <section class="hero" style="border-top:0">
+    <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; AMM · SIGNED · REPLAYABLE</div>
+    <h1>DeFi</h1>
+    <p class="lede">Two desks. The base is <b>₭ + a pot-backed rune</b>. The other is <b>rune / rune</b> — DOG / GOLD, any L2 rune with any other. Same UniV2, same edict calculator, fee exactly <b>1&nbsp;₭</b>. The quote is a read. Replay is the only history.</p>
+    <div class="proofbar">
+      <span class="chip btc">signed min</span>
+      <span class="chip">fee 1 ₭</span>
+      <span class="chip">pot-backed only</span>
+      <span class="chip">rune / rune</span>
+      <span class="chip">x · y = k</span>
+      <span class="chip live" id="live"><i></i>book</span>
+      <span class="chip" id="acct">connect KrayWallet</span>
+    </div>
+  </section>
+
+  <section id="view-markets" style="border-top:0;padding-top:0">
+    <div class="tabs desk-key" id="desk-key" role="tablist" aria-label="Desk">
+      <button type="button" class="tab on" data-desk="kray">₭ / rune</button>
+      <button type="button" class="tab" data-desk="rr">rune / rune</button>
+    </div>
+    <p class="desk-note" id="desk-note">The base desk. Every pot-backed rune pairs with ₭.</p>
+    <div class="board" id="board"></div>
+    <div id="resume" hidden></div>
+    <div id="positions" hidden></div>
+    <div class="tools">
+      <input class="input search" id="q" placeholder="Find a rune · name or id" autocomplete="off">
+      <button type="button" class="btn primary" id="new-pair">Create pool</button>
+      <div class="tabs" id="sorts">
+        <button type="button" class="tab on" data-sort="tvl">TVL</button>
+        <button type="button" class="tab" data-sort="you">You</button>
+        <button type="button" class="tab" data-sort="live">Live</button>
+        <button type="button" class="tab" data-sort="name">A–Z</button>
+      </div>
+    </div>
+    <div class="mlist" id="markets"><div class="dim mono" style="padding:var(--s6);text-align:center">reading the book…</div></div>
+  </section>
+
+  <section id="view-pair" hidden style="border-top:0;padding-top:0">
+    <button type="button" class="back" id="back" style="font-family:var(--mono);font-size:12px;color:var(--ink-3);background:none;border:0;cursor:pointer;min-height:44px;padding:0;margin-bottom:var(--s3)">← all markets</button>
+    <div class="stage">
+      <div>
+        <div class="ident" id="ident"></div>
+        <div class="kpis" id="kpis"></div>
+        <div class="card tick plot-card" style="margin-top:var(--s5)">
+          <div class="plot-bar">
+            <div class="plot-left">
+              <div class="tabs tf-line" id="plot-tf" role="tablist" aria-label="Timeframe">
+                <button type="button" class="tab on" data-tf="60">1m</button>
+                <button type="button" class="tab" data-tf="300">5m</button>
+                <button type="button" class="tab" data-tf="900">15m</button>
+                <button type="button" class="tab" data-tf="3600">1h</button>
+              </div>
+              <p class="plot-tag" id="plot-curve-tag" hidden>x · y = k</p>
+            </div>
+            <div class="tabs" id="plot-kind" role="tablist" aria-label="Plot">
+              <button type="button" class="tab on" data-plot="chart">Chart</button>
+              <button type="button" class="tab" data-plot="curve">Curve</button>
+            </div>
+          </div>
+          <div id="plot-chart">
+            <div class="plot-well">
+              <div class="plot-hl" id="plot-hl" hidden>
+                <div class="hl up"><span>H</span><b id="plot-hi">—</b></div>
+                <div class="hl dn"><span>L</span><b id="plot-lo">—</b></div>
+              </div>
+              <svg class="curve candles" id="candles" viewBox="0 0 618 382" preserveAspectRatio="xMidYMid meet"></svg>
+            </div>
+            <p class="dim mono" id="candle-lab">candles are the tape replayed — not an oracle</p>
+          </div>
+          <div id="plot-curve" hidden>
+            <div class="plot-well">
+              <svg class="curve" id="curve" viewBox="0 0 320 168" preserveAspectRatio="none"></svg>
+            </div>
+            <p class="dim mono" id="curve-lab">k is the product of the two reserves — it must not fall</p>
+            <div class="weight" id="weight" hidden></div>
+          </div>
+          <p class="seal" id="seal">k folds into the cascade root. The tape is not an oracle — replay is the only history. <a href="/verify">Verify →</a></p>
+        </div>
+        <div class="card" style="margin-top:var(--s5)">
+          <div class="ph">LP rank · who is offering liquidity</div>
+          <div class="holders" id="holders"></div>
+        </div>
+        <div class="card" style="margin-top:var(--s5)">
+          <div class="ph">Tape · journal</div>
+          <div id="tape"><p class="dim">no AMM lines yet</p></div>
+        </div>
+      </div>
+
+      <div class="desk-trade">
+        <div id="birth" class="birth" hidden>This pair is not born. The first signed add writes <i>k</i> — 100 dead shares stay in the book. Only pot-backed rune.</div>
+        <div class="card tick" id="desk-swap">
+          <div class="tabs" style="margin-bottom:var(--s4)">
+            <button type="button" class="tab on" data-side="kray">Buy</button>
+            <button type="button" class="tab" data-side="rune">Sell</button>
+          </div>
+          <div class="leg">
+            <div class="top"><span id="pay-lab">You pay</span><button type="button" class="tok" id="pay-tok">₭</button></div>
+            <div class="amt-row">
+              <input class="amt" id="sw-amt" inputmode="numeric" placeholder="0" autocomplete="off" aria-label="Amount you pay">
+              <span class="amt-sym" id="pay-sym" aria-hidden="true">₭</span>
+            </div>
+            <button type="button" class="bal bal-btn" id="pay-bal" title="Fill MAX — keep 1 ₭ for the fee">—</button>
+            <div class="pot" id="pot" hidden></div>
+          </div>
+          <div class="pcts">
+            <button type="button" data-pct="25">25%</button>
+            <button type="button" data-pct="50">50%</button>
+            <button type="button" data-pct="75">75%</button>
+            <button type="button" data-pct="100">MAX</button>
+          </div>
+          <div class="flip"><button type="button" id="flip" title="flip sides">⇅</button></div>
+          <div class="leg">
+            <div class="top"><span>You receive</span><button type="button" class="tok recv-btn" id="recv-tok" title="Flip sides">—</button></div>
+            <div class="amt-row">
+              <div class="amt" id="sw-out-amt" style="min-height:44px" aria-live="polite">0</div>
+              <span class="amt-sym" id="recv-sym" aria-hidden="true"></span>
+            </div>
+            <div class="bal" id="sw-quote">quote is a read — it never moves state</div>
+          </div>
+          <div class="impact" id="sw-impact">impact is derived from reserves — not a consensus field</div>
+          <div class="kpill" id="kpill">k is consensus · the curve is a drawing</div>
+          <p class="keys">/ search · B buy · S sell · F flip · M max · 1–3 slip · Esc back</p>
+          <div class="slips" id="slips">
+            <button type="button" data-slip="0.1">0.1%</button>
+            <button type="button" data-slip="0.5" class="on">0.5%</button>
+            <button type="button" data-slip="1">1%</button>
+            <input id="slip-custom" inputmode="decimal" placeholder="%" title="custom slippage %">
+          </div>
+          <button class="btn primary block" id="sw-go" disabled style="margin-top:var(--s3)">Review buy</button>
+          <div class="out hidden" id="sw-out"></div>
+        </div>
+
+        <div class="card" id="desk-liq" style="margin-top:var(--s4)">
+          <div class="ph" id="liq-ph">Your position</div>
+          <p class="dim" id="pos-lab" style="margin-bottom:var(--s4)">connect to see LP</p>
+          <div class="tabs" id="liq-tabs" style="margin-bottom:var(--s4)">
+            <button type="button" class="tab on" data-liq="add">Add</button>
+            <button type="button" class="tab" data-liq="remove" id="liq-rm-tab">Remove</button>
+          </div>
+          <div id="liq-add">
+            <div class="field"><label for="ad-kray" id="ad-a-lab">₭</label><input class="input" id="ad-kray" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+            <div class="field"><label for="ad-rune-amt" id="ad-b-lab">Rune</label><input class="input" id="ad-rune-amt" inputmode="decimal" placeholder="0" autocomplete="off"></div>
+            <p class="dim mono" id="ad-quote" style="font-size:12px;margin-bottom:var(--s2)">only pot-backed · excess is a gift to LPs</p>
+            <p class="gift" id="ad-gift" hidden></p>
+            <button class="btn primary block" id="ad-go" disabled>Review add</button>
+            <div class="out hidden" id="ad-out"></div>
+          </div>
+          <div id="liq-remove" hidden>
+            <div class="field"><label for="rm-lp">LP to burn</label><input class="input" id="rm-lp" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+            <div class="pcts">
+              <button type="button" data-rm="25">25%</button>
+              <button type="button" data-rm="50">50%</button>
+              <button type="button" data-rm="75">75%</button>
+              <button type="button" data-rm="100">MAX</button>
+            </div>
+            <p class="dim mono" id="rm-quote" style="font-size:12px;margin-bottom:var(--s4)">quote is a read</p>
+            <button class="btn block" id="rm-go" disabled>Review remove</button>
+            <div class="out hidden" id="rm-out"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="ov picker" id="picker" hidden>
+  <div class="ov-bg" data-close="picker"></div>
+  <div class="ov-card" role="dialog" aria-modal="true" aria-labelledby="picker-h">
+    <div class="ph" id="picker-h">Choose a pair</div>
+    <input class="input search" id="pq" placeholder="Search runes" autocomplete="off" style="margin-bottom:var(--s4)">
+    <div class="mlist" id="picker-list"></div>
+  </div>
+</div>
+
+<div class="ov" id="sheet" hidden>
+  <div class="ov-bg" data-close="sheet"></div>
+  <div class="ov-card" role="dialog" aria-modal="true" aria-labelledby="sheet-h">
+    <div class="ph" id="sheet-h">Review</div>
+    <div id="sheet-body"></div>
+    <div class="rev-acts">
+      <button type="button" class="btn" id="sheet-no">Back</button>
+      <button type="button" class="btn primary" id="sheet-yes">Sign — + 1 ₭</button>
+    </div>
+    <div class="out hidden" id="sheet-out"></div>
+  </div>
+</div>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){return document.getElementById(id);};
+  var me=null, busy=false, runes=[], pools=[], held=[], tapes=[], pairTape=[], krayBal=0n;
+  var selected=null, side='kray', quoteT=null, lastQuote=null, lastAdd=null, lastRm=null, addSrc=null;
+  var pickMode=0, pickA=null;
+  var SLIP_PCT=0.5, sortBy='tvl', desk='kray', pendingQuick=null, pendingKind=null;
+  var qSeq=0, aSeq=0, rSeq=0, lastQuoteK=null, lastAddK=null, lastRmK=null, sheetBookK=null;
+  var plotKind='chart', plotTf=60;
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+  function grp(w){ try{ return BigInt(String(w).replace(/[^0-9]/g,'')||'0').toLocaleString(); }catch(_){ return String(w); } }
+  function amt(raw,div){ div=Number(div||0); var s=String(raw==null?'0':raw).replace(/[^0-9]/g,'')||'0'; if(div<=0) return grp(s); while(s.length<=div) s='0'+s; var wh=s.slice(0,s.length-div),fr=s.slice(s.length-div).replace(/0+$/,''); return grp(wh)+(fr?'.'+fr:''); }
+  /* Edict point 0…38 on the RUNE. Extra decimals refuse (not round). ₭ is 1=1 — no 1.5 ₭. */
+  function edictDiv(n){ n=Number(n); return (Number.isInteger(n)&&n>=0&&n<=38)?n:0; }
+  function toBase(str,div){
+    str=String(str||'').trim(); if(!/^\d+(\.\d+)?$/.test(str)) return null;
+    div=edictDiv(div); var parts=str.split('.'), whole=parts[0], frac=parts[1]||'';
+    if(frac.length>div) return null;
+    frac=(frac+'0'.repeat(div)).slice(0,div);
+    try{ return (BigInt(whole)*(10n**BigInt(div))+BigInt(frac||'0')).toString(); }catch(_){ return null; }
+  }
+  function fromBase(base,div){ return amt(base,div).replace(/,/g,''); }
+  function show(id,cls,html){ var o=$(id); if(!o) return; o.className='out '+cls; o.classList.remove('hidden'); o.innerHTML=html; }
+  function runeOf(id){ return runes.filter(function(r){return r.runeId===id;})[0]||null; }
+  function heldOf(id){ return held.filter(function(r){return r.runeId===id;})[0]||null; }
+  function canonRune(id){
+    if(!id||!/^[0-9]+:[0-9]+$/.test(String(id))) return null;
+    try{ var p=String(id).split(':'); return String(BigInt(p[0]))+':'+String(BigInt(p[1])); }catch(_){ return null; }
+  }
+  function rrKey(a,b){
+    a=canonRune(a); b=canonRune(b);
+    if(!a||!b||a===b) return null;
+    return a<b?('rr/'+a+'/'+b):('rr/'+b+'/'+a);
+  }
+  function selOf(raw){
+    raw=String(raw||'').replace(/^#/,'');
+    if(!raw) return null;
+    var m=raw.match(/^rr\/(\d+:\d+)\/(\d+:\d+)$/);
+    if(m){
+      var k=rrKey(m[1],m[2]); if(!k) return null;
+      var parts=k.split('/');
+      return { kind:'rr', a:parts[1], b:parts[2], key:k };
+    }
+    var c=canonRune(raw);
+    return c?{ kind:'kray', runeId:c, key:c }:null;
+  }
+  function sel(){ return selOf(selected); }
+  function isRr(){ var s=sel(); return !!(s&&s.kind==='rr'); }
+  function poolOf(id){
+    var s=selOf(id!=null?id:selected);
+    if(!s) return null;
+    if(s.kind==='rr') return pools.filter(function(p){ return p.kind==='rr'&&p.runeId===s.a&&p.otherRuneId===s.b; })[0]||null;
+    return pools.filter(function(p){ return p.kind!=='rr'&&p.runeId===s.runeId; })[0]||null;
+  }
+  function metaOf(id){
+    var r=runeOf(id)||heldOf(id);
+    if(r) return r;
+    var p=pools.filter(function(x){ return x.runeId===id||x.otherRuneId===id; })[0];
+    if(!p) return null;
+    if(p.otherRuneId===id) return { runeId:id, name:p.otherName, symbol:p.otherSymbol, divisibility:p.otherDivisibility, thumbnail:p.otherThumbnail };
+    return p;
+  }
+  function divOf(id){ var r=metaOf(id); return r?edictDiv(r.divisibility!=null?r.divisibility:r.otherDivisibility):0; }
+  function nmOf(id){ var r=metaOf(id); return (r&&(r.name||r.runeId))||id||''; }
+  function thumbOf(id){ var r=metaOf(id); return r?r.thumbnail:null; }
+  function symOf(id){ var r=metaOf(id); return r?r.symbol:null; }
+  function glyphOf(id){
+    if(!id) return '₭';
+    var s=symOf(id);
+    if(s==null||s==='') return '';
+    if(typeof s==='number'&&s>31){ try{ return String.fromCodePoint(s); }catch(_){ return ''; } }
+    var t=String(s);
+    if(/^\d+$/.test(t)){ var n=Number(t); if(n>31){ try{ return String.fromCodePoint(n); }catch(_){ return t; } } }
+    return t;
+  }
+  function tokOf(id){ return id?(nmOf(id)+(glyphOf(id)?' '+glyphOf(id):'')):'₭'; }
+  function amtTok(raw,id){ return (id?amt(raw,divOf(id)):grp(raw))+' '+(id?(glyphOf(id)||nmOf(id)):'₭'); }
+  function shortNm(id){ var n=nmOf(id); var i=n.indexOf('•'); return i>0?n.slice(0,i):n; }
+  function facesOf(a,b){ return '<span class="faces">'+face(thumbOf(a),symOf(a),'face')+face(thumbOf(b),symOf(b),'face')+'</span>'; }
+  function pairSpotLine(baseA,divA,baseB,divB){
+    try{
+      baseA=BigInt(baseA); baseB=BigInt(baseB); divA=edictDiv(divA); divB=edictDiv(divB);
+      if(baseA<=0n||baseB<=0n) return null;
+      var oneA=10n**BigInt(divA), oneB=10n**BigInt(divB);
+      var bPer=(baseB*oneA)/baseA, aPer=(baseA*oneB)/baseB, aRem=(baseA*oneB)%baseB;
+      return { bPer:fromBase(bPer.toString(),divB), aPer:fromBase(aPer.toString(),divA), aCeil:fromBase((aRem===0n?aPer:aPer+1n).toString(),divA) };
+    }catch(_){ return null; }
+  }
+  function resA(p){ if(!p) return 0n; try{ return BigInt(p.kind==='rr'?(p.reserveA||0):(p.krayReserve||0)); }catch(_){ return 0n; } }
+  function resB(p){ if(!p) return 0n; try{ return BigInt(p.kind==='rr'?(p.reserveB||0):(p.runeReserve||0)); }catch(_){ return 0n; } }
+  function payRune(){ var s=sel(); if(!s) return null; if(s.kind==='kray') return side==='rune'?s.runeId:null; return side==='kray'?s.a:s.b; }
+  function recvRune(){ var s=sel(); if(!s) return null; if(s.kind==='kray') return side==='kray'?s.runeId:null; return side==='kray'?s.b:s.a; }
+  function payDiv(){ var id=payRune(); return id?divOf(id):0; }
+  function recvDiv(){ var id=recvRune(); return id?divOf(id):0; }
+  function face(src,sym,cls){ var fb='<span class="'+cls+' fb"'+(src?' style="display:none"':'')+'>'+esc(sym||'ᚱ')+'</span>'; if(!src) return fb; return '<img class="'+cls+'" src="'+esc(src)+'" alt="" loading="lazy" onerror="this.style.display=&quot;none&quot;;if(this.nextElementSibling)this.nextElementSibling.style.display=&quot;grid&quot;">'+fb; }
+  function short(a){ return window.KRAY?KRAY.short(a):String(a||''); }
+  function age(ms){ return window.KRAY?KRAY.age(ms):''; }
+  function slipN(){ var t=Math.round(Number(SLIP_PCT)*10); if(!(t>=0&&t<500)) t=5; return 1000n-BigInt(t); }
+  function minOutOf(out){ try{ var n=BigInt(out); var m=n*slipN()/1000n; return m>0n?m.toString():'0'; }catch(_){ return '0'; } }
+  function transferable(id){ var h=heldOf(id); try{ return h?BigInt(h.transferable||'0'):0n; }catch(_){ return 0n; } }
+  function payMax(){
+    var id=payRune();
+    if(!id){ return krayBal>1n?krayBal-1n:0n; }
+    return transferable(id);
+  }
+  function priceLine(p){
+    if(!p) return { big:'—', sub:'no pool yet', hint:'', title:'' };
+    try{
+      var a=resA(p), b=resB(p);
+      if(a<=0n||b<=0n) return { big:'—', sub:'empty', hint:'', title:'' };
+      if(p.kind==='rr'){
+        var na=nmOf(p.runeId), nb=nmOf(p.otherRuneId);
+        var sp=pairSpotLine(a,divOf(p.runeId),b,divOf(p.otherRuneId));
+        if(!sp) return { big:'—', sub:'', hint:'', title:'' };
+        return {
+          big: sp.bPer,
+          sub: 'per 1 '+shortNm(p.runeId),
+          hint: '1 '+shortNm(p.otherRuneId)+' ≈ '+sp.aCeil+' '+shortNm(p.runeId),
+          title: '1 '+na+' = '+sp.bPer+' '+nb+' · 1 '+nb+' ≈ '+sp.aCeil+' '+na
+        };
+      }
+      var k=a, r=b, d=divOf(p.runeId), nm=nmOf(p.runeId);
+      var per=r/k;
+      var one=10n**BigInt(d);
+      var ceilK=(k*one)%r===0n?(k*one)/r:(k*one)/r+1n;
+      var shown=amt(per.toString(), d), ceil=grp(ceilK.toString());
+      return {
+        big: shown,
+        sub: 'per 1 ₭',
+        hint: '1 '+(glyphOf(p.runeId)||nmOf(p.runeId))+' ≈ '+ceil+' ₭',
+        title: '1 ₭ = '+shown+' '+nm+' · 1 '+nm+' ≈ '+ceil+' ₭'
+      };
+    }catch(_){ return { big:'—', sub:'', hint:'', title:'' }; }
+  }
+  function mineOf(p){ return me&&p&&p.holders?p.holders.filter(function(h){return h.address===me;})[0]:null; }
+  function pairEvents(id){
+    var s=selOf(id);
+    if(s&&s.kind==='rr') return tapes.filter(function(t){ return String(t.kind||'').startsWith('amm-rr-')&&t.runeId===s.a&&t.otherRuneId===s.b; });
+    return tapes.filter(function(t){ return !String(t.kind||'').startsWith('amm-rr-')&&t.runeId===id; });
+  }
+  function volOf(id){
+    var n=0n, c=0, p=poolOf(id);
+    pairEvents(id).forEach(function(t){
+      if(t.kind!=='amm-swap'&&t.kind!=='amm-rr-swap') return;
+      c++;
+      try{
+        var payA=t.kind==='amm-rr-swap'?(canonRune(t.payRuneId)===canonRune(t.runeId)):(t.side==='kray');
+        if(payA) n+=BigInt(t.amount||0);
+        else if(p&&resB(p)>0n) n+=(BigInt(t.amount||0)*resA(p))/resB(p);
+      }catch(_){}
+    });
+    return { n:n, c:c };
+  }
+  function quotePayA(q){
+    if(!q) return true;
+    if(q.kind==='rr') return canonRune(q.payRuneId)===canonRune(q.runeId);
+    return q.side==='kray';
+  }
+  function impactBps(q){
+    var p=poolOf(selected); if(!p||!q) return null;
+    try{
+      var inn=BigInt(q.amountIn), out=BigInt(q.amountOut);
+      var payA=quotePayA(q);
+      var rin=payA?resA(p):resB(p), rout=payA?resB(p):resA(p);
+      if(inn<=0n||rin<=0n||rout<=0n) return null;
+      var mid=inn*rout, act=out*rin;
+      if(mid<=0n) return null;
+      if(act>=mid) return 0;
+      return Number((mid-act)*10000n/mid);
+    }catch(_){ return null; }
+  }
+  function kAfter(q){
+    var p=poolOf(selected); if(!p||!q) return null;
+    try{
+      var a=resA(p), b=resB(p), inn=BigInt(q.amountIn), out=BigInt(q.amountOut);
+      var payA=quotePayA(q);
+      var na=payA?a+inn:a-out, nb=payA?b-out:b+inn;
+      if(na<=0n||nb<=0n) return null;
+      return { after:na*nb, before:a*b };
+    }catch(_){ return null; }
+  }
+  /* Same 997/1000 as amm.ts — a read of the curve, not a feed. */
+  function quoteOutLocal(rin, rout, inn){
+    if(inn<=0n||rin<=0n||rout<=0n) return null;
+    var out=(inn*997n*rout)/(rin*1000n+inn*997n);
+    if(out<=0n||out>=rout) return null;
+    if((rin+inn)*(rout-out)<rin*rout) return null;
+    return out;
+  }
+  function isqrt(n){
+    if(n<=0n) return 0n;
+    var x=n, y=(x+1n)/2n;
+    while(y<x){ x=y; y=(x+n/x)/2n; }
+    return x;
+  }
+  function cmpRatio(a,b,c,d){
+    var l=a*d, r=c*b;
+    return l<r?-1:(l>r?1:0);
+  }
+  function scoreRatio(n,d){
+    if(d<=0n) return 0n;
+    return (n*1000000000000n)/d;
+  }
+  /* Replay the pair's tape with the same UniV2 the reducer uses. Fills only — add/remove move the book. */
+  function replayFills(events){
+    var k=0n, r=0n, supply=0n, ticks=[];
+    events.forEach(function(e){
+      try{
+        if(e.kind==='amm-add'||e.kind==='amm-rr-add'){
+          var ki=BigInt(e.kind==='amm-rr-add'?(e.runeIn||'0'):(e.krayIn||'0'));
+          var ri=BigInt(e.kind==='amm-rr-add'?(e.otherIn||'0'):(e.runeIn||'0'));
+          if(ki<=0n||ri<=0n) return;
+          if(supply===0n){
+            var raw=isqrt(ki*ri);
+            if(raw<=1000n) return;
+            supply=raw; k+=ki; r+=ri;
+          } else {
+            var fromK=(ki*supply)/k, fromR=(ri*supply)/r;
+            var minted=fromK<fromR?fromK:fromR;
+            if(minted<=0n) return;
+            supply+=minted; k+=ki; r+=ri;
+          }
+        } else if(e.kind==='amm-remove'||e.kind==='amm-rr-remove'){
+          var lp=BigInt(e.lp||'0');
+          if(lp<=0n||supply<=0n||lp>supply) return;
+          var ko=(lp*k)/supply, ro=(lp*r)/supply;
+          if(ko<=0n||ro<=0n||ko>=k||ro>=r) return;
+          k-=ko; r-=ro; supply-=lp;
+        } else if(e.kind==='amm-swap'||e.kind==='amm-rr-swap'){
+          var inn=BigInt(e.amount||'0');
+          if(inn<=0n||k<=0n||r<=0n) return;
+          var t=Number(e.at)||0, seq=Number(e.seq)||0;
+          var payA=e.kind==='amm-rr-swap'?(canonRune(e.payRuneId)===canonRune(e.runeId)):(e.side==='kray');
+          if(payA){
+            var out=quoteOutLocal(k,r,inn); if(!out) return;
+            ticks.push({ at:t, seq:seq, n:out, d:inn, vol:inn, buy:true });
+            k+=inn; r-=out;
+          } else {
+            var outk=quoteOutLocal(r,k,inn); if(!outk) return;
+            ticks.push({ at:t, seq:seq, n:inn, d:outk, vol:outk, buy:false });
+            r+=inn; k-=outk;
+          }
+        }
+      }catch(_){ /* skip a malformed line — the next fill still reads */ }
+    });
+    return ticks;
+  }
+  function bucketCandles(ticks, sec){
+    var ms=sec*1000, map={}, keys=[];
+    ticks.forEach(function(t){
+      var t0=t.at>0?Math.floor(t.at/ms)*ms:0;
+      var c=map[t0];
+      if(!c){
+        c={ t:t0, oN:t.n, oD:t.d, hN:t.n, hD:t.d, lN:t.n, lD:t.d, cN:t.n, cD:t.d, vol:t.vol, n:1 };
+        map[t0]=c; keys.push(t0);
+      } else {
+        c.cN=t.n; c.cD=t.d; c.vol+=t.vol; c.n++;
+        if(cmpRatio(t.n,t.d,c.hN,c.hD)>0){ c.hN=t.n; c.hD=t.d; }
+        if(cmpRatio(t.n,t.d,c.lN,c.lD)<0){ c.lN=t.n; c.lD=t.d; }
+      }
+    });
+    keys.sort(function(a,b){ return a-b; });
+    return keys.map(function(k){ return map[k]; });
+  }
+  /* Time window: last 48 buckets of this TF, zoomed to the tape — no ghost quiet bars. */
+  function chartWin(ticks, sec){
+    var ms=sec*1000, now=Date.now(), i, lo=0, hi=0;
+    for(i=0;i<ticks.length;i++){
+      var at=Number(ticks[i].at)||0;
+      if(at<=0) continue;
+      if(!lo||at<lo) lo=at;
+      if(at>hi) hi=at;
+    }
+    if(!lo) return { start:now-ms*8, end:now+ms, ms:ms };
+    if(now>hi) hi=now;
+    var cap=ms*48;
+    if(hi-lo>cap) lo=hi-cap;
+    if(hi-lo<ms*8) lo=hi-ms*8;
+    var air=Math.max(ms, Math.floor((hi-lo)*0.191));
+    return { start:lo, end:hi+air, ms:ms };
+  }
+  function sampleTicks(ticks, maxN){
+    if(ticks.length<=maxN) return ticks;
+    var out=[], step=ticks.length/maxN, i;
+    for(i=0;i<maxN-1;i++) out.push(ticks[Math.floor(i*step)]);
+    out.push(ticks[ticks.length-1]);
+    return out;
+  }
+  function perKrayDisp(n, d, div){
+    if(d<=0n) return '—';
+    return amt((n/d).toString(), div);
+  }
+  /* Mid is rune-per-₭ (the edict side). Cross-multiply so div=0 still moves. */
+  function weightToMove(p, bps, payA){
+    try{
+      var k=resA(p), r=resB(p);
+      if(k<=0n||r<=0n) return null;
+      var lo=1n, hi=payA?k:r, best=null, i, b=BigInt(bps);
+      if(hi<=1n||b<=0n||b>=10000n) return null;
+      for(i=0;i<64;i++){
+        var mid=(lo+hi)/2n; if(mid<=0n) break;
+        var out;
+        if(payA){
+          out=quoteOutLocal(k,r,mid); if(!out){ hi=mid-1n; continue; }
+          if((r-out)*k*10000n<=r*(10000n-b)*(k+mid)){ best=mid; hi=mid-1n; } else lo=mid+1n;
+        } else {
+          out=quoteOutLocal(r,k,mid); if(!out){ hi=mid-1n; continue; }
+          var nk=k-out; if(nk<=0n){ hi=mid-1n; continue; }
+          if((r+mid)*k*10000n>=r*(10000n+b)*nk){ best=mid; hi=mid-1n; } else lo=mid+1n;
+        }
+      }
+      return best;
+    }catch(_){ return null; }
+  }
+  function drawWeight(){
+    var box=$('weight'), p=poolOf(selected), s=sel();
+    if(!box) return;
+    if(!p||!s){ box.hidden=true; box.innerHTML=''; return; }
+    var bands=[100,500,1000], rows=[];
+    var liftLab=s.kind==='rr'?shortNm(s.a):'₭';
+    var pressId=s.kind==='rr'?s.b:s.runeId;
+    bands.forEach(function(bps){
+      var lift=weightToMove(p,bps,true), press=weightToMove(p,bps,false);
+      var pct=bps===100?'1':(bps===500?'5':'10');
+      rows.push('<div class="wrow">'
+        +'<b>±'+pct+'%</b>'
+        +(lift
+          ? '<button type="button" data-wside="kray" data-win="'+lift.toString()+'">'+(s.kind==='rr'?esc(amtTok(lift.toString(),s.a)):grp(lift)+' ₭')+' to lift</button>'
+          : '<span>too thin to lift</span>')
+        +(press
+          ? '<button type="button" data-wside="rune" data-win="'+press.toString()+'">'+esc(amtTok(press.toString(),pressId))+' to press</button>'
+          : '<span>too thin to press</span>')
+        +'</div>');
+    });
+    box.hidden=false;
+    box.innerHTML='<div class="ph" style="margin-bottom:var(--s2)">Weight of the curve · derived from k</div>'+rows.join('');
+  }
+  function giftOfAdd(p, aIn, bIn, minted){
+    if(!p||!minted) return null;
+    try{
+      var kR=resA(p), rR=resB(p), sup=BigInt(p.lpSupply||0), m=BigInt(minted);
+      if(sup<=0n||kR<=0n||rR<=0n||m<=0n) return null;
+      var usedK=(m*kR)/sup, usedR=(m*rR)/sup;
+      var gk=BigInt(aIn)-usedK, gr=BigInt(bIn)-usedR;
+      if(gk<0n) gk=0n; if(gr<0n) gr=0n;
+      if(gk===0n&&gr===0n) return null;
+      return { gk:gk, gr:gr };
+    }catch(_){ return null; }
+  }
+
+  function paintAcct(){
+    $('acct').textContent = me ? ('signed as '+short(me)) : 'connect KrayWallet';
+    $('acct').className='chip'+(me?' btc':'');
+  }
+  function pulseLive(){
+    var el=$('live'); el.classList.add('on');
+    setTimeout(function(){ el.classList.remove('on'); }, 900);
+  }
+  function hashId(){ var h=location.hash.replace(/^#/,''); try{ return decodeURIComponent(h); }catch(_){ return h; } }
+  function goHash(id){
+    var s=selOf(id);
+    id=s?s.key:id;
+    if(id){ try{ sessionStorage.setItem('kray.defi.last', id); }catch(_){} location.hash=encodeURIComponent(id); }
+    else history.replaceState(null,'',location.pathname);
+    route();
+  }
+  function pins(){ try{ return JSON.parse(localStorage.getItem('kray.defi.pins')||'[]'); }catch(_){ return []; } }
+  function isPin(id){ return pins().indexOf(id)>=0; }
+  function togglePin(id){
+    var a=pins(), i=a.indexOf(id);
+    if(i>=0) a.splice(i,1); else a.push(id);
+    try{ localStorage.setItem('kray.defi.pins', JSON.stringify(a)); }catch(_){}
+    drawMarkets();
+  }
+  function fillMax(){
+    var max=payMax();
+    $('sw-amt').value=payRune()?fromBase(max.toString(),payDiv()):max.toString();
+    schedule();
+  }
+  function bookK(){ var p=poolOf(selected); return p?String(p.k):null; }
+  function bookMoved(){ return !!(sheetBookK && bookK() && sheetBookK!==bookK()); }
+
+  function marketKey(m){ return m.key||m.runeId; }
+  function setDesk(d){
+    desk=d==='rr'?'rr':'kray';
+    try{ sessionStorage.setItem('kray.defi.desk', desk); }catch(_){}
+    paintDesk();
+    if(!selected) drawMarkets();
+  }
+  function paintDesk(){
+    document.querySelectorAll('#desk-key [data-desk]').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-desk')===desk);
+    });
+    if($('new-pair')) $('new-pair').textContent='Create pool';
+    if($('q')) $('q').placeholder=desk==='rr'?'Find a rune / rune · name or id':'Find a rune · name or id';
+    if($('desk-note')) $('desk-note').textContent=desk==='rr'
+      ?'One book per pair. DOG / GOLD is unique and eternal — the first signed add writes it. Nobody births it twice.'
+      :'One book per rune. ₭ / DOG is unique and eternal — the first signed add writes it. Nobody births it twice.';
+    if($('back')) $('back').textContent=desk==='rr'?'← rune / rune':'← ₭ / rune';
+  }
+  function allMarkets(){
+    var ids={}, out=[];
+    pools.forEach(function(p){
+      if(p.kind==='rr') out.push({ kind:'rr', key:rrKey(p.runeId,p.otherRuneId), runeId:p.runeId, row:p });
+      else { ids[p.runeId]=1; out.push({ kind:'pool', runeId:p.runeId, key:p.runeId, row:p }); }
+    });
+    runes.forEach(function(r){ if(!ids[r.runeId]) out.push({ kind:'open', runeId:r.runeId, key:r.runeId, row:r }); });
+    return out;
+  }
+  function sortMarkets(rows){
+    var pinned=pins();
+    var sorted=rows.slice().sort(function(a,b){
+      if(sortBy==='name') return String(a.row.name||a.row.otherName||'').localeCompare(String(b.row.name||b.row.otherName||''));
+      if(sortBy==='you'){
+        var sa=mineOf(a.kind==='open'?null:a.row), sb=mineOf(b.kind==='open'?null:b.row);
+        return ((sb&&sb.share)||0)-((sa&&sa.share)||0);
+      }
+      if(sortBy==='live') return volOf(marketKey(b)).c-volOf(marketKey(a)).c;
+      var ka=0n, kb=0n;
+      try{ if(a.kind==='pool') ka=BigInt(a.row.krayReserve||0); else if(a.kind==='rr') ka=resA(a.row)+resB(a.row); }catch(_){}
+      try{ if(b.kind==='pool') kb=BigInt(b.row.krayReserve||0); else if(b.kind==='rr') kb=resA(b.row)+resB(b.row); }catch(_){}
+      if(kb===ka) return (a.kind==='open'?1:0)-(b.kind==='open'?1:0);
+      return kb>ka?1:-1;
+    });
+    if(!pinned.length) return sorted;
+    var top=[], rest=[];
+    sorted.forEach(function(m){ (pinned.indexOf(marketKey(m))>=0?top:rest).push(m); });
+    return top.concat(rest);
+  }
+  function deskRows(){
+    return allMarkets().filter(function(m){ return desk==='rr'?m.kind==='rr':m.kind!=='rr'; });
+  }
+  function filterMarkets(q){
+    q=(q||'').trim().toLowerCase();
+    var creating=pickMode==='kray'||pickMode==='rr1'||pickMode==='rr2';
+    var base=creating?allMarkets().filter(function(m){ return m.kind!=='rr'; }):deskRows();
+    if(pickMode==='kray') base=base.filter(function(m){ return m.kind==='open'; });
+    if(pickMode==='rr2'&&pickA) base=base.filter(function(m){
+      if(m.runeId===pickA) return false;
+      var k=rrKey(pickA, m.runeId);
+      return !!(k&&!poolOf(k));
+    });
+    return sortMarkets(base.filter(function(m){
+      if(!q) return true;
+      var r=m.row;
+      return String(r.name||'').toLowerCase().indexOf(q)>=0
+        || String(r.otherName||'').toLowerCase().indexOf(q)>=0
+        || String(r.runeId).indexOf(q)>=0
+        || String(r.otherRuneId||'').indexOf(q)>=0
+        || String(r.symbol||'').toLowerCase().indexOf(q)>=0;
+    }));
+  }
+  function rowHtml(m, withQuick){
+    var r=m.row, rr=m.kind==='rr', p=(m.kind==='pool'||rr)?r:null, key=marketKey(m);
+    var px=priceLine(p), mine=mineOf(p), vol=volOf(key);
+    var tvl=p?(rr?(amt(p.reserveA,divOf(p.runeId))+' / '+amt(p.reserveB,divOf(p.otherRuneId))):(grp(p.krayReserve)+' ₭')):'—';
+    var quick=withQuick&&p&&!rr
+      ? '<div class="qbuys"><button type="button" data-quick="10" data-id="'+esc(r.runeId)+'">10 ₭</button><button type="button" data-quick="50" data-id="'+esc(r.runeId)+'">50 ₭</button><button type="button" data-quick="100" data-id="'+esc(r.runeId)+'">100 ₭</button></div>'
+      : '';
+    var title=rr?(esc(r.name||r.runeId)+' / '+esc(r.otherName||r.otherRuneId)):(esc(r.name||r.runeId)+(r.symbol?' '+esc(r.symbol):''));
+    var sub=p
+      ?(rr?(amt(p.reserveA,divOf(p.runeId))+' · '+amt(p.reserveB,divOf(p.otherRuneId))):(amt(p.runeReserve,divOf(p.runeId))+' in reserve'))
+      :'unborn — Create pool writes this pair forever';
+    return '<div class="mrow" data-open="'+esc(key)+'" role="button" tabindex="0">'
+      +(rr?facesOf(r.runeId,r.otherRuneId):face(r.thumbnail,r.symbol,'face'))
+      +'<div><div class="nm">'+title+'</div>'
+      +'<div class="sub">'+sub+(mine?' · you '+mine.share+'%':'')+'</div></div>'
+      +'<div class="px" title="'+esc(px.title||px.hint)+'"><b>'+esc(px.big)+'</b><i>'+esc(px.sub)+'</i></div>'
+      +'<div class="tv"><b>'+esc(tvl)+'</b><i>'+(vol.c? (vol.c+' tape') : 'quiet')+'</i></div>'
+      +quick
+      +(withQuick?'<button type="button" class="pin'+(isPin(key)?' on':'')+'" data-pin="'+esc(key)+'" aria-pressed="'+(isPin(key)?'true':'false')+'">pin</button>':'')
+      +'<span class="chip'+(p?' btc':'')+'">'+(p?(rr?'Rune / rune':'Trade'):'Create')+'</span>'
+    +'</div>';
+  }
+  function drawBoard(){
+    var rows=deskRows(), pos=0;
+    if(desk==='rr'){
+      rows.forEach(function(m){ if(mineOf(m.row)) pos++; });
+      var can=allMarkets().filter(function(m){ return m.kind!=='rr'; }).length;
+      $('board').innerHTML=
+        '<div class="stat"><div class="v">'+rows.length+'</div><div class="k">rune / rune books</div></div>'
+        +'<div class="stat"><div class="v">'+can+'</div><div class="k">runes that can pair</div></div>'
+        +'<div class="stat"><div class="v">'+(me?pos:'—')+'</div><div class="k">your LP in this desk</div></div>';
+      return;
+    }
+    var tvl=0n;
+    rows.forEach(function(m){
+      if(m.kind==='pool') try{ tvl+=BigInt(m.row.krayReserve||0); }catch(_){}
+      if(m.kind!=='open'&&mineOf(m.row)) pos++;
+    });
+    $('board').innerHTML=
+      '<div class="stat"><div class="v">'+rows.length+'</div><div class="k">₭ / rune pairs</div></div>'
+      +'<div class="stat"><div class="v">'+grp(tvl)+' ₭</div><div class="k">TVL in ₭ pots</div></div>'
+      +'<div class="stat"><div class="v">'+(me?pos:'—')+'</div><div class="k">your LP books</div></div>';
+  }
+  function drawPositions(){
+    var box=$('positions');
+    if(!me){ box.hidden=true; box.innerHTML=''; return; }
+    var mine=pools.filter(function(p){ return desk==='rr'?p.kind==='rr':p.kind!=='rr'; }).map(function(p){ var h=mineOf(p); return h?{p:p,h:h}:null; }).filter(Boolean);
+    if(!mine.length){ box.hidden=true; box.innerHTML=''; return; }
+    box.hidden=false;
+    box.innerHTML='<div class="ph">Your book</div><div class="pos-strip">'+mine.map(function(x){
+      var p=x.p, h=x.h, sup=0n, lp=0n, k=0n, r=0n, key=p.kind==='rr'?rrKey(p.runeId,p.otherRuneId):p.runeId;
+      try{ sup=BigInt(p.lpSupply||0); lp=BigInt(h.lp||0); if(sup>0n){ k=(resA(p)*lp)/sup; r=(resB(p)*lp)/sup; } }catch(_){}
+      var title=p.kind==='rr'?(shortNm(p.runeId)+' / '+shortNm(p.otherRuneId)):nmOf(p.runeId);
+      var sub=p.kind==='rr'
+        ?('LP '+grp(h.lp)+' · '+h.share+'% ≈ '+amt(k.toString(),divOf(p.runeId))+' + '+amt(r.toString(),divOf(p.otherRuneId)))
+        :('LP '+grp(h.lp)+' · '+h.share+'% ≈ '+grp(k)+' ₭ + '+amt(r.toString(),divOf(p.runeId)));
+      return '<button type="button" class="posc" data-open="'+esc(key)+'"><div class="nm">'+esc(title)+'</div>'
+        +'<div class="sub">'+esc(sub)+'</div></button>';
+    }).join('')+'</div>';
+  }
+  function drawResume(){
+    var box=$('resume'); if(!box) return;
+    var id=null; try{ id=sessionStorage.getItem('kray.defi.last'); }catch(_){}
+    if(!id||selected){ box.hidden=true; box.innerHTML=''; return; }
+    box.hidden=false;
+    var s=selOf(id);
+    if((s&&s.kind==='rr')!==(desk==='rr')){ box.hidden=true; box.innerHTML=''; return; }
+    var title=s&&s.kind==='rr'?(shortNm(s.a)+' / '+shortNm(s.b)):nmOf(id);
+    box.innerHTML='<div class="pos-strip" style="margin-bottom:var(--s4)"><button type="button" class="posc" data-open="'+esc(s?s.key:id)+'"><div class="nm">Resume '+esc(title)+'</div><div class="sub">last pair on this desk</div></button></div>';
+  }
+  function drawMarkets(){
+    paintDesk();
+    drawBoard(); drawResume(); drawPositions();
+    var rows=filterMarkets($('q').value);
+    if(!rows.length){
+      $('markets').innerHTML=desk==='rr'
+        ?'<p class="dim" style="padding:var(--s6);text-align:center">No rune / rune book yet. Tap <b>Create pool</b> — two pot-backed runes, one book, eternal.</p>'
+        :'<p class="dim" style="padding:var(--s6);text-align:center">No rune on this L2 yet. <a href="/rune" style="color:var(--btc)">Bridge one</a>, then Create pool. ₭ / that rune is unique forever.</p>';
+      return;
+    }
+    $('markets').innerHTML=rows.map(function(m){ return rowHtml(m,true); }).join('');
+  }
+  function drawPicker(){
+    var rows=filterMarkets($('pq').value);
+    var empty='no match';
+    if(!rows.length&&pickMode==='kray'&&!($('pq').value||'').trim()) empty='every ₭ pair on this L2 is already eternal';
+    if(!rows.length&&pickMode==='rr2'&&!($('pq').value||'').trim()) empty='every pair with that rune is already eternal';
+    $('picker-list').innerHTML=rows.length?rows.map(function(m){ return rowHtml(m,false); }).join(''):'<p class="dim">'+empty+'</p>';
+  }
+
+  function sparkSvg(id){
+    var ev=pairEvents(id).filter(function(t){return t.kind==='amm-swap'||t.kind==='amm-rr-swap';}).slice().reverse();
+    if(ev.length<2) return '';
+    var pts=[], i, acc=0;
+    ev.forEach(function(t,i){
+      var payA=t.kind==='amm-rr-swap'?(canonRune(t.payRuneId)===canonRune(t.runeId)):(t.side==='kray');
+      acc+=payA?1:-1; pts.push({x:i,y:acc});
+    });
+    var min=pts[0].y, max=pts[0].y;
+    pts.forEach(function(p){ if(p.y<min) min=p.y; if(p.y>max) max=p.y; });
+    var span=Math.max(1,max-min);
+    var d=pts.map(function(p,i){
+      var x=(i/(pts.length-1))*118+1;
+      var y=34-((p.y-min)/span)*28;
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    return '<svg class="spark" viewBox="0 0 120 36" aria-hidden="true"><polyline fill="none" stroke="#f7931a" stroke-width="1.5" points="'+d+'"/></svg>';
+  }
+  function drawIdent(){
+    var s=sel(); if(!s) return;
+    var head, rid;
+    var p=poolOf(s.key)||(s.kind==='rr'?null:poolOf(s.runeId));
+    var origin=p&&p.origin&&p.origin.hash
+      ? ' · <a href="/tx/'+esc(p.origin.hash)+'" title="the first writer — this hash proves the pair exists">Create pool</a>'
+      : '';
+    if(s.kind==='rr'){
+      head=facesOf(s.a,s.b)+'<div><h2>'+esc(nmOf(s.a))+' / '+esc(nmOf(s.b))+'</h2>'
+        +'<div class="rid">'+esc(s.a)+' · '+esc(s.b)+' · rune / rune · edicts '+divOf(s.a)+' / '+divOf(s.b)+origin+'</div></div>';
+    } else {
+      var r=runeOf(s.runeId)||poolOf(s.runeId)||{runeId:s.runeId};
+      head=face(r.thumbnail,r.symbol,'face')
+        +'<div><h2>'+esc(r.name||s.runeId)+(r.symbol?' <span style="color:var(--ink-3);font-size:.55em">'+esc(r.symbol)+'</span>':'')+'</h2>'
+        +'<div class="rid">'+esc(s.runeId)+(r.divisibility?' · '+r.divisibility+' decimals':'')+' · ₭ pair'+origin+'</div></div>';
+    }
+    $('ident').innerHTML=head
+      +sparkSvg(s.key)
+      +(p&&p.href?'<a class="btn ghost chg" href="'+esc(p.href)+'">Open book</a>':'')
+      +'<button type="button" class="btn ghost chg" id="chg">Change pair</button>'
+      +'<button type="button" class="btn ghost chg" id="copy">Copy link</button>';
+    var ch=$('chg'); if(ch) ch.addEventListener('click', openPicker);
+    var cp=$('copy'); if(cp) cp.addEventListener('click', function(){
+      var url=location.origin+'/defi#'+encodeURIComponent(s.key);
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(url).then(function(){ cp.textContent='Copied'; setTimeout(function(){ cp.textContent='Copy link'; }, 1200); }).catch(function(){});
+      }
+    });
+  }
+  function drawKpis(){
+    var p=poolOf(selected), px=priceLine(p), vol=volOf(selected), s=sel();
+    if(!p&&s){
+      if(!pairKnown()){
+        $('kpis').innerHTML='<div class="stat"><div class="v">no</div><div class="k">not on this L2</div><div class="s">a pool is born only from a proven rune book</div></div>'
+          +'<div class="stat"><div class="v">locked</div><div class="k">create</div><div class="s">ghost id — no deposit, no book, no pool</div></div>';
+        return;
+      }
+      $('kpis').innerHTML='<div class="stat"><div class="v">you set it</div><div class="k">opening price</div><div class="s">the first signed add writes this pair forever</div></div>'
+        +'<div class="stat"><div class="v">once</div><div class="k">create</div><div class="s">nobody births this pair twice</div></div>'
+        +'<div class="stat"><div class="v">100</div><div class="k">dead shares</div><div class="s">burned from first LP — not the piles. √(x·y) must be greater than 100</div></div>'
+        +'<div class="stat"><div class="v">1 ₭</div><div class="k">fee</div><div class="s">exact, every signed add</div></div>';
+      return;
+    }
+    var cells=s&&s.kind==='rr'
+      ? [
+          {k:'per 1 '+glyphOf(s.a), v:px.big, s:px.hint, title:px.title},
+          {k:'reserve', v:p?amtTok(p.reserveA,s.a):'—', s:nmOf(s.a)},
+          {k:'reserve', v:p?amtTok(p.reserveB,s.b):'—', s:nmOf(s.b)},
+          {k:'tape', v:vol.c?String(vol.c):'—', s:vol.c?'fills on this pair':'no swaps yet'}
+        ]
+      : [
+          {k:'per 1 ₭', v:px.big, s:px.hint, title:px.title},
+          {k:'₭ reserve', v:p?grp(p.krayReserve)+' ₭':'—', s:'in the pot'},
+          {k:'reserve', v:p?amtTok(p.runeReserve,s&&s.runeId):'—', s:s?nmOf(s.runeId):'in the pot'},
+          {k:'tape', v:vol.c?String(vol.c):'—', s:vol.c?('≈ '+grp(vol.n)+' ₭ volume'):'no swaps yet'}
+        ];
+    $('kpis').innerHTML=cells.map(function(c){
+      return '<div class="stat"'+(c.title?' title="'+esc(c.title)+'"':'')+'>'
+        +'<div class="v">'+esc(c.v)+'</div>'
+        +'<div class="k">'+esc(c.k)+'</div>'
+        +(c.s?'<div class="s">'+esc(c.s)+'</div>':'')
+        +'</div>';
+    }).join('');
+  }
+  function drawCurve(preview){
+    var svg=$('curve'), p=poolOf(selected);
+    if(!p){ svg.innerHTML='<text x="16" y="88" fill="#888e9c" font-size="12" font-family="ui-monospace,monospace">open the pair — the curve is born with the first signed add</text>'; $('curve-lab').textContent='k is born with the first add'; drawWeight(); return; }
+    var X=Number(resA(p)), Y=Number(resB(p));
+    if(!(X>0&&Y>0)) { svg.innerHTML=''; return; }
+    var k=X*Y, pts=[], i, x0=X*0.22, x1=X*2.4;
+    for(i=0;i<=48;i++){
+      var x=x0+(x1-x0)*(i/48), y=k/x;
+      var px=16+(x/x1)*288, py=152-(y/(Y*2.4))*136;
+      pts.push(px.toFixed(1)+','+Math.max(12,Math.min(156,py)).toFixed(1));
+    }
+    var cx=16+(X/x1)*288, cy=152-(Y/(Y*2.4))*136;
+    var extra='';
+    if(preview&&preview.x>0&&preview.y>0){
+      var qx=16+(preview.x/x1)*288, qy=152-(preview.y/(Y*2.4))*136;
+      extra='<circle cx="'+qx.toFixed(1)+'" cy="'+Math.max(12,Math.min(156,qy)).toFixed(1)+'" r="4" fill="none" stroke="#f7931a" stroke-width="1.5"/>';
+    }
+    svg.innerHTML='<polyline fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.5" points="'+pts.join(' ')+'"/>'
+      +'<circle cx="'+cx.toFixed(1)+'" cy="'+Math.max(12,Math.min(156,cy)).toFixed(1)+'" r="5" fill="#f7931a"/>'+extra;
+    var s=sel();
+    var lab=s&&s.kind==='rr'
+      ?('now '+amt(resA(p).toString(),divOf(s.a))+' '+shortNm(s.a)+' × '+amt(resB(p).toString(),divOf(s.b))+' '+shortNm(s.b)+' = k '+grp(p.k))
+      :('now '+grp(p.krayReserve)+' ₭ × '+amt(p.runeReserve,s?divOf(s.runeId):0)+' = k '+grp(p.k));
+    var ka=lastQuote?kAfter(lastQuote):null;
+    if(ka) lab+=' · after quote k '+grp(ka.after.toString())+(ka.after>=ka.before?' (must not fall)':'');
+    $('curve-lab').textContent=lab;
+    drawWeight();
+  }
+  function paintPlotChrome(){
+    document.querySelectorAll('#plot-kind [data-plot]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-plot')===plotKind); });
+    document.querySelectorAll('#plot-tf [data-tf]').forEach(function(b){ b.classList.toggle('on', Number(b.getAttribute('data-tf'))===plotTf); });
+    $('plot-tf').hidden=plotKind!=='chart';
+    if($('plot-curve-tag')) $('plot-curve-tag').hidden=plotKind!=='curve';
+    if($('plot-hl')&&plotKind!=='chart') $('plot-hl').hidden=true;
+    $('plot-chart').hidden=plotKind!=='chart';
+    $('plot-curve').hidden=plotKind!=='curve';
+  }
+  function setPlot(kind){
+    plotKind=kind==='curve'?'curve':'chart';
+    try{ sessionStorage.setItem('kray.defi.plot', plotKind); }catch(_){}
+    paintPlot(lastQuote?previewReserves(lastQuote):null);
+  }
+  function setTf(sec){
+    var n=Number(sec);
+    if(!(n===60||n===300||n===900||n===3600)) return;
+    plotTf=n;
+    try{ sessionStorage.setItem('kray.defi.tf', String(n)); }catch(_){}
+    paintPlotChrome();
+    drawCandles();
+  }
+  function paintPlot(preview){
+    paintPlotChrome();
+    if(plotKind==='curve') drawCurve(preview);
+    else drawCandles();
+  }
+  function drawCandles(){
+    var svg=$('candles'), lab=$('candle-lab'), hl=$('plot-hl'), s=sel();
+    var d=s?(s.kind==='rr'?divOf(s.b):divOf(s.runeId)):0;
+    var dBase=s?(s.kind==='rr'?divOf(s.a):0):0;   // the BASE/pay rune's OWN divisibility — an rr price needs BOTH sides (B_disp/A_disp), not just B
+    var nm=s?(s.kind==='rr'?nmOf(s.b):nmOf(s.runeId)):'rune';
+    var unit=s&&s.kind==='rr'?shortNm(s.a):'₭';
+    var gly=s?(s.kind==='rr'?glyphOf(s.b):glyphOf(s.runeId)):'';
+    var printOf=function(n,den){ return perKrayDisp(n*(10n**BigInt(dBase)),den,d)+(gly?' '+gly:'')+' '+nm; };
+    var ev=(pairTape||[]).slice().sort(function(a,b){
+      var sa=Number(a.seq)||0, sb=Number(b.seq)||0;
+      if(sa&&sb&&sa!==sb) return sa-sb;
+      return (Number(a.at)||0)-(Number(b.at)||0);
+    });
+    var ticks=replayFills(ev);
+    var allBars=bucketCandles(ticks, plotTf);
+    var win=chartWin(ticks, plotTf);
+    var bars=allBars.filter(function(c){ return c.t>=win.start && c.t<=win.end; });
+    var vis=ticks.filter(function(t){ return (Number(t.at)||0)>=win.start; });
+    var seed=null;
+    ticks.forEach(function(t){ if((Number(t.at)||0)<win.start) seed=t; });
+    if(seed) vis=[{ at:win.start, n:seed.n, d:seed.d, vol:0n, edge:1 }].concat(vis);
+    if(!vis.length) vis=ticks.slice();
+    var book=poolOf(selected);
+    if(hl) hl.hidden=true;
+    if(!ticks.length){
+      var midTxt='';
+      if(book&&resA(book)>0n&&resB(book)>0n) midTxt=' · 1 '+unit+' = '+printOf(resB(book), resA(book));
+      svg.innerHTML='<rect x="0" y="0" width="618" height="382" fill="#000"/><text x="309" y="191" text-anchor="middle" fill="#888e9c" font-size="12" font-family="ui-monospace,monospace">buys write the candles — the book is the only feed</text>';
+      lab.textContent='no fills yet'+midTxt;
+      return;
+    }
+    var scores=[], maxVol=1n, midS=null, hiT=null, loT=null;
+    vis.forEach(function(t){
+      t.sc=scoreRatio(t.n,t.d);
+      scores.push(t.sc);
+      if(t.edge) return;
+      if(!hiT||t.sc<hiT.sc) hiT=t;
+      if(!loT||t.sc>loT.sc) loT=t;
+    });
+    bars.forEach(function(c){
+      c.os=scoreRatio(c.oN,c.oD); c.hs=scoreRatio(c.hN,c.hD); c.ls=scoreRatio(c.lN,c.lD); c.cs=scoreRatio(c.cN,c.cD);
+      scores.push(c.os,c.hs,c.ls,c.cs);
+      if(c.vol>maxVol) maxVol=c.vol;
+    });
+    if(book&&resA(book)>0n&&resB(book)>0n){
+      midS=scoreRatio(resB(book), resA(book));
+      scores.push(midS);
+    }
+    var lo=scores[0], hi=scores[0];
+    scores.forEach(function(sc){ if(sc<lo) lo=sc; if(sc>hi) hi=sc; });
+    if(hi===lo) hi=lo+1n;
+    var span=hi-lo, air=(span*309n)/1000n;
+    if(air<1n) air=1n;
+    if(lo>air) lo-=air; else lo=0n;
+    hi+=air; span=hi-lo;
+    var W=618, H=382, padL=16, padR=16, padT=36, volH=28, padB=28;
+    var innerW=W-padL-padR, bodyH=H-padT-volH-padB-8, tSpan=Math.max(win.ms, win.end-win.start);
+    function xOf(t){ return padL+Math.max(0, Math.min(1, ((Number(t)||0)-win.start)/tSpan))*innerW; }
+    function yOf(sc){
+      var n=Number(((sc-lo)*10000n)/span);
+      return padT+bodyH*(n/10000);
+    }
+    function fmtAxis(t){
+      var d=new Date(Number(t)||0);
+      if(!d.getTime()) return '';
+      var p=function(n){ return (n<10?'0':'')+n; };
+      return p(d.getHours())+':'+p(d.getMinutes());
+    }
+    var last=vis[vis.length-1];
+    var lastDisp=perKrayDisp(last.n*(10n**BigInt(dBase)), last.d, d);
+    var line=sampleTicks(vis, 120);
+    var pts=line.map(function(t){ return xOf(t.at).toFixed(1)+','+yOf(t.sc).toFixed(1); });
+    var x0=xOf(line[0].at), x1=xOf(line[line.length-1].at), yFloor=padT+bodyH;
+    var parts=[
+      '<defs>',
+      '<linearGradient id="plotFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0.10"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>',
+      '<clipPath id="plotClip"><rect x="'+padL+'" y="'+padT+'" width="'+innerW+'" height="'+bodyH+'"/></clipPath>',
+      '</defs>',
+      '<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="#000"/>'
+    ];
+    var g;
+    for(g=0;g<3;g++){
+      var gy=padT+bodyH*(g/2);
+      parts.push('<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+gy.toFixed(1)+'" stroke="rgba(255,255,255,.045)"/>');
+    }
+    for(g=0;g<4;g++){
+      var gx=padL+innerW*(g/3);
+      parts.push('<line x1="'+gx.toFixed(1)+'" y1="'+padT+'" x2="'+gx.toFixed(1)+'" y2="'+(padT+bodyH)+'" stroke="rgba(255,255,255,.045)"/>');
+      var at=win.start+(tSpan*g)/3;
+      var anc=g===0?'start':(g===3?'end':'middle');
+      parts.push('<text x="'+gx.toFixed(1)+'" y="'+(H-10)+'" text-anchor="'+anc+'" fill="#5c6370" font-size="10" font-family="ui-monospace,monospace">'+esc(fmtAxis(at))+'</text>');
+    }
+    if(pts.length>1){
+      parts.push('<path clip-path="url(#plotClip)" d="M '+pts[0]+' L '+pts.slice(1).join(' ')+' L '+x1.toFixed(1)+','+yFloor+' L '+x0.toFixed(1)+','+yFloor+' Z" fill="url(#plotFade)"/>');
+      parts.push('<polyline clip-path="url(#plotClip)" fill="none" stroke="#fff" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" points="'+pts.join(' ')+'"/>');
+    }
+    var bw=Math.max(2.5, Math.min(5, (innerW/48)*0.382));
+    bars.forEach(function(c){
+      var x=xOf(c.t+win.ms/2);
+      var yH=yOf(c.hs), yL=yOf(c.ls), yO=yOf(c.os), yC=yOf(c.cs);
+      var pump=c.cs<c.os||(c.cs===c.os&&c.cN*c.oD<c.oN*c.cD);
+      var col=pump?'#54e0a0':'#f5776b';
+      var top=Math.min(yO,yC), h=Math.max(1, Math.abs(yC-yO));
+      var vh=c.vol>0n?volH*(Number((c.vol*100n)/maxVol)/100):0;
+      parts.push('<line x1="'+x.toFixed(1)+'" y1="'+yH.toFixed(1)+'" x2="'+x.toFixed(1)+'" y2="'+yL.toFixed(1)+'" stroke="'+col+'" stroke-width="1"/>');
+      parts.push('<rect x="'+(x-bw/2).toFixed(1)+'" y="'+top.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" fill="'+col+'" shape-rendering="crispEdges"><title>'+esc('1 '+unit+' = '+printOf(c.cN,c.cD))+'</title></rect>');
+      if(vh>0) parts.push('<rect x="'+(x-bw/2).toFixed(1)+'" y="'+(H-padB-vh).toFixed(1)+'" width="'+(bw/1.618).toFixed(1)+'" height="'+Math.max(1,vh).toFixed(1)+'" fill="'+col+'" opacity="0.22"/>');
+    });
+    if(midS!=null){
+      var my=yOf(midS);
+      parts.push('<line x1="'+padL+'" y1="'+my.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+my.toFixed(1)+'" stroke="rgba(255,255,255,.28)" stroke-width="1" stroke-dasharray="3 4"/>');
+    }
+    var lx=xOf(last.at), ly=yOf(last.sc);
+    parts.push('<circle cx="'+lx.toFixed(1)+'" cy="'+ly.toFixed(1)+'" r="3.2" fill="#fff"/>');
+    var pill=lastDisp+(gly?' '+gly:'');
+    var pillW=Math.min(innerW*0.42, Math.max(44, pill.length*6.6+16));
+    var pillX=W-padR-pillW;
+    var pillY=Math.max(padT+2, Math.min(padT+bodyH-18, ly-8));
+    parts.push('<rect x="'+pillX.toFixed(1)+'" y="'+pillY.toFixed(1)+'" width="'+pillW.toFixed(1)+'" height="16" rx="3" fill="#141518" stroke="rgba(255,255,255,.22)"/>');
+    parts.push('<text x="'+(pillX+pillW-6).toFixed(1)+'" y="'+(pillY+12).toFixed(1)+'" text-anchor="end" fill="#f4f5fa" font-size="10" font-family="ui-monospace,monospace">'+esc(pill)+'</text>');
+    svg.innerHTML=parts.join('');
+    if(hl&&hiT&&loT){
+      hl.hidden=false;
+      $('plot-hi').textContent=printOf(hiT.n, hiT.d);
+      $('plot-lo').textContent=printOf(loT.n, loT.d);
+    }
+    var px=priceLine(book);
+    lab.textContent='1 '+unit+' = '+printOf(last.n, last.d)+'  ·  '+bars.length+' candle · '+({60:'1m',300:'5m',900:'15m',3600:'1h'}[plotTf]||'')+(px.hint?'  ·  '+px.hint:'');
+  }
+  function drawHolders(){
+    var p=poolOf(selected), box=$('holders');
+    if(!p||!p.holders||!p.holders.length){
+      box.innerHTML='<p class="dim">No LP yet — the first signed add writes the book. 100 dead shares stay in the pot.</p>';
+      return;
+    }
+    var s=sel(), sup=0n;
+    try{ sup=BigInt(p.lpSupply||0); }catch(_){}
+    var rows=p.holders.slice().sort(function(a,b){
+      try{
+        var d=BigInt(b.lp||0)-BigInt(a.lp||0);
+        if(d>0n) return 1; if(d<0n) return -1;
+      }catch(_){}
+      return String(a.address).localeCompare(String(b.address));
+    });
+    var max=Number(rows[0].share)||1;
+    var html='<p class="dim mono" style="font-size:11px;margin:0 0 var(--s3)">'+rows.length+' LP · share of total supply · 100 dead shares stay in the book</p>';
+    html+='<div class="lptbl"><table><thead><tr><th>#</th><th>who</th><th class="r">amount in the pot</th><th class="r">LP</th><th class="r">share</th></tr></thead><tbody>';
+    rows.forEach(function(h,i){
+      var you=me&&h.address===me, lp=0n, a=0n, b=0n;
+      try{ lp=BigInt(h.lp||0); if(sup>0n){ a=(resA(p)*lp)/sup; b=(resB(p)*lp)/sup; } }catch(_){}
+      var potAmt=s&&s.kind==='rr'
+        ? (amtTok(a.toString(),s.a)+' + '+amtTok(b.toString(),s.b))
+        : (grp(a)+' ₭ + '+amtTok(b.toString(),s&&s.runeId));
+      var title=you?'you':(h.who||short(h.address));
+      html+='<tr'+(you?' class="you"':'')+'>'
+        +'<td class="rk">'+(i+1)+'</td>'
+        +'<td class="who"><a href="/address/'+esc(h.address)+'">'+esc(title)+(you&&h.who?' · '+esc(h.who):'')+'<small>'+esc(h.address)+'</small></a></td>'
+        +'<td class="r">'+esc(potAmt)+'</td>'
+        +'<td class="r">'+grp(lp)+'</td>'
+        +'<td class="r">'+(Number(h.share)||0).toFixed(2)+'%<div class="track"><i style="width:'+Math.max(2,Math.min(100,((Number(h.share)||0)/max)*100))+'%"></i></div></td>'
+        +'</tr>';
+    });
+    box.innerHTML=html+'</tbody></table></div>';
+  }
+  function drawPos(){
+    var p=poolOf(selected), mine=mineOf(p);
+    if(!me){ $('pos-lab').textContent='connect to see your LP'; return; }
+    if(!p){ $('pos-lab').textContent='set both piles — that ratio is the opening price, then it is eternal'; return; }
+    if(!mine){ $('pos-lab').textContent='you hold 0 LP in this pair'; return; }
+    try{
+      var sup=BigInt(p.lpSupply||'0'), lp=BigInt(mine.lp||'0');
+      var k=sup>0n?(resA(p)*lp)/sup:0n;
+      var r=sup>0n?(resB(p)*lp)/sup:0n;
+      var ss=sel();
+      $('pos-lab').textContent=ss&&ss.kind==='rr'
+        ?('your LP '+grp(mine.lp)+' · '+mine.share+'% ≈ '+amtTok(k.toString(),ss.a)+' + '+amtTok(r.toString(),ss.b))
+        :('your LP '+grp(mine.lp)+' · '+mine.share+'% ≈ '+grp(k)+' ₭ + '+amtTok(r.toString(),ss&&ss.runeId));
+    }catch(_){ $('pos-lab').textContent='your LP '+grp(mine.lp)+' · '+mine.share+'%'; }
+  }
+  function drawTicketChrome(){
+    var s=sel(), p=poolOf(selected), pay=payRune(), recv=recvRune();
+    var payNm=pay?nmOf(pay):'₭', recvNm=recv?nmOf(recv):'₭';
+    var born=!!p, known=pairKnown();
+    if($('desk-swap')) $('desk-swap').hidden=!born;
+    if($('desk-liq')){ $('desk-liq').hidden=!born&&!known; $('desk-liq').style.marginTop=born?'var(--s4)':'0'; }
+    if($('liq-ph')) $('liq-ph').textContent=born?'Your position':'Create pool · eternal';
+    if($('liq-tabs')) $('liq-tabs').hidden=!born;
+    if($('liq-rm-tab')&&!born){
+      document.querySelectorAll('[data-liq]').forEach(function(x){ x.classList.toggle('on', x.getAttribute('data-liq')==='add'); });
+      $('liq-add').hidden=false; $('liq-remove').hidden=true;
+    }
+    if($('ad-go')) $('ad-go').textContent=born?'Review add':'Create pool — eternal';
+    if(!known){
+      $('birth').hidden=false;
+      $('birth').textContent='This is not a rune on this L2. A deposit must write the book first. A ghost id cannot birth a pool — the door and the reducer both refuse.';
+    } else {
+      $('birth').hidden=born;
+      $('birth').textContent=s&&s.kind==='rr'
+        ? 'Unborn. √(pile × pile) must be greater than 100 (the dead shares stay in the book). At 1:1 that is 101 of each, plus 1 ₭ fee. After the signature this pair is eternal.'
+        : ('Unborn. √(₭ × rune) must be greater than 100. At 1:1 put 101 ₭ and 101 '+(s?nmOf(s.runeId):'rune')+' — plus 1 ₭ fee. The first signature writes k forever.');
+    }
+    $('pay-lab').textContent=pay?'You pay · + 1 ₭ fee':'You pay · + 1 ₭ fee';
+    $('pay-tok').textContent=pay?(nmOf(pay)+(glyphOf(pay)?' '+glyphOf(pay):'')+' · change'):'₭ · born from burn';
+    $('recv-tok').textContent=recv?(nmOf(recv)+(glyphOf(recv)?' '+glyphOf(recv):'')+' · flip'):'₭ · flip';
+    if($('pay-sym')) $('pay-sym').textContent=pay?glyphOf(pay):'₭';
+    if($('recv-sym')) $('recv-sym').textContent=recv?glyphOf(recv):'₭';
+    $('sw-go').textContent=p?('Review '+tokOf(pay)+' → '+tokOf(recv)):'Birth the pair first';
+    $('sw-amt').setAttribute('inputmode', pay?'decimal':'numeric');
+    document.querySelectorAll('[data-side]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-side')===side); });
+    var tabs=document.querySelectorAll('[data-side]');
+    if(tabs[0]) tabs[0].textContent=s&&s.kind==='rr'?('Pay '+shortNm(s.a)):'Buy';
+    if(tabs[1]) tabs[1].textContent=s&&s.kind==='rr'?('Pay '+shortNm(s.b)):'Sell';
+    if($('ad-a-lab')) $('ad-a-lab').textContent=s&&s.kind==='rr'?tokOf(s.a):'₭';
+    if($('ad-b-lab')) $('ad-b-lab').textContent=s&&s.kind==='rr'?tokOf(s.b):(s?tokOf(s.runeId):'—');
+    $('ad-kray').setAttribute('inputmode', s&&s.kind==='rr'?'decimal':'numeric');
+    $('ad-kray').placeholder=born?'0':'101';
+    if($('ad-rune-amt')) $('ad-rune-amt').placeholder=born?'0':'101';
+    var h=pay?heldOf(pay):null;
+    if(!pay) $('pay-bal').textContent=me?('wallet '+grp(krayBal)+' ₭ · tap MAX · keep 1 for the fee'):'connect to trade';
+    else {
+      var t=transferable(pay), pers=h?h.personal:'0';
+      $('pay-bal').textContent=me?('pot-backed '+amtTok(t.toString(),pay)+' · tap MAX'+(BigInt(pers||0)>0n?' · hostage stays':'') ):'connect to trade';
+    }
+    var pot=$('pot');
+    if(pay&&me&&h){
+      try{
+        var t2=BigInt(h.transferable||0), pr=BigInt(h.personal||0), tot=t2+pr;
+        var pct=tot>0n?Number((t2*100n)/tot):0;
+        pot.hidden=false;
+        pot.innerHTML='<div class="lab"><span>pot-backed '+pct+'%</span><span>hostage cannot sell</span></div><div class="track"><i style="width:'+Math.max(0,Math.min(100,pct))+'%"></i></div>';
+      }catch(_){ pot.hidden=true; }
+    } else pot.hidden=true;
+    paintSlip();
+    paintKpill();
+  }
+  function paintSlip(){
+    document.querySelectorAll('[data-slip]').forEach(function(b){
+      b.classList.toggle('on', Number(b.getAttribute('data-slip'))===SLIP_PCT);
+    });
+  }
+  function paintImpact(){
+    var el=$('sw-impact');
+    if(!quoteFresh()){ el.className='impact'; el.textContent='impact is derived from reserves — not a consensus field'; paintKpill(); return; }
+    var bps=impactBps(lastQuote);
+    var min=amtTok(minOutOf(lastQuote.amountOut),recvRune());
+    var mid=midExec(lastQuote);
+    var line='you sign min '+min+' · '+SLIP_PCT+'% slip · fee 1 ₭';
+    if(mid) line='exec '+mid.exec+' · mid '+mid.mid+' · '+line;
+    if(bps==null){ el.className='impact'; el.textContent=line; paintKpill(); return; }
+    el.className='impact'+(bps>=800?' crit':(bps>=300?' warn':''));
+    el.textContent='impact '+(bps/100).toFixed(2)+'% · '+line;
+    paintKpill();
+  }
+  function midExec(q){
+    var p=poolOf(selected); if(!p||!q) return null;
+    try{
+      var inn=BigInt(q.amountIn), out=BigInt(q.amountOut);
+      if(inn<=0n||out<=0n) return null;
+      var payA=quotePayA(q);
+      var rin=payA?resA(p):resB(p), rout=payA?resB(p):resA(p);
+      if(rin<=0n||rout<=0n) return null;
+      var dIn=payDiv(), dOut=recvDiv();
+      return {
+        exec: amt(out.toString(),dOut)+' / '+amt(inn.toString(),dIn),
+        mid: amt(rout.toString(),dOut)+' / '+amt(rin.toString(),dIn)
+      };
+    }catch(_){ return null; }
+  }
+  function paintKpill(){
+    var el=$('kpill'); if(!el) return;
+    var ka=quoteFresh()?kAfter(lastQuote):null;
+    if(!ka){ el.className='kpill'; el.textContent='k is consensus · the curve is a drawing'; return; }
+    var ok=ka.after>=ka.before;
+    el.className='kpill '+(ok?'ok':'bad');
+    el.textContent=ok?('k after ≥ k now · '+grp(ka.after.toString())):'k would fall — reducer refuses';
+  }
+  function drawTape(list){
+    pairTape=list||[];
+    if(!pairTape.length){ $('tape').innerHTML='<p class="dim">No AMM lines for this pair yet.</p>'; return; }
+    $('tape').innerHTML=pairTape.map(function(t){
+      var rr=String(t.kind||'').startsWith('amm-rr-');
+      var tag=t.kind==='amm-swap'||t.kind==='amm-rr-swap'
+        ?((rr?(canonRune(t.payRuneId)===canonRune(t.runeId)):t.side==='kray')?'buy':'sell')
+        :(t.kind==='amm-add'||t.kind==='amm-rr-add'?(t.createPool?'CREATE POOL':'add'):'remove');
+      var cls=tag==='buy'?'buy':(tag==='sell'?'sell':(tag==='CREATE POOL'?'create':''));
+      var line;
+      if(t.kind==='amm-rr-swap'){
+        var payA=canonRune(t.payRuneId)===canonRune(t.runeId);
+        line=amtTok(t.amount,payA?t.runeId:t.otherRuneId)+' → '+tokOf(payA?t.otherRuneId:t.runeId);
+      } else if(t.kind==='amm-swap'){
+        line=t.side==='kray'?(grp(t.amount)+' ₭ → '+tokOf(t.runeId)):(amtTok(t.amount,t.runeId)+' → ₭');
+      } else if(t.kind==='amm-rr-add'){
+        line=amtTok(t.runeIn,t.runeId)+' + '+amtTok(t.otherIn,t.otherRuneId);
+      } else if(t.kind==='amm-add'){
+        line=grp(t.krayIn)+' ₭ + '+amtTok(t.runeIn,t.runeId);
+      } else line='burn '+grp(t.lp)+' LP';
+      return '<a class="tx" href="/tx/'+esc(t.hash)+'"><span class="txtag '+cls+'">'+tag+'</span><span class="txl">'+esc(line)+' · '+esc(short(t.from))+'</span><span class="txa">'+(t.sealed?'#'+t.block:'open')+' · '+esc(age(t.at))+'</span></a>';
+    }).join('');
+  }
+
+  function openingLine(ins){
+    var s=sel(); if(!s||!ins) return '—';
+    if(s.kind==='rr'){
+      var sp=pairSpotLine(ins.a,divOf(s.a),ins.b,divOf(s.b));
+      return sp?('1 '+shortNm(s.a)+' = '+sp.bPer+' '+shortNm(s.b)):'—';
+    }
+    var spk=pairSpotLine(ins.a,0,ins.b,divOf(s.runeId));
+    return spk?('1 ₭ = '+spk.bPer+' '+shortNm(s.runeId)):'—';
+  }
+  function humanAmmErr(err){
+    err=String(err||'');
+    if(/initial liquidity too small/i.test(err))
+      return '100 / 100 is the dead-share floor, not the piles. √(x·y) must be greater than 100. At 1:1 put 101 of each (plus 1 ₭ fee). Wallet is not the problem — the book refused the size.';
+    return err;
+  }
+  function addIns(){
+    var s=sel(); if(!s) return null;
+    if(s.kind==='rr'){
+      var a=toBase($('ad-kray').value,divOf(s.a)), b=toBase($('ad-rune-amt').value,divOf(s.b));
+      return a&&b?{ a:a, b:b }:null;
+    }
+    var k=toBase($('ad-kray').value,0), r=toBase($('ad-rune-amt').value,divOf(s.runeId));
+    return k&&r?{ a:k, b:r }:null;
+  }
+  function readySwap(){
+    if(busy||!me||!selected||!poolOf(selected)) return false;
+    var base=toBase($('sw-amt').value,payDiv());
+    return !!(base&&BigInt(base)>0n);
+  }
+  function quoteFresh(){
+    if(!lastQuote||!lastQuote.amountOut||!selected) return false;
+    var base=toBase($('sw-amt').value,payDiv()), s=sel();
+    if(!base||!s||lastQuote.amountIn!==base||lastQuoteK!==bookK()) return false;
+    if(s.kind==='rr') return lastQuote.kind==='rr'&&lastQuote.runeId===s.a&&lastQuote.otherRuneId===s.b&&lastQuote.payRuneId===payRune();
+    return lastQuote.side===side&&lastQuote.runeId===s.runeId;
+  }
+  function addFresh(){
+    if(!lastAdd||!lastAdd.minted||!selected) return false;
+    var ins=addIns(), s=sel();
+    if(!ins||!s||lastAddK!==bookK()) return false;
+    if(s.kind==='rr') return lastAdd.kind==='rr'&&lastAdd.runeIn===ins.a&&lastAdd.otherIn===ins.b&&lastAdd.runeId===s.a;
+    return lastAdd.krayIn===ins.a&&lastAdd.runeIn===ins.b&&lastAdd.runeId===s.runeId;
+  }
+  function rmFresh(){
+    if(!lastRm||!selected) return false;
+    var lp=$('rm-lp').value.trim(), s=sel();
+    if(!/^[0-9]+$/.test(lp)||lastRm.lp!==lp||lastRmK!==bookK()) return false;
+    if(s&&s.kind==='rr') return lastRm.kind==='rr'&&!!lastRm.runeOut&&!!lastRm.otherOut;
+    return !!lastRm.krayOut;
+  }
+  function canSwap(){ return readySwap()&&quoteFresh(); }
+  function knownOnL2(id){
+    var c=canonRune(id);
+    if(!c) return false;
+    return runes.some(function(r){ return canonRune(r.runeId)===c; });
+  }
+  function pairKnown(){
+    var s=sel(); if(!s) return false;
+    if(s.kind==='rr') return knownOnL2(s.a)&&knownOnL2(s.b);
+    return knownOnL2(s.runeId);
+  }
+  function canAdd(){
+    if(busy||!me||!selected||!pairKnown()) return false;
+    var ins=addIns();
+    return !!(ins&&BigInt(ins.a)>0n&&BigInt(ins.b)>0n&&addFresh());
+  }
+  function canRm(){
+    if(busy||!me||!selected||!poolOf(selected)) return false;
+    var lp=$('rm-lp').value.trim();
+    return /^[0-9]+$/.test(lp)&&BigInt(lp)>0n&&rmFresh();
+  }
+  function paintBtns(){
+    $('sw-go').disabled=!canSwap();
+    $('ad-go').disabled=!canAdd();
+    $('rm-go').disabled=!canRm();
+  }
+
+  function previewReserves(q){
+    var p=poolOf(selected); if(!p||!q) return null;
+    try{
+      var k=resA(p), r=resB(p), inn=BigInt(q.amountIn), out=BigInt(q.amountOut);
+      if(quotePayA(q)) return { x:Number(k+inn), y:Number(r-out) };
+      return { x:Number(k-out), y:Number(r+inn) };
+    }catch(_){ return null; }
+  }
+  function quoteUrl(op){
+    var s=sel(); if(!s) return '';
+    if(s.kind==='rr') return '/api/kraynet/amm/quote?runeId='+encodeURIComponent(s.a)+'&otherRuneId='+encodeURIComponent(s.b)+(op?'&op='+op:'');
+    return '/api/kraynet/amm/quote?runeId='+encodeURIComponent(s.runeId)+(op?'&op='+op:'');
+  }
+  function refreshQuote(){
+    qSeq++;
+    var my=qSeq;
+    if(!readySwap()){
+      lastQuote=null; lastQuoteK=null;
+      $('sw-out-amt').textContent='0'; $('sw-out-amt').classList.remove('hold');
+      paintImpact();
+      $('sw-quote').textContent=poolOf(selected)?'quote is a read — it never moves state':'open the pair first — add liquidity';
+      paintBtns(); paintPlot(null); return;
+    }
+    var base=toBase($('sw-amt').value,payDiv()), s=sel();
+    if(!quoteFresh()) $('sw-out-amt').classList.add('hold');
+    $('sw-quote').textContent=lastQuote?'updating read…':'quoting…';
+    var url=s.kind==='rr'
+      ?(quoteUrl()+'&payRuneId='+encodeURIComponent(payRune())+'&amount='+base)
+      :(quoteUrl()+'&side='+side+'&amount='+base);
+    fetch(url).then(function(r){return r.json();}).then(function(q){
+      if(my!==qSeq) return;
+      $('sw-out-amt').classList.remove('hold');
+      if(q.error){ $('sw-quote').textContent=q.error; lastQuote=null; lastQuoteK=null; paintImpact(); paintBtns(); return; }
+      lastQuote=q; lastQuoteK=bookK();
+      $('sw-out-amt').textContent=recvRune()?amt(q.amountOut,recvDiv()):grp(q.amountOut);
+      $('sw-quote').textContent='read only · reducer re-derives the out';
+      paintImpact();
+      paintPlot(previewReserves(q));
+      paintBtns();
+    }).catch(function(){ if(my!==qSeq) return; $('sw-quote').textContent='quote unavailable'; paintBtns(); });
+  }
+  function refreshAddQuote(){
+    aSeq++;
+    var my=aSeq, ins=addIns(), s=sel();
+    if(!selected||!ins||BigInt(ins.a)<=0n||BigInt(ins.b)<=0n){ lastAdd=null; lastAddK=null; $('ad-quote').textContent=s&&s.kind==='rr'?('only pot-backed '+nmOf(s.a)+' + '+nmOf(s.b)+' · excess is a gift to LPs'):(s?('only pot-backed '+nmOf(s.runeId)+' · excess is a gift to LPs'):'only pot-backed · excess is a gift to LPs'); if($('ad-gift')){ $('ad-gift').hidden=true; } paintBtns(); return; }
+    $('ad-quote').textContent=lastAdd?'updating read…':'quoting…';
+    var url=s.kind==='rr'
+      ?(quoteUrl('add')+'&runeIn='+ins.a+'&otherIn='+ins.b)
+      :(quoteUrl('add')+'&krayIn='+ins.a+'&runeIn='+ins.b);
+    fetch(url).then(function(res){return res.json();}).then(function(q){
+      if(my!==aSeq) return;
+      if(q.error){ $('ad-quote').textContent=humanAmmErr(q.error); lastAdd=null; lastAddK=null; paintBtns(); return; }
+      lastAdd=q; lastAddK=bookK();
+      var open=openingLine(ins);
+      $('ad-quote').textContent=q.first
+        ?('opening '+open+' · LP ≈ '+grp(q.minted)+' · 100 dead shares stay · you sign min '+grp(minOutOf(q.minted)))
+        :('LP ≈ '+grp(q.minted)+' · you sign min '+grp(minOutOf(q.minted)));
+      var g=giftOfAdd(poolOf(selected), s.kind==='rr'?q.runeIn:q.krayIn, s.kind==='rr'?q.otherIn:q.runeIn, q.minted), gf=$('ad-gift');
+      if(g&&gf){
+        gf.hidden=false;
+        gf.textContent=s.kind==='rr'
+          ?('this add gifts '+amtTok(g.gk.toString(),s.a)+' + '+amtTok(g.gr.toString(),s.b)+' to the book')
+          :('this add gifts '+grp(g.gk)+' ₭ + '+amtTok(g.gr.toString(),s.runeId)+' to the book (you signed the full in — LPs keep the excess)');
+      }
+      else if(gf){ gf.hidden=true; gf.textContent=''; }
+      paintBtns();
+    }).catch(function(){ if(my!==aSeq) return; $('ad-quote').textContent='quote unavailable'; paintBtns(); });
+  }
+  function refreshRmQuote(){
+    rSeq++;
+    var my=rSeq, s=sel();
+    var lp=$('rm-lp').value.trim();
+    if(!selected||!/^[0-9]+$/.test(lp)||BigInt(lp)<=0n||!poolOf(selected)){ lastRm=null; lastRmK=null; $('rm-quote').textContent='quote is a read'; paintBtns(); return; }
+    $('rm-quote').textContent=lastRm?'updating read…':'quoting…';
+    fetch(quoteUrl('remove')+'&lp='+lp).then(function(res){return res.json();}).then(function(q){
+      if(my!==rSeq) return;
+      if(q.error){ $('rm-quote').textContent=q.error; lastRm=null; lastRmK=null; paintBtns(); return; }
+      lastRm=q; lastRmK=bookK();
+      $('rm-quote').textContent=s&&s.kind==='rr'
+        ?('out ≈ '+amtTok(q.runeOut,s.a)+' + '+amtTok(q.otherOut,s.b)+' · you sign min at '+SLIP_PCT+'%')
+        :('out ≈ '+grp(q.krayOut)+' ₭ + '+amtTok(q.runeOut,s.runeId)+' · you sign min at '+SLIP_PCT+'%');
+      paintBtns();
+    }).catch(function(){ if(my!==rSeq) return; $('rm-quote').textContent='quote unavailable'; paintBtns(); });
+  }
+  function schedule(){ clearTimeout(quoteT); quoteT=setTimeout(function(){ refreshQuote(); refreshAddQuote(); refreshRmQuote(); },160); paintBtns(); }
+
+  function ratioFill(from){
+    var p=poolOf(selected), s=sel(); if(!p||!s) return;
+    try{
+      var kR=resA(p), rR=resB(p); if(kR<=0n||rR<=0n) return;
+      var dA=s.kind==='rr'?divOf(s.a):0, dB=s.kind==='rr'?divOf(s.b):divOf(s.runeId);
+      if(from==='kray'){
+        var k=toBase($('ad-kray').value,dA); if(!k) return;
+        var rune=(BigInt(k)*rR)/kR;
+        addSrc='kray'; $('ad-rune-amt').value=fromBase(rune.toString(),dB); addSrc=null;
+      } else {
+        var ru=toBase($('ad-rune-amt').value,dB); if(!ru) return;
+        var kray=(BigInt(ru)*kR)/rR;
+        addSrc='rune'; $('ad-kray').value=fromBase(kray.toString(),dA); addSrc=null;
+      }
+    }catch(_){}
+  }
+
+  function loadWallet(){
+    if(!me){ krayBal=0n; held=[]; return Promise.resolve(); }
+    return Promise.all([
+      fetch('/api/kraynet/profile/'+encodeURIComponent(me)).then(function(r){return r.json();}),
+      fetch('/api/kraynet/runes/of/'+encodeURIComponent(me)).then(function(r){return r.json();})
+    ]).then(function(xs){
+      try{ krayBal=BigInt(String((xs[0]&&xs[0].balance)||'0')); }catch(_){ krayBal=0n; }
+      held=(xs[1]&&xs[1].runes)||[];
+    }).catch(function(){ held=[]; });
+  }
+  function loadTapes(){
+    var g=fetch('/api/kraynet/amm/tape?limit=96').then(function(r){return r.json();}).then(function(d){ tapes=d.tape||[]; }).catch(function(){});
+    var s=sel();
+    var p=s
+      ? fetch('/api/kraynet/amm/tape?runeId='+encodeURIComponent(s.kind==='rr'?s.a:s.runeId)+(s.kind==='rr'?('&otherRuneId='+encodeURIComponent(s.b)):'')+'&limit=256').then(function(r){return r.json();}).then(function(d){ drawTape(d.tape||[]); }).catch(function(){})
+      : Promise.resolve();
+    return Promise.all([g,p]);
+  }
+  function loadMeta(){
+    return Promise.all([
+      fetch('/api/kraynet/runes').then(function(r){return r.json();}),
+      fetch('/api/kraynet/amm/pools').then(function(r){return r.json();}),
+      loadWallet(),
+      loadTapes()
+    ]).then(function(xs){
+      runes=(xs[0]&&xs[0].runes)||[];
+      pools=(xs[1]&&xs[1].pools)||[];
+      pulseLive();
+      drawMarkets();
+      if(selected) paintPair();
+      if(!$('sheet').hidden && bookMoved()){
+        show('sheet-out','err','book moved — review again');
+        $('sheet-yes').disabled=true;
+      }
+    }).catch(function(){ $('markets').innerHTML='<p class="dim">could not read the book</p>'; });
+  }
+  function applyPending(){
+    if(!pendingQuick||pendingQuick.id!==selected) return;
+    side=pendingQuick.side||'kray';
+    $('sw-amt').value=pendingQuick.amt;
+    pendingQuick=null;
+    drawTicketChrome();
+    schedule();
+  }
+  function paintPair(){
+    drawIdent(); drawKpis(); paintPlot(lastQuote?previewReserves(lastQuote):null); drawHolders(); drawPos(); drawTicketChrome();
+    applyPending();
+    schedule();
+  }
+  function route(){
+    var s=selOf(hashId()||'');
+    selected=s?s.key:null;
+    if(s) desk=s.kind==='rr'?'rr':'kray';
+    try{ sessionStorage.setItem('kray.defi.desk', desk); }catch(_){}
+    $('view-markets').hidden=!!selected;
+    $('view-pair').hidden=!selected;
+    closeOv('picker');
+    paintDesk();
+    if(selected) paintPair();
+    else drawMarkets();
+  }
+
+  function takePick(key){
+    var s=selOf(key);
+    if(pickMode==='kray'){
+      var id=s&&s.kind!=='rr'?(s.runeId||key):key;
+      if(poolOf(id)){
+        $('picker-h').textContent='That ₭ pair is already eternal — Create pool refused';
+        return true;
+      }
+      pickMode=0; pickA=null;
+      closeOv('picker');
+      goHash(s&&s.kind==='rr'?s.key:id);
+      return true;
+    }
+    if(pickMode==='rr1'){
+      pickA=s&&s.kind==='rr'?s.a:(s?s.runeId:key);
+      pickMode='rr2';
+      $('picker-h').textContent='Create pool — second rune. First is '+shortNm(pickA);
+      drawPicker();
+      return true;
+    }
+    if(pickMode==='rr2'){
+      if(s&&s.kind==='rr'){
+        $('picker-h').textContent='That pair is already eternal — Create pool refused';
+        return true;
+      }
+      var k=rrKey(pickA, s?s.runeId:key);
+      if(!k){ $('picker-h').textContent='Need two distinct runes'; return true; }
+      if(poolOf(k)){
+        $('picker-h').textContent='That pair is already eternal — Create pool refused';
+        return true;
+      }
+      pickMode=0; pickA=null;
+      closeOv('picker'); goHash(k); return true;
+    }
+    return false;
+  }
+  function startCreate(){
+    if(desk==='rr'){
+      pickMode='rr1'; pickA=null;
+      $('picker-h').textContent='Create pool — first rune. Unique and eternal.';
+    } else {
+      pickMode='kray'; pickA=null;
+      $('picker-h').textContent='Create pool — choose the rune. ₭ / that rune is unique and eternal.';
+    }
+    openPicker();
+  }
+  function openPicker(){
+    if(!pickMode){ pickA=null; $('picker-h').textContent='Choose a pair'; }
+    drawPicker(); $('picker').hidden=false; $('pq').focus();
+  }
+  function closeOv(id){
+    var el=$(id); if(el) el.hidden=true;
+    if(id==='sheet'){ pendingKind=null; sheetBookK=null; }
+    if(id==='picker'){ pickMode=0; pickA=null; }
+  }
+  function setSlip(pct){
+    var n=Number(pct);
+    if(!isFinite(n)||n<0||n>=50) return;
+    SLIP_PCT=n;
+    try{ sessionStorage.setItem('kray.defi.slip', String(n)); }catch(_){}
+    paintSlip();
+    if(lastQuote) paintImpact();
+    if(lastAdd) refreshAddQuote();
+    if(lastRm) refreshRmQuote();
+  }
+  function revRow(k,v){ return '<div class="rev-row"><span>'+esc(k)+'</span><b>'+v+'</b></div>'; }
+  function openSheet(kind){
+    if(kind==='swap'&&!canSwap()) return;
+    if(kind==='add'&&!canAdd()) return;
+    if(kind==='remove'&&!canRm()) return;
+    pendingKind=kind;
+    var body='', title='Review', s=sel(), nm=s?(s.kind==='rr'?(shortNm(s.a)+' / '+shortNm(s.b)):nmOf(s.runeId)):'';
+    if(kind==='swap'){
+      var bps=impactBps(lastQuote), pay=payRune(), recv=recvRune();
+      title='Review '+tokOf(pay)+' → '+tokOf(recv);
+      body+=revRow('You pay', esc(amtTok(lastQuote.amountIn,pay))+' · '+esc(pay?nmOf(pay):'₭'));
+      body+=revRow('You receive ~', esc(amtTok(lastQuote.amountOut,recv))+' · '+esc(recv?nmOf(recv):'₭'));
+      body+=revRow('You sign min', esc(amtTok(minOutOf(lastQuote.amountOut),recv))+' · '+esc(recv?nmOf(recv):'₭'));
+      body+=revRow('Price impact', bps==null?'—':((bps/100).toFixed(2)+'%')+' <span class="dim">(derived)</span>');
+      body+=revRow('Slippage', SLIP_PCT+'%');
+    } else if(kind==='add'){
+      title=lastAdd.first?'Review — Create pool forever':'Review add';
+      if(lastAdd.first) body+=revRow('Pair', 'eternal · first writer · never again');
+      if(s&&s.kind==='rr'){
+        body+=revRow(esc(nmOf(s.a))+' in', esc(amtTok(lastAdd.runeIn,s.a)));
+        body+=revRow(esc(nmOf(s.b))+' in', esc(amtTok(lastAdd.otherIn,s.b)));
+      } else {
+        body+=revRow('₭ in', grp(lastAdd.krayIn)+' ₭');
+        body+=revRow(esc(nmOf(s.runeId))+' in', esc(amtTok(lastAdd.runeIn,s.runeId)));
+      }
+      if(lastAdd.first) body+=revRow('Opening', esc(openingLine(s.kind==='rr'?{a:lastAdd.runeIn,b:lastAdd.otherIn}:{a:lastAdd.krayIn,b:lastAdd.runeIn})));
+      body+=revRow('LP ~', grp(lastAdd.minted)+(lastAdd.first?' · 100 dead shares stay':''));
+      body+=revRow('You sign min LP', grp(minOutOf(lastAdd.minted)));
+    } else {
+      title='Review remove';
+      body+=revRow('LP burn', grp(lastRm.lp));
+      if(s&&s.kind==='rr'){
+        body+=revRow(esc(nmOf(s.a))+' out ~', esc(amtTok(lastRm.runeOut,s.a)));
+        body+=revRow(esc(nmOf(s.b))+' out ~', esc(amtTok(lastRm.otherOut,s.b)));
+        body+=revRow('You sign min', esc(amtTok(minOutOf(lastRm.runeOut),s.a)+' + '+amtTok(minOutOf(lastRm.otherOut),s.b)));
+      } else {
+        body+=revRow('₭ out ~', grp(lastRm.krayOut)+' ₭');
+        body+=revRow(esc(nmOf(s.runeId))+' out ~', esc(amtTok(lastRm.runeOut,s.runeId)));
+        body+=revRow('You sign min', grp(minOutOf(lastRm.krayOut))+' ₭ + '+esc(amtTok(minOutOf(lastRm.runeOut),s.runeId)));
+      }
+    }
+    body+=revRow('Fee', '1 ₭ exactly');
+    body+=revRow('Write', 'signed journal line — reducer re-derives amounts');
+    var lines;
+    if(s&&s.kind==='rr'){
+      lines=['kind '+ (kind==='swap'?'amm-rr-swap':(kind==='add'?'amm-rr-add':'amm-rr-remove')), 'runeId '+s.a, 'otherRuneId '+s.b];
+      if(kind==='swap'){ lines.push('payRuneId '+payRune(),'amount '+lastQuote.amountIn,'minOut '+minOutOf(lastQuote.amountOut)); }
+      else if(kind==='add'){ lines.push('runeIn '+lastAdd.runeIn,'otherIn '+lastAdd.otherIn,'minLp '+minOutOf(lastAdd.minted)); }
+      else { lines.push('lp '+lastRm.lp,'minRuneOut '+minOutOf(lastRm.runeOut),'minOtherOut '+minOutOf(lastRm.otherOut)); }
+    } else {
+      lines=['kind '+ (kind==='swap'?'amm-swap':(kind==='add'?'amm-add':'amm-remove')), 'runeId '+s.runeId];
+      if(kind==='swap'){ lines.push('side '+side,'amount '+lastQuote.amountIn,'minOut '+minOutOf(lastQuote.amountOut)); }
+      else if(kind==='add'){ lines.push('krayIn '+lastAdd.krayIn,'runeIn '+lastAdd.runeIn,'minLp '+minOutOf(lastAdd.minted)); }
+      else { lines.push('lp '+lastRm.lp,'minKrayOut '+minOutOf(lastRm.krayOut),'minRuneOut '+minOutOf(lastRm.runeOut)); }
+    }
+    lines.push('fee 1');
+    body+='<pre class="sig">'+esc(lines.join('\n'))+'</pre><p class="dim" style="margin-top:var(--s3);font-size:12px">bytes the wallet hashes — the quote is not in the message</p>';
+    sheetBookK=bookK();
+    $('sheet-h').textContent=title;
+    $('sheet-body').innerHTML=body;
+    $('sheet-out').classList.add('hidden');
+    $('sheet-yes').disabled=false;
+    $('sheet').hidden=false;
+    $('sheet-yes').focus();
+  }
+  function proofLink(res, okId){
+    var html='✓ sealed'+(res&&res.hash?(' · <a href="/tx/'+esc(res.hash)+'" style="color:var(--btc)">open the proof</a>'):'');
+    show(okId,'ok',html);
+    show('sheet-out','ok',html);
+  }
+
+  async function execSwap(){
+    if(bookMoved()) throw new Error('book moved — review again');
+    var amount=toBase($('sw-amt').value,payDiv()), s=sel();
+    if(!quoteFresh()){
+      var url=s.kind==='rr'
+        ?(quoteUrl()+'&payRuneId='+encodeURIComponent(payRune())+'&amount='+amount)
+        :(quoteUrl()+'&side='+side+'&amount='+amount);
+      var qr=await fetch(url);
+      lastQuote=await qr.json(); if(!qr.ok||lastQuote.error) throw new Error(lastQuote.error||'quote refused');
+    }
+    show('sw-out','','preparing…'); show('sheet-out','','preparing…');
+    var res=s.kind==='rr'
+      ? await KRAY.act('amm-rr-swap',{runeId:s.a,otherRuneId:s.b,payRuneId:payRune(),amount:amount,minOut:minOutOf(lastQuote.amountOut)},{onstep:function(st){ show('sw-out','',st); show('sheet-out','',st); }})
+      : await KRAY.act('amm-swap',{runeId:s.runeId,side:side,amount:amount,minOut:minOutOf(lastQuote.amountOut)},{onstep:function(st){ show('sw-out','',st); show('sheet-out','',st); }});
+    proofLink(res,'sw-out');
+    $('sw-amt').value=''; lastQuote=null;
+    await loadMeta();
+  }
+  async function execAdd(){
+    if(lastAdd&&lastAdd.first&&poolOf(selected)) throw new Error('book moved — pair already born');
+    if(sheetBookK && bookMoved()) throw new Error('book moved — review again');
+    var ins=addIns(), s=sel();
+    if(!addFresh()){
+      var url=s.kind==='rr'
+        ?(quoteUrl('add')+'&runeIn='+ins.a+'&otherIn='+ins.b)
+        :(quoteUrl('add')+'&krayIn='+ins.a+'&runeIn='+ins.b);
+      var qr=await fetch(url);
+      lastAdd=await qr.json(); if(!qr.ok||lastAdd.error) throw new Error(lastAdd.error||'quote refused');
+    }
+    show('ad-out','','preparing…'); show('sheet-out','','preparing…');
+    var res=s.kind==='rr'
+      ? await KRAY.act('amm-rr-add',{runeId:s.a,otherRuneId:s.b,runeIn:ins.a,otherIn:ins.b,minLp:minOutOf(lastAdd.minted)},{onstep:function(st){ show('ad-out','',st); show('sheet-out','',st); }})
+      : await KRAY.act('amm-add',{runeId:s.runeId,krayIn:ins.a,runeIn:ins.b,minLp:minOutOf(lastAdd.minted)},{onstep:function(st){ show('ad-out','',st); show('sheet-out','',st); }});
+    proofLink(res,'ad-out');
+    $('ad-kray').value=''; $('ad-rune-amt').value=''; lastAdd=null;
+    await loadMeta();
+  }
+  async function execRm(){
+    if(bookMoved()) throw new Error('book moved — review again');
+    var lp=$('rm-lp').value.trim(), s=sel();
+    if(!rmFresh()){
+      var qr=await fetch(quoteUrl('remove')+'&lp='+lp);
+      lastRm=await qr.json(); if(!qr.ok||lastRm.error) throw new Error(lastRm.error||'quote refused');
+    }
+    show('rm-out','','preparing…'); show('sheet-out','','preparing…');
+    var res=s.kind==='rr'
+      ? await KRAY.act('amm-rr-remove',{runeId:s.a,otherRuneId:s.b,lp:lp,minRuneOut:minOutOf(lastRm.runeOut),minOtherOut:minOutOf(lastRm.otherOut)},{onstep:function(st){ show('rm-out','',st); show('sheet-out','',st); }})
+      : await KRAY.act('amm-remove',{runeId:s.runeId,lp:lp,minKrayOut:minOutOf(lastRm.krayOut),minRuneOut:minOutOf(lastRm.runeOut)},{onstep:function(st){ show('rm-out','',st); show('sheet-out','',st); }});
+    proofLink(res,'rm-out');
+    $('rm-lp').value=''; lastRm=null;
+    await loadMeta();
+  }
+  async function execPending(){
+    if(busy||!pendingKind) return;
+    busy=true; paintBtns(); $('sheet-yes').disabled=true;
+    try{
+      if(pendingKind==='swap') await execSwap();
+      else if(pendingKind==='add') await execAdd();
+      else await execRm();
+      closeOv('sheet');
+    }catch(err){
+      var msg='✗ '+esc(humanAmmErr(err&&err.message||'refused'));
+      show(pendingKind==='swap'?'sw-out':(pendingKind==='add'?'ad-out':'rm-out'),'err',msg);
+      show('sheet-out','err',msg);
+      $('sheet-yes').disabled=false;
+    }
+    busy=false; paintBtns();
+  }
+
+  window.addEventListener('kray-connected', function(e){ me=e.detail.address; paintAcct(); loadWallet().then(function(){ drawMarkets(); if(selected) paintPair(); }); });
+  window.addEventListener('kray-disconnected', function(){ me=null; krayBal=0n; held=[]; paintAcct(); drawMarkets(); if(selected) paintPair(); });
+  window.addEventListener('hashchange', route);
+  document.addEventListener('keydown', function(e){
+    if(e.key==='Escape'){
+      if(e.target && /INPUT|TEXTAREA/.test(e.target.tagName)){ e.target.blur(); return; }
+      if(!busy){ closeOv('sheet'); closeOv('picker'); }
+      return;
+    }
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    if(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if(e.key==='/'){ e.preventDefault(); if(selected) openPicker(); else $('q').focus(); return; }
+    if(!selected) return;
+    if(e.key==='b'||e.key==='B'){ side='kray'; $('sw-amt').value=''; lastQuote=null; lastQuoteK=null; drawTicketChrome(); schedule(); }
+    if(e.key==='s'||e.key==='S'){ side='rune'; $('sw-amt').value=''; lastQuote=null; lastQuoteK=null; drawTicketChrome(); schedule(); }
+    if(e.key==='f'||e.key==='F'){ side=side==='kray'?'rune':'kray'; $('sw-amt').value=''; lastQuote=null; lastQuoteK=null; drawTicketChrome(); schedule(); }
+    if(e.key==='m'||e.key==='M') fillMax();
+    if(e.key==='1') setSlip(0.1);
+    if(e.key==='2') setSlip(0.5);
+    if(e.key==='3') setSlip(1);
+  });
+
+  document.addEventListener('DOMContentLoaded', function(){
+    try{ var s=sessionStorage.getItem('kray.defi.slip'); if(s!=null&&isFinite(Number(s))) SLIP_PCT=Number(s); }catch(_){}
+    try{ if(sessionStorage.getItem('kray.defi.plot')==='curve') plotKind='curve'; }catch(_){}
+    try{ var tf=Number(sessionStorage.getItem('kray.defi.tf')); if(tf===60||tf===300||tf===900||tf===3600) plotTf=tf; }catch(_){}
+    try{ if(sessionStorage.getItem('kray.defi.desk')==='rr') desk='rr'; }catch(_){}
+    me=window.__krayAddr||null; paintAcct(); paintSlip();
+    $('q').addEventListener('input', drawMarkets);
+    $('pq').addEventListener('input', drawPicker);
+    $('markets').addEventListener('click', function(e){
+      var pin=e.target.closest('[data-pin]');
+      if(pin){ e.stopPropagation(); togglePin(pin.getAttribute('data-pin')); return; }
+      var q=e.target.closest('[data-quick]');
+      if(q){ e.stopPropagation(); pendingQuick={ id:q.getAttribute('data-id'), side:'kray', amt:q.getAttribute('data-quick') }; goHash(q.getAttribute('data-id')); return; }
+      var b=e.target.closest('[data-open]'); if(b) goHash(b.getAttribute('data-open'));
+    });
+    $('positions').addEventListener('click', function(e){
+      var b=e.target.closest('[data-open]'); if(b) goHash(b.getAttribute('data-open'));
+    });
+    $('resume').addEventListener('click', function(e){
+      var b=e.target.closest('[data-open]'); if(b) goHash(b.getAttribute('data-open'));
+    });
+    $('weight').addEventListener('click', function(e){
+      var b=e.target.closest('[data-wside]'); if(!b) return;
+      side=b.getAttribute('data-wside');
+      var raw=b.getAttribute('data-win');
+      $('sw-amt').value=payRune()?fromBase(raw,payDiv()):raw;
+      lastQuote=null; lastQuoteK=null;
+      drawTicketChrome(); schedule();
+    });
+    if($('new-pair')) $('new-pair').addEventListener('click', startCreate);
+    document.querySelectorAll('#desk-key [data-desk]').forEach(function(b){
+      b.addEventListener('click', function(){ setDesk(b.getAttribute('data-desk')); });
+    });
+    $('pay-bal').addEventListener('click', function(){ if(me) fillMax(); });
+    $('recv-tok').addEventListener('click', function(){ side=side==='kray'?'rune':'kray'; $('sw-amt').value=''; lastQuote=null; lastQuoteK=null; drawTicketChrome(); schedule(); });
+    $('birth').addEventListener('click', function(){
+      document.querySelectorAll('[data-liq]').forEach(function(x){ x.classList.toggle('on', x.getAttribute('data-liq')==='add'); });
+      $('liq-add').hidden=false; $('liq-remove').hidden=true;
+      $('ad-kray').focus();
+    });
+    $('sheet').addEventListener('keydown', function(e){
+      if(e.key!=='Tab'||$('sheet').hidden) return;
+      var nodes=Array.prototype.slice.call($('sheet').querySelectorAll('button:not([disabled]),input'));
+      if(!nodes.length) return;
+      var first=nodes[0], last=nodes[nodes.length-1];
+      if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+    });
+    $('picker-list').addEventListener('click', function(e){
+      var b=e.target.closest('[data-open]'); if(!b) return;
+      if(takePick(b.getAttribute('data-open'))) return;
+      closeOv('picker'); goHash(b.getAttribute('data-open'));
+    });
+    $('back').addEventListener('click', function(){ goHash(''); });
+    $('pay-tok').addEventListener('click', openPicker);
+    function openFromRow(el, e){
+      if(!el) return;
+      if(e && e.key && e.key!=='Enter' && e.key!==' ') return;
+      if(e && e.key===' ') e.preventDefault();
+      goHash(el.getAttribute('data-open'));
+    }
+    $('markets').addEventListener('keydown', function(e){ openFromRow(e.target.closest('[data-open]'), e); });
+    $('picker-list').addEventListener('keydown', function(e){
+      if(e.key!=='Enter' && e.key!==' ') return;
+      var row=e.target.closest('[data-open]'); if(!row) return;
+      e.preventDefault();
+      if(takePick(row.getAttribute('data-open'))) return;
+      closeOv('picker'); goHash(row.getAttribute('data-open'));
+    });
+    document.querySelectorAll('[data-close]').forEach(function(el){
+      el.addEventListener('click', function(){ if(!busy) closeOv(el.getAttribute('data-close')); });
+    });
+    $('sheet-no').addEventListener('click', function(){ if(!busy) closeOv('sheet'); });
+    $('sheet-yes').addEventListener('click', execPending);
+    document.querySelectorAll('#plot-kind [data-plot]').forEach(function(b){
+      b.addEventListener('click', function(){ setPlot(b.getAttribute('data-plot')); });
+    });
+    document.querySelectorAll('#plot-tf [data-tf]').forEach(function(b){
+      b.addEventListener('click', function(){ setTf(b.getAttribute('data-tf')); });
+    });
+    document.querySelectorAll('[data-sort]').forEach(function(b){
+      b.addEventListener('click', function(){
+        sortBy=b.getAttribute('data-sort');
+        document.querySelectorAll('[data-sort]').forEach(function(x){ x.classList.toggle('on',x===b); });
+        drawMarkets();
+      });
+    });
+    document.querySelectorAll('[data-side]').forEach(function(b){
+      b.addEventListener('click', function(){ side=b.getAttribute('data-side'); $('sw-amt').value=''; lastQuote=null; drawTicketChrome(); schedule(); });
+    });
+    $('flip').addEventListener('click', function(){ side=side==='kray'?'rune':'kray'; $('sw-amt').value=''; lastQuote=null; drawTicketChrome(); schedule(); });
+    $('sw-amt').addEventListener('input', schedule);
+    document.querySelectorAll('[data-pct]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var pct=BigInt(b.getAttribute('data-pct'));
+        var max=payMax(); var take=(max*pct)/100n;
+        $('sw-amt').value=payRune()?fromBase(take.toString(),payDiv()):take.toString();
+        schedule();
+      });
+    });
+    document.querySelectorAll('[data-slip]').forEach(function(b){
+      b.addEventListener('click', function(){ setSlip(b.getAttribute('data-slip')); });
+    });
+    $('slip-custom').addEventListener('change', function(){ setSlip(this.value); });
+    document.querySelectorAll('[data-liq]').forEach(function(b){
+      b.addEventListener('click', function(){
+        document.querySelectorAll('[data-liq]').forEach(function(x){ x.classList.toggle('on',x===b); });
+        var t=b.getAttribute('data-liq');
+        $('liq-add').hidden=t!=='add';
+        $('liq-remove').hidden=t!=='remove';
+      });
+    });
+    $('ad-kray').addEventListener('input', function(){ if(addSrc!=='rune') ratioFill('kray'); schedule(); });
+    $('ad-rune-amt').addEventListener('input', function(){ if(addSrc!=='kray') ratioFill('rune'); schedule(); });
+    $('rm-lp').addEventListener('input', schedule);
+    document.querySelectorAll('[data-rm]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var mine=mineOf(poolOf(selected)); if(!mine) return;
+        var take=(BigInt(mine.lp)*BigInt(b.getAttribute('data-rm')))/100n;
+        $('rm-lp').value=take.toString(); schedule();
+      });
+    });
+    $('sw-go').addEventListener('click', function(){ openSheet('swap'); });
+    $('ad-go').addEventListener('click', function(){ openSheet('add'); });
+    $('rm-go').addEventListener('click', function(){ openSheet('remove'); });
+
+    loadMeta().then(route);
+    setInterval(function(){ if(!busy) loadMeta(); }, 8000);
+    setInterval(function(){
+      if(busy||!selected) return;
+      loadTapes().then(function(){
+        if(!selected) return;
+        paintPlot(lastQuote?previewReserves(lastQuote):null);
+        drawKpis();
+      });
+    }, 2500);
+  });
+})();
+</script>
+</body>
+</html>

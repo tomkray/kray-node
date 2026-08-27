@@ -1,0 +1,12 @@
+[package]
+name = "kray-fold-lib"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+sha2 = { workspace = true }
+k256 = { workspace = true }
+bech32 = { workspace = true }
+hex = { workspace = true }
+signature = { workspace = true }

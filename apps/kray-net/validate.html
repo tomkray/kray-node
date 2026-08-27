@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Be a Validator — KRAY.NETWORK</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  .vl-wrap{max-width:900px;margin:0 auto;padding:var(--s6) var(--s4) var(--s9)}
+  .vl-hero{margin:var(--s6) 0 var(--s4)}
+  .vl-hero h1{font-size:clamp(30px,5vw,44px);letter-spacing:-.02em;margin:0 0 var(--s2)}
+  .vl-hero .sub{color:var(--ink-3);font-size:15px;line-height:1.6;max-width:60ch}
+  .vl-man{margin:0 0 var(--s5);padding:var(--s5);border:1px solid var(--line-2);border-radius:var(--r2);background:var(--surface)}
+  .vl-man h2{font-size:clamp(20px,3.4vw,26px);letter-spacing:-.03em;line-height:1.2;margin:0 0 var(--s3);text-wrap:balance}
+  .vl-man p{margin:0 0 var(--s3);font-size:15px;line-height:1.55;color:var(--ink-2);max-width:62ch}
+  .vl-man p:last-child{margin-bottom:0}
+  .vl-man b{color:var(--ink)}
+  .vl-doors{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);margin:var(--s4) 0 0}
+  @media (max-width:640px){.vl-doors{grid-template-columns:1fr}}
+  .vl-door{border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4)}
+  .vl-door .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);margin-bottom:6px}
+  .vl-door h3{font-size:16px;margin:0 0 6px;letter-spacing:-.02em}
+  .vl-door p{margin:0;font-size:13.5px;line-height:1.5;color:var(--ink-3)}
+  .vl-door.best{border-color:var(--signal)}
+  .vl-door.best .k{color:var(--signal)}
+  .vl-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);margin:var(--s5) 0}
+  @media (max-width:640px){.vl-grid{grid-template-columns:1fr}}
+  .vl-card{border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:var(--s5)}
+  .vl-k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-bottom:var(--s2)}
+  .vl-big{font-size:34px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .vl-sub{color:var(--ink-3);font-size:12.5px;margin-top:var(--s2);line-height:1.5}
+  .vl-cta{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:center;margin:var(--s4) 0}
+  .vl-go{background:var(--signal);color:var(--signal-ink);border:0;border-radius:var(--r1);font-weight:700;font-size:15px;padding:13px 28px;cursor:pointer;letter-spacing:.01em}
+  .vl-go:hover{opacity:.9} .vl-go:disabled{opacity:.4;cursor:default}
+  .vl-stop{background:transparent;border:1px solid var(--line-2);color:var(--ink-2);border-radius:var(--r1);font-weight:600;font-size:14px;padding:12px 22px;cursor:pointer}
+  .vl-chip{font-family:var(--mono);font-size:11px;color:var(--ink-3);border:1px solid var(--line-2);border-radius:999px;padding:4px 12px}
+  .vl-live{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ink-4,#888);margin-right:7px;vertical-align:middle}
+  .vl-live.on{background:var(--good);box-shadow:0 0 0 0 var(--good);animation:vlp 1.4s infinite}
+  @keyframes vlp{0%{box-shadow:0 0 0 0 rgba(60,200,120,.5)}70%{box-shadow:0 0 0 7px rgba(60,200,120,0)}100%{box-shadow:0 0 0 0 rgba(60,200,120,0)}}
+  .vl-log{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:var(--s4);margin-top:var(--s4);max-height:280px;overflow-y:auto}
+  .vl-row{font-family:var(--mono);font-size:12px;color:var(--ink-2);padding:6px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:var(--s3)}
+  .vl-row:last-child{border-bottom:0} .vl-row b{color:var(--ink)} .vl-row .ok{color:var(--good)} .vl-row .bad{color:var(--bad,#e5484d)}
+  .vl-why{margin-top:var(--s5);border-top:1px solid var(--line);padding-top:var(--s4)}
+  .vl-why h3{font-size:15px;margin:0 0 var(--s2)} .vl-why p{color:var(--ink-3);font-size:13px;line-height:1.7;max-width:70ch}
+  .vl-why code{font-family:var(--mono);font-size:11.5px;background:var(--surface);border:1px solid var(--line-2);border-radius:6px;padding:2px 7px;color:var(--ink-2)}
+  .vl-cmp{width:100%;border-collapse:collapse;margin-top:var(--s3);font-size:12.5px}
+  .vl-cmp th,.vl-cmp td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  .vl-cmp th{color:var(--ink-3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .vl-cmp td:last-child b{color:var(--good)}
+  .vl-roles{margin:0 0 var(--s5)}
+  .vl-roles .vl-k{margin-bottom:var(--s2)}
+  .vl-roles h2{font-size:15px;font-weight:600;margin:0 0 var(--s2);letter-spacing:-.01em}
+  .vl-roles p{color:var(--ink-3);font-size:13px;line-height:1.6;margin:0}
+  .vl-roles .here{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--good);margin-left:var(--s2)}
+  .vl-how{margin:var(--s3) 0 0;padding-left:var(--s5);color:var(--ink-2);font-size:13px;line-height:1.55}
+  .vl-how li{margin:var(--s2) 0}
+  .vl-how a{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
+  /* ── "explain like I'm new" ── */
+  .vl-learn{display:inline-flex;align-items:center;gap:8px;margin-top:var(--s3);background:transparent;border:1px solid var(--line-2);color:var(--ink-2);border-radius:999px;font-weight:600;font-size:13px;padding:8px 16px;cursor:pointer}
+  .vl-learn:hover{border-color:var(--signal);color:var(--ink)}
+  .vl-ov{position:fixed;inset:0;z-index:60;display:none;align-items:flex-start;justify-content:center;background:rgba(4,6,12,.62);backdrop-filter:blur(6px);overflow-y:auto;padding:max(24px,5vh) 16px}
+  .vl-ov.on{display:flex}
+  .vl-sheet{background:var(--surface,var(--panel));border:1px solid var(--line);border-radius:var(--r3,18px);max-width:780px;width:100%;padding:clamp(20px,4vw,40px);box-shadow:0 30px 80px rgba(0,0,0,.4);margin:auto}
+  .vl-sheet h2{font-size:clamp(22px,4vw,30px);letter-spacing:-.02em;margin:0 0 var(--s2);text-wrap:balance}
+  .vl-sheet .lede{color:var(--ink-3);font-size:15px;line-height:1.65;margin:0 0 var(--s5);max-width:62ch}
+  .vl-sheet .lede b{color:var(--ink-2)}
+  .vl-two{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4);margin:var(--s4) 0}
+  @media (max-width:620px){.vl-two{grid-template-columns:1fr}}
+  .vl-role{border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:var(--s5)}
+  .vl-role .em{font-size:26px;line-height:1;margin-bottom:var(--s2)}
+  .vl-role h3{font-size:16px;margin:0 0 4px;letter-spacing:-.01em}
+  .vl-role .tag{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);margin-bottom:var(--s3)}
+  .vl-role dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px;line-height:1.5}
+  .vl-role dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-4);padding-top:2px}
+  .vl-role dd{margin:0;color:var(--ink-2)} .vl-role dd b{color:var(--ink)}
+  .vl-tbl{width:100%;border-collapse:collapse;margin:var(--s4) 0;font-size:13px}
+  .vl-tbl th,.vl-tbl td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  .vl-tbl th{color:var(--ink-3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+  .vl-tbl td b{color:var(--ink)} .vl-tbl td:first-child{color:var(--ink-3)}
+  .vl-note{border-left:2px solid var(--signal);padding:2px 0 2px var(--s4);margin:var(--s4) 0 0;color:var(--ink-2);font-size:13.5px;line-height:1.6}
+  .vl-close{position:sticky;top:0;float:right;margin:-8px -8px 0 0;background:transparent;border:1px solid var(--line-2);color:var(--ink-2);border-radius:999px;width:34px;height:34px;font-size:17px;cursor:pointer;line-height:1}
+  .vl-close:hover{border-color:var(--signal);color:var(--ink)}
+  .vl-upd{margin-top:var(--s4);padding-top:var(--s4);border-top:1px solid var(--line)}
+  .vl-upd-meta{color:var(--ink-3);font-size:13px;line-height:1.55;margin:0 0 var(--s3)}
+  .vl-upd-meta a{color:var(--ink);text-decoration:underline;text-underline-offset:2px}
+  .vl-upd-cta{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:center}
+  .vl-upd-cta .vl-stop{text-decoration:none;display:inline-flex;align-items:center}
+  .vl-upd-status{margin:var(--s3) 0 0;font-size:13px;line-height:1.5;color:var(--ink-3);min-height:1.5em}
+  .vl-upd-status.ok{color:var(--good)} .vl-upd-status.bad{color:var(--crit)}
+</style>
+</head>
+<body data-page="validate">
+<div class="vl-wrap">
+  <div class="vl-hero">
+    <h1>Be a guardian — from this tab</h1>
+    <div class="sub">No farm. No ASIC. No days of sync. One tab. Your key never leaves KrayWallet.</div>
+    <button id="learn" class="vl-learn" type="button">🎓 New to this? Explain it simply</button>
+  </div>
+
+  <div class="vl-man" id="two-starts">
+    <h2>On Bitcoin, hash writes the next block.<br>Here, hash does not buy the pen.</h2>
+    <p>A warehouse of machines does <b>not</b> decide this book. You prove one sentence: <b>“I was here.”</b> A phone and a farm say the same words. Extra names do not buy a second share. The book is replayed in every home that follows — that is how the crowd takes the power back.</p>
+    <p>There are two Start buttons. Same job. Different strength. Same wallet = <b>one</b> guardian. Never two pays.</p>
+    <div class="vl-doors">
+      <div class="vl-door">
+        <div class="k">Wallet · Start mining</div>
+        <h3>1× · I was here</h3>
+        <p>The pocket watch. Presence only. Runs while the popup is open. Good for a pulse.</p>
+      </div>
+      <div class="vl-door best">
+        <div class="k">This page · the strong door</div>
+        <h3>Up to 3× · I hold the stars</h3>
+        <p>Connect. Leave <b>Hold the library</b> on. Start. This tab keeps the public stars in the crowd — not only in a warehouse.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── EXPLAIN LIKE I'M NEW — the two validators, for a total beginner ──────── -->
+  <div id="ov" class="vl-ov" role="dialog" aria-modal="true" aria-labelledby="ov-t">
+    <div class="vl-sheet">
+      <button id="ov-x" class="vl-close" type="button" aria-label="Close">✕</button>
+      <h2 id="ov-t">The two validators, in plain words</h2>
+      <p class="lede">Picture KRAY.NETWORK as a huge <b>living library</b>. It needs two kinds of people looking after it —
+        and each person just picks the role their device can handle. One is featherlight; the other holds the whole library.</p>
+
+      <div class="vl-two">
+        <div class="vl-role">
+          <div class="em">👮</div>
+          <div class="tag">Validator 1 · you, right now</div>
+          <h3>The Guardian</h3>
+          <dl>
+            <dt>Does</dt><dd>Stands watch and says <b>“I’m here, now.”</b> Each Bitcoin tick, your device solves a tiny math puzzle and signs it with your wallet — proof you were online. It moves no money; it can only pay you.</dd>
+            <dt>Needs</dt><dd><b>Almost nothing</b> for 1×. Leave <b>Hold the library</b> on and this tab downloads the stars (hash-checked) for up to 3×. Your key stays in KrayWallet — never paste a private key into the node.</dd>
+            <dt>How</dt><dd>Open <b>/validate</b> → Connect → leave the library box on → <b>Start</b>.</dd>
+            <dt>Earns</dt><dd>Fee-pool share: <b>1×</b> presence, up to <b>3×</b> when the beat carries a verified library proof.</dd>
+          </dl>
+        </div>
+        <div class="vl-role">
+          <div class="em">📚</div>
+          <div class="tag">Validator 2 · the database</div>
+          <h3>The Follower / Master</h3>
+          <dl>
+            <dt>Does</dt><dd>Downloads the <b>whole library</b> and rebuilds it from scratch, trusting <b>no one</b>. It replays every event — including Ӿ, FIREBORN tanks, and every TK-fold proof — and checks the network’s fingerprint against the one sealed in Bitcoin. Same Node.js, no extra app. If any node lies by a comma, the math won’t add up and it shouts.</dd>
+            <dt>Needs</dt><dd>Disk and a bit more machine — it carries the history (and the star files, if it’s a Master). Capped at ~52 GB/year by design, so a normal drive lasts decades.</dd>
+            <dt>How</dt><dd>A terminal: <code>node scripts/follow/kray-follow.mjs --from &lt;node&gt;</code> — journal + stars on <b>your</b> disk. That is the verified copy. It does not pay until you also mine.</dd>
+            <dt>Earns</dt><dd>Follow alone pays <b>0</b>. Mine from this tab (with the library) or a dedicated miner key — never export your wallet.</dd>
+          </dl>
+        </div>
+      </div>
+
+      <table class="vl-tbl">
+        <tr><th>&nbsp;</th><th>👮 Guardian</th><th>📚 Follower / Master</th></tr>
+        <tr><td>Downloads</td><td>0 for 1× · stars in-tab for 3×</td><td>the whole journal (+ star files)</td></tr>
+        <tr><td>Machine</td><td>any — a phone works (uncheck the library on a small plan)</td><td>needs a disk</td></tr>
+        <tr><td>Earns</td><td>1×, or up to <b>3×</b> with the library on the beat</td><td>0 until you also mine</td></tr>
+        <tr><td>Trusts</td><td>the node for the puzzle</td><td><b>nothing</b> — recomputes it all</td></tr>
+        <tr><td>Its job</td><td>the ever-present watch</td><td>the library that can’t be fooled</td></tr>
+      </table>
+
+      <p class="lede" style="margin:var(--s4) 0 0">The network needs <b>both</b>: many light guardians so no one can control it, and a few heavy masters so no one can lie to it. The same wallet on ten devices only ever counts as one guardian — it <b>merges, never doubles</b>.</p>
+      <p class="vl-note"><b>Is it ready and easy?</b> The Guardian is one button. Door 2 still starts in a terminal the first time; after that, <b>Update my node folder</b> on this page writes the official source into the same clone — never the journal or the pot key.</p>
+    </div>
+  </div>
+
+  <div class="vl-grid vl-roles">
+    <div class="vl-card">
+      <div class="vl-k">Door 1 · start here<span class="here">this page</span></div>
+      <h2>Light guardian</h2>
+      <p>Join <b>this</b> network. No chain download. No bitcoind. No hardware.</p>
+      <ol class="vl-how">
+        <li>Install <a href="https://www.kraywallet.com/install">KrayWallet</a> (Chrome). DevNet on if this node is regtest.</li>
+        <li>Press <b>Connect</b>, leave <b>Hold the library</b> on, then <b>Start</b>. The tab downloads the stars. The key never leaves the wallet.</li>
+        <li>The wallet’s Start mining is the same watch at <b>1×</b>. This page is the strong door.</li>
+      </ol>
+    </div>
+    <div class="vl-card">
+      <div class="vl-k">Door 2 · the database</div>
+      <h2>Full node</h2>
+      <p>Your computer holds the journal and the star bytes. A phone cannot. The wallet is always a client of that process.</p>
+      <ol class="vl-how">
+        <li>Need <a href="https://nodejs.org">Node.js 24+</a>. Bitcoin Core is optional.</li>
+        <li>Official code: <code>git clone https://github.com/tomkray/kray-node.git</code></li>
+        <li>Follow Signet: <code>node scripts/follow/preflight.mjs --universe signet --role follow</code> then <code>bash scripts/follow/signet.sh</code></li>
+        <li>Full recipe: <a href="/docs#node">/docs#node</a>.</li>
+      </ol>
+      <div class="vl-upd">
+        <p class="vl-upd-meta" id="nodeUpMeta">Official repository: <a href="https://github.com/tomkray/kray-node" target="_blank" rel="noopener">github.com/tomkray/kray-node</a> · branch <code>main</code>. Pick the folder you cloned. Journal, follower data and keys stay.</p>
+        <div class="vl-upd-cta">
+          <button type="button" class="vl-go" id="nodeUpBtn">Update my node folder</button>
+          <a class="vl-stop" id="nodeUpZip" href="/downloads/kray-node.zip" download="kray-node.zip">Download ZIP only</a>
+        </div>
+        <p class="vl-upd-status" id="nodeUpStatus" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="vl-cta">
+    <button id="connect" class="vl-go">Connect KrayWallet</button>
+    <button id="start" class="vl-go" style="display:none">▶ Start validating</button>
+    <button id="stop" class="vl-stop" style="display:none">■ Stop</button>
+    <span id="who" class="vl-chip" style="display:none"></span>
+  </div>
+  <label class="vl-how" style="display:flex;align-items:flex-start;gap:12px;margin:0 0 var(--s4);padding:0;list-style:none;max-width:62ch">
+    <input id="holdLib" type="checkbox" checked style="margin-top:4px;width:18px;height:18px;flex:0 0 auto">
+    <span><b>Hold the library</b> — this is the 3× door. The stars stay in the crowd. Uncheck only on a tight data plan (then you are 1×, like the wallet button). <b>Never paste a private key.</b></span>
+  </label>
+
+  <div class="vl-grid">
+    <div class="vl-card">
+      <div class="vl-k"><span id="dot" class="vl-live"></span>Your proven work this beacon</div>
+      <div id="work" class="vl-big">—</div>
+      <div class="vl-sub" id="worksub">Work is 2^(leading zero bits). Higher zeros = more compute = more reward. Linear, sybil-neutral — the Bitcoin rule.</div>
+    </div>
+    <div class="vl-card">
+      <div class="vl-k">Your balance</div>
+      <div id="bal" class="vl-big">—</div>
+      <div class="vl-sub">Paid from the fee pool on every confirmed Bitcoin seal — conserved ₭, never minted. Fee pool now: <b id="pool">—</b> ₭</div>
+    </div>
+  </div>
+  <div class="vl-card" style="margin-top:var(--s4)">
+    <div class="vl-k">Library on this tab</div>
+    <div id="libBig" class="vl-big">1×</div>
+    <div class="vl-sub" id="libSub">Presence 1× until the stars are on the beat. Connect, leave the box on, Start — the key stays in KrayWallet.</div>
+  </div>
+
+  <div id="log" class="vl-log" style="display:none"></div>
+
+  <div class="vl-card" style="margin-top:24px">
+    <div class="vl-k">Every distribution — who received</div>
+    <div id="setl" class="vl-sub">No settlement yet — the fee pool pays on the next confirmed Bitcoin seal.</div>
+    <div class="vl-sub" style="margin-top:10px;opacity:.75">Each row is one settlement of the whole fee pool. Click it to see the full table — every validator, their proven work, custody bonus, and exactly what each earned. Re-derived from the journal; every node computes the identical table.</div>
+  </div>
+
+  <div class="vl-why">
+    <h3>Why this is the easy door — and why Bitcoin cannot do it</h3>
+    <p>A beat is a <b>powerless, domain-separated signature</b> (<code>kray.beat.submit.v1</code>): it says only "I was here," and the
+      reducer can never read it as a transfer or a spend — so even a hostile page could do nothing but earn ₭ for you. The proof of
+      presence is a real SHA-256 (the Bitcoin family), the identity is a BIP-340 signature (Bitcoin's own), the clock is a Bitcoin
+      block hash (unforgeable), and the payout is linear in proven work (Bitcoin's hashrate-share rule — a thousand fake identities
+      earn exactly what one does). Your key never leaves your wallet. A Bitcoin or Ordinals validator must download the chain and run
+      heavy software; here the heavy consensus lives in the <a href="/docs#node">full node</a>, and presence is light by design.</p>
+    <table class="vl-cmp">
+      <tr><th>To validate you must…</th><th>Bitcoin / Ordinals</th><th>KRAY.NETWORK</th></tr>
+      <tr><td>Download the chain</td><td>hundreds of GB, days of sync</td><td><b>nothing — 0 bytes</b></td></tr>
+      <tr><td>Run infrastructure</td><td>a full node (bitcoind + indexers)</td><td><b>a browser tab</b></td></tr>
+      <tr><td>Special hardware</td><td>often (ASICs for mining)</td><td><b>none — any device</b></td></tr>
+      <tr><td>Time to first block of work</td><td>hours to days</td><td><b>seconds</b></td></tr>
+    </table>
+    <p style="margin-top:var(--s3)">Same protocol from the terminal, already wired to pick light vs master for you:
+      <code>node scripts/follow/kray-follow.mjs --from <span data-origin>http://localhost:4477</span></code>
+      (a verified copy — it does not pay). Always-on box: a <b>dedicated</b> miner key, never your daily wallet hex.
+      Prove every claim at <a href="/verify">/verify</a>.</p>
+  </div>
+</div>
+
+<script src="/kray.js" defer></script>
+<script src="/custody-browser.js"></script>
+<script src="/validate.js"></script>
+<script src="/node-update.js"></script>
+<script>
+(function(){
+  'use strict'
+  var $=function(id){return document.getElementById(id)}
+  var NET='regtest', ADDR=null, PUBKEY=null, running=false, beats=0   // placeholder until /overview answers with the node's real network
+  var atlas={ contents:[], bytes:new Map() }   // stars this TAB holds — never a wallet key
+  function log(html){ var d=document.createElement('div'); d.className='vl-row'; d.innerHTML=html; $('log').style.display='block'; $('log').insertBefore(d,$('log').firstChild) }
+  var clean=function(s){return String(s==null?'':s).replace(/[<>]/g,'')}
+  var fmt=function(n){ n=BigInt(n); if(n>=1000000000n)return (Number(n)/1e9).toFixed(2)+'B'; if(n>=1000000n)return (Number(n)/1e6).toFixed(2)+'M'; if(n>=1000n)return (Number(n)/1e3).toFixed(1)+'K'; return n.toString() }
+
+  // resolve the node's REAL network before the first beat — a beat signs NET into its message,
+  // so mining as 'regtest' on a signet node would sign rejected beats until this landed
+  var _netReady=fetch('/api/kraynet/donation/info').then(function(r){return r.json()}).then(function(d){ if(d&&d.net)NET=d.net }).catch(function(){})
+  var origin = (location.origin || '').replace(/\/+$/, '') || 'http://localhost:4477'
+  document.querySelectorAll('[data-origin]').forEach(function(el){ el.textContent = origin })
+
+  // ── connect the wallet (the key never leaves it) ──
+  $('connect').addEventListener('click', async function(){
+    if(!window.krayWallet){ log('<span class="bad">KrayWallet not found</span><span>install the extension, or use the CLI miner</span>'); return }
+    try{
+      var accts = await window.krayWallet.requestAccounts()
+      ADDR = Array.isArray(accts)? accts[0] : (accts && accts.address) || accts
+      PUBKEY = await window.krayWallet.getPublicKey()
+      $('who').textContent = String(ADDR).slice(0,10)+'…'+String(ADDR).slice(-6); $('who').style.display='inline-block'
+      $('connect').style.display='none'; $('start').style.display='inline-block'
+      refreshStats()
+      // keep the presence view LIVE even while idle — so "already validating elsewhere" shows up
+      // the moment another surface (the extension, another device) starts proving this address
+      setInterval(function(){ refreshStats().catch(function(){}) }, 8000)
+    }catch(e){ log('<span class="bad">connect refused</span><span>'+clean(e&&e.message)+'</span>') }
+  })
+
+  async function refreshStats(){
+    try{ var p=await (await fetch('/api/kraynet/profile/'+encodeURIComponent(ADDR))).json(); $('bal').textContent=fmt(p.balance||'0')+' ₭' }catch(e){}
+    try{
+      var pr=await (await fetch('/api/kraynet/presence')).json(); $('pool').textContent=fmt(pr.pool||'0')
+      // ALREADY VALIDATING ELSEWHERE? The node's presence book is the one truth — if this address
+      // has proven work this beacon and THIS tab is not mining, say so instead of a cold Start.
+      // (Mining is a local activity per surface; running two merges — a block counts once, best wins.)
+      var mine = ADDR && (pr.validators||[]).find(function(v){ return v.address===ADDR })
+      if (mine && !running) {
+        $('work').textContent = '2^'+Math.round(Math.log2(Number(mine.work)||1))+' · elsewhere'
+        $('worksub').innerHTML = '⛏ <b>This address is ALREADY proving presence</b> from another tab or device — span work <b>'+fmt(mine.work)+'</b>, '+mine.blocks.length+' block(s) held. Press start to ALSO mine here: it merges, never doubles (a block counts once, the best beat wins).'
+        var st=$('start'); if(st && st.style.display!=='none') st.textContent='▶ Also mine in this tab'
+      } else if (!running) {
+        var st2=$('start'); if(st2) st2.textContent='▶ Start validating'
+      }
+    }catch(e){}
+  }
+
+  // ── the validator loop: challenge → mine (browser SHA-256) → sign (wallet) → submit ──
+  async function oneBeat(){
+    try{ await _netReady }catch(_){}   // never sign the first beat with the placeholder network
+    var ch = await (await fetch('/api/kraynet/beat/challenge')).json()
+    if(!ch.beacon){ log('<span class="bad">no Bitcoin beacon yet</span><span>the node cannot reach bitcoind</span>'); return }
+    var mined = await KrayValidate.mineBeat(ch.beacon, ADDR, ch.block, { minZeros: ch.minZeros, budgetMs: 2500, onProgress:function(p){ if(p.best) $('work').textContent='2^'+p.best.zeros } })
+    if(!mined.best){ log('<span>no beat this round</span><span>'+mined.tried+' hashes</span>'); return }
+    var z=mined.best.zeros, nonce=mined.best.nonce
+    // the powerless presence signature — kray.beat.submit.v1 (moves no money, ever)
+    var msg='kray.beat.submit.v1|'+NET+'|'+ch.beacon+'|'+ADDR+'|'+ch.block+'|'+nonce+'|'+z
+    var sig
+    try{ sig = await window.krayWallet.signMessage(msg) }catch(e){ log('<span class="bad">sign refused</span><span>'+clean(e&&e.message)+'</span>'); return }
+    var body={ beacon:ch.beacon, address:ADDR, block:ch.block, nonce:nonce, zeros:z, publicKey:PUBKEY, scheme:'kraywallet', signature: (sig&&sig.signature)||sig }
+    // prove the stars THIS TAB actually holds — same claim the writer audits. Key never leaves the wallet.
+    if (atlas.contents.length && atlas.bytes.size && window.KrayCustody && $('holdLib') && $('holdLib').checked) {
+      try {
+        var claim = await KrayCustody.buildClaim(ch.beacon, ADDR, { contents: atlas.contents, bytesOf: function(h){ return atlas.bytes.get(h) || null } })
+        body.custody = KrayCustody.toHex(claim)
+      } catch (ce) { log('<span class="bad">custody skip</span><span>'+clean(ce&&ce.message)+'</span>') }
+    }
+    var resp = await fetch('/api/kraynet/beat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})
+    if(resp.status===429){ _backoff=Math.min((_backoff||800)*2,10000); log('<span class="bad">rate-limited</span><span>backing off '+Math.round(_backoff/1000)+'s</span>'); return }
+    _backoff=800
+    var r = await resp.json()
+    beats++
+    if(r.ok){
+      var shield = (r.custodyHits!=null) ? ' · 🛡 '+r.custodyHits+'/8' : (body.custody ? '' : ' · presence 1×')
+      $('work').textContent='2^'+z+' · span '+fmt(r.spanWork)
+      paintLib(r.custodyHits)
+      log('<span class="ok">✓ beat '+beats+' accepted</span><span><b>2^'+z+'</b> work · '+mined.tried+' hashes / '+mined.ms+'ms'+shield+'</span>')
+    }
+    else { log('<span class="bad">✗ '+clean(r.error).slice(0,40)+'</span><span>2^'+z+'</span>') }
+    refreshStats()
+  }
+
+  var _backoff=800   // grows on a 429 (public rate-limit), resets on any accepted round
+  async function loop(){ while(running){ try{ await oneBeat() }catch(e){ log('<span class="bad">beat error</span><span>'+clean(e&&e.message)+'</span>') } await new Promise(function(r){setTimeout(r, _backoff)}) } }
+
+  // REMEMBERED CONSENT: pressing Start records the intent; a refresh RESUMES it automatically
+  // (the browser kills every page's JS on reload — mining cannot survive it — but your CHOICE can).
+  // Stop erases the intent. Nothing auto-starts that you never asked for.
+  function paintLib(hits){
+    var n=atlas.contents.length, held=atlas.bytes.size
+    var box=$('holdLib')
+    if (!n) { $('libBig').textContent = (box && box.checked) ? '…' : '1×'; $('libSub').textContent = (box && box.checked) ? 'Pulling the library…' : 'Presence 1× — library box is off. Key stays in KrayWallet.'; return }
+    $('libBig').textContent = held+'/'+n
+    var bonus = (hits==null) ? '' : (' · 🛡 '+hits+'/8 on the last beat')
+    $('libSub').textContent = held ? ('Stars held in this tab'+bonus+'. The writer verifies the hashes — your key never left KrayWallet.') : 'Library list loaded, no bytes yet — beats stay 1× until the pull finishes.'
+  }
+
+  async function pullLibrary(){
+    if (!window.KrayCustody) { log('<span class="bad">custody-browser missing</span><span>reload the page</span>'); return }
+    var a = await fetch('/api/kraynet/atlas').then(function(r){ return r.json() })
+    atlas.contents = (a && a.contents) || []
+    paintLib()
+    var total = atlas.contents.length
+    if (!total) { log('<span>library empty</span><span>this book has no stars yet — presence 1× is honest</span>'); return }
+    log('<span class="ok">library…</span><span>pulling '+total+' star(s) into this tab (hash-checked)</span>')
+    for (var i=0; i<total; i++) {
+      if (!running) return
+      var h = atlas.contents[i]
+      if (!/^[0-9a-f]{64}$/.test(h)) continue
+      if (atlas.bytes.has(h)) { paintLib(); continue }
+      try {
+        var resp = await fetch('/content/'+h)
+        if (!resp.ok) continue
+        var buf = new Uint8Array(await resp.arrayBuffer())
+        var digest = await KrayCustody.sha256Hex(buf)
+        if (digest !== h) { log('<span class="bad">junk refused</span><span>'+h.slice(0,12)+'… did not match</span>'); continue }
+        atlas.bytes.set(h, buf)
+      } catch (_) { /* retry next Start */ }
+      paintLib()
+    }
+    log('<span class="ok">library ready</span><span>'+atlas.bytes.size+'/'+total+' held — next beats carry the proof</span>')
+  }
+
+  function rememberLib(){
+    try{ localStorage.setItem('krayValidateLibrary', $('holdLib') && $('holdLib').checked ? '1' : '0') }catch(_){}
+  }
+  ;(function restoreLib(){
+    try{
+      var v=localStorage.getItem('krayValidateLibrary')
+      if (v==='0' && $('holdLib')) $('holdLib').checked=false
+    }catch(_){}
+    if ($('holdLib')) $('holdLib').addEventListener('change', function(){ rememberLib(); paintLib() })
+  })()
+
+  async function startMining(auto){
+    running=true; $('dot').classList.add('on'); $('start').style.display='none'; $('stop').style.display='inline-block'
+    try{ localStorage.setItem('krayValidateMining','1') }catch(_){}
+    rememberLib()
+    log('<span class="ok">validating…</span><span>'+(auto?'auto-resumed after reload (your Start is remembered — press Stop to forget)':'mining beats in your browser')+'</span>')
+    if ($('holdLib') && $('holdLib').checked) {
+      try { await pullLibrary() } catch (e) { log('<span class="bad">library pull failed</span><span>'+clean(e&&e.message)+' — mining 1×</span>') }
+    } else {
+      atlas={ contents:[], bytes:new Map() }
+      paintLib()
+    }
+    if (running) loop()
+  }
+  // ── the "explain like I'm new" overlay — open by button, close by ✕ / backdrop / Escape ──
+  (function(){
+    var ov=$('ov'); if(!ov) return
+    function open(){ ov.classList.add('on'); document.body.style.overflow='hidden'; $('ov-x').focus() }
+    function close(){ ov.classList.remove('on'); document.body.style.overflow='' }
+    $('learn').addEventListener('click', open)
+    $('ov-x').addEventListener('click', close)
+    ov.addEventListener('click', function(e){ if(e.target===ov) close() })   // click the dim backdrop
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape' && ov.classList.contains('on')) close() })
+  })()
+
+  $('start').addEventListener('click', function(){ startMining(false) })
+  $('stop').addEventListener('click', function(){
+    running=false; $('dot').classList.remove('on'); $('stop').style.display='none'; $('start').style.display='inline-block'
+    try{ localStorage.removeItem('krayValidateMining') }catch(_){}
+    log('<span>stopped</span><span>'+beats+' beat(s) this session — auto-resume forgotten</span>')
+  })
+  // resume the remembered intent: reconnect silently (an already-connected wallet answers without
+  // any popup), then restart the loop. Caps at ~15s of tries; a locked wallet simply stays stopped.
+  var _resumeTries = 0, _resumeConnectAsked = false
+  var _resumeTick = setInterval(function(){
+    try{
+      if (running || ++_resumeTries > 12) { clearInterval(_resumeTick); return }
+      if (localStorage.getItem('krayValidateMining') !== '1') { clearInterval(_resumeTick); return }
+      if (ADDR) { clearInterval(_resumeTick); startMining(true); return }
+      // ask to reconnect ONCE — silent when the wallet is already connected; if the user had
+      // revoked/dismissed, we never nag with repeated prompts (they can click Connect themselves)
+      if (window.krayWallet && !_resumeConnectAsked) { _resumeConnectAsked = true; $('connect').click() }
+    }catch(_){}
+  }, 1200)
+
+  // ── every distribution, listed — click a row for the full who-earned-what table ──
+  function loadSettlements(){
+    fetch('/api/kraynet/settlements').then(function(r){return r.json()}).then(function(d){
+      var rows=(d&&d.settlements)||[]
+      if(!rows.length) return
+      $('setl').innerHTML = rows.map(function(s){
+        var when = s.at ? new Date(s.at).toLocaleString() : '—'
+        return '<a class="vl-row" style="display:flex;gap:14px;align-items:center;text-decoration:none;color:inherit;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06)" href="/tx/'+s.hash+'" title="open the full payout table">'
+          +'<span style="opacity:.7;min-width:150px">'+when+'</span>'
+          +'<span><b>'+fmt(s.paid)+' ₭</b> settled</span>'
+          +'<span>'+s.validators+' validator'+(s.validators===1?'':'s')+' paid</span>'
+          +'<span style="opacity:.55" title="the Bitcoin beacon the beats were mined against">₿ '+String(s.beacon||'').slice(0,10)+'…</span>'
+          +'<span style="margin-left:auto;opacity:.8">see who earned →</span></a>'
+      }).join('')
+    }).catch(function(){})
+  }
+  loadSettlements(); setInterval(loadSettlements, 12000)
+})()
+</script>
+</body>
+</html>

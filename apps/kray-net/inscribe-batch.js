@@ -1,0 +1,651 @@
+/**
+ * File-tab batch — folder / multi-file drops become a queue of ordinary inscribe acts.
+ * Consensus is unchanged: prepare-batch / submit-batch, one signature and one ₭ burn per star.
+ */
+(function (global) {
+  'use strict'
+
+  var MAX = 200
+  var WAVE_BYTES = 8000000
+  var CEIL = 10000000
+  var DOC_CAP = 8192
+  var JUNK = /^(?:\.DS_Store|Thumbs\.db|desktop\.ini)$/i
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]
+    })
+  }
+
+  function junkName(name) {
+    if (!name) return true
+    if (name.charAt(0) === '.') return true
+    if (name.indexOf('._') === 0) return true
+    return JUNK.test(name)
+  }
+
+  function mimeOf(file) {
+    var t = file.type || ''
+    var n = file.name || ''
+    if (/\.(md|markdown|mdown)$/i.test(n)) return 'text/markdown'
+    if (/\.html?$/i.test(n) && (!t || t === 'application/octet-stream')) return 'text/html'
+    if (/\.svg$/i.test(n)) return 'image/svg+xml'
+    if (/\.json$/i.test(n)) return 'application/json'
+    if (/\.(js|mjs|cjs)$/i.test(n)) return 'text/javascript'
+    // 3D — a browser hands a .glb/.gltf/… an EMPTY or octet-stream type, so infer the real
+    // model/* type from the extension. Without this it lands in the "unknown blob" bucket
+    // ('file') instead of the 3D shelf. Mirrors KrayWallet's guess3dType so both doors agree.
+    var m3 = (!t || t === 'application/octet-stream') && n.toLowerCase().match(/\.(glb|gltf|obj|stl|fbx|usdz|ply|3mf)$/)
+    if (m3) return ({ glb: 'model/gltf-binary', gltf: 'model/gltf+json', obj: 'model/obj', stl: 'model/stl', fbx: 'model/fbx', usdz: 'model/vnd.usdz+zip', ply: 'model/ply', '3mf': 'model/3mf' })[m3[1]] || ('model/' + m3[1])
+    return t || 'application/octet-stream'
+  }
+
+  // the shelf glyph a non-image tile shows in the batch grid (matches the library shelves)
+  function fbGlyph(t) {
+    t = String(t || '')
+    if (t === 'application/json') return '{ }'
+    if (/^model\//.test(t)) return '◉'
+    if (/^audio\//.test(t)) return '♪'
+    if (/^video\//.test(t)) return '▶'
+    return '◇'
+  }
+
+  function pathOf(file) {
+    var p = file.webkitRelativePath || file.__rel || file.name || 'file'
+    return String(p).replace(/^\/+/, '')
+  }
+
+  function folderOf(path) {
+    var i = path.lastIndexOf('/')
+    return i < 0 ? '' : path.slice(0, i)
+  }
+
+  function nat(a, b) {
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+  }
+
+  function flatten(arrs) {
+    return arrs.reduce(function (a, b) { return a.concat(b) }, [])
+  }
+
+  function readDir(reader) {
+    return new Promise(function (resolve, reject) {
+      var all = []
+      function tick() {
+        reader.readEntries(function (batch) {
+          if (!batch.length) return resolve(all)
+          all = all.concat(batch)
+          tick()
+        }, reject)
+      }
+      tick()
+    })
+  }
+
+  function stampPath(file, rel) {
+    try { Object.defineProperty(file, '__rel', { value: rel, configurable: true }) } catch (_) { file.__rel = rel }
+    return file
+  }
+
+  function walkEntry(entry, prefix) {
+    prefix = prefix || ''
+    if (!entry) return Promise.resolve([])
+    if (entry.isFile) {
+      return new Promise(function (resolve, reject) {
+        entry.file(function (f) {
+          var rel = (prefix ? prefix + '/' : '') + (entry.name || f.name)
+          resolve([stampPath(f, rel)])
+        }, reject)
+      })
+    }
+    if (entry.isDirectory) {
+      var next = (prefix ? prefix + '/' : '') + entry.name
+      return readDir(entry.createReader()).then(function (ents) {
+        return Promise.all(ents.map(function (e) { return walkEntry(e, next) })).then(flatten)
+      })
+    }
+    return Promise.resolve([])
+  }
+
+  function filesFromTransfer(dt) {
+    if (!dt) return Promise.resolve([])
+    var items = dt.items
+    if (items && items.length && items[0].webkitGetAsEntry) {
+      var jobs = []
+      for (var i = 0; i < items.length; i++) {
+        var ent = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null
+        if (ent) jobs.push(walkEntry(ent, ''))
+        else {
+          var f = items[i].getAsFile && items[i].getAsFile()
+          if (f) jobs.push(Promise.resolve([f]))
+        }
+      }
+      return Promise.all(jobs).then(flatten)
+    }
+    return Promise.resolve([].slice.call(dt.files || []))
+  }
+
+  function filesFromList(list) {
+    return [].slice.call(list || [])
+  }
+
+  function organize(files) {
+    var kept = []
+    var skipped = []
+    var seen = Object.create(null)
+    ;(files || []).forEach(function (f) {
+      if (!f) return
+      var name = f.name || ''
+      var path = pathOf(f)
+      if (junkName(name)) { skipped.push({ path: path, why: 'system file' }); return }
+      if (!f.size) { skipped.push({ path: path, why: 'empty' }); return }
+      var ceil = (typeof window !== 'undefined' && window.kraynetContentMax) ? Number(window.kraynetContentMax) : CEIL
+      if (f.size > ceil) { skipped.push({ path: path, why: 'over ' + Math.round(ceil / 1000000) + ' MB' }); return }
+      var key = path + '|' + f.size + '|' + (f.lastModified || 0)
+      if (seen[key]) { skipped.push({ path: path, why: 'duplicate drop' }); return }
+      seen[key] = 1
+      kept.push(f)
+    })
+    kept.sort(function (a, b) { return nat(pathOf(a), pathOf(b)) })
+    return { files: kept, skipped: skipped }
+  }
+
+  function isJsonFile(file) {
+    return /\.json$/i.test(file.name || '') || file.type === 'application/json'
+  }
+
+  function stemOf(name) {
+    return String(name || '').replace(/\.json$/i, '').replace(/\.[^.]+$/, '')
+  }
+
+  function isCatalogName(name) {
+    return /^_?(metadata|collection|manifest)\.json$/i.test(name || '')
+  }
+
+  function readText(file) {
+    if (file.text) return file.text()
+    return file.arrayBuffer().then(function (ab) { return new TextDecoder().decode(ab) })
+  }
+
+  function matchCatalogRow(arr, fileName) {
+    var want = String(fileName || '').toLowerCase()
+    var wantStem = stemOf(want).toLowerCase()
+    for (var i = 0; i < arr.length; i++) {
+      var e = arr[i]
+      if (!e || typeof e !== 'object') continue
+      var img = String(e.image || e.file || e.filename || e.name || '').split('/').pop().toLowerCase()
+      if (!img) continue
+      if (img === want || stemOf(img).toLowerCase() === wantStem) return JSON.stringify(e)
+    }
+    return null
+  }
+
+  async function jsonDoc(file, skipped) {
+    var path = pathOf(file)
+    var txt
+    try { txt = await readText(file) } catch (_) {
+      skipped.push({ path: path, why: 'could not read json' })
+      return { file: file, loose: true }
+    }
+    var bytes = new TextEncoder().encode(txt).length
+    try { JSON.parse(txt) } catch (_) {
+      skipped.push({ path: path, why: 'json not valid — sealed as its own star' })
+      return { file: file, loose: true }
+    }
+    if (bytes > DOC_CAP) {
+      skipped.push({ path: path, why: 'json over ' + DOC_CAP + ' bytes — sealed as its own star' })
+      return { file: file, loose: true }
+    }
+    return { file: file, raw: txt, parsed: JSON.parse(txt) }
+  }
+
+  async function pairFiles(files, skipped) {
+    var contents = []
+    var jsons = []
+    var catalogs = Object.create(null)
+    ;(files || []).forEach(function (f) {
+      if (isJsonFile(f)) {
+        var base = (pathOf(f).split('/').pop() || f.name)
+        if (isCatalogName(base)) catalogs[folderOf(pathOf(f))] = f
+        else jsons.push(f)
+      } else contents.push(f)
+    })
+    var byPath = Object.create(null)
+    var byStem = Object.create(null)
+    jsons.forEach(function (f) {
+      var p = pathOf(f)
+      byPath[p] = f
+      byStem[folderOf(p) + '|' + stemOf(f.name).toLowerCase()] = f
+    })
+    var used = Object.create(null)
+    var catalogCache = Object.create(null)
+    var jobs = []
+    contents.forEach(function (c) {
+      jobs.push((async function () {
+        var p = pathOf(c)
+        var fold = folderOf(p)
+        var side = byPath[p + '.json'] || byStem[fold + '|' + stemOf(c.name).toLowerCase()]
+        var meta = null
+        var sidecarName = ''
+        if (side) {
+          used[pathOf(side)] = 1
+          var doc = await jsonDoc(side, skipped)
+          if (doc.raw) { meta = doc.raw; sidecarName = side.name }
+        }
+        if (!meta && catalogs[fold]) {
+          if (!catalogCache[fold]) catalogCache[fold] = await jsonDoc(catalogs[fold], skipped)
+          var cat = catalogCache[fold]
+          if (cat && Array.isArray(cat.parsed)) {
+            var row = matchCatalogRow(cat.parsed, c.name)
+            if (row) { meta = row; sidecarName = catalogs[fold].name }
+          } else if (cat && cat.raw && cat.parsed && typeof cat.parsed === 'object' && !Array.isArray(cat.parsed)) {
+            meta = cat.raw
+            sidecarName = catalogs[fold].name
+          }
+        }
+        return { file: c, meta: meta, sidecar: sidecarName }
+      })())
+    })
+    var pairs = await Promise.all(jobs)
+    var loose = []
+    jsons.forEach(function (f) { if (!used[pathOf(f)]) loose.push(f) })
+    Object.keys(catalogs).forEach(function (fold) {
+      var attached = pairs.some(function (p) { return folderOf(pathOf(p.file)) === fold && p.sidecar === catalogs[fold].name })
+      if (!attached) loose.push(catalogs[fold])
+    })
+    return { pairs: pairs, loose: loose }
+  }
+
+  function hex32(buf) {
+    return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0') }).join('')
+  }
+
+  function toB64(u8) {
+    var CHUNK = 0x8000
+    var s = ''
+    for (var i = 0; i < u8.length; i += CHUNK) {
+      s += String.fromCharCode.apply(null, u8.subarray(i, i + CHUNK))
+    }
+    return btoa(s)
+  }
+
+  function readItem(file) {
+    return file.arrayBuffer().then(function (ab) {
+      var u8 = new Uint8Array(ab)
+      return crypto.subtle.digest('SHA-256', u8).then(function (h) {
+        var type = mimeOf(file)
+        var path = pathOf(file)
+        var url = type.indexOf('image/') === 0 ? URL.createObjectURL(file) : ''
+        return {
+          file: file,
+          path: path,
+          name: file.name,
+          folder: folderOf(path),
+          type: type,
+          size: file.size,
+          sha: hex32(h),
+          url: url,
+          meta: null,
+          sidecar: '',
+        }
+      })
+    })
+  }
+
+  function revoke(item) {
+    if (item && item.url) {
+      try { URL.revokeObjectURL(item.url) } catch (_) { /* already gone */ }
+    }
+  }
+
+  function mergeQueue(queue, items) {
+    var out = (queue || []).slice()
+    var sha = Object.create(null)
+    var path = Object.create(null)
+    out.forEach(function (it) { sha[it.sha] = 1; path[it.path] = 1 })
+    var skipped = []
+    ;(items || []).forEach(function (it) {
+      if (sha[it.sha]) { skipped.push({ path: it.path, why: 'same bytes already in the batch' }); revoke(it); return }
+      if (path[it.path]) { skipped.push({ path: it.path, why: 'same path already in the batch' }); revoke(it); return }
+      sha[it.sha] = 1
+      path[it.path] = 1
+      out.push(it)
+    })
+    out.sort(function (a, b) { return nat(a.path, b.path) })
+    return { queue: out, skipped: skipped }
+  }
+
+  function groupsOf(queue) {
+    var g = []
+    var last = null
+    ;(queue || []).forEach(function (it, i) {
+      var fold = it.folder || '·'
+      if (!last || last.folder !== fold) {
+        last = { folder: fold, items: [] }
+        g.push(last)
+      }
+      last.items.push({ item: it, i: i })
+    })
+    return g
+  }
+
+  function burnOf(size, rate) {
+    rate = rate || 1000000
+    return Math.max(1, Math.ceil((size || 1) / rate))
+  }
+
+  function burnsOf(queue, rate) {
+    var n = 0
+    ;(queue || []).forEach(function (it) { n += burnOf(it.size, rate) })
+    return n
+  }
+
+  function summarize(queue) {
+    var docs = 0, jsonStars = 0, bytes = 0
+    var folds = Object.create(null)
+    ;(queue || []).forEach(function (it) {
+      if (it.sidecar) docs++
+      if (it.type === 'application/json') jsonStars++
+      bytes += it.size || 0
+      folds[it.folder || '·'] = 1
+    })
+    return { n: (queue || []).length, docs: docs, jsonStars: jsonStars, bytes: bytes, folders: Object.keys(folds).length }
+  }
+
+  function paint(host, queue, onRemove, opts) {
+    if (!host) return
+    if (!queue || !queue.length) {
+      host.hidden = true
+      host.innerHTML = ''
+      return
+    }
+    host.hidden = false
+    opts = opts || {}
+    var groups = groupsOf(queue)
+    var sum = summarize(queue)
+    var burn = opts.burn != null ? opts.burn : burnsOf(queue, opts.rate)
+    var parent = String(opts.parent || '').trim()
+    var origin = !!opts.origin
+    var faceFirst = !!opts.faceFirst && !parent && !origin && queue.length > 1
+    var plan = parent
+      ? 'children of star #' + esc(parent.replace(/[^0-9,]/g, ''))
+      : (origin && queue.length > 1
+        ? sum.n + ' L1 children of the same ordinal · one blessing · one SHA-256 cohort'
+        : (faceFirst ? 'first file is the face · the rest hang on it' : (origin ? 'one L1 child · one blessing' : 'each file is its own root star')))
+    var html = '<div class="ibatch-review">'
+      + '<div class="ibatch-cost"><b>' + Number(burn).toLocaleString() + ' ₭</b><span>to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's') + ' · look over the tray, then sign once</span></div>'
+      + '<p class="ibatch-plan">' + esc(plan)
+      + ' · ' + sum.folders + ' folder' + (sum.folders === 1 ? '' : 's')
+      + (sum.docs ? ' · ' + sum.docs + ' JSON document' + (sum.docs === 1 ? '' : 's') + ' seated on their file' : '')
+      + (sum.jsonStars ? ' · ' + sum.jsonStars + ' JSON star' + (sum.jsonStars === 1 ? '' : 's') : '')
+      + ' · ' + Number(sum.bytes).toLocaleString() + ' bytes</p>'
+      + (opts.skipped ? '<p class="ibatch-skip">' + esc(opts.skipped) + '</p>' : '')
+      + '</div>'
+      + '<div class="ibatch-head"><b>Verify</b><span>✕ removes one · drop more anytime · we re-sort</span></div>'
+    groups.forEach(function (g) {
+      html += '<div class="ibatch-fold">' + esc(g.folder) + ' · ' + g.items.length + '</div><div class="ibatch-grid">'
+      g.items.forEach(function (row) {
+        var it = row.item
+        var thumb = it.url
+          ? '<img src="' + esc(it.url) + '" alt="">'
+          : '<span class="ibatch-fb">' + fbGlyph(it.type) + '</span>'
+        html += '<div class="ibatch-card' + (faceFirst && row.i === 0 ? ' face' : '') + '" data-i="' + row.i + '">'
+          + thumb
+          + (faceFirst && row.i === 0 ? '<span class="ibatch-tag face">FACE</span>' : (it.sidecar ? '<span class="ibatch-tag">JSON</span>' : ''))
+          + '<div class="ibatch-nm" title="' + esc(it.path) + (it.sidecar ? ' + ' + esc(it.sidecar) : '') + '">' + esc(it.name) + '</div>'
+          + '<div class="ibatch-sz">' + Number(it.size).toLocaleString() + ' B' + (it.sidecar ? ' · +doc' : '') + '</div>'
+          + '<button type="button" class="ibatch-x" data-rm="' + row.i + '" aria-label="remove">✕</button>'
+          + '</div>'
+      })
+      html += '</div>'
+    })
+    host.innerHTML = html
+    host.querySelectorAll('[data-rm]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault()
+        e.stopPropagation()
+        if (onRemove) onRemove(Number(btn.getAttribute('data-rm')))
+      })
+    })
+  }
+
+  function skipNote(skipped) {
+    if (!skipped || !skipped.length) return ''
+    var n = skipped.length
+    var sample = skipped.slice(0, 4).map(function (s) { return s.path + ' (' + s.why + ')' }).join(' · ')
+    return n + ' skipped — ' + sample + (n > 4 ? '…' : '')
+  }
+
+  function prettyDoc(raw) {
+    if (!raw) return ''
+    try { return JSON.stringify(JSON.parse(raw), null, 2) }
+    catch (_) { return raw }
+  }
+
+  /**
+   * Seat JSON documents onto an existing tray (photo.json ↔ photo.png, or a
+   * metadata.json / collection.json catalog). One unmatched JSON fills the box.
+   */
+  async function attachDocs(queue, rawFiles) {
+    var skipped = []
+    var org = organize(rawFiles || [])
+    org.skipped.forEach(function (s) { skipped.push(s) })
+    var jsons = (org.files || []).filter(isJsonFile)
+    if (!jsons.length) return { attached: 0, box: '', skipped: skipped, note: 'that drop had no JSON' }
+    var q = queue || []
+    if (!q.length) {
+      if (jsons.length === 1) {
+        var one = await jsonDoc(jsons[0], skipped)
+        return { attached: 0, box: prettyDoc(one.raw || ''), skipped: skipped, note: one.raw ? 'document loaded into the box' : 'could not read that JSON' }
+      }
+      return { attached: 0, box: '', skipped: skipped, note: 'drop the images first, then these JSON sidecars — or upload one JSON into the box' }
+    }
+    var fake = q.map(function (it) { return it.file }).concat(jsons)
+    var plan = await pairFiles(fake, skipped)
+    var attached = 0
+    plan.pairs.forEach(function (pair) {
+      if (!pair.meta) return
+      var hit = q.find(function (it) { return it.file === pair.file || it.path === pathOf(pair.file) })
+      if (!hit) return
+      hit.meta = pair.meta
+      hit.sidecar = pair.sidecar || ''
+      attached++
+    })
+    var box = ''
+    if (!attached && jsons.length === 1) {
+      var solo = await jsonDoc(jsons[0], skipped)
+      box = prettyDoc(solo.raw || '')
+    }
+    var note = attached
+      ? ('seated ' + attached + ' JSON document' + (attached === 1 ? '' : 's') + ' on matching files')
+      : (box ? 'document loaded into the box' : 'no name matched — use photo.json next to photo.png, or metadata.json / collection.json')
+    return { attached: attached, box: box, skipped: skipped, note: note }
+  }
+
+  async function ingest(rawFiles) {
+    var org = organize(rawFiles)
+    var plan = await pairFiles(org.files, org.skipped)
+    var items = []
+    for (var i = 0; i < plan.pairs.length; i++) {
+      var it = await readItem(plan.pairs[i].file)
+      it.meta = plan.pairs[i].meta || null
+      it.sidecar = plan.pairs[i].sidecar || ''
+      items.push(it)
+    }
+    for (var j = 0; j < plan.loose.length; j++) items.push(await readItem(plan.loose[j]))
+    items.sort(function (a, b) { return nat(a.path, b.path) })
+    return { items: items, skipped: org.skipped }
+  }
+
+  function wavesOf(queue) {
+    var out = []
+    var cur = []
+    var bytes = 0
+    ;(queue || []).forEach(function (it) {
+      var next = bytes + (it.size || 0)
+      if (cur.length && (cur.length >= MAX || next > WAVE_BYTES)) {
+        out.push(cur)
+        cur = []
+        bytes = 0
+      }
+      cur.push(it)
+      bytes += it.size || 0
+    })
+    if (cur.length) out.push(cur)
+    return out
+  }
+
+  async function ensureB64(item) {
+    if (item.b64) return item
+    var ab = await item.file.arrayBuffer()
+    item.b64 = toB64(new Uint8Array(ab))
+    return item
+  }
+
+  function bodiesOf(slice, extra) {
+    return slice.map(function (it) {
+      var body = {
+        action: 'inscribe',
+        content: it.b64,
+        encoding: 'base64',
+        contentType: it.type,
+      }
+      Object.keys(extra || {}).forEach(function (k) { if (extra[k] != null) body[k] = extra[k] })
+      if (it.meta) body.meta = it.meta
+      return body
+    })
+  }
+
+  async function sealWave(from, slice, extra, signOne, opts, onProgress, label) {
+    for (var i = 0; i < slice.length; i++) await ensureB64(slice[i])
+    var items = bodiesOf(slice, extra)
+    onProgress(label + 'preparing ' + items.length + '…')
+    var pr = await fetch('/api/kraynet/prepare-batch', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ from: from, items: items }),
+    })
+    var prep = await pr.json()
+    if (!pr.ok || prep.error) throw new Error(prep.error || 'prepare-batch refused')
+    var signed = []
+    var pub = opts.publicKey
+    for (var s = 0; s < prep.items.length; s++) {
+      onProgress(label + 'sign ' + (s + 1) + '/' + prep.items.length + ' — ' + (slice[s] && slice[s].name || 'file'))
+      var sig = await signOne(prep.items[s].message)
+      if (!pub) {
+        var p = await opts.getPublicKey()
+        pub = (p && p.publicKey) || p
+        opts.publicKey = pub
+      }
+      var row = Object.assign({}, items[s], {
+        from: from,
+        nonce: prep.items[s].nonce,
+        publicKey: pub,
+        signature: (sig && sig.signature) || sig,
+        scheme: 'kraywallet',
+      })
+      if (prep.items[s].originCohortRoot) row.originCohortRoot = prep.items[s].originCohortRoot
+      if (prep.items[s].originCohort) row.originCohort = prep.items[s].originCohort
+      if (prep.items[s].stripProofs) {
+        delete row.originProofs
+        delete row.originCohort
+      }
+      signed.push(row)
+    }
+    onProgress(label + 'sealing…')
+    var sr = await fetch('/api/kraynet/submit-batch', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ from: from, items: signed }),
+    })
+    var res = await sr.json()
+    if (!sr.ok || res.error) throw new Error(res.error || 'submit-batch refused')
+    return res
+  }
+
+  async function seal(opts) {
+    var from = opts.from
+    var queue = (opts.queue || []).slice()
+    var extra = Object.assign({}, opts.extra || {})
+    var onProgress = opts.onProgress || function () {}
+    if (!from || !queue.length) throw new Error('a batch needs files')
+    var confirmed = false
+    async function signOne(msg) {
+      if (!confirmed) {
+        confirmed = true
+        return opts.sign(msg)
+      }
+      return (opts.signQuiet || opts.sign)(msg)
+    }
+    var hasStarParent = !!(extra.parent || (extra.parents && extra.parents.length))
+    var hasOrigin = !!(extra.origins && extra.origins.length) || !!extra.originProofs
+    var faceFirst = !!opts.faceFirst && !hasStarParent && !hasOrigin && queue.length > 1
+    var results = []
+    var applied = 0
+    var leftover = -1
+    var done = 0
+
+    async function runSlice(slice, tag) {
+      var res = await sealWave(from, slice, extra, signOne, opts, onProgress, tag)
+      var localFail = (res.results || []).findIndex(function (r) { return !r.ok })
+      ;(res.results || []).forEach(function (r) { results.push(r) })
+      applied += res.applied || 0
+      if (localFail >= 0) leftover = done + localFail
+      done += slice.length
+      return res
+    }
+
+    if (hasOrigin && queue.length > 1) {
+      onProgress('hashing the drop — one L1 blessing will commit a SHA-256 cohort of every file…')
+      extra.originCohort = []
+      for (var qi = 0; qi < queue.length; qi++) {
+        await ensureB64(queue[qi])
+        var ab = await queue[qi].file.arrayBuffer()
+        var digest = await crypto.subtle.digest('SHA-256', ab)
+        extra.originCohort.push([...new Uint8Array(digest)].map(function (x) { return x.toString(16).padStart(2, '0') }).join(''))
+      }
+    }
+
+    if (faceFirst) {
+      onProgress('collection face — first file becomes the parent…')
+      var face = await runSlice([queue[0]], 'face · ')
+      if (leftover >= 0) return { ok: applied > 0, applied: applied, failed: results.length - applied, results: results, leftover: leftover }
+      var born = (face.results || []).filter(function (r) { return r.ok && r.star != null })[0]
+      if (!born) throw new Error('the collection face did not receive a star number')
+      extra.parent = String(born.star)
+      delete extra.parents
+      queue = queue.slice(1)
+    }
+
+    var waves = wavesOf(queue)
+    for (var w = 0; w < waves.length; w++) {
+      if (leftover >= 0) break
+      await runSlice(waves[w], 'wave ' + (w + 1) + '/' + waves.length + ' · ')
+      if (hasOrigin && extra.originProofs) delete extra.originProofs
+    }
+    return { ok: applied > 0, applied: applied, failed: results.length - applied, results: results, leftover: leftover, parent: extra.parent || null }
+  }
+
+  global.KrayInscribeBatch = {
+    MAX: MAX,
+    WAVE_BYTES: WAVE_BYTES,
+    CEIL: CEIL,
+    filesFromTransfer: filesFromTransfer,
+    filesFromList: filesFromList,
+    organize: organize,
+    readItem: readItem,
+    mergeQueue: mergeQueue,
+    revoke: revoke,
+    paint: paint,
+    burnOf: burnOf,
+    burnsOf: burnsOf,
+    skipNote: skipNote,
+    summarize: summarize,
+    ingest: ingest,
+    attachDocs: attachDocs,
+    ensureB64: ensureB64,
+    seal: seal,
+    pathOf: pathOf,
+    mimeOf: mimeOf,
+  }
+})(typeof window !== 'undefined' ? window : globalThis)

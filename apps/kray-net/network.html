@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · The Network — who is proving it, live</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* An OBSERVATORY INSTRUMENT, not a health dashboard. Every mark traces to a proof; the one honest
+     truth — a single writer that can stall or censor — is louder than the glow. (Council 2026-08-21.) */
+  .frontier{display:flex;flex-wrap:wrap;gap:var(--s3);margin:var(--s4) 0 var(--s2)}
+  .frontier .f{flex:1 1 240px;border:1px solid var(--line-2);border-left:2px solid var(--btc-line);border-radius:var(--r2);
+    padding:10px 13px;background:var(--surface);font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink-3)}
+  .frontier .f b{color:var(--ink);display:block;font-size:10px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+  .frontier .f.warn{border-left-color:#e0a94a}
+  .stage{position:relative;height:min(78vh,760px);border:1px solid var(--line);border-radius:var(--r3);overflow:hidden;
+    background:radial-gradient(120% 100% at 50% 46%, #0d0e15 0%, var(--void) 72%)}
+  #scene{position:absolute;inset:0}#scene canvas{display:block;cursor:grab}#scene canvas:active{cursor:grabbing}
+  .hud{position:absolute;left:var(--s4);top:var(--s4);display:grid;gap:2px;font-family:var(--mono);font-size:11px;
+    color:var(--ink-3);pointer-events:auto;max-width:min(48vw,340px)}
+  .hud .row{display:flex;justify-content:space-between;gap:16px;padding:1px 0}
+  .hud .row b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .hud a.row b{color:var(--ink)} .hud a.row{text-decoration:none;border-bottom:1px dotted transparent}
+  .hud a.row:hover b{color:var(--btc)} .hud a.row:hover{border-bottom-color:var(--btc-line)}
+  .hud .live{display:inline-block;width:7px;height:7px;border-radius:50%;background:#54e0a0;margin-right:6px;vertical-align:0}
+  .hud .stale{background:#e0a94a} .hud .down{background:#f5776b}
+  .single{position:absolute;left:var(--s4);bottom:var(--s4);right:var(--s4);font-family:var(--mono);font-size:11px;
+    letter-spacing:.02em;color:var(--ink-2);pointer-events:none;line-height:1.5;text-shadow:0 1px 8px #000}
+  .single b{color:#e0a94a} .single .end{color:var(--ink-4)}
+  .hint{position:absolute;right:var(--s4);top:var(--s4);font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-4);pointer-events:none;text-align:right}
+  .zoombar{position:absolute;right:var(--s4);bottom:var(--s4);display:flex;gap:6px}
+  .zoombar button{width:34px;height:34px;border:1px solid var(--line-2);border-radius:var(--r1);background:rgba(8,9,10,.7);
+    color:var(--ink-2);font-family:var(--mono);font-size:16px;cursor:pointer}
+  .zoombar button:hover{color:var(--ink);border-color:var(--ink-3)}
+  .btip{position:fixed;pointer-events:none;opacity:0;transform:translate(-50%,-120%);transition:opacity .1s;z-index:60;
+    background:rgba(8,9,10,.96);border:1px solid var(--line-2);border-radius:var(--r2);padding:10px 13px;font-family:var(--mono);
+    font-size:11.5px;white-space:nowrap;min-width:190px}
+  .btip .hh{color:var(--ink);font-size:13px;margin-bottom:5px} .btip .sub{color:var(--ink-4);font-size:10px;margin-bottom:6px}
+  .btip .r{display:flex;justify-content:space-between;gap:22px;color:var(--ink-3);padding:2px 0}
+  .btip .r b{color:var(--ink)} .btip .r.btc b{color:var(--btc)}
+  .down-note{position:absolute;inset:0;display:none;place-content:center;text-align:center;padding:var(--s6);
+    font-family:var(--mono);font-size:13px;color:var(--ink-2);background:radial-gradient(120% 100% at 50% 46%,#0d0e15,#060708)}
+  .down-note b{color:var(--btc)} .down-note .s{color:var(--ink-4);font-size:11px;margin-top:8px;display:block}
+  .fallback{display:none;grid-template-columns:repeat(auto-fill,minmax(min(100%,140px),1fr));gap:var(--s3);padding:var(--s5)}
+  .fb{border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);background:var(--surface);text-align:center}
+  .fb.anc{border-color:var(--btc-line)} .fb .h{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  .fb .n{font-weight:500;font-size:22px;font-variant-numeric:tabular-nums;margin-top:3px}
+  .legend{display:flex;gap:var(--s5);flex-wrap:wrap;margin-top:var(--s4);font-family:var(--mono);font-size:11px;color:var(--ink-3);align-items:center}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;vertical-align:-1px}
+  .legend .fog{background:linear-gradient(90deg,rgba(140,150,184,.5),rgba(140,150,184,0))}
+  .disclose{margin-top:var(--s4);font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--ink-3);
+    border:1px solid var(--line);border-radius:var(--r2);padding:var(--s4);background:var(--surface)}
+  .disclose b{color:var(--ink)} .disclose .k{color:var(--btc)}
+  .cta{margin-top:var(--s4);display:flex;gap:var(--s3);flex-wrap:wrap}
+</style>
+</head>
+<body data-page="network">
+<div class="wrap">
+  <section class="hero" style="border-top:0;padding-bottom:var(--s5)">
+    <div class="eyebrow">THE NETWORK · WHO IS PROVING IT, RIGHT NOW</div>
+    <h1 style="font-size:clamp(38px,6.6vw,80px)">The instrument</h1>
+    <p class="lede">Not a portrait of health — a <b class="btc-ink">proof browser</b>. Every light is a real, signed thing you can go check for yourself: the <b class="btc-ink">Bitcoin block</b> that anchors the whole history at the center, the <b>one writer</b> that orders it today, and the guardians earning the fee pool by <b>proving presence</b> — each sized by real work. Drag to orbit, hover to read, click to open the bytes behind it.</p>
+  </section>
+  <!-- HONEST BORDER — louder than the picture, never hideable (Constitution XI, PROOF-COMPARISON) -->
+  <div class="frontier">
+    <div class="f warn"><b>One writer today (the PEN)</b>It cannot forge — signature ‖ Merkle proof ‖ Bitcoin anchor is the only way state moves — but it <b style="display:inline;text-transform:none;letter-spacing:0">can</b> stall, and censorship is possible-but-not-yet-evident. The goal is to end it.</div>
+    <div class="f"><b>Censorship</b>No longer silent — since seq 155 every seal folds its inclusion window into the anchored root, so omitting a deadline-carrying act is provable from Bitcoin bytes. The writer can still delay; enforcement of the verdict is evidence-backed, not automatic.</div>
+    <div class="f"><b>Liveness / writing</b>Depends on the writer node. Verification does not — anyone replays the journal against Bitcoin, forever.</div>
+    <div class="f"><b>Pot custody (live since 2026-08-22)</b>Every pot withdraw needs the owner's key <b style="display:inline;text-transform:none;letter-spacing:0">plus</b> a 2-of-3 quorum of book-checking co-signers — each grounds its verdict in an <b style="display:inline;text-transform:none;letter-spacing:0">independent replay</b> of the whole history and holds if the book disagrees. No single machine opens the pot. The guard boxes are deliberately <b style="display:inline;text-transform:none;letter-spacing:0">invisible</b> — a map of guards would be a target list; the rule is the public part (guardian pubkeys: <code style="font-size:11px">/api/kraynet/bridge/params</code>).</div>
+  </div>
+</div>
+
+<div class="wrap" style="margin-top:var(--s3)">
+  <div class="stage">
+    <div id="scene"></div>
+    <div class="hud" id="hud"><div class="row"><span><span class="live" id="livedot"></span>reading the network…</span></div></div>
+    <div class="hint">drag · scroll · hover to read<br>click to open the proof</div>
+    <div class="single" id="single"><b>one writer today</b> — the single point of ordering · <span class="end">root of trust = Bitcoin, not this node</span></div>
+    <div class="zoombar"><button id="zin" title="zoom in">+</button><button id="zout" title="zoom out">−</button></div>
+    <div class="down-note" id="downnote">map unavailable — <b>the ledger is still verifiable from Bitcoin by anyone</b>.<span class="s" id="downwhen"></span></div>
+    <div id="fallback" class="fallback"></div>
+  </div>
+  <div class="legend">
+    <span><i style="background:#f7931a"></i>Bitcoin — the root of trust</span>
+    <span><i style="background:#9aa2c4"></i>the writer · single point of ordering</span>
+    <span><i style="background:#54e0a0"></i>presence beacon · earns the fee pool, decides nothing</span>
+    <span><i class="fog"></i>countless full-node followers · uncountable by design — each verifies, trusting no one</span>
+    <span style="margin-left:auto" id="totals">—</span>
+  </div>
+  <div class="disclose" id="disclose">
+    <b>Reading this instrument honestly.</b>
+    <span class="k">root = Bitcoin</span> (every number below re-derives from it) ·
+    <b>1 writer</b> (the PEN — single point of ordering, shown flagged, not as a sun) ·
+    <b id="beaconline">— addresses proving presence this beat</b> — <b>identity is free, so this is NOT a node count and is not sybil-resistant</b>; it measures proven work, not machines ·
+    <b id="workline">—</b> · <b id="sealline">—</b>.
+    <br><b>Countless full nodes are verifying this history right now</b> — each trusting no one, re-deriving every number here from Bitcoin for itself. That is the design, not a gap: <b>we do not count them, and never will.</b> Run yours and you never become a row on a list — you become one more party the writer can never lie to. Some of these anonymous mirrors also serve the <b>rune book</b> that guards the pot's custody — we cannot see which, <b>and that is the point</b>.
+    <br><span style="color:var(--crit,#f5776b)"><b>These numbers do not order and do not secure custody.</b></span> Presence and work earn the fee pool but <b>decide nothing</b>; the <b>one writer</b> still orders every seal, and the pot still needs the owner's key + 2-of-3 — no count above changes that. Watch the flag, not the glow.
+  </div>
+  <div class="cta">
+    <a class="chip" href="/validate">◇ prove it yourself — validate in a browser tab →</a>
+    <a class="chip" href="https://github.com/tomkray/kray-node#2--follow--a-full-node-of-this-history" target="_blank" rel="noopener">⛓ run a full node (follow) →</a>
+    <a class="chip" href="https://github.com/tomkray/kray-node/blob/main/docs/RUN-NODE.md" target="_blank" rel="noopener">🛡 serve the rune book — help guard the pot, anonymously →</a>
+  </div>
+</div>
+<div class="btip" id="btip"></div>
+
+<script src="/kray.js" defer></script>
+<script src="/vendor/three.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  // ── DATA LAW (A6, council-locked): draw ONLY /status + /overview + /presence + /analytics. The follower
+  //    field is a FIXED, semantically-inert fog — never a count, topology, or magnitude, never /peers. No
+  //    decorative dots. Beacons are sized by BUCKETED log-work and placed at SHUFFLED angles so the scene is
+  //    never a biggest-fish-first target ranking. Every node-returned string is escaped as TEXT. ──
+  var scene, camera, renderer, root, raf, glowTex, fog;
+  var nodes=[], edges=[], adj=[], baseLines, hiLines, sprites=[], hovered=-1;
+  var S={}, O={}, P={validators:[]}, A={};          // status, overview, presence, analytics
+  var lastGood=0, beaconMemo={};                     // rolling last-seen so presence never flickers to a dead 0
+  var EXPLORER='https://mempool.space/signet/tx/';   // net-aware below
+  var el=function(id){return document.getElementById(id);}, tip=el('btip');
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function short(h,n){h=String(h||'');n=n||8;return h.length>n*2?h.slice(0,n)+'…'+h.slice(-4):h;}
+  function ago(ms){var s=Math.max(0,(Date.now()-ms)/1000);if(s<60)return Math.floor(s)+'s';if(s<3600)return Math.floor(s/60)+'m';return Math.floor(s/3600)+'h';}
+  // bucket real work into 4 honest tiers — size never publishes a live wealth ranking
+  function workTier(w){w=Number(w||0);if(w<=0)return 0;var b=Math.floor(Math.log2(w));if(b>=22)return 3;if(b>=19)return 2;if(b>=15)return 1;return 0;}
+  function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+  function makeGlow(){
+    var c=document.createElement('canvas');c.width=c.height=128;var x=c.getContext('2d');
+    var g=x.createRadialGradient(64,64,0,64,64,64);
+    g.addColorStop(0,'rgba(255,255,255,1)');g.addColorStop(0.18,'rgba(255,255,255,0.92)');
+    g.addColorStop(0.42,'rgba(255,255,255,0.32)');g.addColorStop(1,'rgba(255,255,255,0)');
+    x.fillStyle=g;x.fillRect(0,0,128,128);return new THREE.CanvasTexture(c);
+  }
+  function makeLabel(text,hex,scale){
+    var c=document.createElement('canvas');c.width=256;c.height=64;var x=c.getContext('2d');
+    x.clearRect(0,0,256,64);x.font='600 24px "SF Mono",monospace';x.textAlign='center';x.textBaseline='middle';
+    x.fillStyle='#'+('000000'+hex.toString(16)).slice(-6);x.fillText(text,128,34);
+    var s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,opacity:.9,depthWrite:false,depthTest:false}));
+    var sc=scale||6;s.scale.set(sc,sc/4,1);return s;
+  }
+
+  function beacons(){
+    // rolling memo: a beacon seen this beat is fresh; one that dropped this beat lingers with an honest
+    // "last seen" so a per-beat flicker to 0 never reads as a dead network. Never fabricates presence.
+    var now=Date.now(), live=(P&&P.validators)||[];
+    live.forEach(function(v){ if(v&&v.address) beaconMemo[v.address]={address:v.address,work:v.work,blocks:v.blocks,seen:now,live:true}; });
+    Object.keys(beaconMemo).forEach(function(k){ var m=beaconMemo[k]; if(m.seen!==now) m.live=false; if(now-m.seen>10*60000) delete beaconMemo[k]; });
+    return shuffle(Object.keys(beaconMemo).map(function(k){return beaconMemo[k];}));
+  }
+
+  function buildGraph(){
+    nodes=[];edges=[];sprites=[];hovered=-1;
+    // ROOT — Bitcoin, the still gravitational center. Not the writer. The referee everything re-derives from.
+    var anc={type:'anchor',r:2.4,color:0xf7931a,x:0,y:0,z:0,vx:0,vy:0,vz:0,fixed:true};
+    nodes.push(anc);var ai=0;
+    anc.label=makeLabel('BITCOIN',0xf7931a,7);root.add(anc.label);
+    // THE WRITER — ONE node that writes & orders. Cool, flagged, deliberately NOT radiant, offset from center.
+    var wr={type:'writer',r:1.5,color:0x9aa2c4,x:9,y:1,z:0,vx:0,vy:0,vz:0};
+    var wi=nodes.length;nodes.push(wr);
+    wr.label=makeLabel('THE WRITER',0xaab0cc,6);root.add(wr.label);
+    edges.push({a:ai,b:wi,kind:'anchor'});           // the writer commits to Bitcoin
+    // PRESENCE BEACONS — small honest lights orbiting the WRITER (they prove presence to it, earn its pool).
+    // Sized by BUCKETED work, SHUFFLED angle. They secure nothing and decide nothing.
+    var bs=beacons(), n=bs.length;
+    bs.forEach(function(b,i){
+      var tier=workTier(b.work), r=0.5+tier*0.16, ang=(i/Math.max(1,n))*6.283+i*0.7, rad=5+tier*0.8;
+      var node={type:'beacon',ref:b,tier:tier,r:r,color:b.live?0x54e0a0:0x3f6f57,
+        x:wr.x+Math.cos(ang)*rad,y:wr.y+(Math.random()-0.5)*4,z:wr.z+Math.sin(ang)*rad,vx:0,vy:0,vz:0};
+      var idx=nodes.length;nodes.push(node);
+      edges.push({a:wi,b:idx,kind:b.live?'beat':'faint'});
+    });
+    adj=nodes.map(function(){return [];});
+    edges.forEach(function(e){adj[e.a].push(e.b);adj[e.b].push(e.a);});
+    nodes.forEach(function(nd,idx){
+      var m=new THREE.SpriteMaterial({map:glowTex,color:nd.color,transparent:true,opacity:1,blending:THREE.AdditiveBlending,depthWrite:false,depthTest:false});
+      var s=new THREE.Sprite(m);var sc=nd.r*3.4;s.scale.set(sc,sc,1);s.position.set(nd.x,nd.y,nd.z);s.userData={ni:idx};
+      nd.sprite=s;nd.mat=m;root.add(s);sprites.push(s);
+    });
+    var pos=new Float32Array(edges.length*6),col=new Float32Array(edges.length*6);
+    edges.forEach(function(e,k){var c=e.kind==='anchor'?[0.62,0.42,0.14]:e.kind==='beat'?[0.20,0.55,0.40]:[0.16,0.28,0.22];
+      for(var s=0;s<2;s++){col[k*6+s*3]=c[0];col[k*6+s*3+1]=c[1];col[k*6+s*3+2]=c[2];}});
+    var bg=new THREE.BufferGeometry();
+    bg.setAttribute('position',new THREE.BufferAttribute(pos,3));bg.setAttribute('color',new THREE.BufferAttribute(col,3));
+    baseLines=new THREE.LineSegments(bg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:0.6,blending:THREE.AdditiveBlending,depthWrite:false}));
+    root.add(baseLines);
+    hiLines=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false}));
+    root.add(hiLines);
+  }
+  function updateLines(){
+    if(!baseLines)return;var pa=baseLines.geometry.attributes.position,arr=pa.array;
+    edges.forEach(function(e,k){var A2=nodes[e.a],B=nodes[e.b];arr[k*6]=A2.x;arr[k*6+1]=A2.y;arr[k*6+2]=A2.z;arr[k*6+3]=B.x;arr[k*6+4]=B.y;arr[k*6+5]=B.z;});
+    pa.needsUpdate=true;
+    nodes.forEach(function(nd){if(nd.label)nd.label.position.set(nd.x,nd.y+nd.r*2.6,nd.z);});
+  }
+
+  function boot(){
+    if(!window.THREE){fallback();return;}
+    if(raf){cancelAnimationFrame(raf);raf=null;}
+    if(renderer){try{renderer.dispose();}catch(_){}}
+    var cont=el('scene');
+    try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}catch(e){fallback();return;}
+    var W=cont.clientWidth,H=cont.clientHeight||560;
+    renderer.setPixelRatio(Math.min(2,window.devicePixelRatio||1));renderer.setSize(W,H);cont.innerHTML='';cont.appendChild(renderer.domElement);
+    scene=new THREE.Scene();camera=new THREE.PerspectiveCamera(52,W/H,0.1,3000);root=new THREE.Group();scene.add(root);
+    glowTex=glowTex||makeGlow();
+    // THE ANONYMOUS-FOLLOWER FOG — a fixed, uncountable diffuse cloud. Its density is a CONSTANT and carries
+    // NO information: it can never be read as a number, a topology, or growth. "We do not count these."
+    var fN=460,fp=new Float32Array(fN*3);
+    for(var i=0;i<fN;i++){var rr=150+Math.random()*320,th=Math.random()*6.283,ph=Math.acos(2*Math.random()-1);
+      fp[i*3]=rr*Math.sin(ph)*Math.cos(th);fp[i*3+1]=rr*Math.sin(ph)*Math.sin(th);fp[i*3+2]=rr*Math.cos(ph);}
+    var fg=new THREE.BufferGeometry();fg.setAttribute('position',new THREE.BufferAttribute(fp,3));
+    fog=new THREE.Points(fg,new THREE.PointsMaterial({color:0x2c3242,size:1.0,sizeAttenuation:true,transparent:true,opacity:0.5}));
+    scene.add(fog);
+    buildGraph();fit();bindInput(cont);animate();
+    if(!boot._bound){boot._bound=true;window.addEventListener('resize',onResize);
+      document.addEventListener('visibilitychange',function(){if(document.hidden){if(raf){cancelAnimationFrame(raf);raf=null;}}else if(!raf&&renderer)animate();});
+      setupStream();}
+  }
+  function rebuild(){ if(!renderer){boot();return;} nodes.forEach(function(nd){if(nd.sprite)root.remove(nd.sprite);if(nd.label)root.remove(nd.label);});
+    if(baseLines)root.remove(baseLines);if(hiLines)root.remove(hiLines);buildGraph();fit(); }
+
+  function fmt(n){n=Number(n||0);return n.toLocaleString('en-US');}
+  function paintHud(){
+    var beat=(P&&P.validators)||[], distinct=beat.length, dot='live', dt=Date.now()-lastGood;
+    if(dt>45000)dot='stale';
+    var when=lastGood?('proven '+ago(lastGood)+' ago'):'—';
+    var rows=[];
+    rows.push('<div class="row"><span><span class="live '+(dot==='stale'?'stale':'')+'" id="livedot"></span>'+(S.network||'signet')+' · '+when+'</span></div>');
+    rows.push('<a class="row" href="/api/kraynet/overview" title="the head + cascade root — re-derivable"><span>sequence</span><b>#'+fmt(S.seq||O.seq)+'</b></a>');
+    rows.push('<div class="row"><span>fast block</span><b>#'+fmt(S.latestBlock)+'</b></div>');
+    if(O.cascadeRoot)rows.push('<a class="row" href="'+(S.anchoredTxid?EXPLORER+encodeURIComponent(S.anchoredTxid):'/api/kraynet/overview')+'" target="_blank" rel="noopener" title="the anchored cascade root — check it on Bitcoin"><span>cascade root</span><b>'+esc(short(O.cascadeRoot))+'</b></a>');
+    if(S.anchoredBtcHeight)rows.push('<a class="row" href="'+(S.anchoredTxid?EXPLORER+encodeURIComponent(S.anchoredTxid):'#')+'" target="_blank" rel="noopener" title="the Bitcoin block that anchors the history"><span>anchored at ₿</span><b>#'+fmt(S.anchoredBtcHeight)+'</b></a>');
+    rows.push('<div class="row" title="identity is free — this is NOT a node count"><span>proving presence</span><b>'+distinct+' addr</b></div>');
+    if(A.supply&&A.supply.holders!=null)rows.push('<div class="row"><span>holders</span><b>'+fmt(A.supply.holders)+'</b></div>');
+    else if(O.starCount!=null)rows.push('<div class="row"><span>stars written</span><b>'+fmt(O.starCount)+'</b></div>');
+    if(O.bitcoinSeals!=null)rows.push('<a class="row" href="/verify" title="every seal re-proven by SPV"><span>bitcoin seals</span><b>'+fmt(O.bitcoinSeals)+'</b></a>');
+    // PROVEN WORK over the active window — sha256 you must burn to appear; distinctProvers rides with the caveat, provenWork is the split-invariant headline
+    if(A.work&&A.work.provenWork!=null&&A.work.windowSeals>0)
+      rows.push('<div class="row" title="total sha256 proof-of-work re-derived from the last '+fmt(A.work.windowSeals)+' seals — a magnitude one machine cannot inflate by splitting into many addresses"><span>proven work · last '+fmt(A.work.windowSeals)+'</span><b>'+fmt(A.work.provenWork)+'</b></div>');
+    if(S.anchoredDepth!=null)
+      rows.push('<a class="row" href="/verify" title="Bitcoin confirmations burying the latest sealed root — Bitcoin’s own clock, no node can assert it"><span>buried on ₿</span><b>'+fmt(S.anchoredDepth)+' deep</b></a>');
+    el('hud').innerHTML=rows.join('');
+    el('beaconline').textContent=distinct+' address'+(distinct===1?'':'es')+' proving presence this beat';
+    var wl=el('workline'); if(wl) wl.textContent = (A.work&&A.work.distinctProvers!=null) ? (fmt(A.work.distinctProvers)+' address'+(A.work.distinctProvers===1?'':'es')+' proved sha256 work across the last '+fmt(A.work.windowSeals)+' seals — unforgeable, and still not a machine count') : '—';
+    var sl=el('sealline'); if(sl) sl.textContent = (O.bitcoinSeals!=null) ? (fmt(O.bitcoinSeals)+' cascade roots sealed into Bitcoin'+(S.anchoredDepth!=null?', buried '+fmt(S.anchoredDepth)+' blocks deep':'')+((A.pot&&A.pot.donated!=null)?' · '+fmt(A.pot.donated)+' real sats sacrificed to seal & guard':'')) : '—';
+    el('totals').textContent='1 writer · '+distinct+' proving presence'+(A.supply&&A.supply.holders!=null?(' · '+fmt(A.supply.holders)+' holders'):'');
+    el('single').innerHTML='<b>one writer today</b> — the single point of ordering · <span class="end">root of trust = Bitcoin, not this node</span>';
+  }
+
+  function setDown(on){ el('downnote').style.display=on?'grid':'none';
+    if(on)el('downwhen').textContent=lastGood?('last proven '+ago(lastGood)+' ago — Bitcoin remains the source of truth'):''; }
+
+  function load(){
+    return Promise.all([
+      fetch('/api/kraynet/status').then(function(r){return r.json();}).catch(function(){return null;}),
+      fetch('/api/kraynet/overview').then(function(r){return r.json();}).catch(function(){return null;}),
+      fetch('/api/kraynet/presence').then(function(r){return r.json();}).catch(function(){return null;}),
+      fetch('/api/kraynet/analytics').then(function(r){return r.json();}).catch(function(){return null;})
+    ]).then(function(res){
+      if(!res[0]&&!res[1]){ setDown(true); return; }
+      setDown(false);
+      if(res[0])S=res[0]; if(res[1])O=res[1]; if(res[2])P=res[2]; if(res[3])A=res[3];
+      if((S&&S.network)||(O&&O.network)){ var net=S.network||O.network;
+        EXPLORER = net==='mainnet' ? 'https://mempool.space/tx/' : net==='signet' ? 'https://mempool.space/signet/tx/' : '/api/kraynet/overview#'; }
+      lastGood=Date.now();
+      paintHud(); rebuild();
+      if(el('fallback').style.display==='grid') fallback();
+    });
+  }
+  function fallback(){
+    var f=el('fallback');if(!f)return;f.style.display='grid';el('scene').style.display='none';el('single').style.display='none';
+    var beat=(P&&P.validators)||[];
+    var cards=[
+      '<div class="fb anc"><div class="h">₿ anchor · Bitcoin</div><div class="n">#'+fmt(S.anchoredBtcHeight||'—')+'</div></div>',
+      '<div class="fb"><div class="h">the writer · single</div><div class="n">1</div></div>',
+      '<div class="fb"><div class="h">proving presence</div><div class="n">'+beat.length+'</div></div>',
+      '<div class="fb"><div class="h">full-node followers</div><div class="n" style="font-size:13px;color:var(--ink-3)">countless<br>uncountable by design</div></div>'
+    ];
+    f.innerHTML=cards.join('');
+  }
+
+  var _es=null,_pollT=null;
+  function setupStream(){
+    try{ _es=new EventSource('/api/kraynet/stream');
+      _es.addEventListener('block',function(){refresh();});
+      _es.addEventListener('anchor',function(){refresh();});
+      _es.onerror=function(){ if(!_pollT) _pollT=setInterval(load,8000); };   // SSE primary; slow poll only as fallback
+    }catch(_){ if(!_pollT) _pollT=setInterval(load,8000); }
+  }
+  var refreshT=null;
+  function refresh(){clearTimeout(refreshT);refreshT=setTimeout(load,500);}
+
+  // ── physics: beacons repel, spring to the writer, drift home; the anchor is FIXED at the center ──
+  function step(){
+    var N=nodes.length,REP=40,DAMP=0.85,G=0.008;
+    for(var i=0;i<N;i++){var A2=nodes[i];if(A2.fixed)continue;
+      for(var j=0;j<N;j++){ if(j===i)continue; var B=nodes[j];
+        var dx=A2.x-B.x,dy=A2.y-B.y,dz=A2.z-B.z,d2=dx*dx+dy*dy+dz*dz+0.5,d=Math.sqrt(d2);
+        var f=REP*(A2.r+B.r)*0.5/d2;if(f>3.2)f=3.2;A2.vx+=f*dx/d;A2.vy+=f*dy/d;A2.vz+=f*dz/d;
+      }
+    }
+    edges.forEach(function(e){var A2=nodes[e.a],B=nodes[e.b];
+      var rest=e.kind==='anchor'?9:5.2,K=e.kind==='anchor'?0.05:0.06;
+      var dx=B.x-A2.x,dy=B.y-A2.y,dz=B.z-A2.z,d=Math.sqrt(dx*dx+dy*dy+dz*dz)+0.001,f=K*(d-rest),ux=dx/d,uy=dy/d,uz=dz/d;
+      if(!A2.fixed){A2.vx+=f*ux;A2.vy+=f*uy;A2.vz+=f*uz;} if(!B.fixed){B.vx-=f*ux;B.vy-=f*uy;B.vz-=f*uz;}
+    });
+    for(var k=0;k<N;k++){var nd=nodes[k];if(nd.fixed){nd.x=0;nd.y=0;nd.z=0;continue;}
+      nd.vx-=nd.x*G;nd.vy-=nd.y*G;nd.vz-=nd.z*G;nd.vx*=DAMP;nd.vy*=DAMP;nd.vz*=DAMP;
+      nd.x+=nd.vx;nd.y+=nd.vy;nd.z+=nd.vz;if(nd.sprite)nd.sprite.position.set(nd.x,nd.y,nd.z);
+    }
+  }
+  var yaw=0,pitch=0.4,tYaw=0,tPitch=0.4,drag=false,px=0,py=0,dist=1,tDist=0.7,MAXR=1,autspin=true;
+  function fit(){MAXR=Math.max(16,Math.sqrt(nodes.length)*9);dist=tDist*MAXR;}
+  function bindInput(cont){
+    var cv=renderer.domElement;
+    cv.addEventListener('pointerdown',function(e){drag=true;autspin=false;px=e.clientX;py=e.clientY;});
+    window.addEventListener('pointerup',function(){drag=false;});
+    window.addEventListener('pointermove',function(e){if(drag){tYaw+=(e.clientX-px)*0.006;tPitch=Math.max(-1.3,Math.min(1.3,tPitch+(e.clientY-py)*0.005));px=e.clientX;py=e.clientY;}hover(e);});
+    cont.addEventListener('wheel',function(e){e.preventDefault();tDist=Math.max(0.14,Math.min(2.6,tDist*(e.deltaY>0?1.12:0.89)));},{passive:false});
+    el('zin').addEventListener('click',function(){tDist=Math.max(0.14,tDist*0.75);});
+    el('zout').addEventListener('click',function(){tDist=Math.min(2.6,tDist*1.33);});
+    cv.addEventListener('click',function(){if(hovered<0)return;var nd=nodes[hovered];
+      if(nd.type==='anchor'&&S.anchoredTxid)window.open(EXPLORER+encodeURIComponent(S.anchoredTxid),'_blank','noopener');
+      else if(nd.type==='writer')window.open('/api/kraynet/overview','_blank','noopener');
+      // a beacon opens NOTHING that could dox it — presence carries an address, never a URL/location.
+    });
+    cv.addEventListener('pointerleave',function(){tip.style.opacity='0';setHover(-1);});
+  }
+  var ray=new THREE.Raycaster(),m2=new THREE.Vector2();
+  function hover(e){
+    if(!renderer)return;var r=renderer.domElement.getBoundingClientRect();
+    if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom){tip.style.opacity='0';return;}
+    m2.x=((e.clientX-r.left)/r.width)*2-1;m2.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(m2,camera);
+    var hits=ray.intersectObjects(sprites,false),ni=hits.length?hits[0].object.userData.ni:-1;
+    if(ni!==hovered)setHover(ni);
+    if(hovered>=0){var nd=nodes[hovered];
+      if(nd.type==='anchor'){
+        tip.innerHTML='<div class="hh" style="color:var(--btc)">Bitcoin — the root of trust</div>'
+          +'<div class="sub">the whole history anchors here; verify it yourself</div>'
+          +'<div class="r btc"><span>anchored ₿ block</span><b>#'+fmt(S.anchoredBtcHeight||'—')+'</b></div>'
+          +(S.anchoredTxid?'<div class="r"><span>anchor tx</span><b>'+esc(short(S.anchoredTxid))+'</b></div>':'')
+          +'<div class="r"><span></span><b style="color:var(--ink-4)">click → open on Bitcoin →</b></div>';
+      } else if(nd.type==='writer'){
+        tip.innerHTML='<div class="hh">the writer · the PEN</div>'
+          +'<div class="sub">single point of ordering today — can stall / censor · the goal is to end it</div>'
+          +'<div class="r"><span>role</span><b>writes &amp; orders</b></div>'
+          +'<div class="r"><span>secures money?</span><b>no — Bitcoin does</b></div>'
+          +'<div class="r"><span></span><b style="color:var(--ink-4)">click → the head + root →</b></div>';
+      } else { var b=nd.ref||{};
+        tip.innerHTML='<div class="hh" style="color:#54e0a0">presence beacon</div>'
+          +'<div class="sub">'+(nd.color===0x54e0a0?'proving presence now':'seen '+ago(b.seen)+' ago')+' · earns the fee pool · <b style="color:var(--ink-3)">decides nothing</b></div>'
+          +'<div class="r"><span>address</span><b>'+esc(short(b.address,6))+'</b></div>'
+          +'<div class="r"><span>proven work</span><b>tier '+(nd.tier+1)+' / 4</b></div>'
+          +(b.blocks&&b.blocks.length?'<div class="r"><span>in beat</span><b>#'+esc(String(b.blocks[b.blocks.length-1]))+'</b></div>':'')
+          +'<div class="r"><span></span><b style="color:var(--ink-4)">identity is free — not a machine count</b></div>';
+      }
+      tip.style.left=e.clientX+'px';tip.style.top=(e.clientY-14)+'px';tip.style.opacity='1';renderer.domElement.style.cursor=(nd.type==='beacon')?'default':'pointer';
+    } else {tip.style.opacity='0';renderer.domElement.style.cursor=drag?'grabbing':'grab';}
+  }
+  function setHover(ni){
+    hovered=ni;
+    if(ni<0){nodes.forEach(function(nd){if(nd.mat)nd.mat.opacity=1;if(nd.label)nd.label.material.opacity=0.9;});
+      if(baseLines)baseLines.material.opacity=0.6;
+      if(hiLines)hiLines.geometry.setAttribute('position',new THREE.BufferAttribute(new Float32Array(0),3));return;}
+    var near={};near[ni]=1;(adj[ni]||[]).forEach(function(j){near[j]=1;});
+    nodes.forEach(function(nd,idx){if(nd.mat)nd.mat.opacity=near[idx]?1:0.14;if(nd.label)nd.label.material.opacity=near[idx]?0.95:0.12;});
+    if(baseLines)baseLines.material.opacity=0.1;
+    var inc=edges.filter(function(e){return e.a===ni||e.b===ni;});
+    var arr=new Float32Array(inc.length*6);
+    inc.forEach(function(e,k){var A2=nodes[e.a],B=nodes[e.b];arr[k*6]=A2.x;arr[k*6+1]=A2.y;arr[k*6+2]=A2.z;arr[k*6+3]=B.x;arr[k*6+4]=B.y;arr[k*6+5]=B.z;});
+    hiLines.geometry.setAttribute('position',new THREE.BufferAttribute(arr,3));hiLines._inc=inc;
+  }
+  var t=0;
+  function animate(){
+    raf=requestAnimationFrame(animate);t+=0.016;
+    step();updateLines();
+    if(hovered>=0&&hiLines._inc){var a2=hiLines.geometry.attributes.position;
+      if(a2){hiLines._inc.forEach(function(e,k){var A2=nodes[e.a],B=nodes[e.b];a2.array[k*6]=A2.x;a2.array[k*6+1]=A2.y;a2.array[k*6+2]=A2.z;a2.array[k*6+3]=B.x;a2.array[k*6+4]=B.y;a2.array[k*6+5]=B.z;});a2.needsUpdate=true;}}
+    // gentle pulse: the anchor breathes (the living root); live beacons twinkle
+    nodes.forEach(function(nd){if(nd.sprite){if(nd.type==='anchor'){var p=1+Math.sin(t*1.6)*0.06;nd.sprite.scale.set(nd.r*3.4*p,nd.r*3.4*p,1);}
+      else if(nd.type==='beacon'&&nd.color===0x54e0a0){var q=1+Math.sin(t*3+nd.x)*0.12;nd.sprite.scale.set(nd.r*3.4*q,nd.r*3.4*q,1);}}});
+    if(autspin&&!drag)tYaw+=0.0013;
+    yaw+=(tYaw-yaw)*0.08;pitch+=(tPitch-pitch)*0.08;dist+=(tDist*MAXR-dist)*0.08;
+    var cy=dist*Math.sin(pitch),rr=dist*Math.cos(pitch);
+    camera.position.set(Math.sin(yaw)*rr,cy,Math.cos(yaw)*rr);camera.lookAt(0,0,0);
+    if(fog)fog.rotation.y+=0.00025;
+    renderer.render(scene,camera);
+  }
+  function onResize(){if(!renderer)return;var c=el('scene'),W=c.clientWidth,H=c.clientHeight||560;camera.aspect=W/H;camera.updateProjectionMatrix();renderer.setSize(W,H);}
+  // first paint: load() → rebuild() boots the scene once (boot() itself falls back if THREE is absent);
+  // a failed first fetch shows the honest down-note and SSE/poll retries — no double-boot, no dead field.
+  load();
+})();
+</script>
+</body>
+</html>

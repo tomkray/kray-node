@@ -1,0 +1,12 @@
+{
+  "name": "kray-fold-verifier-wasm",
+  "description": "THE TK-FOLD verifier for Node — sp1-verifier (Groth16 over bn254) wrapped in WASM: the validator-burden law's delivery (clone, install, run — zero toolchain).",
+  "version": "0.1.0",
+  "files": [
+    "kray_fold_verifier_wasm_bg.wasm",
+    "kray_fold_verifier_wasm.js",
+    "kray_fold_verifier_wasm.d.ts"
+  ],
+  "main": "kray_fold_verifier_wasm.js",
+  "types": "kray_fold_verifier_wasm.d.ts"
+}

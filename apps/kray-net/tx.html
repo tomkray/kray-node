@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Transaction</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+/* ============================================================================
+   Page-local — TX detail specifics only. The system lives in /kray.css.
+   What happened, and the exact chain of custody that sealed it into Bitcoin.
+   ONE colour: amber, ONLY where sealed/anchored to Bitcoin L1.
+   ========================================================================== */
+.txwrap{max-width:1000px}
+.txhead{padding:var(--s7) 0 var(--s5)}
+.txhead .shead{margin-bottom:var(--s4)}
+.txhead .shead .n{color:var(--ink-3);display:inline-flex;align-items:center}
+.txhead .shead h2{text-transform:capitalize}
+.headline{font-size:clamp(21px,3.4vw,29px);font-weight:500;letter-spacing:-.02em;line-height:1.2;margin:var(--s3) 0 var(--s2);text-wrap:pretty}
+.headline .amt{color:var(--ink);font-weight:600}
+.txhash{font-family:var(--mono);font-size:12.5px;color:var(--ink-3);word-break:break-all;line-height:1.6}
+.note{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:var(--s3);line-height:1.55}
+.lawprev{margin-top:var(--s4);font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--ink-3);white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;padding:var(--s3);border:1px solid var(--line-2);border-radius:var(--r2);background:var(--void)}
+
+/* panels reuse .card; this is the heading inside a card */
+.card + .card{margin-top:var(--s4)}
+.ph{font-family:var(--mono);font-weight:500;font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);margin-bottom:var(--s4);display:flex;align-items:center;gap:var(--s2)}
+.ph svg{color:var(--ink-3);flex:none}
+
+/* key/value list — a definition record for an auditor */
+.kv{display:grid;grid-template-columns:180px 1fr;gap:var(--s3) var(--s5)}
+.kv dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);padding-top:2px}
+.kv dd{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);word-break:break-word;overflow-wrap:anywhere;min-width:0}
+.kv dd .sz{font-size:18px;font-weight:700;letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
+.kv dd b{color:var(--ink);font-weight:600}
+.kv dd a{color:var(--ink);border-bottom:1px solid var(--line-2)}
+.kv dd a:hover{border-color:var(--ink)}
+.kv dd a.btc-origin,.kv dd span.btc-origin{color:var(--btc);border-bottom-color:color-mix(in oklab,var(--btc) 35%,transparent)}
+.kv dd a.btc-origin:hover{border-bottom-color:var(--btc)}
+.kv dd .gold{color:var(--ink);font-weight:600}
+/* a rune name is a DOOR — anywhere it appears, clicking it opens that rune's page */
+.rlink{cursor:pointer}.rlink:hover{text-decoration:underline;text-underline-offset:3px}
+
+/* the movement flow */
+.flow{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;font-family:var(--mono);font-size:12.5px}
+.flow .who{border:1px solid var(--line-2);border-radius:var(--r2);padding:10px 14px;color:var(--ink-2);background:var(--surface-2);min-width:0;overflow-wrap:anywhere}
+.flow .who b{display:block;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);margin-bottom:4px;font-weight:500}
+.flow .who a{color:var(--ink)}
+.flow .arrow{color:var(--ink-3);font-size:18px}
+/* a donation has no L2 sender — its ₭ came FROM a burned Bitcoin sat. That origin tx is an L1 fact: amber. */
+.flow .who a.btc-origin,.flow .who span.btc-origin{color:var(--btc);white-space:nowrap}
+.flow .who a.btc-origin{border-bottom:1px solid color-mix(in oklab,var(--btc) 35%,transparent)}
+.flow .who a.btc-origin:hover{border-bottom-color:var(--btc)}
+
+/* the exact stars an event moved — ranges, clickable at both ends */
+.flow .who.wide{width:100%;flex-direction:column;gap:6px;align-items:flex-start;border:0;padding:0;background:transparent}
+.sranges{display:flex;flex-wrap:wrap;gap:var(--s2)}
+.srange{font-family:var(--mono);font-size:12.5px;border:1px solid var(--line-2);border-radius:var(--r1);padding:6px 11px;color:var(--ink-2);display:inline-flex;align-items:center;gap:6px}
+.srange a{color:var(--ink)}
+.srange.frozen{border-style:dashed;background:var(--surface-2)}
+.srange .rarrow{color:var(--ink-4)}
+.srange .rcount{color:var(--ink-4);font-size:11px}
+.rnote{font-size:12px;color:var(--ink-3);line-height:1.5;max-width:74ch}
+
+/* who-tag on an address */
+.who-tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line-2);border-radius:var(--r-pill);padding:2px 8px;margin-left:6px;white-space:nowrap;display:inline-block}
+.who-tag.sim{color:var(--ink-3);border-style:dashed}
+
+/* the sealed bytes — 1:1 stage (shared .pbox.full / .psource / .html-bar in kray.css) */
+.prev{margin-top:var(--s4);border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:var(--s4)}
+
+/* chain of custody — the whole point */
+.custody{font-family:var(--mono);font-size:12.5px;line-height:1.9;color:var(--ink-2)}
+.custody b{color:var(--ink);font-weight:600;overflow-wrap:anywhere}
+.custody b.btc-ink{color:var(--btc)}
+.custody .step{display:flex;gap:var(--s3);align-items:baseline}
+.custody .step i{color:var(--good);font-style:normal;width:14px;flex:none}
+.custody .step span{min-width:0;overflow-wrap:anywhere}
+
+.actions{display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s4)}
+.card.mark{border-color:var(--ink)}
+.card.mark .ph{letter-spacing:.2em}
+.mark-lede{font-size:14.5px;line-height:1.55;color:var(--ink-2);margin:0 0 var(--s4);max-width:68ch}
+.dtable td.g{color:var(--ink);font-weight:600}
+.dtable td a{color:var(--ink)}
+@media(max-width:640px){.kv{grid-template-columns:1fr;gap:2px 0}.kv dt{margin-top:var(--s3)}}
+</style>
+</head>
+<body data-page="home">
+
+<div class="wrap txwrap">
+  <div id="body"><div class="txhead"><div class="label">loading…</div></div></div>
+</div>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  "use strict";
+  var m=/^\/tx\/([0-9a-f]{64})$/.exec(location.pathname);
+  if(!m){ document.getElementById('body').innerHTML='<div class="txhead"><div class="label">not a transaction</div><div class="headline">This is not a transaction hash.</div><div class="actions"><a class="btn primary" href="/">← explorer</a></div></div>'; return; }
+  var HASH=m[1];
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function sink(kind, word){
+    if(window.KRAY && typeof KRAY.sink==='function') return KRAY.sink(kind, word);
+    var burn=kind==='burn'||kind==='burned'||kind==='fire';
+    var label=word||(burn?'BURNED':'FREEZE');
+    return '<span class="sink sink-'+(burn?'burn':'freeze')+'" title="'
+      +(burn?'Fungible ₭ destroyed in the fire — not a frozen star':'Star frozen in the black hole — visible, beyond reach')
+      +'">'+label+' <i aria-hidden="true">'+(burn?'🔥':'❄')+'</i></span>';
+  }
+  function kNum(v){ var n=Number(v)||0,a=Math.abs(n),x=n,u='';
+    if(a>=1e15){x=n/1e15;u='Q'}else if(a>=1e12){x=n/1e12;u='T'}else if(a>=1e9){x=n/1e9;u='B'}
+    else if(a>=1e6){x=n/1e6;u='M'}else if(a>=1e3){x=n/1e3;u='K'}else return n.toLocaleString();
+    return (Math.abs(x)>=100?x.toFixed(0):Math.abs(x)>=10?x.toFixed(1):x.toFixed(2))+u; }
+  /* ₭ is 1=1. Never 1.50K — that filter invented a decimal the edict does not grant. */
+  function kWhole(v){ try{ return BigInt(String(v==null?'0':v).replace(/[^0-9]/g,'')||'0').toLocaleString(); }catch(_){ return String(v); } }
+/* ── THE STARS THIS EVENT MOVED ────────────────────────────────────────────
+     As RANGES, never a list: one transfer can move a billion units. Rendered only
+     when the node actually knows — `movedStars: null` prints nothing rather than
+     a guess, because an auditor must get the truth or get silence. */
+  function movedRows(t){
+    var m=t.movedStars; if(!m||!m.to||!m.to.length) return '';
+    var frozen = t.to==='KRAY_BLACK_HOLE';
+    function rng(rs){
+      return rs.map(function(r){
+        var one = String(r.len)==='1';
+        var body = one
+          ? '<a href="/star/'+esc(r.start)+'">#'+Number(r.start).toLocaleString()+'</a>'
+          : '<a href="/star/'+esc(r.start)+'">#'+Number(r.start).toLocaleString()+'</a>'
+            +' <span class="rarrow">→</span> '
+            +'<a href="/star/'+esc(r.end)+'">#'+Number(r.end).toLocaleString()+'</a>'
+            +' <span class="rcount">'+Number(r.len).toLocaleString()+' stars</span>';
+        return '<span class="srange'+(frozen?' frozen':'')+'">'+body+'</span>';
+      }).join('');
+    }
+    return '<span class="who wide"><b>'+(frozen?'stars frozen forever':'stars moved')+'</b>'
+      +'<span class="sranges">'+rng(m.to)+'</span>'
+      +'<span class="rnote">'+Number(m.count).toLocaleString()+' star'+(m.count==='1'?'':'s')
+      +(frozen?' — frozen: visible forever, beyond reach, never destroyed'
+              :' — each a permanent star, numbered by creation order')+'</span></span>'
+      +(m.fee&&m.fee.length?'<span class="who wide"><b>the fee</b><span class="sranges">'+rng(m.fee)+'</span>'
+        +'<span class="rnote">the eternal 1 ₭ is pure fungible ₭ — never a star</span></span>':'');
+  }
+
+  function prettySize(n){
+    if(n==null || n==='') return '';
+    return (window.KRAY&&KRAY.formatBytes) ? KRAY.formatBytes(n) : (Number(n).toLocaleString()+' bytes');
+  }
+  function kray(v){ return '<span title="'+kWhole(v)+' ₭ — ₭ is 1=1, no decimal">'+kWhole(v)+' ₭</span>'; }
+  // ₭ destroyed into a star. Prefer the node's historical index (era-aware).
+  // Fallback is the genesis schedule only — never the live rate, or a Signet
+  // star that burned 1 ₭/MB would be re-priced after the proportion snap.
+  function burnOf(t){
+    if(t.burn!=null && t.burn!=='') return t.burn;
+    if(t.kind==='inscribe'||t.kind==='origin'||t.kind==='name') return String(Math.max(1, Math.ceil(Number(t.size||0)/1000000)));
+    return null;
+  }
+  function addr(a, who, t){
+    if(!a) return '—';
+    if(String(a).indexOf('KRAY_AMM_')===0){
+      var href=(t&&t.otherRuneId)
+        ? '/pool/'+encodeURIComponent(pairCall(t.runeName||t.runeId))+'/'+encodeURIComponent(pairCall(t.otherName||t.otherRuneId))
+        : (t&&t.runeId ? '/pool/'+encodeURIComponent(pairCall(t.runeName||t.runeId)) : '/pool/'+encodeURIComponent(a));
+      var title=t&&t.otherRuneId
+        ? (pairCall(t.runeName||t.runeId)+' / '+pairCall(t.otherName||t.otherRuneId))
+        : (t&&(t.runeName||t.runeId) ? ('₭ / '+pairCall(t.runeName||t.runeId)) : 'the pool');
+      return '<a href="'+esc(href)+'" title="open the book">'+esc(title)+'</a> <span class="who-tag">book · no key</span>';
+    }
+    var link='<a href="/address/'+esc(a)+'" title="'+esc(a)+'">'+esc(a.slice(0,10))+'…'+esc(a.slice(-6))+'</a>';
+    if(who && who.label) link += ' <span class="who-tag'+(who.simulated?' sim':'')+'">'+esc(who.label)+(who.simulated?' · simulated':'')+'</span>';
+    return link;
+  }
+  function pairCall(name){ return String(name||'').trim(); }
+  // A donation has no L2 sender — its ₭ came FROM a burned Bitcoin sat. Show that transaction (the proof
+  // door) instead of a bare "—": a link to mempool.space on signet/main/testnet, the plain txid on regtest.
+  function btcOrigin(txid, url){
+    var short = esc(txid.slice(0,10))+'…'+esc(txid.slice(-6));
+    if(url) return '<a class="btc-origin" href="'+esc(url)+'" target="_blank" rel="noopener" title="the Bitcoin transaction this came from — open mempool.space to verify the proof on L1">₿ '+short+' ↗</a>';
+    return '<span class="btc-origin" title="regtest · local chain — '+esc(txid)+'">₿ '+short+'</span>';
+  }
+  // Bitcoin L1 facts live in FROM or TO — always amber, always the mempool door.
+  // FROM = the metal arrived from Bitcoin (donate, deposit).
+  // TO   = the metal left for Bitcoin (settle / rehome payout). Lodge is not a move:
+  //        it arms the lock to a pot coin; credits stay until settle.
+  function fromCell(t){
+    if((t.kind==='donate'||t.kind==='rune-deposit') && t.l1Txid) return btcOrigin(t.l1Txid, t.l1Explorer);
+    return addr(t.from, t.fromWho, t);
+  }
+  function toCell(t){
+    if(t.kind==='rune-lodge'){
+      var dest = t.l1Address || t.to;
+      if(!dest) return '<span class="dim2">the signed Bitcoin destination is on the exit</span>';
+      return addr(dest, t.toWho, t)+' <span class="who-tag">signed Bitcoin destination · the payout pays here</span>';
+    }
+    if((t.kind==='rune-settle'||t.kind==='rune-rehome') && t.l1Txid) return btcOrigin(t.l1Txid, t.l1Explorer);
+    return addr(t.to, t.toWho, t);
+  }
+  function potCoinLink(t){
+    var id = t.potTxid || (t.outpoint ? String(t.outpoint).split(':')[0] : '');
+    if(!id) return '';
+    return btcOrigin(id, t.potExplorer);
+  }
+  function when(t){ try{ return new Date(t).toLocaleString(); }catch(_){ return String(t); } }
+
+  // the right glyph for the kind — a technical mark, never a claim
+  function glyphFor(t){
+    if(t&&t.createPool) return 'g-name';
+    switch(t&&t.kind){
+      case 'transfer': case 'transfer-star': case 'x-send': return 'g-send';
+      case 'inscribe': case 'origin':
+        return (window.KRAY && KRAY.workFace) ? KRAY.workFace(t).glyph : 'g-cat-file';
+      case 'name': return 'g-name';
+      case 'settlement': case 'settle': return 'g-glow';
+      case 'genesis': return 'g-star';
+      case 'emit': case 'reward': return 'g-glow';
+      case 'rune-deposit': case 'rune-lodge': case 'rune-settle': case 'rune-rehome': return 'g-anchor';
+      case 'amm-add': case 'amm-remove': case 'amm-swap':
+      case 'amm-rr-add': case 'amm-rr-remove': case 'amm-rr-swap': return 'g-glow';
+      case 'contract': case 'contract-call': return 'g-anchor';
+      default: return 'g-block';
+    }
+  }
+
+  // what this action MEANS, in one line a person understands
+  function headline(t){
+    var n=t.star?('#'+Number(t.star).toLocaleString()):'';
+    // THE TWO LIGHTS on the tx — a ₭ burn births Ӿ 1:1 to the burner; a star freeze engraves ✦ glow (both re-derived facts)
+    var xB = t.xMinted!=null && t.xMinted!=='' ? ' → <b>Ӿ '+Number(t.xMinted).toLocaleString()+'</b> born to the burner (1:1)' : '';
+    var gE = t.glowEarned ? ' — ❄ frozen forever · <b style="color:var(--gold,#e8b923)">✦ +1 glow</b> engraved on the freezer' : '';
+    switch(t.kind){
+      case 'transfer':      return '<span class="amt">'+kray(t.amount)+'</span> sent';
+      case 'x-send':        return '<span class="amt">Ӿ '+Number(t.amount).toLocaleString()+'</span> sent — the transferable light (born 1:1 from burned ₭ · ₭ pays the gas)';
+      case 'burn':          return '<span class="amt">'+kray(t.amount)+'</span> BURNED in the fire — by signature, by choice'+xB;
+      case 'burn-thaw':     return 'THE THAW — the pre-law ₭ frozen at the hole redeemed into a true burn; Ӿ born to the original senders. Once, ever';
+      case 'transfer-star': return 'Star '+n+(t.starName||t.name?' “'+esc(t.starName||t.name)+'”':'')+(t.glowEarned?gE:' travelled — a relic, with its writings');
+      case 'inscribe':      return 'Content chiselled into star '+n+(t.starName?' “'+esc(t.starName)+'”':'')+' — forever'+(Number(t.size)>0?' · '+esc(prettySize(t.size)):'')+(burnOf(t)?' · burned '+kray(burnOf(t))+xB:'');
+      case 'name':          return 'Star '+n+' baptised “'+esc(t.name||t.starName||'')+'” — unique in the universe'+(burnOf(t)?' · burned '+kray(burnOf(t))+xB:'');
+      case 'origin':        return 'Star '+n+' born from a Bitcoin L1 ordinal'+(burnOf(t)?' · burned '+kray(burnOf(t))+xB:'');
+      case 'settlement':    return 'Interval '+t.interval+' settled';
+      case 'settle':        return 'Interval '+t.interval+' closed';
+      case 'genesis':       return 'GENESIS — the network opened. No premine, no founder coinbase';
+      case 'emit':          return '<span class="amt">'+kray(t.amount)+'</span> minted by proof-of-donation';
+      case 'reward':        return '<span class="amt">'+kray(t.amount)+'</span> network reward';
+      case 'rune-deposit':  return '<span class="amt">'+runeAmt(t.amount,t.runeDiv)+'</span> '+runeNm(t)+' ↧ bridged IN from Bitcoin';
+      case 'rune-send':     return '<span class="amt">'+runeAmt(t.amount,t.runeDiv)+'</span> '+runeNm(t)+' → sent on the L2';
+      case 'rune-exit':     return '<span class="amt">'+runeAmt(t.amount,t.runeDiv)+'</span> '+runeNm(t)+' ↥ exiting to Bitcoin';
+      case 'rune-lodge':    return runeNm(t)+' ⚓ armed to pay '+(t.l1Address||t.to?esc(String(t.l1Address||t.to).slice(0,12))+'…':'the signed Bitcoin address');
+      case 'rune-rehome':   return runeNm(t)+' ↺ backing moved on Bitcoin';
+      case 'rune-settle':   return '<span class="amt">'+runeAmt(t.amount,t.runeDiv)+'</span> '+runeNm(t)+' ⚖ exit settled — the L2 lock burned';
+      case 'amm-add':      return t.createPool
+        ? ('This pair was born — unique like a star name · <span class="amt">'+kray(t.krayIn)+'</span> + <span class="amt">'+runeAmt(t.runeIn,t.runeDiv)+'</span> '+runeNm(t))
+        : ('Added liquidity — <span class="amt">'+kray(t.krayIn)+'</span> + <span class="amt">'+runeAmt(t.runeIn,t.runeDiv)+'</span> '+runeNm(t));
+      case 'amm-remove':   return 'Removed LP <span class="amt">'+kWhole(t.lp||'0')+'</span> from '+runeNm(t);
+      case 'amm-swap':     return t.side==='rune'
+        ? ('Sold <span class="amt">'+runeAmt(t.amount,t.runeDiv)+'</span> '+runeNm(t)+' for ₭')
+        : ('Sold <span class="amt">'+kray(t.amount)+'</span> for '+runeNm(t));
+      case 'amm-rr-add':   return t.createPool
+        ? ('This pair was born — unique like a star name · <span class="amt">'+runeAmt(t.runeIn,t.runeDiv)+'</span> '+runeNm(t)+' + <span class="amt">'+runeAmt(t.otherIn,t.otherDiv)+'</span> '+otherNm(t))
+        : ('Added liquidity — <span class="amt">'+runeAmt(t.runeIn,t.runeDiv)+'</span> '+runeNm(t)+' + <span class="amt">'+runeAmt(t.otherIn,t.otherDiv)+'</span> '+otherNm(t));
+      case 'amm-rr-remove':return 'Removed LP <span class="amt">'+kWhole(t.lp||'0')+'</span> from '+runeNm(t)+' / '+otherNm(t);
+      case 'amm-rr-swap':  return 'Sold <span class="amt">'+runeAmt(t.amount, payDiv(t))+'</span> '+payNm(t)+' for '+recvNm(t);
+      case 'contract':      return 'Law sealed'+(n?' on star '+n:'')+(burnOf(t)?' · burned '+kray(burnOf(t)):'')+' — the IR is the paper';
+      case 'contract-call': return 'Law called'+(t.rule?' · '+esc(t.rule):'')+(t.paid&&t.paid.length?' · pot paid '+t.paid.map(function(p){ return kray(p.amount); }).join(' + '):'')+(n?' on star '+n:'');
+      default:              return esc(t.kind);
+    }
+  }
+  // a rune amount in its OWN decimals (base units → display, exact string math — never a float)
+  function runeAmt(raw,div){ div=Number(div||0); var s=String(raw==null?'0':raw).replace(/[^0-9]/g,'')||'0';
+    var grp=function(w){ try{return BigInt(w).toLocaleString();}catch(_){return w;} };
+    if(div<=0) return grp(s); while(s.length<=div) s='0'+s;
+    var wh=s.slice(0,s.length-div), fr=s.slice(s.length-div).replace(/0+$/,''); return grp(wh)+(fr?'.'+fr:''); }
+  // face + name TOGETHER inside one door — the whole thing (thumbnail AND name) opens the rune page
+  function runeNm(t){ var nm=runeFace(t)+' <b class="gold">'+esc(t.runeName||t.runeId||'rune')+'</b>'+(t.runeSymbol?' '+esc(t.runeSymbol):'');
+    return t.runeId?('<span class="rlink" data-rune="'+esc(t.runeId)+'" title="open the rune page — vault, holders, solvency">'+nm+'</span>'):nm; }
+  function otherNm(t){
+    var nm=faceSrc(t.otherThumbnail,t.otherSymbol,20)+' <b class="gold">'+esc(t.otherName||t.otherRuneId||'rune')+'</b>'+(t.otherSymbol?' '+esc(t.otherSymbol):'');
+    return t.otherRuneId?('<span class="rlink" data-rune="'+esc(t.otherRuneId)+'" title="open the rune page — vault, holders, solvency">'+nm+'</span>'):nm;
+  }
+  function payIsA(t){ return String(t.payRuneId||'')===String(t.runeId||''); }
+  function payDiv(t){ return payIsA(t)?t.runeDiv:t.otherDiv; }
+  function payNm(t){ return payIsA(t)?runeNm(t):otherNm(t); }
+  function recvNm(t){ return payIsA(t)?otherNm(t):runeNm(t); }
+  // DIVISIBILITY IS PER-VALUE, NOT PER-CARD. A ₭→rune swap PAYS ₭ (whole, 1=1) — its rune figure is the
+  // signed floor (minOut), never t.amount formatted with the rune's decimals (that turned 30 ₭ into 0.30).
+  // An rr-swap pays a rune by the PAY rune's OWN divisibility (rune A or B), not blindly t.runeDiv.
+  function amtIsKray(t){ return t.kind==='amm-swap' && String(t.side)==='kray'; }
+  function amtDiv(t){ return t.kind==='amm-rr-swap' ? payDiv(t) : t.runeDiv; }
+  // the rune's face — parent-ordinal thumbnail (proxied), else the etch's symbol emoji
+  // NOTE: the fallback is a hidden SIBLING toggled on error — never HTML embedded inside the
+  // onerror attribute (its double quotes would terminate the attribute and spill junk like K'">
+  // into the page, mangling the clickable wrapper around the name).
+  function faceSrc(src, sym, sz){ sz=sz||20;
+    var fb='<span class="rface rface-fb" style="width:'+sz+'px;height:'+sz+'px'+(src?';display:none':'')+'">'+esc(sym||'ᚱ')+'</span>';
+    if(!src) return fb;
+    return '<img class="rface" src="'+esc(src)+'" width="'+sz+'" height="'+sz+'" alt="" loading="lazy" onerror="this.style.display=&quot;none&quot;;if(this.nextElementSibling)this.nextElementSibling.style.display=&quot;inline-grid&quot;">'+fb; }
+  function runeFace(t){ return faceSrc(t.thumbnail, t.runeSymbol, 20); }
+  function ammCard(t){
+    if(t.kind!=='amm-add'&&t.kind!=='amm-remove'&&t.kind!=='amm-swap'&&t.kind!=='amm-rr-add'&&t.kind!=='amm-rr-remove'&&t.kind!=='amm-rr-swap') return '';
+    var rows='';
+    if(t.kind==='amm-rr-add'){
+      rows+='<dt>rune A in</dt><dd class="g">'+runeAmt(t.runeIn,t.runeDiv)+' · '+runeNm(t)+'</dd>';
+      rows+='<dt>rune B in</dt><dd class="g">'+runeAmt(t.otherIn,t.otherDiv)+' · '+otherNm(t)+'</dd>';
+      if(t.minLp) rows+='<dt>signed min LP</dt><dd class="g">'+kWhole(t.minLp)+'</dd>';
+    } else if(t.kind==='amm-rr-remove'){
+      rows+='<dt>LP burned</dt><dd class="g">'+kWhole(t.lp)+'</dd>';
+      if(t.minRuneOut) rows+='<dt>signed min A</dt><dd class="g">'+runeAmt(t.minRuneOut,t.runeDiv)+' · '+runeNm(t)+'</dd>';
+      if(t.minOtherOut) rows+='<dt>signed min B</dt><dd class="g">'+runeAmt(t.minOtherOut,t.otherDiv)+' · '+otherNm(t)+'</dd>';
+    } else if(t.kind==='amm-rr-swap'){
+      rows+='<dt>you paid</dt><dd class="g">'+runeAmt(t.amount,payDiv(t))+' · '+payNm(t)+'</dd>';
+      rows+='<dt>for</dt><dd class="g">'+recvNm(t)+'</dd>';
+      if(t.minOut) rows+='<dt>signed min out</dt><dd class="g">'+runeAmt(t.minOut, payIsA(t)?t.otherDiv:t.runeDiv)+'</dd>';
+    } else if(t.kind==='amm-add'){
+      rows+='<dt>₭ in</dt><dd class="g">'+kWhole(t.krayIn)+' ₭</dd>';
+      rows+='<dt>rune in</dt><dd class="g">'+runeAmt(t.runeIn,t.runeDiv)+' · '+runeNm(t)+'</dd>';
+      if(t.lp) rows+='<dt>LP written</dt><dd class="g">'+kWhole(t.lp)+'</dd>';
+      if(t.minLp) rows+='<dt>signed min LP</dt><dd class="g">'+kWhole(t.minLp)+'</dd>';
+    } else if(t.kind==='amm-remove'){
+      rows+='<dt>LP burned</dt><dd class="g">'+kWhole(t.lp)+'</dd>';
+      if(t.minKrayOut) rows+='<dt>signed min ₭</dt><dd class="g">'+kWhole(t.minKrayOut)+' ₭</dd>';
+      if(t.minRuneOut) rows+='<dt>signed min rune</dt><dd class="g">'+runeAmt(t.minRuneOut,t.runeDiv)+'</dd>';
+    } else if(t.side==='kray'){
+      rows+='<dt>you paid</dt><dd class="g">'+kWhole(t.amount)+' ₭</dd>';
+      rows+='<dt>for</dt><dd class="g">'+runeNm(t)+'</dd>';
+      if(t.minOut) rows+='<dt>signed min out</dt><dd class="g">'+runeAmt(t.minOut,t.runeDiv)+'</dd>';
+    } else {
+      rows+='<dt>you paid</dt><dd class="g">'+runeAmt(t.amount,t.runeDiv)+' · '+runeNm(t)+'</dd>';
+      rows+='<dt>for</dt><dd class="g">₭</dd>';
+      if(t.minOut) rows+='<dt>signed min out</dt><dd class="g">'+kWhole(t.minOut)+' ₭</dd>';
+    }
+    rows+='<dt>fee</dt><dd>1 ₭ · eternal</dd>';
+    return '<div class="card tick"><div class="ph"><svg width="15" height="15"><use href="#g-glow"/></svg> The book</div><dl class="kv">'+rows+'</dl>'
+      +'<p class="note">₭ is 1 = 1. There is no 1.5 ₭. A point only appears on the rune, and only if the edict granted it.</p></div>';
+  }
+  function markCard(t){
+    if(!t.createPool) return '';
+    var pair = t.kind==='amm-rr-add' ? (runeNm(t)+' / '+otherNm(t)+' · rune / rune') : ('₭ / '+runeNm(t));
+    return '<div class="card mark tick"><div class="ph"><svg width="15" height="15"><use href="#g-name"/></svg> The mark</div>'
+      +'<p class="mark-lede">This hash is the first writer of this pair. The pair is unique and eternal — same law as a star name. Anyone may add LP after. Nobody can create this pair again.</p>'
+      +'<dl class="kv">'
+      +'<dt>Create pool</dt><dd class="g">first writer · the starting point of this book</dd>'
+      +'<dt>pair</dt><dd>'+pair+'</dd>'
+      +(t.pairKey?'<dt>pair key</dt><dd class="mono">'+esc(t.pairKey)+'</dd>':'')
+      +'<dt>this hash</dt><dd class="mono">'+esc(t.hash)+'</dd>'
+      +'</dl></div>';
+  }
+  // a face straight from an id OR a name — the node proxies the parent content either way
+  function faceFor(idOrName, sym, sz){ return faceSrc('/api/kraynet/rune-thumb/'+encodeURIComponent(idOrName)+'?v=2', sym, sz); }
+
+  // THE RUNESTONE, decoded — which rune(s), the edicts, an etching, a mint, and where ord says
+  // the runes actually landed. Shared by a KRAY rune event's L1 tx and a raw Bitcoin rune tx.
+  function runestoneCard(rs, outputs, title){
+    if(!rs) return '';
+    var h='<div class="card tick"><div class="ph"><svg width="15" height="15"><use href="#g-anchor"/></svg> '+esc(title||'The runestone')+'</div><dl class="kv">'
+      +'<dt>type</dt><dd><b>'+esc(rs.type)+'</b>'+(rs.type==='cenotaph'?' — ⚠ this would BURN the runes':'')+'</dd>';
+    if(rs.etching){
+      h+='<dt>etching</dt><dd><b>'+esc(rs.etching.spacedRune||rs.etching.rune||'(unnamed)')+'</b>'
+        +(rs.etching.symbol?' · symbol '+esc(rs.etching.symbol):'')
+        +' · divisibility '+esc(String(rs.etching.divisibility))
+        +(rs.etching.premine&&rs.etching.premine!=='0'?' · premine '+runeAmt(rs.etching.premine, rs.etching.divisibility):'')
+        +(rs.etching.terms?' · open mint':'')+'</dd>';
+    }
+    if(rs.mint){ h+='<dt>mint</dt><dd class="mono">'+esc(rs.mint)+'</dd>'; }
+    if(rs.pointer!=null){ h+='<dt>pointer</dt><dd>output #'+esc(String(rs.pointer))+'</dd>'; }
+    h+='</dl>';
+    if(rs.edicts && rs.edicts.length){
+      h+='<div class="ph" style="margin-top:var(--s3)">Edicts — the exact moves</div>'
+        +'<table class="dtable"><tr><th>rune id</th><th>amount</th><th>→ output</th></tr>'
+        +rs.edicts.map(function(e){ return '<tr><td class="mono"><span class="rlink" data-rune="'+esc(e.runeId)+'" title="open the rune page">'+faceFor(e.runeId,null,16)+' '+esc(e.runeId)+'</span></td><td class="g">'+runeAmt(e.amount, e.div!=null?e.div:0)+'</td><td>#'+esc(String(e.output))+'</td></tr>'; }).join('')
+        +'</table>';
+    }
+    var withRunes=(outputs||[]).filter(function(o){return o.runes;});
+    if(withRunes.length){
+      h+='<div class="ph" style="margin-top:var(--s3)">Where the runes landed (per ord — normative)</div>'
+        +'<table class="dtable"><tr><th>output</th><th>rune</th><th>amount</th><th>sats</th></tr>'
+        +withRunes.map(function(o){ return Object.keys(o.runes).map(function(name){ var r=o.runes[name]; var amt=(r&&r.amount!=null)?r.amount:r; var sym=(r&&r.symbol)||null; return '<tr><td>#'+o.index+'</td><td><span class="rlink" data-rune="'+esc(name)+'" title="open the rune page">'+faceFor(name,sym,16)+' <b>'+esc(name)+'</b></span></td><td class="g">'+runeAmt(amt, (r&&r.divisibility!=null)?r.divisibility:0)+'</td><td title="the Bitcoin value riding on this output — the postage sats that CARRY the runes (a UTXO cannot exist without sats)">'+Number(o.sats).toLocaleString()+'</td></tr>'; }).join(''); }).join('')
+        +'</table>';
+    }
+    h+='</div>';
+    return h;
+  }
+
+  // (fillStar retired: /api/kraynet/tx now delivers the star's full shape itself —
+  //  SHAPE PARITY enforced at the endpoint, the one honest layer for it.)
+  fetch('/api/kraynet/tx/'+HASH).then(function(r){return r.json();}).then(function(t){
+    if(t.error){
+      var gone=/no transaction|not found|no such/i.test(String(t.error||''));
+      document.getElementById('body').innerHTML='<div class="txhead"><div class="label">'+(gone?'not found':'the node refused')+'</div><div class="headline">'+esc(t.error)+'</div>'
+        +'<div class="actions"><a class="btn primary" href="/">← back to the explorer</a></div></div>';
+      return;
+    }
+
+    // a RAW Bitcoin rune transaction (not a KRAY journal event) — show the runestone for what it is
+    if(t.kind==='bitcoin-rune'){
+      document.getElementById('body').innerHTML='<div class="txhead"><div class="shead">'
+          +'<span class="n"><svg width="17" height="17" style="vertical-align:-3px"><use href="#g-anchor"/></svg></span>'
+          +'<h2>Bitcoin rune transaction</h2><span class="sub">on the chain this node watches</span></div>'
+          +'<div class="row" style="gap:var(--s2);margin-bottom:var(--s3)"><span class="chip btc">₿ Bitcoin L1 · a real runestone</span></div>'
+          +'<div class="headline">A runestone on Bitcoin L1</div>'
+          +'<div class="txhash mono">'+esc(t.hash)+'</div></div>'
+        +runestoneCard(t.runestone, t.outputs, 'The runestone')
+        +'<div class="actions"><a class="btn" href="/">← back to the explorer</a></div>';
+      return;
+    }
+
+    var sealed = !!t.block, anchored = !!(t.anchor && t.anchor.txid);
+    var netlab = t.block ? ('block #'+Number(t.block.number).toLocaleString()) : 'pending seal';
+
+    var h = '<div class="txhead">'
+      +'<div class="shead">'
+        +'<span class="n"><svg width="17" height="17" style="vertical-align:-3px"><use href="#'+glyphFor(t)+'"/></svg></span>'
+        +'<h2>'+(t.createPool?'Create pool':t.kind==='contract'?'Law sealed':t.kind==='contract-call'?'Law called':esc(t.kind))+'</h2>'
+        +'<span class="sub">'+netlab+'</span>'
+      +'</div>'
+      +'<div class="row" style="gap:var(--s2);margin-bottom:var(--s3)">'
+        +'<span class="chip'+(sealed?' good':'')+'">'+(sealed?'sealed in block #'+Number(t.block.number).toLocaleString():'in the open block')+'</span>'
+        // Create pool is the MARK (A5, like a star name). Add LP is the ordinary later act.
+        +(function(){
+          if((t.kind==='amm-add'||t.kind==='amm-rr-add') && t.createPool) return '<span class="chip mark">Create pool</span><span class="chip">UNIQUE</span>';
+          var tag={'rune-deposit':'↧ deposit','rune-send':'→ send','rune-exit':'↥ exit (withdraw)','rune-lodge':'⚓ lodge','rune-rehome':'↺ rehome','rune-settle':'⚖ exit settled','transfer':'→ send ₭','x-send':'Ӿ send','transfer-star':'★ send a star','inscribe':'✍ inscribe','name':'⚑ baptism','origin':'☄ origin','emit':'♻ donation mint','settlement':'⚖ settlement','amm-add':'⇄ add LP','amm-remove':'⇄ remove LP','amm-swap':'⇄ swap','amm-rr-add':'⇄ add LP','amm-rr-remove':'⇄ remove LP','amm-rr-swap':'⇄ swap','contract':'⚖ law sealed','contract-call':'⚖ law called'}[t.kind];
+          return tag?'<span class="chip btc">'+tag+'</span>':'';
+        })()
+        +(t.kind==='rune-lodge' && (t.potTxid||t.outpoint)
+          ? (t.potExplorer
+            ? '<a class="chip" href="'+esc(t.potExplorer)+'" target="_blank" rel="noopener" title="the pot coin this payout will spend — already on Bitcoin" style="text-decoration:none">pot ₿ '+esc((t.potTxid||'').slice(0,10))+'… ↗</a>'
+            : '<span class="chip" title="the pot coin this payout will spend">pot ₿ '+esc(String(t.outpoint||'').slice(0,10))+'…</span>')
+          : (t.l1Txid?(t.l1Explorer
+          ?'<a class="chip btc" href="'+esc(t.l1Explorer)+'" target="_blank" rel="noopener" title="open this Bitcoin transaction on mempool.space" style="text-decoration:none">₿ '+esc(t.l1Txid.slice(0,10))+'… ↗</a>'
+          :'<span class="chip btc" title="regtest · local chain">₿ '+esc(t.l1Txid.slice(0,10))+'…</span>'):''))
+        +(anchored?'<span class="chip btc"><svg width="12" height="12" style="vertical-align:-2px"><use href="#g-anchor"/></svg> anchored to Bitcoin'+(t.anchor.verified?' · root read back ✓':'')+'</span>':'<span class="chip">anchors on the next real ₿ block</span>')
+      +'</div>'
+      +'<div class="headline">'+headline(t)+'</div>'
+      +'<div class="txhash mono">'+esc(t.hash)+'</div>'
+    +'</div>'
+    +markCard(t)
+    +ammCard(t);
+
+    // the movement, when there is one — L1 Bitcoin facts fill FROM or TO even if the other side is empty
+    if(t.from || t.to || t.l1Txid){
+      h+='<div class="card tick">'
+        +(t.to==='KRAY_BLACK_HOLE'?(t.kind==='transfer-star'?sink('freeze'):sink('burn')):(burnOf(t)?sink('burn'):''))
+        +'<div class="ph"><svg width="15" height="15"><use href="#g-send"/></svg> The movement</div><div class="flow">'
+        +'<span class="who"><b>from</b>'+fromCell(t)+'</span>'
+        +'<span class="arrow">→</span>'
+        +'<span class="who"><b>to</b>'+toCell(t)+'</span>'
+        // a RUNE movement is the rune's own amount (not ₭); an Ӿ move is Ӿ (₭ only pays the gas); ₭ moves show as fungible fuel
+        +(t.amount?'<span class="who"><b>amount</b>'+((t.runeId&&!amtIsKray(t))?('<span class="amt">'+runeAmt(t.amount,amtDiv(t))+'</span> <span class="rlink dim2" data-rune="'+esc(t.runeId)+'">'+faceSrc(t.thumbnail,t.runeSymbol,16)+' '+esc(t.runeName||t.runeId)+'</span>'):(t.kind==='x-send'?'<span class="amt">Ӿ '+Number(t.amount).toLocaleString()+'</span>':kray(t.amount)))+'</span>':'')
+        // WHICH STARS MOVED, when whole stars move (a Send-a-star). Plain ₭ moves
+        // as a fungible amount, not as numbered stars; this row only has meaning
+        // for a star transfer, and shows exactly which stars travelled.
+        +movedRows(t)
+        +(t.fee?'<span class="who"><b>fee</b>'+kray(t.fee)+'</span>':'')
+        +(t.burn||burnOf(t)?'<span class="who"><b>burned</b>'+kray(burnOf(t))+'</span>':'')
+        +'</div></div>';
+    }
+
+    // WHICH RUNE moved — the id, the name, the L1 tx it rode, and its decoded runestone
+    if(t.runeId){
+      h+='<div class="card"><div class="ph"><svg width="15" height="15"><use href="#g-anchor"/></svg> The rune</div><dl class="kv">'
+        +'<dt>rune</dt><dd><span class="rlink" data-rune="'+esc(t.runeId)+'" title="open the rune page — vault, holders, solvency">'+runeFace(t)+' <b>'+esc(t.runeName||t.runeId)+'</b> <span class="dim2">('+esc(t.runeId)+')</span></span></dd>'
+        +(t.kind==='rune-lodge'
+          ? '<dt>amount</dt><dd>'+(t.exitAmount!=null?'<span class="g">'+runeAmt(t.exitAmount,t.runeDiv)+'</span> <span class="dim2">· already locked on the signed exit — this act does not move them</span>':'<span class="dim2">this act does not move runes (the exit already locked them)</span>')+'</dd>'
+          : '<dt>amount</dt><dd class="g">'+(amtIsKray(t)?(t.minOut&&String(t.minOut)!=='0'?runeAmt(t.minOut,t.runeDiv)+' <span class="dim2">· signed min out</span>':kray(t.amount)+' <span class="dim2">· ₭ paid</span>'):(t.runeId?runeAmt(t.amount,amtDiv(t)):kWhole(t.amount)))+'</dd>')
+        +(t.kind==='rune-deposit' && t.outpoint?'<dt>L1 deposit</dt><dd class="mono">'+(t.l1Explorer?'<a class="btc-origin" href="'+esc(t.l1Explorer)+'" target="_blank" rel="noopener" title="open this Bitcoin transaction on mempool.space">'+esc(String(t.outpoint))+' ↗</a>':esc(String(t.outpoint)))+'</dd>':'')
+        +(t.kind==='rune-lodge' && (t.outpoint||t.potSpend)
+          ? '<dt>pot coin spent</dt><dd class="mono">'+esc(String(t.potSpend||t.outpoint))+(potCoinLink(t)?' · '+potCoinLink(t):'')+'<br><span class="dim2">already buried on Bitcoin — the withdraw spends this UTXO; it is not the payout</span></dd>'
+          : '')
+        +(t.l1Address?'<dt>L1 destination (signed)</dt><dd class="mono">'+esc(t.l1Address)+'</dd>':'')
+        +(t.l1Txid && t.kind!=='rune-deposit' && t.kind!=='rune-lodge'?'<dt>L1 payout</dt><dd class="mono">'+btcOrigin(t.l1Txid, t.l1Explorer)+'</dd>':'')
+        +'</dl></div>';
+      if(t.l1) h+=runestoneCard(t.l1.runestone, t.l1.outputs, t.kind==='rune-lodge' ? 'The pot coin on Bitcoin (already buried — this payout spends it)' : 'The L1 rune transaction');
+    }
+
+    // the star and its content
+    if(t.star){
+      h+='<div class="card">'+(burnOf(t)?sink('burn'):'')+'<div class="ph"><svg width="15" height="15"><use href="#g-star"/></svg> The star</div><dl class="kv">'
+        +'<dt>number</dt><dd><b><a href="/star/'+t.star+'">#'+Number(t.star).toLocaleString()+'</a></b></dd>'
+        +(t.rarity?'<dt>rarity</dt><dd class="gold">'+esc(t.rarity)+'</dd>':'')
+        +((t.starName||t.name)?'<dt>name</dt><dd><b>“'+esc(t.starName||t.name)+'”</b></dd>':'')
+        +(t.parent?'<dt>parent</dt><dd><a href="/star/'+t.parent+'">#'+Number(t.parent).toLocaleString()+'</a> — lineage sealed</dd>':'')
+        +(t.contentHash?'<dt>content sha256</dt><dd>'+esc(t.contentHash)+'<br><span class="dim2">this identifies the BYTES — the inscription itself has its own id, on the <a href="/star/'+t.star+'">star page</a></span></dd>':'')
+        +(Number(t.size)>0?'<dt>size</dt><dd><span class="sz">'+esc(prettySize(t.size))+'</span><br><span class="dim2">'+Number(t.size).toLocaleString()+' bytes — the sealed body, exactly</span></dd>':'')
+        +(t.contentType?'<dt>content type</dt><dd>'+esc((window.KRAY&&KRAY.categorySpec)?KRAY.categorySpec(KRAY.categoryOf(t.contentType)).label+' · ':'')+esc(t.contentType)+'</dd>':'')
+        +(burnOf(t)?'<dt>burned to born</dt><dd><b>'+kray(burnOf(t))+'</b> — ₭ destroyed into this star (not a fee: the value dies in the fire, floor 1 ₭, then the era\'s linear rate)</dd>':'')
+        +'</dl>';
+      if(t.contentHash && t.contentHeld){
+        var markupStar=(window.KRAY && KRAY.isMarkup) ? KRAY.isMarkup(t.contentType) : (/^text\/html/.test(t.contentType||'') || /markdown/i.test(t.contentType||''));
+        h+='<div class="prev'+(markupStar?' html-prev':'')+'"><div class="pbox full" id="prev"></div>'
+          +(markupStar?'<div class="html-bar" id="html-bar"></div>':'')
+          +'</div>';
+      } else if(t.contentHash){
+        h+='<div class="prev">the bytes are held by another node — the commitment is sealed either way</div>';
+      }
+      h+='<div class="actions">'
+        +(t.contentHeld && t.contentUrl?'<a class="btn" href="'+t.contentUrl+'" target="_blank" rel="noopener">open raw content ↗</a>':'')
+        +'<a class="btn" href="/star/'+t.star+'">open the star →</a></div>';
+      h+='</div>';
+    }
+
+    // THE PAPER — only the seal act carries the IR. A later call points at the pot; it does not rewrite the source.
+    if(t.kind==='contract' && t.code){
+      h+='<div class="card tick"><div class="ph"><svg width="15" height="15"><use href="#g-anchor"/></svg> The source — sealed IR</div><dl class="kv">'
+        +(t.contract?'<dt>pot</dt><dd><b><a href="/api/kraynet/contract/'+encodeURIComponent(t.contract)+'">'+esc(t.contract)+'</a></b><br><span class="dim2">keyless — the same bytes on the door</span></dd>':'')
+        +(t.codeHash?'<dt>codeHash</dt><dd><b>'+esc(t.codeHash)+'</b><br><span class="dim2">the 32 bytes the seal signed — a stranger re-derives it from the source below</span></dd>':'')
+        +(t.rules&&t.rules.length?'<dt>rules</dt><dd>'+esc(t.rules.join(', '))+'</dd>':'')
+        +(t.star?'<dt>star</dt><dd><a href="/star/'+t.star+'">#'+Number(t.star).toLocaleString()+'</a> — the face this law hangs on</dd>':'')
+        +'</dl>'
+        +'<pre class="lawprev">'+esc(JSON.stringify(t.code,null,2))+'</pre>'
+        +(t.star?'<div class="actions" style="margin-top:var(--s4)"><a class="btn" href="/star/'+t.star+'#lawcard">open the being →</a></div>':'')
+        +'</div>';
+    } else if(t.kind==='contract-call' && t.contract){
+      h+='<div class="card"><div class="ph"><svg width="15" height="15"><use href="#g-anchor"/></svg> The call</div><dl class="kv">'
+        +'<dt>pot</dt><dd><b><a href="/api/kraynet/contract/'+encodeURIComponent(t.contract)+'">'+esc(t.contract)+'</a></b></dd>'
+        +(t.rule?'<dt>rule</dt><dd><b>'+esc(t.rule)+'</b></dd>':'')
+        +(t.star?'<dt>star</dt><dd><a href="/star/'+t.star+'">#'+Number(t.star).toLocaleString()+'</a></dd>':'')
+        +(t.interval!=null?'<dt>clock</dt><dd>Bitcoin seal <b>#'+esc(String(t.interval))+'</b></dd>':'')
+        +(t.beacon?'<dt>beacon</dt><dd><b>'+esc(String(t.beacon))+'</b><br><span class="dim2">the buried Bitcoin txid the law used as the lot — seat = beacon % taken</span></dd>':'')
+        +(t.take && String(t.take)!=='0'?'<dt>ticket in</dt><dd><b>'+kray(t.take)+'</b> from the caller into the pot</dd>':'')
+        +'</dl>'
+        +(t.paid && t.paid.length
+          ? ('<table class="dtable" style="margin-top:var(--s4)"><tr><th>who</th><th>received</th></tr>'
+            +t.paid.map(function(p){ return '<tr><td>'+addr(p.to)+'</td><td><b>'+kray(p.amount)+'</b></td></tr>'; }).join('')
+            +'</table>'
+            +'<p class="note">Re-derived from the journal: the reducer paid exactly these outputs. A recorded mismatch HALTs.</p>')
+          : '<p class="note">This call moved no prize ₭ — a thin window rolls the clock and the pot stays.</p>')
+        +(t.star?'<div class="actions"><a class="btn" href="/star/'+t.star+'#lawcard">open the being →</a></div>':'')
+        +'</div>';
+    }
+
+    // a SETTLEMENT pays every proven validator at once — show the exact table the reducer credited:
+    // who was there, the work their beats proved, the custody bonus, and what each earned from the pool.
+    if(t.kind==='settlement' && t.payouts && t.payouts.length){
+      h+='<div class="card"><div class="ph"><svg width="15" height="15"><use href="#g-glow"/></svg> The fee pool, settled — who guarded, who earned</div>'
+        +'<div class="stats" style="margin-bottom:var(--s4)">'
+          +'<div class="stat"><div class="v">'+t.payouts.length+'</div><div class="k">validators paid</div></div>'
+          +'<div class="stat"><div class="v">'+kray(t.feesPaid||0)+'</div><div class="k">₭ settled</div></div>'
+          +'<div class="stat"><div class="v" title="the Bitcoin block hash every beat was mined against — unforgeable, unpredictable">'+esc(String(t.beacon||'').slice(0,10))+'…</div><div class="k">₿ beacon</div></div>'
+        +'</div>'
+        +'<table class="dtable"><tr><th>validator</th><th>blocks present</th><th>proven work</th><th>custody</th><th>earned</th></tr>'
+        +t.payouts.map(function(p){ return '<tr><td>'+addr(p.address, p.who)+'</td>'
+          +'<td>'+Number(p.blocks).toLocaleString()+'</td>'
+          +'<td class="g" title="Σ best beat per block (2^zeros), × the custody multiplier">'+kNum(p.work)+'</td>'
+          +'<td>'+(p.hits>0?('🛡 '+p.hits+'/8 · '+((8+2*p.hits)/8).toFixed(2).replace(/\.00$/,'')+'×'):'—')+'</td>'
+          +'<td><b>'+kray(p.paid)+'</b></td></tr>'; }).join('')
+        +'</table>'
+        +'<div class="label" style="margin-top:var(--s3)">Split LINEAR in proven work — the sybil-neutral law: splitting one machine into N names earns exactly the same. Every node recomputes this exact table from the beats; a payout the beats do not produce is refused.</div>'
+        +'</div>';
+    }
+
+    // an anchor/seal → the DOOR to the distribution it paid: one button, straight to who-earned-what
+    if(t.settlementHash){
+      h+='<div class="card tick"><div class="ph"><svg width="15" height="15"><use href="#g-glow"/></svg> This seal paid the validators</div>'
+        +'<div class="vl-sub" style="color:var(--ink-3);margin-bottom:var(--s3)">When this '+(t.kind==='anchor'?'anchor confirmed, its seal':'seal confirmed, it')+' settled the whole fee pool across every validator with proven work.</div>'
+        +'<div class="actions"><a class="btn primary" href="/tx/'+esc(t.settlementHash)+'">⚖ See the distribution — who received, and how much</a></div>'
+        +'</div>';
+    }
+
+    // the chain of custody — the whole point. Amber ONLY when anchored to Bitcoin.
+    h+='<div class="card'+(anchored?' btc tick':' tick')+'"><div class="ph"><svg width="15" height="15"><use href="#g-anchor"/></svg> Chain of custody</div><div class="custody">'
+      +'<div class="step"><i>✓</i><span>this event hashes to <b>'+esc(t.hash.slice(0,20))+'…</b>, chained to the one before it</span></div>'
+      +(sealed?'<div class="step"><i>✓</i><span>merkled into block <b>#'+Number(t.block.number).toLocaleString()+'</b> · root <b>'+esc(t.block.merkleRoot.slice(0,20))+'…</b> ('+t.block.txCount+' leaves)</span></div>':'<div class="step"><i>…</i><span>waiting for the next fast block to seal it</span></div>')
+      +(anchored
+        ? '<div class="step"><i>✓</i><span>consolidated into cascade root <b class="btc-ink">'+esc(String(t.anchor.cascadeRoot).slice(0,20))+'…</b></span></div>'
+          +'<div class="step"><i>✓</i><span>committed to Bitcoin in tx <b class="btc-ink">'+esc(t.anchor.txid.slice(0,20))+'…</b> · '+t.anchor.confirmations+' confirmation'+(t.anchor.confirmations===1?'':'s')+'</span></div>'
+        : '<div class="step"><i>…</i><span>the next real Bitcoin block consolidates it into one cascade root</span></div>')
+      +(t.paidBinding && t.paidBinding.refused
+        ? '<div class="step"><i>!</i><span>THE PAID BINDING certificate refused — '+esc(t.paidBinding.reason||'codec')+'. The event still stands.</span></div>'
+        : '')
+      +(t.paidBinding && !t.paidBinding.refused?'<div class="step"><i>✓</i><span><b>THE PAID BINDING</b> — the Bitcoin txid <em>names</em> the cascade; it does not hold the proof body. '+esc((t.paidBinding.chain||[]).join(' → '))+'</span></div>':'')
+      +(t.paidBinding && !t.paidBinding.refused && t.paidBinding.ceiling
+        ? '<div class="step"><i>✓</i><span><b>THE HEIGHT CEILING</b> — v'+esc(String(t.paidBinding.ceiling.version))+' height is uint'+esc(String(t.paidBinding.ceiling.bits))+', '+(t.paidBinding.ceiling.failClosed?'fail-closed':'NOT fail-closed')+'. The version byte is the designed-in widening — not a v2 today.</span></div>'
+        : '')
+      +(t.paidBinding && !t.paidBinding.refused && t.paidBinding.tip && t.paidBinding.tip.named === false
+        ? '<div class="step"><i>✓</i><span>the live tip is a <em>preview</em> — not a covering Bitcoin name</span></div>'
+        : '')
+      +'</div>'
+      +'<div class="actions">'
+      +(t.receipt?'<a class="btn primary" href="'+t.receipt+'" target="_blank" rel="noopener">⬇ verifiable receipt</a>':'')
+      +(t.paidBinding && !t.paidBinding.refused?'<a class="btn" href="/api/kraynet/paid-binding?seq='+encodeURIComponent(String(t.seq))+'">THE PAID BINDING</a>':'')
+      +(sealed?'<a class="btn" href="/#chain">see the chain</a>':'')
+      +'<a class="btn" href="/docs#receipt">how to verify it yourself</a>'
+      +'</div>'
+      +(t.paidBinding && t.paidBinding.verify
+        ? '<div class="label" style="margin-top:var(--s3)">'+esc(t.paidBinding.verify)+'</div>'
+        : '')
+      +'</div>';
+
+    // the raw record, for an auditor
+    h+='<div class="card"><div class="ph"><svg width="15" height="15"><use href="#g-block"/></svg> The record</div><dl class="kv">'
+      +'<dt>sequence</dt><dd><b>'+esc(String(t.seq))+'</b></dd>'
+      +'<dt>hash</dt><dd>'+esc(t.hash)+'</dd>'
+      +'<dt>previous hash</dt><dd>'+esc(t.prevHash)+'</dd>'
+      +(t.nonce!=null?'<dt>nonce</dt><dd>'+esc(String(t.nonce))+'</dd>':'')
+      +'<dt>recorded</dt><dd>'+when(t.at)+'</dd>'
+      +(t.block?'<dt>block hash</dt><dd>'+esc(t.block.hash)+'</dd>':'')
+      +(t.paidBinding && t.paidBinding.refused
+        ? '<dt>certificate</dt><dd>refused — '+esc(t.paidBinding.reason||'codec')+'</dd>'
+        : '')
+      +(t.paidBinding && !t.paidBinding.refused && t.paidBinding.ceiling
+        ? '<dt>height ceiling</dt><dd>v'+esc(String(t.paidBinding.ceiling.version))+' · uint'+esc(String(t.paidBinding.ceiling.bits))+' · '+(t.paidBinding.ceiling.failClosed?'fail-closed':'open')+'</dd>'
+        : '')
+      +(t.paidBinding && !t.paidBinding.refused && t.paidBinding.tip
+        ? '<dt>tip</dt><dd>'+(t.paidBinding.tip.named===true?'named on Bitcoin — refuse, the tip cannot be a covering name':'preview — not a covering name')+'</dd>'
+        : '')
+      +'</dl></div>';
+
+    document.getElementById('body').innerHTML=h;
+
+    // render the sealed bytes in the 1:1 square — same law as the star page:
+    // images/SVG paint, video/audio play, HTML/Markdown source is TEXT until
+    // Run/Render (never inlined into this page).
+    if(t.contentHash && t.contentHeld){
+      var box=document.getElementById('prev'), url=t.contentUrl, ct=String(t.contentType||'');
+      function fillSource(pre){
+        fetch(url).then(function(r){return r.text();}).then(function(txt){ pre.textContent=txt; }).catch(function(){ pre.textContent='(content not held by this node)'; });
+      }
+      if(!box){ /* square missing — skip paint */ }
+      else if(ct.indexOf('image/')===0){
+        var i=document.createElement('img'); i.alt=''; i.src=url; box.appendChild(i);
+      } else if(ct.indexOf('video/')===0){
+        var v=document.createElement('video'); v.src=url; v.controls=true; v.playsInline=true; box.appendChild(v);
+      } else if(ct.indexOf('audio/')===0){
+        if(window.KRAY && KRAY.musicStage) KRAY.musicStage(box, url, ct, {});
+        else { var a=document.createElement('audio'); a.src=url; a.controls=true; box.appendChild(a); }
+      } else if(window.KRAY && KRAY.isMarkup && KRAY.isMarkup(ct) && KRAY.wireMarkupStage){
+        KRAY.wireMarkupStage(box, url, ct, {});
+      } else if(/^text\/|json|javascript|xml|markdown|csv|yaml/.test(ct)){
+        var pre=document.createElement('pre'); pre.className='psource'; pre.textContent='…';
+        box.appendChild(pre); fillSource(pre);
+      } else {
+        box.innerHTML='<span class="ptag">'+esc(ct)+'</span>';
+      }
+    }
+  }).catch(function(){
+    document.getElementById('body').innerHTML='<div class="txhead"><div class="label">the node is not answering</div>'
+      +'<div class="headline">It may be restarting — nothing is lost.</div>'
+      +'<div class="actions"><a class="btn primary" href="/">← back to the explorer</a></div></div>';
+  });
+  // a rune NAME anywhere is a door to that rune's page — capture phase so it wins
+  // even inside a row that is itself a link (no nested-anchor breakage)
+  document.addEventListener('click',function(ev){
+    var el=ev.target&&ev.target.closest?ev.target.closest('.rlink'):null; if(!el) return;
+    ev.preventDefault(); ev.stopPropagation(); location.href='/runes#'+(el.getAttribute('data-rune')||'');
+  },true);
+})();
+</script>
+</body>
+</html>

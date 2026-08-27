@@ -1,0 +1,1656 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Star</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+/* ============================================================================
+   KRAY.NETWORK — Star · page-local only. The system lives in /kray.css.
+   These are the star-specific bits the shared library cannot know about: the
+   big inscription/cover render, the interactive family tree, the land mini-map,
+   the frozen mark, the owner panel, the name hero, and the star pager.
+   ONE colour rule holds: amber (--btc) ONLY where sealed to Bitcoin (the minted
+   lot, a confirmation count). Rarity, lineage, everything else = achromatic.
+   ========================================================================== */
+
+/* ── the header for one star ─────────────────────────────────────────────── */
+.starnav{padding:var(--s5) 0 0}
+.starnav .label svg{color:var(--ink-3)}
+.starhead{display:flex;gap:var(--s6);align-items:flex-start;padding:var(--s6) 0 var(--s5);flex-wrap:wrap}
+.starhead .idn{flex:1 1 280px;min-width:0}
+/* ── THE STAR HERO — the number is the loudest thing on the page ──────────── */
+.shero{display:flex;flex-direction:column;gap:2px}
+.snum-k{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+.snum-big{font-family:var(--mono);font-size:clamp(38px,7.5vw,72px);font-weight:700;color:var(--ink);
+  letter-spacing:-.03em;line-height:.96;word-break:break-all;font-variant-numeric:tabular-nums}
+.snum{font-family:var(--mono);font-size:clamp(24px,4.5vw,32px);font-weight:600;color:var(--ink);
+  letter-spacing:-.01em;line-height:1.2;word-break:break-all;font-variant-numeric:tabular-nums}
+.snum.sub{font-size:clamp(20px,3vw,26px);color:var(--ink-2);margin-top:var(--s1);font-weight:600}
+
+/* the badge row — rarity (the single most important fact) leads, then the born-order id */
+.hbadges{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center;margin-top:var(--s4)}
+.rbadge{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-weight:600;
+  font-size:14px;letter-spacing:.04em;text-transform:uppercase;padding:7px 14px;border-radius:99px;
+  color:var(--c);border:1.5px solid color-mix(in srgb,var(--c) 55%,transparent);background:color-mix(in srgb,var(--c) 14%,transparent)}
+.rbadge svg{flex:0 0 auto;color:var(--c)}
+.rbadge.glow{box-shadow:0 0 0 1px color-mix(in srgb,var(--c) 28%,transparent),0 0 26px color-mix(in srgb,var(--c) 30%,transparent)}
+.rbadge .cnt{font-size:10px;opacity:.72;letter-spacing:.06em;text-transform:none}
+.insbadge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:12px;
+  padding:7px 13px;border-radius:99px;color:var(--ink-2);border:1px solid var(--line-2);background:var(--surface-2)}
+.insbadge svg{flex:0 0 auto;color:var(--ink-3)}
+.insbadge b{color:var(--ink);font-weight:700;margin-left:2px}
+.szbadge{display:inline-flex;align-items:baseline;gap:8px;font-family:var(--mono);padding:7px 14px;border-radius:99px;
+  color:var(--ink);border:1px solid var(--line-2);background:var(--surface-2)}
+.szbadge .szv{font-size:15px;font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.szbadge .szk{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
+.rows dd .sz{font-size:18px;font-weight:700;letter-spacing:-.03em;color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* ── WEIGHTED TAGS — a chip's SIZE is its scarcity. Rarer honour reads bigger. ── */
+.tags{display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:var(--s4);align-items:center}
+.gchip{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:11px;padding:4px 9px;border-radius:99px;
+  border:1px solid color-mix(in srgb,var(--c) 45%,transparent);color:var(--c);background:color-mix(in srgb,var(--c) 12%,transparent);cursor:help}
+.gchip svg{color:var(--c);flex:0 0 auto;width:14px;height:14px}
+.gchip.gw-5{font-size:13.5px;padding:7px 14px;font-weight:600;border-width:1.5px;box-shadow:0 0 18px color-mix(in srgb,var(--c) 22%,transparent)}
+.gchip.gw-5 svg{width:16px;height:16px}
+.gchip.gw-4{font-size:12.5px;padding:6px 12px;font-weight:600}
+.gchip.gw-4 svg{width:15px;height:15px}
+.gchip.gw-3{font-size:11.5px;padding:5px 11px}
+.gchip.gw-2{font-size:11px;padding:4px 10px}
+.gchip.gw-1{font-size:10.5px;padding:3px 9px;opacity:.82}
+.rg-mythic{color:#f7931a}.rg-legendary{color:#c98bff}.rg-epic{color:#6bb6ff}.rg-rare{color:#4ec98a}.rg-uncommon{color:#d7dae2}.rg-common{color:#818995}.rg-dark{color:#4a5058}
+.owner{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:var(--s4);word-break:break-all}
+.owner b{color:var(--ink-2);font-weight:500}
+
+/* the cover — whatever is inside the star, rendered at scale */
+.art{width:200px;height:200px;border-radius:var(--r3);border:1px solid var(--line-2);background:var(--panel);
+  flex:0 0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.art img{width:100%;height:100%;object-fit:contain}
+.art .none{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);text-align:center;padding:var(--s4);letter-spacing:.08em;line-height:1.6}
+
+/* ── card headings + the fact rows ───────────────────────────────────────── */
+.card{margin-bottom:var(--s4)}
+.card > h2{display:flex;align-items:center;gap:var(--s2);font-family:var(--mono);font-weight:500;font-size:12px;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--ink);margin-bottom:var(--s1)}
+.card > h2 svg{width:15px;height:15px;color:var(--ink-3);flex:0 0 auto}
+.card > .sub{font-size:13px;color:var(--ink-3);margin-bottom:var(--s4);line-height:1.55}
+.rows{display:grid;grid-template-columns:190px 1fr;gap:var(--s2) var(--s5)}
+.rows dt{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.rows dd{font-family:var(--mono);font-size:12.5px;color:var(--ink-2);word-break:break-all}
+.rows dd b{color:var(--ink);font-weight:600}
+.rows .gold{color:var(--ink)}
+.rows code{font-family:var(--mono)}
+@media(max-width:760px){.rows{grid-template-columns:1fr;gap:2px 0}.rows dt{margin-top:var(--s3)}}
+
+/* ── living law (third canvas) — flags are 1/0 in the IR; this is the desk ── */
+.lawflags{display:flex;flex-direction:column;gap:0;margin:var(--s4) 0}
+.lawflag{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:var(--s3) 0;border-bottom:1px solid var(--line-2)}
+.lawflag .fn{font-family:var(--mono);font-size:13px;color:var(--ink);letter-spacing:.04em}
+.lawflag .fon{color:var(--ink);font-weight:600}
+.lawflag .foff{color:var(--ink-4)}
+.lawadd{display:flex;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s3)}
+.lawadd .input{flex:1 1 160px;min-height:44px}
+.lawprev{margin-top:var(--s4);font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--ink-3);white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;padding:var(--s3);border:1px solid var(--line-2);border-radius:var(--r2);background:var(--void)}
+.lawsrc{margin-top:var(--s4);border-top:1px solid var(--line-2);padding-top:var(--s4)}
+.lawsrc summary{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);cursor:pointer;min-height:44px;display:flex;align-items:center}
+.lawsrcin{min-height:280px;font-family:var(--mono);font-size:12px;line-height:1.5;padding:var(--s3);resize:vertical;cursor:text;user-select:text;caret-color:var(--ink);color:var(--ink)}
+.lawout{margin-top:var(--s3);font-family:var(--mono);font-size:12px;color:var(--ink-3);min-height:1.4em}
+.examlist{list-style:none;margin:var(--s3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--s2)}
+.examlist li{display:flex;gap:var(--s3);align-items:flex-start;font-family:var(--mono);font-size:12px;line-height:1.5;padding:var(--s2) 0;min-height:44px}
+.examlist .mk{width:20px;flex:none;font-weight:600}
+.examlist .pass .mk,.examhead.ok{color:var(--good)}
+.examlist .fail .mk,.examhead.bad{color:var(--crit)}
+.examlist .quiet .mk{color:var(--ink-4)}
+.examlist .dt{color:var(--ink-4);font-size:11px}
+.examhead{font-family:var(--mono);font-size:13px;margin:var(--s3) 0 0}
+.lawtabs{display:flex;gap:var(--s2);flex-wrap:wrap;margin:var(--s4) 0}
+.lawtab{min-height:44px}
+.lawtab.on{border-color:var(--ink);color:var(--ink);background:var(--surface-2)}
+.lawfields{display:flex;flex-direction:column;gap:var(--s4);margin-top:var(--s4)}
+.lawfields .input{min-height:44px}
+.lawknob{display:flex;flex-direction:column;gap:var(--s2)}
+.lawknob > label{font-size:16px;font-weight:600;line-height:1.4;color:var(--ink)}
+.lawknob .hint{margin:0;font-size:14px;line-height:1.5;color:var(--ink-3)}
+.raffnote{margin:var(--s3) 0 0;font-size:15px;line-height:1.55;color:var(--ink-2);max-width:40rem}
+.raffnote b{color:var(--ink)}
+
+/* ── actions ─────────────────────────────────────────────────────────────── */
+.actions{display:flex;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s4)}
+.btn.danger{border-color:color-mix(in srgb,var(--crit) 55%,transparent);color:var(--crit)}
+.btn.danger:hover{background:color-mix(in srgb,var(--crit) 12%,transparent);border-color:var(--crit)}
+
+/* ── the preview box — every container shown as itself ───────────────────── */
+.prev{border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:var(--s4);margin-top:var(--s4)}
+.pbox{width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.pbox img,.pbox video{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain}
+.pbox.mini{height:100%}
+.pbox.mini img,.pbox.mini video{object-fit:cover}
+.pbox audio{width:100%}
+.ptext{font-family:var(--serif,Georgia,"Times New Roman",serif);font-style:italic;font-size:15px;line-height:1.5;color:var(--ink);
+  white-space:pre-wrap;word-break:break-word;text-align:center;width:100%;max-height:100%;overflow:auto;padding:var(--s4);
+  display:flex;align-items:center;justify-content:center}
+.ptext::before{content:"\201C"}.ptext::after{content:"\201D"}
+.ptext.mini{font-size:11.5px;line-height:1.45;padding:var(--s3);color:var(--ink-2);overflow:hidden}
+/* HTML star — listing lives IN the 1:1; the Run/Source control lives BELOW it */
+.psource{font-family:var(--mono);font-style:normal;font-size:12px;line-height:1.55;color:var(--ink-2);
+  text-align:left;white-space:pre-wrap;word-break:break-word;width:100%;height:100%;overflow:auto;
+  padding:var(--s4);margin:0;background:var(--void);flex:1;min-height:0;min-width:0;align-self:stretch}
+.html-bar{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s3);padding-top:var(--s3);border-top:1px solid var(--line)}
+.html-bar .btn{min-height:44px}
+.html-bar-note{font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--ink-4)}
+
+/* ── THE CONSTELLATION — the interactive family tree ─────────────────────── */
+.ctree{display:flex;flex-direction:column;align-items:center;gap:0;padding:var(--s1) 0}
+.cnode{display:flex;align-items:center;gap:var(--s3);border:1px solid var(--line);border-radius:var(--r2);
+  background:var(--panel);padding:var(--s2) var(--s3);min-width:min(260px,100%);max-width:420px;transition:border-color .18s}
+.cnode:hover{border-color:var(--line-2)}
+.cnode.me{border-color:var(--ink-3);background:var(--surface-2)}
+.cnode.anc{opacity:.9}
+.cline{width:1px;height:22px;background:linear-gradient(var(--line-2),transparent)}
+.cfan{display:flex;flex-wrap:wrap;gap:var(--s3);justify-content:center;padding-top:var(--s1)}
+.cfan.sub{margin-top:var(--s3);padding-left:18px;border-left:1px solid var(--line);width:100%}
+.cbranch{display:flex;flex-direction:column;align-items:center}
+.cbranch .cnode{min-width:min(210px,100%)}
+.cbox-link{flex:0 0 auto;text-decoration:none}
+.pbox.tiny{width:54px;height:54px;border-radius:9px;background:var(--void);border:1px solid var(--line);overflow:hidden}
+.pbox.tiny.empty{display:flex;align-items:center;justify-content:center;color:var(--ink-4);font-size:18px}
+.cmeta{min-width:0;flex:1}
+.cn{font-family:var(--mono);font-size:11.5px;color:var(--ink);text-decoration:none}
+.cn:hover{text-decoration:underline}
+.cnm{font-size:13px;color:var(--ink);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ck{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-4);margin-top:2px}
+.cunfold{margin-top:var(--s2);background:transparent;border:1px solid var(--line-2);border-radius:7px;color:var(--ink-3);
+  font-family:var(--mono);font-size:10px;padding:4px 9px;cursor:pointer}
+.cunfold:hover{color:var(--ink);border-color:var(--ink-3)}
+
+/* ── THE RECORD — children of this star, read as works (same lineage, no new kind) ── */
+.works{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,128px),1fr));gap:var(--s3);margin-top:var(--s4)}
+.work{display:flex;flex-direction:column;gap:var(--s2);text-decoration:none;color:inherit;min-width:0}
+.work .pbox{width:100%;aspect-ratio:1;border-radius:var(--r2);background:var(--void);border:1px solid var(--line);overflow:hidden}
+.work .wn{font-family:var(--mono);font-size:12px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.work .wk{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-4)}
+.work:hover .pbox{border-color:var(--ink-3)}
+
+/* ── history ─────────────────────────────────────────────────────────────── */
+.hist{display:flex;flex-direction:column;gap:var(--s2)}
+.hrow{display:grid;grid-template-columns:104px 1fr auto;gap:var(--s3);align-items:center;border:1px solid var(--line);
+  border-radius:var(--r1);padding:var(--s2) var(--s3);background:var(--panel);text-decoration:none}
+.hrow:hover{border-color:var(--line-2);text-decoration:none}
+.hrow .hk{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.hrow .hw{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hrow .hb{font-family:var(--mono);font-size:11px;color:var(--ink-4);white-space:nowrap}
+@media(max-width:640px){.hrow{grid-template-columns:1fr auto}.hrow .hk{grid-column:1/-1}}
+
+/* ── THE BAPTISM IN THE PLACE OF HONOUR — a star known by its name ────────── */
+.nmhero{display:inline-flex;flex-direction:column;gap:2px;border:1px solid var(--line-2);background:var(--surface-2);
+  border-radius:var(--r3);padding:var(--s2) var(--s4);position:relative;cursor:help;max-width:100%}
+.nmhero .nmk{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.nmhero .nmk svg{width:12px;height:12px;flex:0 0 auto}
+.nmhero .nmv{font-size:27px;line-height:1.25;color:var(--ink);font-weight:600;word-break:break-word}
+.nmhero .nmi{position:absolute;top:8px;right:10px;font-family:var(--mono);font-size:9px;width:15px;height:15px;
+  border:1px solid var(--line-2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ink-3)}
+
+/* ── THE LAND MINI-MAP — this lot, inside the district Bitcoin minted ─────── */
+.lmap{position:relative;width:100%;max-width:min(100%,460px);aspect-ratio:1/1;min-height:220px;border:1px solid var(--line);
+  border-radius:var(--r2);background:var(--panel);overflow:hidden;margin-top:var(--s3)}
+.llot{position:absolute;overflow:hidden;border:1px solid var(--line);background:var(--void);
+  text-decoration:none;transition:transform .16s,box-shadow .16s,border-color .16s}
+.llot:hover{border-color:var(--line-2);z-index:4;transform:scale(1.03);text-decoration:none}
+.llot .lc{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.llot .lc img,.llot .lc video{width:100%;height:100%;object-fit:cover}
+.llot .lg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:15px;color:var(--ink-4)}
+.llot .ln{position:absolute;left:0;right:0;bottom:0;font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;
+  color:var(--ink-3);background:linear-gradient(transparent,rgba(0,0,0,.62));padding:8px 4px 2px;text-align:center}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]) .llot .ln{background:linear-gradient(transparent,rgba(255,255,255,.85))}}
+:root[data-theme="light"] .llot .ln{background:linear-gradient(transparent,rgba(255,255,255,.85))}
+/* the lit lot is your star, sealed into the Bitcoin-minted district — amber earns its place here */
+.llot.me{border-color:var(--btc);box-shadow:0 0 0 2px var(--btc),0 0 22px var(--btc-soft);z-index:5}
+.llot.me .ln{color:var(--btc)}
+.llot.tiny .ln{display:none}
+.lmeta{display:flex;gap:var(--s2);flex-wrap:wrap;align-items:center;margin-top:var(--s3)}
+.lchip{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line-2);
+  border-radius:var(--r-pill);padding:6px 12px;color:var(--ink-3)}
+.lchip.bit{color:var(--btc);border-color:var(--btc-line);background:var(--btc-soft)}
+.lchip.gold{color:var(--ink);border-color:var(--line-2)}
+
+/* ── THE FROZEN MARK — a star in the black hole gets its own cold sign ────── */
+.frozenmark{display:flex;gap:var(--s3);align-items:flex-start;margin-top:var(--s4);padding:var(--s3) var(--s4);cursor:help;
+  position:relative;padding-right:var(--s8);
+  border:1px solid var(--ice-line,rgba(127,212,255,.42));border-radius:var(--r3);
+  background:var(--ice-dim,rgba(127,212,255,.09))}
+.frozenmark > .sink{position:absolute;top:var(--s2);right:var(--s2)}
+.frozenmark svg{width:26px;height:26px;flex:0 0 auto;color:var(--ice,#7fd4ff);animation:fmspin 14s linear infinite}
+.frozenmark .fm{display:flex;flex-direction:column;gap:3px;min-width:0}
+.frozenmark .fm b{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--ice,#7fd4ff);font-weight:600}
+.frozenmark .fm i{font-style:normal;font-size:12.5px;color:var(--ink-3);line-height:1.5}
+@keyframes fmspin{to{transform:rotate(360deg)}}
+@media(prefers-color-scheme:light){:root:not([data-theme="dark"]) .frozenmark{--ice:#0e7fb8;--ice-line:rgba(14,127,184,.42);--ice-dim:rgba(14,127,184,.08)}}
+:root[data-theme="light"] .frozenmark{--ice:#0e7fb8;--ice-line:rgba(14,127,184,.42);--ice-dim:rgba(14,127,184,.08)}
+
+/* ── THE OWNER PANEL — shown only once the wallet has actually answered ───── */
+.minepanel{border:1px solid var(--good);border-radius:var(--r3);background:color-mix(in srgb,var(--good) 8%,transparent);padding:var(--s4) var(--s5);margin:var(--s4) 0}
+.minepanel .mh{display:flex;align-items:center;gap:var(--s2);flex-wrap:wrap}
+.minepanel .mh b{color:var(--good);font-size:15px}
+.minepanel .mdot{width:8px;height:8px;border-radius:50%;background:var(--good);animation:mp 2s infinite}
+.minepanel .mw{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4)}
+.minepanel .msub{font-size:12.5px;color:var(--ink-3);margin-top:var(--s2);line-height:1.55}
+.minepanel .actions{margin-top:var(--s3)}
+@keyframes mp{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── the pager — the universe as one endless book, a star per page ───────── */
+.pager{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:var(--s3) 0;flex-wrap:wrap}
+.pager.bottom{border-top:1px solid var(--line);margin-top:var(--s2)}
+.pgb{display:inline-flex;align-items:center;gap:var(--s2);font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+  border:1px solid var(--line-2);border-radius:var(--r1);padding:9px 14px;min-height:40px;text-decoration:none;transition:all .15s}
+.pgb:hover{color:var(--ink);border-color:var(--ink-3);text-decoration:none}
+.pgb[aria-disabled="true"]{opacity:.35;pointer-events:none}
+.pgb span{color:var(--ink-4)}
+.pgb:hover span{color:var(--ink-2)}
+.pgjump{display:flex;gap:var(--s2);align-items:center;flex:1;justify-content:center;min-width:min(220px,100%)}
+.pgjump input{background:var(--void);border:1px solid var(--line-2);border-radius:var(--r1);color:var(--ink);
+  font-family:var(--mono);font-size:11.5px;padding:9px 12px;outline:none;width:260px;max-width:100%}
+.pgjump input:focus{border-color:var(--btc-line)}
+.pgjump button{background:transparent;border:1px solid var(--line-2);border-radius:var(--r1);color:var(--ink-3);
+  font-family:var(--mono);font-size:11.5px;padding:9px 14px;cursor:pointer;min-height:40px}
+.pgjump button:hover{color:var(--ink);border-color:var(--ink-3)}
+.pgnote{font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:var(--ink-4)}
+@media(max-width:640px){.pgjump{order:3;width:100%}.pgjump input{width:100%}}
+
+@media(max-width:760px){.starhead{gap:var(--s4)}.art{width:140px;height:140px}}
+@media(max-width:639px){
+  .starhead .idn{flex:1 1 100%}
+  .art{width:min(160px,100%);height:auto;aspect-ratio:1}
+  .rows{gap:var(--s1) 0}
+}
+@media(prefers-reduced-motion:reduce){.llot{transition:none}.llot:hover{transform:none}.frozenmark svg{animation:none}.minepanel .mdot{animation:none}}
+</style>
+</head>
+<body data-page="star">
+<div class="wrap">
+  <div class="starnav"><span class="label"><svg width="14" height="14" style="vertical-align:-2px"><use href="#g-star"/></svg> <span id="netlab">—</span></span></div>
+  <nav class="pager" id="pager" hidden>
+    <a class="pgb" id="pg-prev" title="the star before this one (←)">← <span></span></a>
+    <form class="pgjump" id="pg-form">
+      <input id="pg-input" inputmode="numeric" autocomplete="off" placeholder="jump to a star number…">
+      <button type="submit">go</button>
+    </form>
+    <a class="pgb" id="pg-next" title="the star after this one (→)"><span></span> →</a>
+  </nav>
+  <div id="body"><div class="starhead"><span class="label">loading…</span></div></div>
+  <nav class="pager bottom" id="pager2" hidden>
+    <a class="pgb" id="pg-prev2">← <span></span></a>
+    <span class="pgnote">every star is a page · numbered by creation order</span>
+    <a class="pgb" id="pg-next2"><span></span> →</a>
+  </nav>
+</div>
+
+<script src="/kray.js" defer></script>
+<script src="/contract-exam.js" defer></script>
+<script>
+(function(){
+  "use strict";
+  // this page answers to BOTH names of the same thing: the star's number, and
+  // the inscription's ordinals-shaped id at /star/<id> (a star holds one tattoo forever).
+  // /inscription/<id> 301s here — there is no separate inscription page.
+  var mNum=/^\/star\/(\d+)$/.exec(location.pathname);
+  var mId =/^\/(?:inscription|star)\/([0-9a-f]{64}i\d+)$/.exec(location.pathname);
+  // /star/<name> — a baptized name (unique in the universe forever). Resolve it to its star number
+  // via the node, then answer as that star. This is why /star/satoshi opens the star that carries it.
+  if(!mNum && !mId){
+    var mName=/^\/star\/([^/]+)$/.exec(location.pathname);
+    if(mName){
+      var _nm=decodeURIComponent(mName[1]);
+      fetch('/api/kraynet/name/'+encodeURIComponent(_nm)).then(function(r){return r.json();}).then(function(k){
+        if(k && k.star!=null){ location.replace('/star/'+k.star); }
+        else { document.getElementById('body').innerHTML='<div class="card tick"><h2>no star named “'+(window.KRAY?KRAY.esc(_nm):_nm)+'” yet</h2><div class="actions"><a class="btn" href="/">← explorer</a></div></div>'; }
+      }).catch(function(){ document.getElementById('body').innerHTML='<div class="card tick"><h2>could not resolve “'+(window.KRAY?KRAY.esc(_nm):_nm)+'”</h2><div class="actions"><a class="btn" href="/">← explorer</a></div></div>'; });
+      return;
+    }
+    document.getElementById('body').innerHTML='<div class="card tick"><h2>not a star or an inscription id</h2><div class="actions"><a class="btn" href="/">← explorer</a></div></div>'; return;
+  }
+  var N=mNum?mNum[1]:null, INS_ID=mId?mId[1]:null;
+  // the shelves' marks — the ids come from the protocol (library.CATEGORIES),
+  // so a new shelf shows up as its id with a neutral glyph rather than breaking
+  var SHELF={image:'▣',vector:'◈',video:'▶',audio:'♪',code:'⌘',markup:'❰',document:'▤',
+             data:'⛁',text:'¶',model:'◉',font:'A',archive:'▦',file:'◇',
+             name:'✦',baptism:'✦'};
+// ══ THE LAND MINI-MAP ═══════════════════════════════════════════════════════
+  // The SAME squarified treemap (Bruls/Huizing/van Wijk) the full map at
+  // /land/<n> draws, over the SAME parcel list the node serves — so the little
+  // square lit up here is exactly the square you land on there. Lot area is
+  // proportional to the SQUARE ROOT of the bytes sealed: on raw bytes a 39-byte
+  // post beside a 400KB image would render as a 0.09px hairline, and a lot
+  // nobody can click is not a lot.
+  var lastFloored=0;
+  function squarify(items, W, H){
+    var out=[];
+    // ── AREA IS THE REAL BYTE SIZE ─────────────────────────────────────────
+    // A lot's area is proportional to the bytes actually sealed — exactly, not on
+    // a curve. That is what produces the city: one multi-MB image towers over a
+    // street of small posts, the way a full block towers in mempool.space.
+    //
+    // The one concession: a lot nobody can tap is not a lot. So a weight FLOOR is
+    // applied — the smallest number of bytes whose share still covers a 44x44px
+    // touch target — and because the floor changes the total, it is re-derived
+    // twice until it settles. The floor is applied to the WEIGHTS, never to the
+    // laid-out cells, so the treemap still tiles the rectangle exactly with no
+    // leftover space. How many lots were raised is reported, never hidden.
+    var raw=items.map(function(it){ return Math.max(1, Number(it.size)||1); });
+    var MINA=44*44, weights=raw.slice(), floored=0;
+    for(var pass=0; pass<3; pass++){
+      var sum=weights.reduce(function(a,b){return a+b;},0)||1;
+      var minW=(MINA/(W*H))*sum;
+      floored=0;
+      weights=raw.map(function(v){ if(v<minW){ floored++; return minW; } return v; });
+    }
+    lastFloored=floored;
+    var total=weights.reduce(function(a,b){return a+b;},0) || 1;
+    var scale=(W*H)/total, areas=weights.map(function(w){ return w*scale; });
+    var idx=items.map(function(_,i){ return i; }).sort(function(a,b){ return areas[b]-areas[a]; });
+    var x=0,y=0,w=W,h=H,i=0;
+    function worst(row,side,sum){
+      var mx=0,mn=Infinity;
+      for(var k=0;k<row.length;k++){ mx=Math.max(mx,areas[row[k]]); mn=Math.min(mn,areas[row[k]]); }
+      var s2=sum*sum, sd2=side*side;
+      return Math.max((sd2*mx)/s2, s2/(sd2*mn));
+    }
+    while(i<idx.length){
+      var side=Math.min(w,h), row=[idx[i]], sum=areas[idx[i]]; i++;
+      while(i<idx.length){
+        var nsum=sum+areas[idx[i]];
+        if(worst(row.concat([idx[i]]),side,nsum) <= worst(row,side,sum)){ row.push(idx[i]); sum=nsum; i++; }
+        else break;
+      }
+      var thick=sum/side, off=0;
+      for(var k=0;k<row.length;k++){
+        var len=areas[row[k]]/thick;
+        if(w>=h) out.push({ i:row[k], x:x, y:y+off, w:thick, h:len });
+        else     out.push({ i:row[k], x:x+off, y:y, w:len, h:thick });
+        off+=len;
+      }
+      if(w>=h){ x+=thick; w-=thick; } else { y+=thick; h-=thick; }
+      if(w<0.5||h<0.5) break;
+    }
+    return out;
+  }
+
+  // Draw the district into `box`, lighting up the lot whose star is `meStar`.
+  function drawLand(box, land, meStar){
+    var W=box.clientWidth||640, H=box.clientHeight||360;
+    var ps=land.parcels||[];
+    if(!ps.length){ box.innerHTML='<div class="lg" style="position:absolute;inset:0">no lots</div>'; return; }
+    var cells=squarify(ps, W, H), html='';
+    cells.forEach(function(c){
+      var p=ps[c.i], me=String(p.star)===String(meStar);
+      var tiny=(c.w<52||c.h<40);
+      var cover = p.url
+        ? (/^image\//.test(p.contentType||'')
+            ? '<div class="lc"><img loading="lazy" src="'+esc(p.url)+'" alt=""></div>'
+            : '<div class="lg">'+esc(SHELF[p.category]||'◇')+'</div>')
+        : '<div class="lg">'+esc(SHELF[p.category]||'✦')+'</div>';
+      var title = (p.kind==='baptism' ? 'baptism “'+(p.name||'')+'”' : (p.category||'work'))
+        + ' · lot #'+(p.lot||'—')+' · star #'+Number(p.star).toLocaleString()
+        + ' · '+prettySize(p.size)+(me?' — THIS ONE':'');
+      html+='<a class="llot'+(me?' me':'')+(tiny?' tiny':'')+'" href="/star/'+esc(p.star)+'"'
+        +' title="'+esc(title)+'"'
+        +' style="left:'+(c.x/W*100).toFixed(4)+'%;top:'+(c.y/H*100).toFixed(4)+'%;'
+        +'width:'+(c.w/W*100).toFixed(4)+'%;height:'+(c.h/H*100).toFixed(4)+'%">'
+        +cover+'<span class="ln">#'+(p.lot||'?')+'</span></a>';
+    });
+    box.innerHTML=html;
+  }
+
+  // The land card — asked for by the LOT's own address, drawn in place. Rendered
+  // only once the answer arrives: a card that says "loading" forever would be a
+  // worse lie than no card at all.
+  function mountLand(star){
+    fetch('/api/kraynet/land-of/'+encodeURIComponent(star)).then(function(r){ return r.json(); }).then(function(L){
+      var host=document.getElementById('landcard');
+      if(!host || L.error) { if(host) host.remove(); return; }
+      if(L.pending){
+        host.innerHTML='<h2><svg width="15" height="15"><use href="#g-anchor"/></svg>Its land</h2><div class="sub">Written, but no ground yet — this work is waiting for a fast block to seal it. '
+          +'The instant a real Bitcoin block anchors, the district is minted and this lot appears in it.</div>';
+        return;
+      }
+      var a=L.anchor||{}, live=L.live;
+      var conf = a.confirmationsKnown ? (a.confirmations+' confirmation'+(a.confirmations===1?'':'s')) : 'confirmations unknown on this node';
+      host.innerHTML='<h2><svg width="15" height="15"><use href="#g-anchor"/></svg>'+(live?'Its district, still forming':'Its land')+'</h2>'
+        +'<div class="sub">'
+        +(live
+          ? 'This lot is staked in the district being built right now. When the next real Bitcoin block anchors, that block MINTS the land and this square becomes permanent ground.'
+          : 'Land <b>#'+L.land+'</b> was minted by Bitcoin block <b>'+(a.btcHeight!=null?Number(a.btcHeight).toLocaleString():'—')+'</b>. '
+            +'This work is <b>lot #'+(L.me&&L.me.lot?L.me.lot:'—')+'</b> of that district — the lit square below. '
+            +'Each lot\'s area is the bytes it actually sealed.')
+        +'</div>'
+        +'<div class="lmap" id="lmapbox"></div>'
+        +'<div class="lmeta">'
+        +(live? '<span class="lchip">◌ under construction</span>'
+              : '<span class="lchip bit">▣ BITLAND · minted by ₿ '+(a.btcHeight!=null?Number(a.btcHeight).toLocaleString()+(a.btcChain?' ('+esc(a.btcChain)+')':''):'height not recorded')+'</span>')
+        +'<span class="lchip gold">'+(L.totals?L.totals.parcels:0)+' lot'+((L.totals&&L.totals.parcels===1)?'':'s')+'</span>'
+        +'<span class="lchip">'+(L.totals?prettySize(L.totals.bytes):'0 bytes')+'</span>'
+        +'<span class="lchip">'+(L.totals?L.totals.writers:0)+' builder'+((L.totals&&L.totals.writers===1)?'':'s')+'</span>'
+        +'<span class="lchip">blocks '+Number(L.range.fromBlock).toLocaleString()+'–'+Number(L.range.toBlock).toLocaleString()+'</span>'
+        +(!live&&a.txid? '<span class="lchip">'+esc(conf)+'</span>' : '')
+        +'</div>'
+        +'<div class="actions">'
+        +'<a class="btn" href="'+(live?'/land':'/land/'+L.land)+'">open the full map ↗</a>'
+        +(!live&&L.me&&L.me.lot? '<a class="btn" href="/parcel/'+L.me.lot+'">this lot · #'+L.me.lot+'</a>':'')
+        +'</div>';
+      var box=document.getElementById('lmapbox');
+      drawLand(box, L, star);
+      // the treemap is computed in pixels, so a resize must recompute it
+      var t=null;
+      window.addEventListener('resize', function(){ clearTimeout(t); t=setTimeout(function(){ drawLand(box, L, star); }, 140); });
+    }).catch(function(){ var host=document.getElementById('landcard'); if(host) host.remove(); });
+  }
+
+/* ── IS THIS STAR MINE? ────────────────────────────────────────────────────
+     Read-only detection: ask the wallet which address it holds and compare with
+     the owner this node reports. Nothing is signed here and nothing is claimed
+     until the wallet has actually answered.
+
+     The actions DEEP-LINK to the profile rather than repeating its flows. The
+     freeze path has three gates and an irreversible outcome; a second copy of it
+     living on another page is how two implementations drift and one of them
+     eventually freezes the wrong thing. One dangerous path, one place. */
+/* ── WHICH ACT FROZE IT ────────────────────────────────────────────────────
+     A relic NAMED by its owner and a plain unit that travelled inside an amount
+     both end up owned by the black hole — and until now both showed the same
+     sentence. They are not the same thing: one is a deliberate burial of a work,
+     the other is change that went into the hole. The history already distinguishes
+     them (`transfer-star` vs `transfer`), so the mark reads it and says which. */
+  function tellFreezeKind(s){
+    var el=document.getElementById('fmhow'); if(!el) return;
+    var ev=(s.history||[]).filter(function(h){ return h.to==='KRAY_BLACK_HOLE'; }).pop();
+    if(!ev) return; // frozen, but this node cannot see the act — say nothing extra
+    var deliberate = ev.kind==='transfer-star';
+    el.innerHTML = (deliberate
+        ? '<b>A relic, buried on purpose.</b> Its owner named this exact star and sent it here, with everything written on it. '
+        : '<b>A plain unit, inside an amount.</b> It was not chosen one by one — it travelled as part of a ₭ payment into the hole. ')
+      + 'It can never move again, by anyone, ever. Nothing was destroyed: it still exists and is still counted. '
+      + '<a href="/tx/'+esc(ev.hash)+'">the act that froze it ↗</a> · <a href="/blackhole">the register ↗</a>';
+  }
+
+  function lawCardHtml(s){
+    return '<div class="card tick" id="lawcard"><h2><svg width="15" height="15"><use href="#g-anchor"/></svg>The law</h2>'
+      +'<div class="sub">Third canvas — name · relic · law. Templates fill the variables; the Code tab pastes the IR itself. '
+      +'What runs is public paper: the sealed source, the codeHash the signature covered. Metadata describes; this executes.</div>'
+      +'<div id="lawbody">…</div></div>';
+  }
+  function livingFlagsFromLaw(law){
+    if(!law || !law.state) return [];
+    return Object.keys(law.state).filter(function(k){ return k!=='owner' && /^(0|1)$/.test(String(law.state[k])); })
+      .map(function(k){ return { name:k, on: String(law.state[k])==='1' }; });
+  }
+  function flagRow(f, canCall, rule, verb){
+    return '<div class="lawflag"><span class="fn">'+esc(f.name)+'</span>'
+      +'<span><span class="'+(f.on?'fon':'foff')+'">'+(f.on?'true':'false')+'</span>'
+      +(canCall && rule ? ' <button class="btn" data-lawcall="'+esc(rule)+'" style="min-height:44px;margin-left:8px">'+(verb||'flip')+'</button>' : '')
+      +'</span></div>';
+  }
+  function isMintLaw(law){
+    var r=law.rules||[];
+    return r.indexOf('mint')>=0 && r.indexOf('enter')<0;
+  }
+  function mintDesk(st){
+    var taken=Number(st.taken||0), max=Number(st.max||0), price=String(st.price||'0');
+    var open=String(st.open||'1')==='1';
+    var room=taken<max;
+    var note=!open ? 'The drop is paused. The living owner may reopen it.'
+      : !room ? 'Sold out — '+taken+' / '+max+'. The blessing is dead.'
+      : 'You are buying this edition of the artist’s drop. One click: the mint price pays the seller now, you burn to write the bytes, the node pulls THEIR file onto a star you own. Same bytes cannot mint twice.';
+    return { taken:taken, max:max, price:price, open:open, room:room, mayMint:open&&room, note:note };
+  }
+  function raffleDesk(st, bal, seals){
+    var taken=Number(st.taken||0), due=Number(st.due||0), seats=Number(st.seats||0);
+    var period=Number(st.period||100), price=String(st.price||'0');
+    var pot=Number(bal||0), open=String(st.open)!=='0';
+    var dueNow=due!==0 && seals>=due;
+    var inWindow=due===0 || seals<due;
+    var gathering=dueNow && taken<2;
+    var mayEnter=open && (inWindow||gathering) && taken<seats;
+    var prizeReady=dueNow && taken>=2 && pot>=2;
+    var canSkip=dueNow && taken<=1;
+    var wait=(!due)?null:(dueNow?0:Math.max(0, due-seals));
+    var note;
+    if(!open && !prizeReady) note='The owner paused new tickets. The pot stays. A due prize can still be delivered.';
+    else if(taken===0 && due===0) note='No one has sat yet. The clock starts on the first ticket. The pot waits.';
+    else if(taken<2 && !dueNow) note='Only '+taken+' ticket so far. Need 2 to be a raffle. '+(wait?'About '+wait+' Bitcoin seal'+(wait===1?'':'s')+' until the window is due.':'')+' If time runs out with fewer than 2, the pot stays.';
+    else if(gathering) note='The clock already passed, but this is not a raffle yet — fewer than 2 tickets. The pot stays. Anyone may still sit. Deliver prize stays off.';
+    else if(prizeReady) note='Ready. At least 2 tickets and the window is due. Anyone may deliver (they take 1 ₭ from the pot; the Bitcoin seal names the seat). The owner may deliver the whole pot.';
+    else if(taken>=seats && !prizeReady) note='This window is full. Wait for the remaining Bitcoin seals, then deliver.';
+    else note='Window open. Sit down — ticket '+price+' ₭ plus the eternal 1 ₭ fee. Prize lights up after 2 tickets and '+period+' seals from the first sit.';
+    return { taken:taken, due:due, seats:seats, period:period, price:price, pot:pot, open:open, dueNow:dueNow, mayEnter:mayEnter, prizeReady:prizeReady, canSkip:canSkip, wait:wait, seals:seals, note:note };
+  }
+  function raffleSeats(faces, seats, taken){
+    var list=Array.isArray(faces)?faces:[];
+    var n=Math.max(Number(seats||0), list.length, Number(taken||0));
+    if(!n) return '';
+    var rows=[];
+    for(var i=0;i<n;i++){
+      var a=list[i];
+      rows.push(a
+        ? '<div>seat '+(i+1)+' · <b>'+esc(a)+'</b></div>'
+        : '<div style="color:var(--ink-4)">seat '+(i+1)+' · open</div>');
+    }
+    return rows.join('');
+  }
+  function lawBtn(rule, label, opts){
+    opts=opts||{};
+    if(opts.hide) return '';
+    return '<button type="button" class="btn'+(opts.primary?' primary':'')+'" data-lawcall="'+esc(rule)+'"'
+      +(opts.off?' disabled':'')+' style="min-height:44px">'+label+'</button>';
+  }
+  function mountLaw(s){
+    var host=document.getElementById('lawbody');
+    if(!host) return;
+    var law=s.law;
+    function paint(mine, seals){
+      if(law && law.address){
+        var flags=livingFlagsFromLaw(law);
+        var rules=law.rules||[];
+        var wheel=law.state && (rules.indexOf('enter')>=0) && law.state.price!=null ? raffleDesk(law.state, law.balance, seals||0) : null;
+        var drop=isMintLaw(law) && law.state ? mintDesk(law.state) : null;
+        var h='<dl class="rows">'
+          +'<dt>pot</dt><dd><b>'+esc(law.address)+'</b><br><span style="color:var(--ink-4)">keyless — transfer of this star never drains it</span></dd>'
+          +'<dt>holds</dt><dd><b>'+kray(law.balance||'0')+'</b> <span style="color:var(--ink-4)">— send ₭ here to add value</span></dd>'
+          +(law.state && law.state.each ? '<dt>each</dt><dd><b>'+kray(law.state.each)+'</b>'+(law.state.max?' · taken '+esc(String(law.state.taken||'0'))+' / '+esc(String(law.state.max)):'')+'</dd>' : '')
+          +(drop ? '<dt>mint</dt><dd><b>'+esc(String(drop.taken))+' / '+esc(String(drop.max))+'</b> editions · price <b>'+kray(drop.price)+'</b>'
+            +(drop.open ? (drop.room ? ' · open' : ' · sold out') : ' · paused')
+            +'</dd>' : '')
+          +(wheel ? '<dt>raffle</dt><dd><b>'+esc(String(wheel.taken))+' / '+esc(String(wheel.seats))+' seats</b> · ticket <b>'+kray(wheel.price)+'</b>'
+            +(wheel.due===0 ? ' · clock starts on the first ticket'
+              : wheel.wait>0 ? ' · <b>'+esc(String(wheel.wait))+'</b> seal'+(wheel.wait===1?'':'s')+' left (due at '+esc(String(wheel.due))+', now '+esc(String(wheel.seals))+')'
+              : wheel.prizeReady ? ' · <b>prize is due</b>'
+              : ' · window due — still gathering')
+            +'</dd>' : '')
+          +(wheel ? '<dt>seats</dt><dd>'+(raffleSeats(law.faces, wheel.seats, wheel.taken) || '<span style="color:var(--ink-4)">empty — the last window closed, the next sit restarts the clock</span>')+'</dd>' : (law.faces && law.faces.some(Boolean) ? '<dt>roster</dt><dd>'+law.faces.filter(Boolean).map(function(a){ return '<b>'+esc(a)+'</b>'; }).join('<br>')+'</dd>' : ''))
+          +'<dt>rules</dt><dd>'+esc(rules.join(', ')||'—')+'</dd>'
+          +(law.codeHash ? '<dt>codeHash</dt><dd><b>'+esc(law.codeHash)+'</b><br><span style="color:var(--ink-4)">the 32 bytes the seal signed — a stranger re-derives it from the source</span></dd>' : '')
+          +'</dl>';
+        if(drop) h+='<p class="raffnote">'+drop.note+'</p>';
+        if(wheel) h+='<p class="raffnote">'+wheel.note+'</p>';
+        if(s.lastDelivery && s.lastDelivery.paid && s.lastDelivery.paid.length){
+          var d=s.lastDelivery;
+          h+='<div class="card tick" style="margin:var(--s4) 0 0;padding:var(--s4)"><div class="ph">Last delivery — the pot paid</div>'
+            +'<dl class="rows">'
+            +'<dt>rule</dt><dd><b>'+esc(d.rule||'')+'</b>'+(d.interval!=null?' · Bitcoin seal #'+esc(String(d.interval)):'')+'</dd>'
+            +(d.beacon?'<dt>beacon</dt><dd><b>'+esc(String(d.beacon))+'</b><br><span style="color:var(--ink-4)">the last buried Bitcoin txid — seat = beacon % taken. Nobody named the winner.</span></dd>':'')
+            +'<dt>paid</dt><dd>'+d.paid.map(function(p){ return '<b>'+kray(p.amount)+'</b> → '+esc(p.to); }).join('<br>')+'</dd>'
+            +'</dl>'
+            +'<div class="actions" style="margin-top:var(--s3)"><a class="btn" href="/tx/'+esc(d.hash)+'">the proof act →</a></div>'
+            +'</div>';
+        }
+        if(flags.length){
+          h+='<div class="lawflags">'+flags.map(function(f){
+            var once='once_'+f.name, tog='toggle_'+f.name;
+            if(rules.indexOf(once)>=0) return flagRow(f, mine && f.on, once, 'once');
+            return flagRow(f, mine && rules.indexOf(tog)>=0, tog, 'flip');
+          }).join('')+'</div>';
+        }
+        h+='<div class="actions">';
+        if(rules.indexOf('pulse')>=0) h+='<button class="btn" data-lawcall="pulse">pulse — the being breathes</button>';
+        if(mine && rules.indexOf('collect')>=0) h+='<button class="btn" data-lawcall="collect">collect — living owner takes the pot</button>';
+        if(rules.indexOf('accept')>=0) h+='<button class="btn" data-lawcall="accept">accept — sealed buyer releases to seller</button>';
+        if(rules.indexOf('refund')>=0) h+='<button class="btn" data-lawcall="refund">refund — after the journal deadline</button>';
+        if(rules.indexOf('release')>=0) h+='<button class="btn" data-lawcall="release">release — vested ₭ to the beneficiary</button>';
+        if(mine && rules.indexOf('punch')>=0){
+          h+='<input class="input" id="lawamt" placeholder="amount to punch" inputmode="numeric" style="min-height:44px;max-width:180px">';
+          h+='<button class="btn" data-lawcall="punch" data-arg="amount">punch — send through the tunnel</button>';
+        }
+        if(mine && rules.indexOf('stamp')>=0){
+          h+='<input class="input" id="lawticket" placeholder="winner address (or callerInt)" autocomplete="off" style="min-height:44px;min-width:220px">';
+          h+='<button class="btn" data-lawcall="stamp" data-arg="id">stamp — name the next claimant</button>';
+        }
+        if(drop){
+          h+='<div class="lawfields" id="mintbuy" style="margin:var(--s4) 0 0">'
+            +'<p class="note" style="margin:0 0 var(--s3)">Edition <b>#'+esc(String(drop.taken))+'</b> — one act: price to the seller + burn to inscribe. Those bytes leave the shelf. Nobody can mint the same content again.</p>'
+            +(s.contentHash ? '<img alt="collection face" src="/content/'+esc(s.contentHash)+'" style="max-width:100%;max-height:200px;border-radius:8px;display:block;margin:0 0 var(--s3)">' : '')
+            +'</div>';
+          h+=lawBtn('mint', drop.mayMint ? ('Buy edition #'+drop.taken+' — receive the artist’s art on my star') : (!drop.open ? 'Drop paused' : 'Sold out'), { primary:drop.mayMint, off:!drop.mayMint });
+        }
+        if(wheel){
+          if(rules.indexOf('enter')>=0) h+=lawBtn('enter', wheel.mayEnter ? 'Sit down — pay the ticket' : (!wheel.open ? 'Entries paused' : (wheel.taken>=wheel.seats ? 'Window is full' : 'Sit down — pay the ticket')), { off:!wheel.mayEnter });
+          if(rules.indexOf('settle')>=0){
+            if(wheel.prizeReady) h+=lawBtn('settle', 'Deliver the prize — anyone · 1 ₭ from the pot', { primary:true });
+            else if(wheel.dueNow) h+=lawBtn('settle', 'Not a raffle yet — roll the clock (pot stays)');
+            else h+=lawBtn('settle', 'Deliver the prize — waits for the seals', { off:true });
+          }
+          if(mine && rules.indexOf('draw')>=0) h+=lawBtn('draw', wheel.prizeReady ? 'Deliver the whole pot — owner' : 'Deliver the whole pot — needs 2 tickets + due window', { primary:wheel.prizeReady, off:!wheel.prizeReady });
+          if(mine && rules.indexOf('skip')>=0) h+=lawBtn('skip', wheel.canSkip ? 'Keep the pot — open the next window' : 'Skip — only when 0–1 tickets are due', { off:!wheel.canSkip });
+        } else {
+          if(rules.indexOf('enter')>=0) h+='<button class="btn" data-lawcall="enter">enter — pay the ticket into the pot</button>';
+          if(rules.indexOf('settle')>=0) h+='<button class="btn" data-lawcall="settle">settle — anyone delivers (1 ₭ from the pot) or rolls if too few tickets</button>';
+          if(mine && rules.indexOf('draw')>=0) h+='<button class="btn" data-lawcall="draw">draw — living owner delivers the full pot</button>';
+          if(mine && rules.indexOf('skip')>=0) h+='<button class="btn" data-lawcall="skip">skip — 0–1 tickets, open the next window</button>';
+        }
+        if(rules.indexOf('claim')>=0) h+='<button class="btn" data-lawcall="claim">claim — this call pays you</button>';
+        rules.forEach(function(r){
+          if(/^claim_\d+$/.test(r)) h+='<button class="btn" data-lawcall="'+esc(r)+'">'+esc(r)+' — listed slot</button>';
+        });
+        h+='</div>';
+        if(law.code){
+          h+='<details class="lawsrc" id="lawsource"><summary>source — the sealed IR</summary>'
+            +'<pre class="lawprev">'+esc(JSON.stringify(law.code,null,2))+'</pre>'
+            +'<p class="note"><a href="/api/kraynet/contract/'+encodeURIComponent(law.address)+'">the same bytes on the door ↗</a></p>'
+            +'</details>';
+        }
+        h+='<div class="lawout" id="lawout"></div>';
+        host.innerHTML=h;
+        host.querySelectorAll('[data-lawcall]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            if(btn.getAttribute('data-lawcall')==='mint'){ mintChild(s); return; }
+            var args={};
+            if(btn.getAttribute('data-arg')==='amount'){
+              var n=String((document.getElementById('lawamt')&&document.getElementById('lawamt').value)||'').replace(/[^0-9]/g,'');
+              if(!n){ setLawOut('name a whole-number amount to punch'); return; }
+              args.amount=n;
+              callLaw(s, btn.getAttribute('data-lawcall'), args);
+              return;
+            }
+            if(btn.getAttribute('data-arg')==='id'){
+              var who=String((document.getElementById('lawticket')&&document.getElementById('lawticket').value)||'').trim();
+              if(!who){ setLawOut('name the winner address (or their callerInt)'); return; }
+              if(/^\d+$/.test(who)){ callLaw(s, 'stamp', { id: who }); return; }
+              callerIntFromAddr(who).then(function(id){ callLaw(s, 'stamp', { id: id }); })
+                .catch(function(e){ setLawOut((e&&e.message)||'could not hash that address'); });
+              return;
+            }
+            callLaw(s, btn.getAttribute('data-lawcall'), args);
+          });
+        });
+        return;
+      }
+      if(!mine){
+        host.innerHTML='<p class="note">This being has no law yet. The owner seals clauses here — flags that turn on and off, forever replayable.</p>';
+        return;
+      }
+      var LIVING_PRESET={
+        being:[{name:'alive',on:true,motion:'toggle'},{name:'open',on:true,motion:'toggle'},{name:'agent',on:false,motion:'toggle'}],
+        pass:[{name:'alive',on:true,motion:'toggle'},{name:'valid',on:true,motion:'once'}],
+        times3:[{name:'use_1',on:true,motion:'once'},{name:'use_2',on:true,motion:'once'},{name:'use_3',on:true,motion:'once'}]
+      };
+      var flags=LIVING_PRESET.being.map(function(f){ return {name:f.name,on:f.on,motion:f.motion}; });
+      var desk='being';
+      function tabs(){
+        return '<div class="lawtabs">'
+          +[['being','Being'],['pass','Pass'],['times3','3-use'],['escrow','Escrow'],['tunnel','Tunnel'],['vest','Vest'],['scroll','Scroll'],['raffle','Raffle'],['mint','Mint'],['code','Code']].map(function(t){
+            return '<button class="btn lawtab'+(desk===t[0]?' on':'')+'" data-desk="'+t[0]+'">'+t[1]+'</button>';
+          }).join('')+'</div>';
+      }
+      function renderDesk(){
+        var body='';
+        if(desk==='being'||desk==='pass'||desk==='times3'){
+          var livingNote = desk==='pass'
+            ? 'A ticket. <b>valid</b> starts true and can be spent once — never back. Edit the knobs if you want. Burns 1 ₭.'
+            : desk==='times3'
+              ? 'Three <b>once</b> latches. Three calls, then mute. Same paper as a concert pass — not a new kind. Burns 1 ₭.'
+              : 'Write the being. Mouth: <b>true</b>/<b>false</b>. Journal: 1 and 0. <b>toggle</b> flips forever. <b>once</b> is true → false, one call, never back. Burns 1 ₭.';
+          body='<p class="note">'+livingNote+'</p>'
+            +'<div class="lawflags">'+flags.map(function(f,i){
+              return '<div class="lawflag"><span class="fn">'+esc(f.name)+'</span>'
+                +'<span><button class="btn" data-flip="'+i+'" style="min-height:44px">'+(f.on?'true':'false')+'</button>'
+                +' <button class="btn" data-motion="'+i+'" style="min-height:44px">'+(f.motion==='once'?'once':'toggle')+'</button>'
+                +(f.name==='alive'||f.name==='open'||f.name==='agent'?'':' <button class="btn" data-del="'+i+'">remove</button>')
+                +'</span></div>';
+            }).join('')+'</div>'
+            +'<div class="lawadd"><input class="input" id="lawnew" placeholder="new clause name (a–z)" maxlength="24">'
+            +'<button class="btn" id="lawaddbtn">add clause</button></div>';
+        } else if(desk==='escrow'){
+          body='<p class="note">Two sealed keys. The buyer accepts and the seller is paid; after the journal deadline anyone may refund the buyer. The star is the paper — selling it does not change buyer or seller. Burns 1 ₭.</p>'
+            +'<div class="lawfields"><input class="input" id="f-buyer" placeholder="buyer address (bc1p / bcrt1p…)" autocomplete="off">'
+            +'<input class="input" id="f-seller" placeholder="seller address" autocomplete="off">'
+            +'<input class="input" id="f-lock" placeholder="lock (acts from now, default 64)" inputmode="numeric"></div>';
+        } else if(desk==='tunnel'){
+          body='<p class="note">A pipe. Anyone funds it. You punch an amount through — to yourself (corridor follows the face) or to a sealed dest. Sell the star and the tap travels. Burns 1 ₭.</p>'
+            +'<div class="lawfields"><input class="input" id="f-dest" placeholder="dest address — empty = living owner" autocomplete="off"></div>';
+        } else if(desk==='vest'){
+          body='<p class="note">Vesting on journal height (the network seq), not a wall clock. Anyone may call release; ₭ goes only to the beneficiary. Burns 1 ₭.</p>'
+            +'<div class="lawfields"><input class="input" id="f-ben" placeholder="beneficiary address" autocomplete="off">'
+            +'<input class="input" id="f-total" placeholder="total ₭" inputmode="numeric">'
+            +'<input class="input" id="f-dur" placeholder="duration in acts" inputmode="numeric"></div>';
+        } else if(desk==='scroll'){
+          body='<p class="note">The proven Dev Scroll. No secret key. Open: anyone claims <b>each</b> until <b>max</b> (the 1 ₭ fee is the sybil tax). Stamp: you name the next claimant. List: sealed addresses, one claim each. Locked: ₭ leaves only through claim. The quest stays off-chain; the journal sees the claim. Burns 1 ₭.</p>'
+            +'<div class="lawfields"><input class="input" id="f-each" placeholder="each ₭ per claim" inputmode="numeric">'
+            +'<input class="input" id="f-max" placeholder="max claims" inputmode="numeric">'
+            +'<select class="input" id="f-gate"><option value="open">open — anyone</option><option value="stamp">stamp — you name the winner</option><option value="list">list — sealed addresses</option></select>'
+            +'<input class="input" id="f-allow" placeholder="list addresses, comma-separated (list gate)" autocomplete="off">'
+            +'<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px"><input type="checkbox" id="f-locked" checked> locked — no collect, ₭ leaves only through claim</label></div>';
+        } else if(desk==='mint'){
+          body='<p class="note">The buyer buys <b>your</b> art. They never upload. One click is one signed inscribe: mint price pays <b>now</b> to the address you seal (or the living owner), they burn the eternal 1 ₭ floor to write the star, the law fathers the child. Same bytes cannot mint twice. More than one edition needs {n} or {i}. Collect is only leftover pot. Burns 1 ₭ to hang.</p>'
+            +'<div class="lawfields">'
+            +'<div class="lawknob"><label for="f-price">Price · ₭</label><p class="hint">Service payment in the same act as the birth — not only 1 ₭. 0 is an airdrop. They also burn to write the bytes.</p>'
+            +'<input class="input" id="f-price" placeholder="e.g. 5" value="5" inputmode="numeric"></div>'
+            +'<div class="lawknob"><label for="f-max">Editions · 1 to 256</label><p class="hint">How many children this face will father. The family tree is the collection.</p>'
+            +'<input class="input" id="f-max" placeholder="e.g. 8" value="8" inputmode="numeric"></div>'
+            +'<div class="lawknob"><label for="f-pay">Pay mint price to</label><p class="hint">Empty = living owner of this face. Or seal any address on this network — a normal service payment.</p>'
+            +'<input class="input" id="f-pay" placeholder="empty = living owner" autocomplete="off"></div>'
+            +'<div class="lawknob"><label for="f-shelf">Art URL · secret · this node only</label><p class="hint">Run test compiles the paper without this. Seal needs a real https URL — the grey hint is not a value. {n} / {i} when max &gt; 1.</p>'
+            +'<input class="input" id="f-shelf" placeholder="paste https://…" autocomplete="off"></div>'
+            +'</div>';
+        } else if(desk==='raffle'){
+          body='<p class="note">A looping pot on this face. People buy a seat. After the wait, Bitcoin\'s seal names the winner. You never pick who. No collect. Burns 1 ₭.</p>'
+            +'<div class="lawfields">'
+            +'<div class="lawknob"><label for="f-price">Ticket · ₭</label><p class="hint">How much each person puts in the pot. Example: 5 means every seat costs 5 ₭ (they also pay the eternal 1 ₭ network fee). The pot is the prize.</p>'
+            +'<input class="input" id="f-price" placeholder="e.g. 5" value="5" inputmode="numeric"></div>'
+            +'<div class="lawknob"><label for="f-period">Wait · Bitcoin seals</label><p class="hint">How many Bitcoin seals after the first ticket before a draw is due. 100 is a long window. 2 is a quick lab round. Nobody can take the prize before this.</p>'
+            +'<input class="input" id="f-period" placeholder="e.g. 100" value="100" inputmode="numeric"></div>'
+            +'<div class="lawknob"><label for="f-seats">Seats · 2 to 8</label><p class="hint">How many tickets this window accepts. When it is full, enter closes until someone delivers the prize. After a pay-out the seats empty and the next window opens.</p>'
+            +'<input class="input" id="f-seats" placeholder="e.g. 8" value="8" inputmode="numeric"></div>'
+            +'</div>';
+        } else {
+          body='<p class="note">Your own law — paste the JSON paper (<a href="/docs/contracts.md">tutorial</a>). Draft in Solidity if you want; translate before you seal. The exam refuses raw Solidity because a Turing VM cannot be proven here. Run test, then seal (1 ₭).</p>'
+            +'<label for="f-code" class="note" style="display:block;margin:0 0 var(--s2)">Source · click, paste, or write</label>'
+            +'<div class="lawfields"><textarea class="input lawsrcin" id="f-code" spellcheck="false" autocomplete="off" placeholder=\'click here — paste or type { "vars": …, "rules": … }\'></textarea>'
+            +'<div class="drop" id="lawfiledrop" style="margin-top:var(--s3)"><b>Or drop a .json IR</b><span>optional — only vars + rules. A foreign language never enters the reducer.</span><input type="file" id="lawfile" accept=".json,application/json,text/plain" hidden></div></div>';
+        }
+        host.innerHTML=tabs()+body
+          +'<div class="actions" style="margin-top:var(--s4)">'
+          +'<button class="btn" id="lawrun" style="min-height:44px">Run test</button>'
+          +'<button class="btn primary" id="lawseal" disabled>⚓ Sign &amp; seal · 1 ₭</button></div>'
+          +'<div id="lawexam"></div>'
+          +'<pre class="lawprev" id="lawprev"'+(desk==='code'?' hidden':'')+'>'+(desk==='code'?'':'run the test — the node will show the exact IR you sign')+'</pre>'
+          +'<div class="lawout" id="lawout"></div>';
+        host.querySelectorAll('[data-desk]').forEach(function(b){
+          b.addEventListener('click', function(){
+            desk=b.getAttribute('data-desk');
+            if(LIVING_PRESET[desk]) flags=LIVING_PRESET[desk].map(function(f){ return {name:f.name,on:f.on,motion:f.motion}; });
+            renderDesk();
+          });
+        });
+        host.querySelectorAll('[data-flip]').forEach(function(b){
+          b.addEventListener('click', function(){
+            var f=flags[+b.getAttribute('data-flip')];
+            if(f.motion==='once'){ setLawOut('once starts true — it can only be spent after the seal'); return; }
+            f.on=!f.on; renderDesk();
+          });
+        });
+        host.querySelectorAll('[data-motion]').forEach(function(b){
+          b.addEventListener('click', function(){
+            var f=flags[+b.getAttribute('data-motion')];
+            f.motion = f.motion==='once' ? 'toggle' : 'once';
+            if(f.motion==='once') f.on=true;
+            renderDesk();
+          });
+        });
+        host.querySelectorAll('[data-del]').forEach(function(b){
+          b.addEventListener('click', function(){ flags.splice(+b.getAttribute('data-del'),1); renderDesk(); });
+        });
+        var add=document.getElementById('lawaddbtn');
+        if(add) add.addEventListener('click', function(){
+          var n=String((document.getElementById('lawnew').value||'')).trim().toLowerCase();
+          if(!/^[a-z][a-z0-9_]{0,23}$/.test(n) || n==='owner'){ setLawOut('name the clause in a–z, like valid or open'); return; }
+          if(flags.some(function(f){ return f.name===n; })){ setLawOut('that clause already exists'); return; }
+          flags.push({name:n,on:false,motion:'toggle'}); renderDesk();
+        });
+        var seal=document.getElementById('lawseal');
+        var examFp='';
+        function deskExamBody(){
+          if(desk==='being'||desk==='pass'||desk==='times3') return { living:{ flags:flags } };
+          if(desk==='code') return { source: String((document.getElementById('f-code')||{}).value||'') };
+          if(desk==='escrow') return { form:{ kind:'escrow', buyer:String((document.getElementById('f-buyer')||{}).value||'').trim(), seller:String((document.getElementById('f-seller')||{}).value||'').trim(), lock:String((document.getElementById('f-lock')||{}).value||'').trim() } };
+          if(desk==='tunnel') return { form:{ kind:'tunnel', dest:String((document.getElementById('f-dest')||{}).value||'').trim() }, star:String(s.star) };
+          if(desk==='vest') return { form:{ kind:'vest', beneficiary:String((document.getElementById('f-ben')||{}).value||'').trim(), total:String((document.getElementById('f-total')||{}).value||'').trim(), duration:String((document.getElementById('f-dur')||{}).value||'').trim() } };
+          if(desk==='raffle') return { form:{ kind:'raffle', price:String((document.getElementById('f-price')||{}).value||'').trim(), period:String((document.getElementById('f-period')||{}).value||'').trim(), seats:String((document.getElementById('f-seats')||{}).value||'').trim() }, star:String(s.star) };
+          if(desk==='mint') return { form:{ kind:'mint', price:String((document.getElementById('f-price')||{}).value||'').trim(), max:String((document.getElementById('f-max')||{}).value||'').trim(), payTo:String((document.getElementById('f-pay')||{}).value||'').trim(), shelf:String((document.getElementById('f-shelf')||{}).value||'').trim() }, star:String(s.star) };
+          return { form:{ kind:'scroll', each:String((document.getElementById('f-each')||{}).value||'').trim(), max:String((document.getElementById('f-max')||{}).value||'').trim(), gate:String((document.getElementById('f-gate')||{}).value||'open'), locked:!!(document.getElementById('f-locked')&&document.getElementById('f-locked').checked), allow:String((document.getElementById('f-allow')||{}).value||'').split(/[\s,]+/).filter(Boolean) }, star:String(s.star) };
+        }
+        var runBtn=document.getElementById('lawrun');
+        if(runBtn) runBtn.addEventListener('click', function(){
+          var host=document.getElementById('lawexam');
+          if(!(window.KrayContractExam&&KrayContractExam.run)){ setLawOut('exam script not loaded'); return; }
+          if(host) host.textContent='running the IR — no ₭, no journal…';
+          KrayContractExam.run(deskExamBody()).then(function(exam){
+            KrayContractExam.paint(host, exam);
+            examFp = exam && exam.ready ? JSON.stringify(deskExamBody()) : '';
+            if(seal) seal.disabled = !examFp;
+            var prev=document.getElementById('lawprev');
+            if(prev && exam && exam.code){
+              prev.hidden=false;
+              prev.textContent=JSON.stringify(exam.code,null,2);
+            }
+            setLawOut(exam && exam.ready ? 'ready — you may seal' : 'not ready — do not sign', !!(exam&&exam.ready));
+          }).catch(function(e){ examFp=''; if(seal) seal.disabled=true; setLawOut((e&&e.message)||'exam failed'); });
+        });
+        var drop=document.getElementById('lawfiledrop'), fin=document.getElementById('lawfile');
+        if(drop && fin){
+          drop.addEventListener('click', function(){ fin.click(); });
+          drop.addEventListener('dragover', function(ev){ ev.preventDefault(); });
+          function take(f){
+            if(!(window.KrayContractExam&&KrayContractExam.readFile)) return;
+            KrayContractExam.readFile(f).then(function(txt){
+              var ta=document.getElementById('f-code'); if(ta) ta.value=txt;
+              examFp=''; if(seal) seal.disabled=true;
+              if(runBtn) runBtn.click();
+            }).catch(function(e){ setLawOut((e&&e.message)||'file refused'); });
+          }
+          fin.addEventListener('change', function(){ if(fin.files&&fin.files[0]) take(fin.files[0]); });
+          drop.addEventListener('drop', function(ev){ ev.preventDefault(); if(ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0]) take(ev.dataTransfer.files[0]); });
+        }
+        host.oninput = function(){
+          if(!examFp) return;
+          if(examFp===JSON.stringify(deskExamBody())) return;
+          examFp='';
+          if(seal) seal.disabled=true;
+        };
+        if(desk==='raffle' && runBtn) runBtn.click();
+        if(desk==='code'){
+          var codeTa=document.getElementById('f-code');
+          if(codeTa){ codeTa.disabled=false; codeTa.removeAttribute('readonly'); setTimeout(function(){ codeTa.focus(); }, 0); }
+        }
+        if(seal) seal.addEventListener('click', function(){
+          if(!examFp || examFp!==JSON.stringify(deskExamBody())){ setLawOut('run the test first — a stale exam cannot seal'); return; }
+          if(desk==='mint'){
+            var shelf=String((document.getElementById('f-shelf')||{}).value||'').trim();
+            if(!/^https?:\/\//i.test(shelf)){ setLawOut('paste a real art URL before you seal — the grey hint is not a value'); return; }
+          }
+          if(desk==='being'||desk==='pass'||desk==='times3') sealLaw(s, flags);
+          else if(desk==='code') sealCode(s);
+          else sealForm(s, desk);
+        });
+      }
+      renderDesk();
+    }
+    function setLawOut(t, ok){
+      var el=document.getElementById('lawout'); if(!el) return;
+      el.textContent=t; el.style.color=ok?'var(--ink)':'var(--crit, #c44)';
+    }
+    function walletAddr(){
+      if(!(window.krayWallet && window.krayWallet._isKrayWallet)) return Promise.resolve(null);
+      return Promise.resolve(window.krayWallet.getAccounts()).then(function(a){
+        return Array.isArray(a) ? a[0] : (a && (a.address || (a.accounts && a.accounts[0])));
+      }).catch(function(){ return null; });
+    }
+    function check(){
+      var mineP=walletAddr().then(function(addr){ return !!addr && String(addr)===String(s.owner); });
+      var sealsP=fetch('/api/kraynet/overview').then(function(r){ return r.json(); }).then(function(o){ return Number(o.bitcoinSeals||0); }).catch(function(){ return 0; });
+      Promise.all([mineP, sealsP]).then(function(pair){ paint(pair[0], pair[1]); });
+    }
+    function refreshLaw(){
+      fetch('/api/kraynet/star/'+encodeURIComponent(String(s.star))).then(function(r){ return r.json(); }).then(function(fresh){
+        if(fresh && fresh.law) law=fresh.law;
+        check();
+      }).catch(function(){ check(); });
+    }
+    check();
+    window.addEventListener('krayWalletReady', check);
+    setTimeout(check, 1200);
+    setInterval(refreshLaw, 3000);
+  }
+  function callerIntFromAddr(addr){
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(addr)).then(function(buf){
+      var hex=Array.from(new Uint8Array(buf)).map(function(b){ return b.toString(16).padStart(2,'0'); }).join('');
+      return BigInt('0x'+hex.slice(0,16)).toString();
+    });
+  }
+  async function signAndSubmit(body){
+    var w=window.krayWallet;
+    if(!(w && w._isKrayWallet)) throw new Error('connect KrayWallet');
+    var pr=await fetch('/api/kraynet/prepare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+    var prep=await pr.json(); if(!pr.ok||prep.error) throw new Error(prep.error||'prepare refused');
+    var prev=document.getElementById('lawprev'); if(prev && prep.code) prev.textContent=JSON.stringify(prep.code,null,2);
+    var sig=await (w.signMessageWithConfirmation||w.signMessage).call(w, prep.message);
+    var pk=await w.getPublicKey(); var pub=(pk&&pk.publicKey)||pk;
+    var sub=await fetch('/api/kraynet/submit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
+      ...body, code: prep.code || body.code, nonce: prep.nonce, clock: prep.clock, publicKey: pub, signature: (sig&&sig.signature)||sig, scheme: 'kraywallet'
+    })});
+    var res=await sub.json(); if(!sub.ok||res.error) throw new Error(res.error||'submit refused');
+    return res;
+  }
+  async function mintChild(s){
+    var out=document.getElementById('lawout');
+    try{
+      if(out) out.textContent='the node pulls the artist’s file — you sign the hash, not the address…';
+      var a=await window.krayWallet.getAccounts();
+      var me=Array.isArray(a)?a[0]:(a&&(a.address||(a.accounts&&a.accounts[0])));
+      await signAndSubmit({ action:'inscribe', from: me, mintFrom: String(s.star), parents: [String(s.star)] });
+      location.reload();
+    }catch(e){ if(out){ out.textContent='✗ '+((e&&e.message)||'refused'); out.style.color='var(--crit, #c44)'; } }
+  }
+  async function sealLaw(s, flags){
+    var out=document.getElementById('lawout');
+    try{
+      if(out) out.textContent='the node is compiling the IR you will sign…';
+      var a=await window.krayWallet.getAccounts();
+      var me=Array.isArray(a)?a[0]:(a&&(a.address||(a.accounts&&a.accounts[0])));
+      await signAndSubmit({ action:'contract', from: me, star: String(s.star), living: { flags: flags } });
+      location.reload();
+    }catch(e){ if(out){ out.textContent='✗ '+((e&&e.message)||'refused'); out.style.color='var(--crit, #c44)'; } }
+  }
+  async function callLaw(s, rule, args){
+    var out=document.getElementById('lawout');
+    try{
+      if(out) out.textContent='signing '+rule+'…';
+      var a=await window.krayWallet.getAccounts();
+      var me=Array.isArray(a)?a[0]:(a&&(a.address||(a.accounts&&a.accounts[0])));
+      await signAndSubmit({ action:'contract-call', from: me, contract: s.law.address, rule: rule, args: args || {} });
+      location.reload();
+    }catch(e){ if(out){ out.textContent='✗ '+((e&&e.message)||'refused'); out.style.color='var(--crit, #c44)'; } }
+  }
+  async function sealCode(s){
+    var out=document.getElementById('lawout');
+    var raw=String((document.getElementById('f-code')||{}).value||'').trim();
+    var parsed;
+    try { parsed=JSON.parse(raw); }
+    catch(e){ if(out){ out.textContent='source must be JSON — vars and rules'; out.style.color='var(--crit, #c44)'; } return; }
+    if(!parsed || typeof parsed!=='object' || !parsed.rules){
+      if(out){ out.textContent='the IR needs vars and rules — the same paper the reducer runs'; out.style.color='var(--crit, #c44)'; }
+      return;
+    }
+    try{
+      if(out) out.textContent='the node is validating the IR you will sign…';
+      var a=await window.krayWallet.getAccounts();
+      var me=Array.isArray(a)?a[0]:(a&&(a.address||(a.accounts&&a.accounts[0])));
+      await signAndSubmit({ action:'contract', from: me, star: String(s.star), code: parsed });
+      location.reload();
+    }catch(e){ if(out){ out.textContent='✗ '+((e&&e.message)||'refused'); out.style.color='var(--crit, #c44)'; } }
+  }
+  async function sealForm(s, kind){
+    var out=document.getElementById('lawout');
+    var form={ kind: kind };
+    if(kind==='escrow'){
+      form.buyer=String((document.getElementById('f-buyer')||{}).value||'').trim();
+      form.seller=String((document.getElementById('f-seller')||{}).value||'').trim();
+      var lock=String((document.getElementById('f-lock')||{}).value||'').trim();
+      if(lock) form.lock=lock;
+    } else if(kind==='tunnel'){
+      var dest=String((document.getElementById('f-dest')||{}).value||'').trim();
+      if(dest) form.dest=dest;
+    } else if(kind==='vest'){
+      form.beneficiary=String((document.getElementById('f-ben')||{}).value||'').trim();
+      form.total=String((document.getElementById('f-total')||{}).value||'').trim();
+      form.duration=String((document.getElementById('f-dur')||{}).value||'').trim();
+    } else if(kind==='scroll'){
+      form.each=String((document.getElementById('f-each')||{}).value||'').trim();
+      form.max=String((document.getElementById('f-max')||{}).value||'').trim();
+      form.gate=String((document.getElementById('f-gate')||{}).value||'open');
+      form.locked=!!(document.getElementById('f-locked')&&document.getElementById('f-locked').checked);
+      var allow=String((document.getElementById('f-allow')||{}).value||'').split(/[\s,]+/).filter(Boolean);
+      if(allow.length) form.allow=allow;
+    } else if(kind==='raffle'){
+      form.price=String((document.getElementById('f-price')||{}).value||'').trim();
+      var per=String((document.getElementById('f-period')||{}).value||'').trim();
+      var seats=String((document.getElementById('f-seats')||{}).value||'').trim();
+      if(per) form.period=per;
+      if(seats) form.seats=seats;
+    } else if(kind==='mint'){
+      form.price=String((document.getElementById('f-price')||{}).value||'').trim();
+      form.max=String((document.getElementById('f-max')||{}).value||'').trim();
+      var payTo=String((document.getElementById('f-pay')||{}).value||'').trim();
+      if(payTo) form.payTo=payTo;
+      var shelf=String((document.getElementById('f-shelf')||{}).value||'').trim();
+      if(shelf) form.shelf=shelf;
+    }
+    try{
+      if(out) out.textContent='the node is compiling the IR you will sign…';
+      var a=await window.krayWallet.getAccounts();
+      var me=Array.isArray(a)?a[0]:(a&&(a.address||(a.accounts&&a.accounts[0])));
+      await signAndSubmit({ action:'contract', from: me, star: String(s.star), form: form });
+      location.reload();
+    }catch(e){ if(out){ out.textContent='✗ '+((e&&e.message)||'refused'); out.style.color='var(--crit, #c44)'; } }
+  }
+
+  function mountSpeak(s){
+    var host=document.getElementById('speakcard');
+    if(!host || !s.owner || s.owner==='KRAY_BLACK_HOLE'){ if(host) host.remove(); return; }
+    host.innerHTML='<h2>The key</h2>'
+      +'<div class="sub">Star <b>#'+esc(String(s.star))+'</b> is the master id. A lock — car, house, vault — names this number. The living wallet signs with Bitcoin\'s own BIP-340. Nothing is journaled. Nothing is paid. A stranger re-derives the hold from the proof bytes + ownerOf(#'+esc(String(s.star))+').</div>'
+      +'<div class="lawfields"><input class="input" id="speak-aud" placeholder="audience — car, house, vault, hold" value="hold" autocomplete="off" style="min-height:44px"></div>'
+      +'<div class="actions" style="margin-top:var(--s3)"><button class="btn" id="speak-run" style="min-height:44px">Speak — prove you hold it · 0 ₭</button></div>'
+      +'<pre class="lawprev" id="speak-out" hidden></pre>';
+    var btn=document.getElementById('speak-run');
+    var out=document.getElementById('speak-out');
+    if(!btn) return;
+    btn.addEventListener('click', function(){
+      var aud=String((document.getElementById('speak-aud')||{}).value||'hold');
+      walletAddr().then(function(me){
+        if(!me){ if(out){ out.hidden=false; out.textContent='connect KrayWallet — the same key that holds the star'; } return; }
+        if(String(me)!==String(s.owner)){ if(out){ out.hidden=false; out.textContent='this wallet does not hold star #'+s.star; } return; }
+        if(out){ out.hidden=false; out.textContent='asking the node for the exact message…'; }
+        var w=window.krayWallet;
+        return fetch('/api/kraynet/speak?star='+encodeURIComponent(s.star)+'&audience='+encodeURIComponent(aud))
+          .then(function(r){ return r.json(); })
+          .then(function(ch){
+            if(ch.error) throw new Error(ch.error);
+            return (w.signMessageWithConfirmation||w.signMessage).call(w, ch.message).then(function(sig){
+              return w.getPublicKey().then(function(pk){
+                var pub=(pk&&pk.publicKey)||pk;
+                return fetch('/api/kraynet/speak',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
+                  message: ch.message, from: me, signature: (sig&&sig.signature)||sig, publicKey: pub, scheme: 'kraywallet'
+                })}).then(function(r){ return r.json(); });
+              });
+            });
+          })
+          .then(function(res){
+            if(res.error) throw new Error(res.error);
+            out.textContent=JSON.stringify({
+              spoken:true, fee:'0', journal:false, star:res.star, owner:res.owner, audience:res.audience, message:res.message
+            },null,2);
+          })
+          .catch(function(e){ out.textContent='✗ '+((e&&e.message)||'refused'); });
+      });
+    });
+  }
+  function mountOwnerBar(s){
+    var host=document.getElementById('ownerbar');
+    if(!host || !s.owner) return;
+    if(s.owner==='KRAY_BLACK_HOLE') return; // beyond reach — nothing to offer
+    function paint(mine){
+      // Offer the OWNER whichever attribute the star still lacks — content, a name,
+      // or both. Neutral buttons: amber is reserved for what Bitcoin has sealed.
+      var addbox=document.getElementById('addmissing');
+      if(addbox){
+        var ab='';
+        if(mine && !s.contentHash) ab+='<a class="btn" href="/inscribe?star='+esc(s.star)+'">✎ Inscribe content here</a>';
+        if(mine && !s.name)        ab+='<a class="btn" href="/baptize?star='+esc(s.star)+'">☆ Give it a name</a>';
+        if(mine && !s.contract)    ab+='<a class="btn" href="/inscribe?star='+esc(s.star)+'&tab=law">⚖ Give it a law</a>';
+        addbox.innerHTML = ab ? '<div class="actions">'+ab+'</div>' : '';
+      }
+      if(!mine){ host.innerHTML=''; return; }
+      var written = s.written;
+      var home='/address/'+encodeURIComponent(s.owner); // the citizen's real home page
+      var acts = written
+        ? '<a class="btn" href="'+home+'#send-relic" data-star="'+esc(s.star)+'">★ Send this relic</a>'
+          +'<a class="btn danger" href="'+home+'#freeze" data-star="'+esc(s.star)+'">◉ Freeze forever</a>'
+        : '<a class="btn primary" href="/inscribe" data-star="'+esc(s.star)+'">✎ Write on this star</a>'
+          +'<a class="btn" href="'+home+'#send">Send ₭</a>';
+      host.innerHTML='<div class="minepanel">'
+        +'<div class="mh"><span class="mdot"></span><b>This star is yours</b>'
+        +'<span class="mw">the connected wallet holds it</span></div>'
+        +'<div class="msub">'+(written
+            ? 'It is a RELIC — written, so it travels only when you name it. Money can never sweep it.'
+            : 'It is PLAIN ₭ — it moves as an amount, like money. Burn ₭ by size to write a star, born from fire.')
+        +'</div>'
+        +'<div class="actions">'+acts+'<a class="btn" href="'+home+'">open your profile ↗</a></div></div>';
+      // carry the star to the profile so nothing has to be retyped
+      host.querySelectorAll('[data-star]').forEach(function(a){
+        a.addEventListener('click', function(){
+          try{ sessionStorage.setItem('kray.pickStar', a.getAttribute('data-star')); }catch(_){ }
+        });
+      });
+    }
+    // the wallet may not be injected yet; ask, and ask again once it announces
+    function check(){
+      if(!(window.krayWallet && window.krayWallet._isKrayWallet)) return;
+      Promise.resolve(window.krayWallet.getAccounts()).then(function(a){
+        var addr = Array.isArray(a) ? a[0] : (a && (a.address || (a.accounts && a.accounts[0])));
+        paint(!!addr && String(addr)===String(s.owner));
+      }).catch(function(){ /* not connected — offer nothing, claim nothing */ });
+    }
+    check();
+    window.addEventListener('krayWalletReady', check);
+    setTimeout(check, 1200);
+  }
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function sink(kind, word){
+    if(window.KRAY && typeof KRAY.sink==='function') return KRAY.sink(kind, word);
+    var burn=kind==='burn'||kind==='burned'||kind==='fire';
+    var label=word||(burn?'BURNED':'FREEZE');
+    return '<span class="sink sink-'+(burn?'burn':'freeze')+'" title="'
+      +(burn?'Fungible ₭ destroyed in the fire — not a frozen star':'Star frozen in the black hole — visible, beyond reach')
+      +'">'+label+' <i aria-hidden="true">'+(burn?'🔥':'❄')+'</i></span>';
+  }
+  // METADATA document: JSON.parse(raw). A string value is Markdown (the model
+  // mouth). Anything else is structured JSON (the machine mouth). Same v4 slot.
+  function metaView(raw){
+    if(!raw) return '';
+    var kind='json', body=raw;
+    try{ var v=JSON.parse(raw); if(typeof v==='string'){ kind='markdown'; body=v; } }catch(_){}
+    var inner;
+    if(kind==='markdown' && window.KRAY && KRAY.mdToSafeHtml) inner='<div class="kv-mdprev">'+KRAY.mdToSafeHtml(body)+'</div>';
+    else inner='<pre style="margin:0;white-space:pre-wrap;word-break:break-word;font-size:13px">'+esc(kind==='markdown'?body:raw)+'</pre>';
+    return '<dt>metadata · '+kind+'</dt><dd>'+inner
+      +'<div style="color:var(--ink-4);margin-top:6px;font-size:12px">sealed with the relic — describes, does not execute</div></dd>';
+  }
+  function sn(v){ return '#'+Number(v).toLocaleString(); }
+  function burnAmt(size, listed){
+    if(listed!=null && listed!=='') return String(listed);
+    // the ERA'S rate, not a frozen constant — KRAY.burnOf reads the live retarget (seeded in kray.js)
+    return String((window.KRAY&&KRAY.burnOf)?KRAY.burnOf(size):Math.max(1,Math.ceil(Number(size||0)/1000000)));
+  }
+  function prettySize(n){
+    if(n==null || n==='') return '';
+    return (window.KRAY&&KRAY.formatBytes) ? KRAY.formatBytes(n) : (Number(n).toLocaleString()+' bytes');
+  }
+  function kray(v){ return Number(v).toLocaleString()+' ₭'; }
+  function addr(a){ return a? '<a href="/address/'+esc(a)+'" title="'+esc(a)+'">'+esc(a.slice(0,10))+'…'+esc(a.slice(-6))+'</a>' : '—'; }
+  function when(t){ try{ return new Date(t).toLocaleString(); }catch(_){ return String(t);} }
+
+  /* ── THE PREVIEW — every container shows what is actually inside ───────────
+     Images and SVG paint (as <img>, so a script inside an SVG never runs).
+     Video and audio get players. HTML and Markdown share the markup stage
+     (source by default; Run/Render below the square — see KRAY.wireMarkupStage).
+     Other text, JSON and source code render as TEXT — textContent, never parsed
+     as markup. Anything else is named honestly. Nothing is ever inlined as HTML. */
+  function isText(ct){ return /^text\/|json|javascript|xml|x-python|x-java|markdown|csv|yaml/.test(ct||''); }
+  function isMarkup(ct){ return (window.KRAY && KRAY.isMarkup) ? KRAY.isMarkup(ct) : (/^text\/html/.test(ct||'') || /markdown/i.test(ct||'')); }
+  function renderPreview(box, url, ct, opts){
+    opts = opts || {}; ct = String(ct||'');
+    // the site-wide FROZEN PORTRAIT law (kray.js): every mini shows the real
+    // content, locked; full-size text/code get the letter/editor templates too.
+    // Markup keeps this page's richer full stage (source + caged Run/Render).
+    if(window.KRAY && KRAY.frozenPreview){
+      if(opts.mini){ KRAY.frozenPreview(box, url, ct, {mini:true}); return; }
+      var kvk = KRAY.previewKindOf ? KRAY.previewKindOf(ct) : null;
+      // HTML/Markdown keep the caged Run/Render bar below. Frozen source-only is for
+      // letters and code — treating HTML as `src` here emptied #html-bar (never executed).
+      if((kvk==='txt' || kvk==='src') && !isMarkup(ct)){ KRAY.frozenPreview(box, url, ct, {mini:false}); return; }
+    }
+    box.innerHTML = '';
+    if(ct.indexOf('image/')===0){
+      var i=document.createElement('img'); i.loading='lazy'; i.alt=''; i.src=url; box.appendChild(i); return;
+    }
+    if(ct.indexOf('video/')===0){
+      var v=document.createElement('video'); v.src=url; v.controls=!opts.mini; v.muted=true; v.playsInline=true;
+      if(opts.mini){ v.autoplay=true; v.loop=true; } box.appendChild(v); return;
+    }
+    if(ct.indexOf('audio/')===0){
+      if(window.KRAY && KRAY.musicStage){ KRAY.musicStage(box, url, ct, opts); return; }
+      if(opts.mini){ box.innerHTML='<span class="ptag">♪ '+esc(ct.split('/')[1]||'audio')+'</span>'; return; }
+      var a=document.createElement('audio'); a.src=url; a.controls=true; box.appendChild(a); return;
+    }
+    if(/^application\/pdf\b/.test(ct)){
+      if(opts.mini){ box.innerHTML='<span class="ptag">⎘ pdf</span>'; return; }
+      // the browser's own PDF viewer, through the render door. No sandbox attribute on
+      // purpose: sandbox disables plugin content (the viewer itself). The document is
+      // application/pdf + nosniff — it can never become markup or script on this origin.
+      var pf=document.createElement('iframe');
+      pf.src=String(url).replace('/content/','/render/');
+      pf.title='pdf star (browser viewer)';
+      pf.style.cssText='width:100%;height:100%;min-height:480px;border:0;background:#0b0c10';
+      box.appendChild(pf); return;
+    }
+    if(isMarkup(ct)){
+      if(window.KRAY && KRAY.wireMarkupStage){ KRAY.wireMarkupStage(box, url, ct, opts); return; }
+      if(opts.mini){ box.innerHTML='<span class="ptag">'+( /html/i.test(ct)?'❰❱ html':'¶ md')+'</span>'; return; }
+      var srcpre=document.createElement('pre'); srcpre.className='psource'; srcpre.textContent='…'; box.appendChild(srcpre);
+      fetch(url).then(function(r){return r.text();}).then(function(t){ srcpre.textContent=t; })
+        .catch(function(){ srcpre.textContent='(content not held by this node)'; });
+      return;
+    }
+    if(isText(ct)){
+      var pre=document.createElement('pre'); pre.className='ptext'+(opts.mini?' mini':'');
+      pre.textContent='…'; box.appendChild(pre);
+      fetch(url).then(function(r){return r.text();}).then(function(t){
+        pre.textContent = opts.mini && t.length>240 ? t.slice(0,240)+'…' : t;   // textContent: never markup
+      }).catch(function(){ pre.textContent='(the bytes are held by another node)'; });
+      return;
+    }
+    box.innerHTML='<span class="ptag">'+esc(ct||'unknown')+'</span>';
+  }
+
+  /* one node of the constellation: its content, its number, its name, and a
+     button to unfold its own descendants in place */
+  function treeNode(n, isMe){
+    // an ORIGIN parent is a Bitcoin L1 ordinal, not a KRAY star — render it as a ₿ node
+    if(n.l1){
+      var l1href=(window.KRAY&&KRAY.ordinalsInscriptionUrl)?KRAY.ordinalsInscriptionUrl(n.id):null;
+      // The parent's FACE from Bitcoin: the node's own /l1content extracts the inscription bytes from
+      // the reveal tx on THIS network's bitcoind (net-aware, more trustless than a third-party explorer).
+      // The ₿ sits underneath as the fallback — if the content is recursive/non-image or absent, the img
+      // removes itself and the ₿ shows through (the ordinals.com link still opens the full preview).
+      var l1box='<div class="pbox tiny" style="color:var(--btc);border-color:var(--btc-line);position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden">₿'
+        +'<img src="/l1content/'+esc(n.id)+'" alt="" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none" onerror="this.remove()"></div>';
+      return (l1href
+          ? '<a class="cbox-link" href="'+esc(l1href)+'" target="_blank" rel="noopener noreferrer" title="open this inscription on ordinals.com">'+l1box+'</a>'
+          : '<div class="cbox-link" style="cursor:default">'+l1box+'</div>')
+        +'<div class="cmeta">'
+        +(l1href
+          ? '<a class="cn" href="'+esc(l1href)+'" target="_blank" rel="noopener noreferrer" style="color:var(--btc)" title="'+esc(n.id)+'">Bitcoin L1 ordinal ↗</a>'
+          : '<span class="cn" style="color:var(--btc)">Bitcoin L1 ordinal</span>')
+        +'<div class="cnm mono" style="font-size:10px;word-break:break-all" title="'+esc(n.id)+'">'+esc(String(n.id).slice(0,16))+'…'+esc(String(n.id).slice(-4))+'</div>'
+        +'<div class="ck">origin · the parent on Bitcoin · ordinals.com</div>'
+        +'</div>';
+    }
+    var box = n.url ? '<div class="pbox tiny" data-purl="'+n.url+'" data-pct="'+esc(n.contentType||'')+'"></div>'
+                    : '<div class="pbox tiny empty">☆</div>';
+    return '<a class="cbox-link" href="/star/'+n.star+'">'+box+'</a>'
+      +'<div class="cmeta">'
+      +'<a class="cn" href="/star/'+n.star+'">'+sn(n.star)+'</a>'
+      +(n.name?'<div class="cnm">“'+esc(n.name)+'”</div>':'')
+      +'<div class="ck"><svg width="11" height="11" class="rg-'+esc(n.rarity||'common')+'" style="vertical-align:-1px"><use href="#g-r-'+esc(n.rarity||'common')+'"/></svg> '+esc(n.rarity||'')
+      +(n.role==='parent'?' · parent':'')
+      +(function(){
+        if(window.KRAY&&KRAY.categorySpec){
+          var spec=KRAY.categorySpec(KRAY.categoryOf(n.contentType));
+          if(spec.id==='audio') return ' · ♪ track';
+          if(spec.id==='image') return ' · sleeve';
+          return n.contentType?' · '+spec.glyph+' '+spec.label.toLowerCase():'';
+        }
+        return (String(n.contentType||'').indexOf('audio/')===0?' · ♪ track':'')
+          +(String(n.contentType||'').indexOf('image/')===0?' · sleeve':'');
+      })()
+      +(isMe?' · you are here':'')+'</div>'
+      +(isMe?'':'<button class="cunfold" data-unfold="'+n.star+'">unfold ↓</button>')
+      +'</div>';
+  }
+  function starBranch(c, isMe, krayKids){
+    var html='<div class="cbranch" data-star="'+c.star+'"><div class="cnode'+(isMe?' me':'')+'">'+treeNode(c,isMe)+'</div>';
+    if(isMe && krayKids && krayKids.length){
+      html+='<div class="cfan sub">'+krayKids.map(function(k){
+        return '<div class="cbranch" data-star="'+k.star+'"><div class="cnode">'+treeNode(k,false)+'</div></div>';
+      }).join('')+'</div>';
+    }
+    return html+'</div>';
+  }
+  // unfold a descendant's own children, fetched on demand
+  document.addEventListener('click', function(ev){
+    var b=ev.target.closest && ev.target.closest('[data-unfold]');
+    if(!b) return;
+    ev.preventDefault();
+    var star=b.getAttribute('data-unfold'), branch=b.closest('.cbranch');
+    if(branch.querySelector('.cfan')){ branch.querySelector('.cfan').remove(); b.textContent='unfold ↓'; return; }
+    b.textContent='…';
+    fetch('/api/kraynet/star/'+star).then(function(r){return r.json();}).then(function(k){
+      b.textContent = (k.family && k.family.children.length) ? 'fold ↑' : 'no descendants';
+      if(!k.family || !k.family.children.length) return;
+      var fan=document.createElement('div'); fan.className='cfan sub';
+      fan.innerHTML=k.family.children.map(function(c){ return '<div class="cbranch" data-star="'+c.star+'">'+treeNode(c,false)+'</div>'; }).join('');
+      branch.appendChild(fan);
+      fan.querySelectorAll('.pbox[data-purl]').forEach(function(x){ renderPreview(x, x.getAttribute('data-purl'), x.getAttribute('data-pct'), {mini:true}); });
+    }).catch(function(){ b.textContent='unfold ↓'; });
+  });
+
+  // resolve an id to its star, then render exactly the same page
+  var boot = INS_ID
+    ? fetch('/api/kraynet/inscription/'+INS_ID).then(function(r){return r.json();}).then(function(x){
+        if(x.error) throw new Error(x.error);
+        N = x.star;
+        return fetch('/api/kraynet/star/'+N).then(function(r){return r.json();});
+      })
+    : fetch('/api/kraynet/star/'+N).then(function(r){return r.json();});
+
+  /* ── PAGE THROUGH THE UNIVERSE ─────────────────────────────────────────────
+     Every number IS a page: the star before, the star after, and a jump to any
+     created star, numbered by creation order. */
+  var MAX_STAR = 1n; // the created universe — set live from the network's born count in boot (no fixed cap)
+  function wirePager(current){
+    var n = BigInt(current);
+    var prev = n > 0n ? (n - 1n).toString() : null;
+    var next = n < MAX_STAR - 1n ? (n + 1n).toString() : null;
+    [['pg-prev','pg-prev2',prev],['pg-next','pg-next2',next]].forEach(function(g){
+      [g[0],g[1]].forEach(function(id){
+        var el=document.getElementById(id); if(!el) return;
+        if(g[2]){ el.href='/star/'+g[2]; el.removeAttribute('aria-disabled'); el.querySelector('span').textContent='#'+Number(g[2]).toLocaleString(); }
+        else { el.removeAttribute('href'); el.setAttribute('aria-disabled','true'); el.querySelector('span').textContent = id.indexOf('prev')>=0 ? 'the first star' : 'the last star'; }
+      });
+    });
+    document.getElementById('pager').hidden=false;
+    document.getElementById('pager2').hidden=false;
+    // the arrow keys turn the page, unless the reader is typing
+    document.addEventListener('keydown', function(e){
+      if(/^(INPUT|TEXTAREA)$/.test((e.target.tagName||''))) return;
+      if(e.key==='ArrowLeft' && prev) location.href='/star/'+prev;
+      if(e.key==='ArrowRight' && next) location.href='/star/'+next;
+    });
+    var form=document.getElementById('pg-form');
+    if(form) form.addEventListener('submit', function(e){
+      e.preventDefault();
+      var v=document.getElementById('pg-input').value.replace(/[^0-9]/g,'');
+      if(!v) return;
+      var t=BigInt(v);
+      if(t<0n||t>=MAX_STAR){ document.getElementById('pg-input').value=''; document.getElementById('pg-input').placeholder='beyond what\'s been created — 0 to '+(MAX_STAR-1n).toString(); return; }
+      location.href='/star/'+t.toString();
+    });
+  }
+
+  boot.then(function(s){
+    // the universe is only as large as the network has created — no fixed cap
+    var here = (s && s.star!=null) ? BigInt(s.star) : 0n;
+    fetch('/api/kraynet/overview').then(function(r){return r.json();})
+      .then(function(o){ var born=BigInt(o.starCount||0); MAX_STAR = born > here+1n ? born : here+2n; })
+      .catch(function(){ MAX_STAR = here+2n; })
+      .then(function(){ wirePager(s.star); });
+    if(s.error){
+      document.getElementById('body').innerHTML='<div class="starhead"><div class="idn"><span class="label">not found</span><div class="snum">'+esc(s.error)+'</div>'
+        +'<div class="actions"><a class="btn" href="/">← back to the explorer</a></div></div></div>';
+      return;
+    }
+    document.getElementById('netlab').textContent = s.written ? 'a written star — a relic' : 'a plain star';
+    var ins=s.inscriptions[0]||null;
+    var art = ins && ins.held
+      ? '<div class="pbox" id="hero-prev"></div>'
+      : '<div class="none">'+(ins? 'held by another node<br>'+esc(ins.contentType) : (s.dark?'not yet created<br>no star at this number':'no inscription<br>not yet written'))+'</div>';
+
+    // THE BAPTISM IN THE PLACE OF HONOUR. A baptised star is known by its NAME,
+    // not its number — so the name leads and the number becomes the subtitle.
+    // A name is one plain word, unique in the whole universe forever.
+    var rd = s.nameReading || null;
+    var nameHero = '';
+    if(rd){
+      var tip = 'The name of this star, unique in the whole universe forever. “'+s.name+'”, “'+String(s.name).toUpperCase()+'” and every keyboard variation are ONE name, and this writer was first.';
+      nameHero = '<div class="nmhero" title="'+esc(tip)+'">'
+        +'<span class="nmk"><svg width="12" height="12"><use href="#g-name"/></svg>star name</span>'
+        +'<span class="nmv">'+esc(s.name)+'</span>'
+        +'<span class="nmi" aria-hidden="true">?</span></div>';
+    }
+
+    // ── THE CODEX — the star's rarity, low-number club and sacred houses, as glyphs ──
+    var CODEX_R={
+      mythic:['#f7931a','Mythic','Star #0 — the first star ever written on the network. One only, the most sacred creation.'],
+      legendary:['#c98bff','Legendary','Among the first ten stars ever created — the dawn of the network. Only nine exist.'],
+      epic:['#6bb6ff','Epic','Among the first hundred ever created — the founders’ row. Fewer than 100 exist.'],
+      rare:['#4ec98a','Rare','Among the first thousand stars ever created.'],
+      uncommon:['#d7dae2','Uncommon','Among the first ten thousand stars ever created.'],
+      common:['#818995','Common','Every later star — created after the founding galleries.'],
+      dark:['#4a5058','Dark','No star has yet been created at this number.']};
+    var CODEX_C={
+      first100:['g-c-100','#f7931a','First 100','Among the first 100 stars ever created — the founders’ row.'],
+      first1k:['g-c-1k','#e6b877','First 1K','Among the first 1,000 stars.'],
+      first10k:['g-c-10k','#c6c2cc','First 10K','Among the first 10,000 stars.'],
+      first100k:['g-c-100k','#9aa0ac','First 100K','Among the first 100,000 stars.']};
+    var CODEX_T={
+      fibonacci:['g-t-fib','#e6c98a','Divine Proportion','A Fibonacci number — the golden spiral of da Vinci & Fibonacci. Only 74 exist.'],
+      tesla369:['g-t-tesla','#6fd6d6','Vortex 3·6·9','Its digit root is 3, 6 or 9 — Tesla’s “key to the universe”.'],
+      prime:['g-t-prime','#ff9b9b','Indivisible','A prime — an atom of arithmetic, divisible only by 1 and itself (Euclid).'],
+      perfect:['g-t-perfect','#d79bff','Perfect Harmony','Equal to the sum of its own divisors — Pythagoras’ divine harmony. Only 7 exist.'],
+      triangular:['g-t-tri','#7fd6a0','Sacred Triangle','A triangular number — dots that form a perfect triangle (a pyramid).'],
+      square:['g-t-square','#7fb8ff','Galilean Square','A perfect square — Galileo’s law of odd numbers made geometry.'],
+      binary:['g-t-binary','#b6bccb','Eye of Horus','A power of two — the sacred doubling of the Egyptian fractions.'],
+      palindrome:['g-t-mirror','#9bc9ff','Celestial Mirror','A palindrome — reads the same both ways, perfect symmetry (Kepler).'],
+      repdigit:['g-t-solid','#e0b877','Monolith','Every digit the same — one pure element.'],
+      round:['g-t-zenith','#d0d4de','Zenith','One digit, then only zeros — a round number.'],
+      ladder:['g-t-ladder','#8fe0b0','Ascension','A run of consecutive digits, like 12,345.'],
+      master:['g-t-master','#ffbf7f','Master Number','Its digits sum to 11, 22 or 33 — the master numbers of numerology.'],
+      pi:['g-t-pi','#ff9bd0','The Circle','Its digits spell the start of π — Archimedes’ circle.'],
+      euler:['g-t-euler','#9be0c0','The Constant','Its digits spell the start of e — Euler’s number of growth.'],
+      mersenne:['g-t-mersenne','#ffc98a','Mersenne','A prime of the form 2^p − 1 — the rarest primes; fewer than ten exist.'],
+      twinprime:['g-t-twin','#ff9b9b','The Twins','A prime with a twin — another prime just two away.'],
+      resonance:['g-t-resonance','#8fd0ff','Resonance','A sacred frequency — 108, 432, the solfeggio tones and their harmonics.']};
+    function gchip(gid,color,label,desc,w){ return '<span class="gchip gw-'+(w||2)+'" style="--c:'+color+'" title="'+esc(desc||label)+'"><svg width="14" height="14"><use href="#'+gid+'"/></svg>'+esc(label)+'</span>'; }
+    // WEIGHT = real scarcity. A chip that means "1 of 7 in the universe" must not
+    // read the same size as one a third of all numbers carry (Tesla 3·6·9).
+    var COLLECTION_W={first100:5,first1k:4,first10k:3,first100k:2};
+    var TRAIT_W={perfect:5,mersenne:5,pi:4,euler:4,fibonacci:4,binary:4,repdigit:4,resonance:4,
+      palindrome:3,twinprime:3,square:3,ladder:3,master:3,
+      prime:2,triangular:2,round:2,tesla369:1};
+    // the heaviest honours float to the front, so the eye meets the rarest first
+    var chips=[];
+    if(s.collection&&CODEX_C[s.collection]){ var cc=CODEX_C[s.collection], cw=COLLECTION_W[s.collection]||3; chips.push([cw, gchip(cc[0],cc[1],cc[2],cc[3],cw)]); }
+    (s.traits||[]).forEach(function(t){ var c=CODEX_T[t]; if(c){ var tw=TRAIT_W[t]||2; chips.push([tw, gchip(c[0],c[1],c[2],c[3],tw)]); } });
+    chips.sort(function(a,b){ return b[0]-a[0]; });
+    var codexTags=chips.map(function(x){ return x[1]; }).join('');
+
+    // THE RARITY BADGE — the loudest fact after the number itself, sized to say so.
+    var RARITY_COUNT={mythic:'1 only',legendary:'the first ten',epic:'sub-100',rare:'sub-1K',
+      uncommon:'sub-10K',common:'every later star',dark:'not yet created'};
+    var rarC=CODEX_R[s.rarity]||['#818995',s.rarity,''];
+    var rGlow=/mythic|legendary|epic/.test(s.rarity)?' glow':'';
+    var rbadge='<span class="rbadge'+rGlow+'" style="--c:'+rarC[0]+'" title="'+esc(rarC[2])+'">'
+      +'<svg width="17" height="17"><use href="#g-r-'+esc(s.rarity)+'"/></svg>'+esc(rarC[1])
+      +(RARITY_COUNT[s.rarity]?'<span class="cnt">'+esc(RARITY_COUNT[s.rarity])+'</span>':'')+'</span>';
+    // THE INSCRIPTION NUMBER — its birth order among all living inscriptions, surfaced up top.
+    var insNo=(ins && ins.number!=null)?ins.number:null;
+    var insbadge=insNo!=null
+      ? '<span class="insbadge" title="Inscription number — the birth order of this tattoo among every living inscription in the universe. Lower is older."><svg width="14" height="14"><use href="#g-inscribe"/></svg>Inscription<b>#'+Number(insNo).toLocaleString()+'</b></span>'
+      : '';
+    var szbadge=(ins && ins.size!=null)
+      ? '<span class="szbadge" title="'+Number(ins.size).toLocaleString()+' bytes — the sealed body, exactly"><span class="szk">size</span><span class="szv">'+esc(prettySize(ins.size))+'</span></span>'
+      : '';
+    var bornbadge=s.birth
+      ? '<span class="insbadge" title="When this star was created — earlier creation numbers are older."><svg width="14" height="14"><use href="#g-anchor"/></svg>'+(s.birth.firstOfInterval?'first of ':'born ')+'<b>#'+Number(s.birth.interval).toLocaleString()+'</b></span>'
+      : '';
+
+    var h='<div class="starhead"><div class="art">'+art+'</div><div class="idn">'
+      +(rd? nameHero+'<div class="snum sub">'+sn(s.star)+'</div>'
+          : '<div class="shero"><span class="snum-k">Star</span><div class="snum-big">'+sn(s.star)+'</div></div>')
+      +'<div class="hbadges">'+rbadge+insbadge+szbadge+bornbadge+'</div>'
+      +'<div class="tags">'
+      +codexTags
+      +(ins&&ins.category?'<span class="chip">'+esc(SHELF[ins.category]||'◇')+' '+esc(ins.category)+'</span>':'')
+      +(s.written?'<span class="chip">relic · never spent as gas</span>':'<span class="chip">plain · moves as money</span>')
+      +(s.contract?'<span class="chip">law · living</span>':'')
+      +(s.family.childCount?'<span class="chip">'+s.family.childCount+' child'+(s.family.childCount===1?'':'ren')+'</span>':'')
+      +(function(){
+        var n=0;
+        ;(s.family.ancestors||[]).concat(s.family.immediate||[]).forEach(function(a){
+          if(a && a.l1 && a.children && a.children.length>n) n=a.children.length;
+        });
+        return n>1?'<span class="chip">'+n+' L1 daughters of one ordinal</span>':'';
+      })()
+      // MULTIPARENT lineage chips — every star parent walkable, every L1 origin named.
+      // Scalar-only stars show nothing new here (the family tree already tells their line).
+      +(function(){
+        var ps=s.parents||(s.parent!=null?[s.parent]:[]), os=s.origins||[];
+        if(!ps.length && !os.length) return '';
+        var h='';
+        ps.forEach(function(p){ h+='<a class="chip" href="/star/'+esc(String(p))+'" title="parent star #'+esc(String(p))+' — the signed lineage">✦ #'+Number(p).toLocaleString()+'</a>'; });
+        os.forEach(function(o){
+          var href=(window.KRAY&&KRAY.ordinalsInscriptionUrl)?KRAY.ordinalsInscriptionUrl(o):null;
+          h+= href
+            ? '<a class="chip" href="'+esc(href)+'" target="_blank" rel="noopener noreferrer" style="color:var(--btc);border-color:var(--btc-line)" title="'+esc(String(o))+' — open on ordinals.com">₿ '+esc(String(o).slice(0,8))+'… ↗</a>'
+            : '<span class="chip" style="color:var(--btc);border-color:var(--btc-line)" title="'+esc(String(o))+' — Bitcoin L1 ordinal parent">₿ '+esc(String(o).slice(0,8))+'…</span>';
+        });
+        return h;
+      })()
+      +'</div>'
+      +(s.owner==='KRAY_BLACK_HOLE'
+        ? '<div class="frozenmark" title="This star was sent to the black hole — retired forever. It can never move again: no public key encodes to that account, and the reducer refuses to spend from it regardless. Everything written here stays visible forever.">'
+          +sink('freeze')
+          +'<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">'
+          +'<path d="M12 2v20M3.5 7l17 10M20.5 7l-17 10"/><path d="M12 6.2l2.1-2.1M12 6.2L9.9 4.1M12 17.8l2.1 2.1M12 17.8l-2.1 2.1"/>'
+          +'<path d="M6.6 9.4L5.3 6.6M6.6 9.4L3.7 9.9M17.4 14.6l1.3 2.8M17.4 14.6l2.9-.5"/>'
+          +'<path d="M6.6 14.6l-2.9.5M6.6 14.6l-1.3 2.8M17.4 9.4l2.9.5M17.4 9.4l1.3-2.8"/></g></svg>'
+          +'<span class="fm"><b>FROZEN IN THE BLACK HOLE</b>'
+          +'<i id="fmhow">It can never move again — not by anyone, ever. Retired from circulation, it stays visible forever. '
+          +'<a href="/blackhole">see the register ↗</a></i></span></div>'
+        : '<div class="owner">held by <b>'+addr(s.owner)+'</b></div>')
+      +'</div></div>';
+
+    // what is written on it
+    if(s.inscriptions.length || s.baptism){
+      h+='<div class="card tick">'+sink('burn')+'<h2><svg width="15" height="15"><use href="#g-inscribe"/></svg>What is written here</h2><div class="sub">Content is byte-unique in the whole universe, and a star holds exactly one inscription — forever.</div><dl class="rows">';
+      if(s.baptism) h+='<dt>baptised</dt><dd><b>“'+esc(s.baptism.name)+'”</b> by '+addr(s.baptism.by)
+        +' · burned <b>'+kray(burnAmt(0, s.baptism.burn))+'</b></dd>';
+      s.inscriptions.forEach(function(x){
+        var b=burnAmt(x.size, x.burn);
+        // THREE DISTINCT IDENTITIES, and confusing them is easy — so name each one
+        h+='<dt>inscription number</dt><dd><b>#'+(x.number!=null?x.number:'—')+'</b> <span style="color:var(--ink-4)">— birth order among all living inscriptions</span></dd>'
+          +'<dt>inscription id</dt><dd><b><a href="/star/'+esc(x.id)+'">'+esc(x.id)+'</a></b><br><span style="color:var(--ink-4)">the ORDINALS shape: <code>&lt;signed act hash&gt;i&lt;index&gt;</code> — this star, reached by the tattoo id · derived from the BIP-340-signed event, so it cannot exist without the signature that authorised it</span></dd>'
+          +(x.meta?metaView(x.meta):'')
+          +'<dt>content sha256</dt><dd>'+esc(x.contentHash)+'<br><span style="color:var(--ink-4)">identifies the BYTES · unique in the whole universe, first writer wins</span></dd>'
+          +(x.size!=null?'<dt>size</dt><dd><span class="sz">'+esc(prettySize(x.size))+'</span><br><span style="color:var(--ink-4)">'+Number(x.size).toLocaleString()+' bytes — the sealed body, exactly</span></dd>':'')
+          +'<dt>burned to born</dt><dd><b>'+kray(b)+'</b> <span style="color:var(--ink-4)">— ₭ destroyed into this star (not a fee: the value dies in the fire)</span></dd>'
+          +'<dt>media</dt><dd>'+esc(x.contentType)
+          +'<br>written by '+addr(x.by)+(x.parent?' · child of <a href="/star/'+x.parent+'">'+sn(x.parent)+'</a>':'')
+          +(x.held?'<br><a href="'+x.url+'" target="_blank" rel="noopener">open the sealed bytes ↗</a>'
+            +(String(x.contentType||'').indexOf('audio/')===0
+              ?' · <a href="'+String(x.url).replace('/content/','/render/')+'" target="_blank" rel="noopener">play with cover ↗</a>'
+              :'')
+            :'<br>the bytes are held by another node')
+          +'</dd>';
+      });
+      h+='</dl>';
+      if(ins && ins.held){
+        var markupStar=isMarkup(ins.contentType||'');
+        h+='<div class="prev'+(markupStar?' html-prev':'')+'"><div class="pbox full" id="prev"></div>'
+          +(markupStar?'<div class="html-bar" id="html-bar"></div>':'')
+          +'</div>';
+      }
+      h+='</div>';
+    }
+
+    // ── YOURS ─────────────────────────────────────────────────────────────
+    // If the connected wallet is the holder, say so and offer what can be done.
+    // The container is placed now and FILLED later, once the wallet answers —
+    // a panel that claimed ownership before the wallet confirmed would be the
+    // worst possible thing to be wrong about.
+    // ── ADD THE MISSING ATTRIBUTE — a star is a canvas that can hold a name AND/OR
+    // content. This container sits right under "What is written" and is filled only
+    // once the wallet confirms the viewer owns the star (see mountOwnerBar).
+    h+='<div id="addmissing"></div>';
+    h+='<div id="ownerbar"></div>';
+    h+='<div class="card tick" id="speakcard"></div>';
+    h+=lawCardHtml(s);
+
+    // ── ITS LAND — the district Bitcoin minted, with this lot lit up ───────
+    // Only offered when something IS written: a plain star stakes no ground, and
+    // an empty card would imply otherwise.
+    if(s.written) h+='<div class="card tick" id="landcard"><h2><svg width="15" height="15"><use href="#g-anchor"/></svg>Its land</h2><div class="sub">locating this lot in the city…</div></div>';
+
+    // ── THE CONSTELLATION — an interactive family tree ─────────────────────
+    // Ancestors climb to the root of the lineage; the current star sits in the
+    // middle; descendants open in place, and their own children can be unfolded
+    // without leaving the page. Every node carries its real content.
+    var f=s.family;
+    var immediate=f.immediate||[];
+    if(f.ancestors.length || f.children.length || immediate.length){
+      h+='<div class="card tick"><h2><svg width="15" height="15"><use href="#g-star"/></svg>The constellation</h2>'
+        +'<div class="sub">Lineage is committed into the anchored root — a provenance chain that can never detach. Unfold a descendant to walk the tree without leaving this page.</div>'
+        +'<div class="ctree">';
+      // many immediate parents sit side by side (the signed lists). A single
+      // parent still climbs as a stack — two bloods are never drawn as one chain.
+      // One L1 father: all KRAY daughters fan under it (same as children of a star).
+      var meInL1Fan=false;
+      var l1Sisters=[];
+      if(immediate.length>1){
+        h+='<div class="cfan anc">'+immediate.map(function(a){
+          var block='<div class="cbranch"><div class="cnode anc">'+treeNode(a,false)+'</div>';
+          if(a.l1 && a.children && a.children.length){
+            block+='<div class="cfan sub">'+a.children.map(function(c){
+              return starBranch(c, String(c.star)===String(s.star), String(c.star)===String(s.star)?f.children:[]);
+            }).join('')+'</div>';
+            meInL1Fan=true;
+            l1Sisters=l1Sisters.concat(a.children);
+          }
+          return block+'</div>';
+        }).join('')+'</div>';
+        if(!meInL1Fan) h+='<div class="cline"></div>';
+      } else {
+        f.ancestors.slice().reverse().forEach(function(a){
+          h+='<div class="cnode anc">'+treeNode(a, false)+'</div><div class="cline"></div>';
+          if(a.l1 && a.children && a.children.length){
+            h+='<div class="cfan">'+a.children.map(function(c){
+              return starBranch(c, String(c.star)===String(s.star), String(c.star)===String(s.star)?f.children:[]);
+            }).join('')+'</div>';
+            meInL1Fan=true;
+            l1Sisters=a.children;
+          }
+        });
+      }
+      if(!meInL1Fan){
+        h+='<div class="cnode me">'+treeNode({star:s.star, name:s.name, rarity:s.rarity,
+              url:(ins&&ins.held?ins.url:null), contentType:(ins?ins.contentType:null)}, true)+'</div>';
+        if(f.children.length){
+          h+='<div class="cline"></div><div class="cfan">'
+            +f.children.map(function(c){ return '<div class="cbranch" data-star="'+c.star+'">'+treeNode(c,false)+'</div>'; }).join('')
+            +'</div>';
+        }
+      }
+      h+='</div>';
+      // A sleeve with audio children is a record — same family, read as works.
+      if(f.children.length){
+        var audioKids=f.children.filter(function(c){ return String(c.contentType||'').indexOf('audio/')===0; });
+        var record = audioKids.length>=2 && audioKids.length===f.children.length;
+        h+='<div class="sub" style="margin-top:var(--s5)">'+(record
+          ? 'The record — every track is a child of this sleeve. Lineage is the album; there is no second kind.'
+          : 'Works born from this star — each child signed its parentage.')+'</div>'
+          +'<div class="works">'
+          +f.children.map(function(c){
+            var box = c.url
+              ? '<div class="pbox" data-purl="'+c.url+'" data-pct="'+esc(c.contentType||'')+'"></div>'
+              : '<div class="pbox"></div>';
+            var spec=(window.KRAY&&KRAY.categorySpec)?KRAY.categorySpec(KRAY.categoryOf(c.contentType)):null;
+            var kind = spec && spec.id==='audio' ? '♪ track'
+              : spec ? spec.glyph+' '+spec.label.toLowerCase()
+              : (c.contentType||'work');
+            return '<a class="work" href="/star/'+c.star+'">'+box
+              +'<div class="wn">'+(c.name?esc(c.name):('#'+Number(c.star).toLocaleString()))+'</div>'
+              +'<div class="wk">'+esc(kind)+' · #'+Number(c.star).toLocaleString()+'</div></a>';
+          }).join('')
+          +'</div>';
+      }
+      if(l1Sisters.length>1){
+        h+='<div class="sub" style="margin-top:var(--s5)">Daughters of the same Bitcoin L1 ordinal — one father, one family.</div>'
+          +'<div class="works">'
+          +l1Sisters.map(function(c){
+            var box = c.url
+              ? '<div class="pbox" data-purl="'+c.url+'" data-pct="'+esc(c.contentType||'')+'"></div>'
+              : '<div class="pbox"></div>';
+            return '<a class="work" href="/star/'+c.star+'">'+box
+              +'<div class="wn">'+(c.name?esc(c.name):('#'+Number(c.star).toLocaleString()))+'</div>'
+              +'<div class="wk">L1 sister · #'+Number(c.star).toLocaleString()+(String(c.star)===String(s.star)?' · you':'')+'</div></a>';
+          }).join('')
+          +'</div>';
+      }
+      h+='</div>';
+    }
+
+    // identity, for the record
+    h+='<div class="card tick"><h2>Identity</h2><dl class="rows">'
+      +'<dt>master id</dt><dd><b>#'+Number(s.star).toLocaleString()+'</b><br><span style="color:var(--ink-4)">the key a lock names — car, house, vault. The living owner speaks for it. Speak is free: BIP-340, no journal, no ₭.</span></dd>'
+      +'<dt>star number</dt><dd><b>'+Number(s.star).toLocaleString()+'</b></dd>'
+      +'<dt>rarity</dt><dd class="gold">'+esc(s.rarity)+'</dd>'
+      +(s.birth?'<dt>created</dt><dd>#'+Number(s.birth.interval).toLocaleString()+(s.birth.firstOfInterval?' · the first of it':'')+'</dd>':'<dt>created</dt><dd>not yet — no star at this number</dd>')
+      +'<dt>owner</dt><dd>'+addr(s.owner)+'</dd>'
+      +'<dt>status</dt><dd>'+(s.written?'<b>written</b> — a relic, protocol-protected: it can only travel by an explicit star send, never as money':'plain — it moves as ordinary ₭')+'</dd>'
+      +'</dl></div>';
+
+    // everything that ever touched it
+    if(s.history.length){
+      h+='<div class="card tick"><h2>History</h2><div class="sub">The raffle’s own book — oldest first. A ticket line is ₭ that went into the pot. Click any row for the proof act.</div><div class="hist">'
+        +s.history.map(function(e){
+          var tag=e.kind, what='';
+          if(e.kind==='inscribe'){ tag='write'; what='content chiselled'+(e.burn?' · burned '+kray(e.burn):''); }
+          else if(e.kind==='name'){ tag='name'; what='baptised'+(e.burn?' · burned '+kray(e.burn):''); }
+          else if(e.kind==='origin'){ tag='origin'; what='born from L1'+(e.burn?' · burned '+kray(e.burn):''); }
+          else if(e.kind==='transfer-star'){ tag='send'; what=e.from?e.from.slice(0,10)+'… → '+String(e.to).slice(0,10)+'…':'travelled'; }
+          else if(e.kind==='contract'){ tag='law'; what='raffle sealed on this face'+(e.burn?' · burned '+kray(e.burn):''); }
+          else if(e.kind==='contract-call' && e.rule==='enter'){
+            tag='ticket';
+            what=(e.take!=null && String(e.take)!=='' ? kray(e.take) : 'ticket')+' into the pot · plus the eternal 1 ₭ fee';
+          } else if(e.kind==='contract-call' && e.rule==='settle' && e.paid && e.paid.length){
+            tag='prize';
+            what='pot paid '+e.paid.map(function(p){ return kray(p.amount)+' → '+String(p.to).slice(0,14)+'…'; }).join(' · ');
+          } else if(e.kind==='contract-call' && (e.rule==='settle'||e.rule==='skip')){
+            tag='roll';
+            what='window due, fewer than 2 seats — pot stayed, clock restarted';
+          } else if(e.kind==='contract-call' && e.rule==='draw' && e.paid && e.paid.length){
+            tag='draw';
+            what='owner delivered '+e.paid.map(function(p){ return kray(p.amount); }).join(' + ');
+          } else if(e.kind==='contract-call'){
+            tag=e.rule||'call';
+            what='law · '+esc(e.rule||'call');
+          } else { what=e.kind; }
+          return '<a class="hrow" href="/tx/'+e.hash+'"><span class="hk">'+esc(tag)+'</span>'
+            +'<span class="hw">'+esc(what)+'</span><span class="hb">block #'+Number(e.blockNumber).toLocaleString()+'</span></a>';
+        }).join('')+'</div></div>';
+    }
+
+    h+='<div class="actions"><a class="btn" href="/">← the explorer</a>'
+      +(s.owner?'<a class="btn" href="/address/'+esc(s.owner)+'">the holder\'s profile →</a>':'')
+      +'<a class="btn" href="/docs#inscribe">how stars work</a></div>';
+
+    document.getElementById('body').innerHTML=h;
+
+    // its place in the city, drawn from the node's own parcel list
+    if(s.written) mountLand(s.star);
+    mountOwnerBar(s);
+    mountSpeak(s);
+    mountLaw(s);
+    tellFreezeKind(s);
+
+    // every container gets its real content
+    if(ins && ins.held){
+      var hero=document.getElementById('hero-prev'); if(hero) renderPreview(hero, ins.url, ins.contentType, {mini:true});
+      var full=document.getElementById('prev');     if(full) renderPreview(full, ins.url, ins.contentType, {});
+    }
+    document.querySelectorAll('.pbox[data-purl]').forEach(function(b){
+      renderPreview(b, b.getAttribute('data-purl'), b.getAttribute('data-pct'), {mini:true});
+    });
+  }).catch(function(e){
+    var msg=(e && e.message) ? e.message : 'the node may be restarting';
+    document.getElementById('body').innerHTML='<div class="starhead"><div class="idn"><span class="label">not found</span>'
+      +'<div class="snum">'+esc(msg)+'</div>'
+      +'<div class="owner">'+(INS_ID?'inscription id ':'star ')+esc(INS_ID||N||'')+'</div>'
+      +'<div class="actions"><a class="btn" href="/">← explorer</a><a class="btn" href="/docs#inscribe">how stars work</a></div></div></div>';
+  });
+})();
+</script>
+</body>
+</html>

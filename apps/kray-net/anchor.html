@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Anchor</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  .anchorgrid{display:grid;gap:var(--s3);margin:var(--s5) 0}
+  .arow{display:flex;flex-direction:column;gap:4px;padding:var(--s4);border:1px solid var(--line);border-radius:var(--r2);background:var(--surface)}
+  .arow .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4)}
+  .arow .v{font-family:var(--mono);font-size:13px;color:var(--ink);word-break:break-all;line-height:1.5}
+  .arow .v.btc{color:var(--btc)}
+  .potbar{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s6);margin-top:var(--s3);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+  .potbar b{color:var(--ink)}
+</style>
+</head>
+<body data-page="home">
+<div class="wrap-narrow">
+  <section class="hero" style="border-top:0;padding-bottom:var(--s6)">
+    <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; ONE CASCADE ROOT · SEALED TO BITCOIN</div>
+    <h1 style="font-size:clamp(38px,7vw,72px)">The anchor</h1>
+    <p class="lede">The whole network's truth folds into <b>one cascade root</b>, and that root is committed to Bitcoin L1
+      in a single <b>49-byte OP_RETURN</b> — the proof any node reads back to verify KRAY from first principles.
+      In the burn model each donation <b>carries its own anchor for free</b> (the sats are destroyed at a keyless
+      address that commits this very root — see <a href="/burn">/burn</a>); the OP_RETURN below is the standalone
+      seal anyone may still broadcast. This is the exact payload, live.</p>
+  </section>
+
+  <section style="border-top:0;padding-top:0">
+    <div class="card btc tick blueprint">
+      <div class="mh" style="display:flex;align-items:center;gap:var(--s2);margin-bottom:var(--s5)">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--btc);box-shadow:0 0 12px var(--btc)"></span>
+        <span class="label" style="color:var(--btc)">CURRENT COMMITMENT</span>
+        <span class="mono dim" style="margin-left:auto;font-size:11px" id="net">—</span>
+      </div>
+
+      <div class="anchorgrid">
+        <div class="arow"><span class="k">block number (journal seq)</span><span class="v" id="a-block">—</span></div>
+        <div class="arow"><span class="k">cascade root</span><span class="v btc" id="a-root">—</span></div>
+        <div class="arow"><span class="k">OP_RETURN payload · 49 bytes · ready to broadcast</span><span class="v" id="a-payload">—</span></div>
+      </div>
+
+      <div class="av-prove" style="margin-top:var(--s5)"><button class="av-prove-btn" id="a-verify-btn">Prove the latest anchor on Bitcoin yourself ↗</button>
+        <div class="dim mono" style="font-size:11px;margin-top:8px;opacity:.85;letter-spacing:.03em">Your own browser recomputes the seal from the cascade root and matches it against Bitcoin through a third-party explorer — this node is trusted for none of it.</div>
+        <div class="av-out" id="a-verify-out" style="margin-top:var(--s3)"></div></div>
+
+      <div class="potbar" id="potbar" hidden>
+        <span>sacrifice ledger: <b id="pb-held">—</b> sats</span>
+        <span>spent on anchoring: <b id="pb-spent">—</b></span>
+        <span>mintable now: <b id="pb-deficit">—</b> ₭</span>
+      </div>
+
+      <a class="btn btc block" href="/mine" style="margin-top:var(--s5)"><svg width="15" height="15"><use href="#g-anchor"/></svg> Fund the anchor — donate → mint ₭</a>
+      <p class="dim mono" style="font-size:11px;margin-top:var(--s4);letter-spacing:.04em">an operator's node writes this OP_RETURN to Bitcoin; the block number is the journal seq until the live Bitcoin clock lands. No central wallet — every satoshi is a sacrificed donation.</p>
+    </div>
+  </section>
+</div>
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){return document.getElementById(id);};
+  function load(){
+    fetch('/api/kraynet/anchor/payload',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+      if(d && d.cascadeRoot){
+        $('a-block').textContent='#'+d.blockNumber;
+        $('a-root').textContent=d.cascadeRoot;
+        $('a-payload').textContent=d.payload;
+      }
+    }).catch(function(){});
+    fetch('/api/kraynet/pot',{cache:'no-store'}).then(function(r){return r.json();}).then(function(p){
+      if(p && p.held!=null){
+        $('potbar').hidden=false;
+        $('pb-held').textContent=Number(p.held).toLocaleString();
+        $('pb-spent').textContent=Number(p.spent).toLocaleString();
+        $('pb-deficit').textContent=Number(p.deficit).toLocaleString();
+      }
+    }).catch(function(){});
+    fetch('/health',{cache:'no-store'}).then(function(r){return r.json();}).then(function(h){ if($('net')) $('net').textContent=(h.network||'')+' · seq '+h.seq; }).catch(function(){});
+  }
+  document.addEventListener('DOMContentLoaded', load);
+})();
+</script>
+
+<!-- the trustless anchor-verify widget (new, self-contained) — powers "Prove the latest anchor yourself" -->
+<script src="/burn-proof.js"></script>
+<script src="/verify.js"></script>
+<script type="module" src="/kray-spv.mjs"></script>
+<script src="/anchor-verify.js"></script>
+<script>
+(function () {
+  'use strict'
+  var btn = document.getElementById('a-verify-btn'), out = document.getElementById('a-verify-out')
+  if (!btn || !out) return
+  btn.addEventListener('click', function () {
+    btn.disabled = true; out.innerHTML = '<div class="dim mono" style="font-size:12px;padding:8px 0">finding the latest anchor + asking Bitcoin…</div>'
+    ;(function go(t) {
+      if (!(window.AnchorVerify && window.KraySPV && window.BurnProof && window.KrayVerify)) {
+        if ((t || 0) > 60) { out.innerHTML = '<div class="dim mono" style="font-size:12px">the proof engine did not load — refresh.</div>'; btn.disabled = false; return }
+        return setTimeout(function () { go((t || 0) + 1) }, 100)
+      }
+      fetch('/api/kraynet/self-anchors').then(function (r) { return r.json() }).then(function (d) {
+        var list = (d && d.selfAnchors) || []
+        if (!list.length) { out.innerHTML = '<div class="dim mono" style="font-size:12px">no self-anchor on this node yet — the first donation seals it.</div>'; btn.disabled = false; return }
+        return fetch('/api/kraynet/anchor-opening/' + list[0].blockNumber).then(function (r) { return r.ok ? r.json() : null }).then(function (op) {
+          if (!op) { out.innerHTML = '<div class="dim mono" style="font-size:12px">could not load the opening.</div>'; btn.disabled = false; return }
+          window.AnchorVerify.run(out, op, op.network || 'signet')
+        })
+      }).catch(function () { out.innerHTML = '<div class="dim mono" style="font-size:12px">could not reach this node.</div>'; btn.disabled = false })
+    })(0)
+  })
+})()
+</script>
+</body>
+</html>

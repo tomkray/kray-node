@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Baptize</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+</head>
+<body data-page="inscribe">
+<div class="wrap-narrow">
+  <section class="hero" style="border-top:0;padding-bottom:var(--s6)">
+    <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; BAPTISM · PERMANENT</div>
+    <h1 style="font-size:clamp(38px,7vw,72px)">Baptize a name</h1>
+    <p class="lede">Claim a name for a star — one plain word, spelled out (letters and digits, no spaces, dots or @). Unique in the whole universe <b>forever</b>: the first writer owns it, nobody can rename it, and every keyboard types the same bytes so nothing can be spoofed. Signed by KrayWallet, 1&nbsp;₭.</p>
+  </section>
+
+  <section style="border-top:0;padding-top:0">
+    <div class="card tick">
+      <div id="acct" class="chip" style="margin-bottom:var(--s5)">connect your KrayWallet above — your account IS your taproot address</div>
+      <!-- ADD-TO-STAR banner — shown only when ?star=N names an existing star you own. -->
+      <div class="chip" id="target" style="display:none;width:100%;border-radius:var(--r1);margin-bottom:var(--s5)"></div>
+      <div class="field">
+        <label for="name">Name · unique in the universe, forever</label>
+        <input class="input" id="name" maxlength="64" placeholder="lyra · orion · andromeda" autocomplete="off">
+      </div>
+      <!-- The star is NEVER a free-choice number: a new name is born at the next
+           creation number, and an existing star is targeted only via ?star=N. This
+           hidden input just carries that target so the signing path stays unchanged. -->
+      <div class="field" id="starfield" style="display:none">
+        <label for="star">Star</label>
+        <input class="input" id="star" placeholder="auto" autocomplete="off">
+      </div>
+      <button class="btn primary block" id="go" disabled><svg width="15" height="15"><use href="#g-name"/></svg> <span id="golabel">Baptize — 1 ₭</span></button>
+      <div class="out hidden" id="out"></div>
+      <p class="dim mono" style="font-size:11px;margin-top:var(--s4);letter-spacing:.04em">the node builds the message · your wallet signs · sealed in the next fast block. the name is never renamed, not even by you.</p>
+    </div>
+  </section>
+</div>
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  var $=function(id){return document.getElementById(id);};
+  var me=null, busy=false;
+  // ── ADD-TO-STAR ── ?star=N names an EXISTING star you own (same number, same
+  // content); the name is added to it. No query = a new named star, born fresh.
+  var TARGET=(function(){ var q=new URLSearchParams(location.search).get('star'); return (q!=null && /^\d+$/.test(q)) ? q : null; })();
+  function paint(){ var ok=!!(me && $('name').value.trim()); $('go').disabled=busy||!ok;
+    $('acct').textContent = me ? ('signed in as '+(window.KRAY?KRAY.short(me):me)) : 'connect your KrayWallet above — your account IS your taproot address';
+    $('acct').className = 'chip'+(me?' btc':''); }
+  function show(cls,html){ var o=$('out'); o.className='out '+cls; o.classList.remove('hidden'); o.innerHTML=html; }
+  window.addEventListener('kray-connected', function(e){ me=e.detail.address; paint(); });
+  window.addEventListener('kray-disconnected', function(){ me=null; paint(); });
+  document.addEventListener('DOMContentLoaded', function(){
+    me=window.__krayAddr||null; paint();
+    if(TARGET!=null){
+      $('star').value=TARGET; // carried into the signed act as the target star
+      var tgt=$('target');
+      if(tgt){ tgt.textContent='Naming star #'+Number(TARGET).toLocaleString()+' — it keeps its number and content; the name is added.'; tgt.style.display='flex'; }
+    }
+    $('name').addEventListener('input', paint);
+    $('go').addEventListener('click', async function(){
+      if(busy||!me) return; busy=true; paint();
+      try{
+        var name=$('name').value.trim(); var starIn=$('star').value.trim().replace(/[#,\s]/g,'');
+        var fields={name:name}; if(starIn) fields.star=starIn;
+        show('', 'preparing…');
+        var res=await KRAY.act('name', fields, {onstep:function(s){ show('', s); }});
+        var nm=(window.KRAY?KRAY.esc(name):name);
+        show('ok', TARGET!=null
+          ? '✓ named — “'+nm+'” added to star #'+Number(res.star).toLocaleString()+' · <a href="/star/'+res.star+'">view</a>'
+          : '✓ baptized — star #'+Number(res.star).toLocaleString()+' is now “'+nm+'” forever · <a href="/star/'+res.star+'">view</a>');
+        $('name').value=''; $('star').value='';
+      }catch(err){ show('err', '✗ '+(err&&err.message||'refused')); }
+      busy=false; paint();
+    });
+  });
+})();
+</script>
+</body>
+</html>

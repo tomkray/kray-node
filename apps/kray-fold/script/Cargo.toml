@@ -1,0 +1,24 @@
+[package]
+name = "kray-fold-script"
+version = "0.1.0"
+edition = "2021"
+default-run = "kray-fold"
+
+[[bin]]
+name = "kray-fold"
+path = "src/bin/main.rs"
+
+[dependencies]
+# the default bench proves/verifies COMPRESSED proofs (real STARKs) with no Go toolchain;
+# `--features wrap` turns on the Groth16 wrap (native-gnark → needs Go) for the constant-size proof.
+sp1-sdk = { version = "6.0.1", features = ["blocking"] }
+kray-fold-lib = { path = "../lib" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { version = "4.0", features = ["derive", "env"] }
+
+[features]
+wrap = ["sp1-sdk/native-gnark"]
+
+[build-dependencies]
+sp1-build = { version = "6.0.1" }

@@ -1,0 +1,1225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Inscribe</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+/* ── inscribe-only bits: the account line, the pick chips, the byte-meta and the
+   result line. Everything else comes from /kray.css (Blueprint). ── */
+.iacct{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s5);align-items:center;
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+  border-bottom:1px solid var(--line);padding-bottom:var(--s4);margin-bottom:var(--s5)}
+.iacct b{color:var(--ink);font-weight:600}
+.iacct .gold{color:var(--ink)}
+/* the star / ordinal pick chips (built by the signing IIFE) */
+.istars{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s2)}
+.istars[hidden]{display:none}          /* honour the JS hidden toggle over display:flex */
+.flab{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);align-self:center}
+/* the live byte / sha256 meta line */
+.imeta{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);margin-top:var(--s3);word-break:break-all}
+/* the result line — the signing IIFE writes className "iout" / "iout ok" / "iout err"
+   verbatim, so we mirror v2 .out here rather than touch the JS. */
+.iout{font-family:var(--mono);font-size:12.5px;line-height:1.7;margin-top:var(--s3);word-break:break-word;color:var(--ink-2)}
+.iout:empty{display:none}
+.iout.ok,.iout.err{padding:var(--s3) var(--s4);border-radius:var(--r1);border:1px solid var(--line)}
+.iout.ok{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent);background:color-mix(in srgb,var(--good) 8%,transparent)}
+.iout.err{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,transparent);background:color-mix(in srgb,var(--crit) 8%,transparent)}
+.iout a{color:var(--btc);text-decoration:none}
+.iout a:hover{text-decoration:underline}
+.examlist{list-style:none;margin:var(--s3) 0 0;padding:0;display:flex;flex-direction:column;gap:var(--s2)}
+.examlist li{display:flex;gap:var(--s3);align-items:flex-start;font-family:var(--mono);font-size:12px;line-height:1.5;padding:var(--s2) 0;min-height:44px}
+.examlist .mk{width:20px;flex:none;font-weight:600}
+.examlist .pass .mk,.examhead.ok{color:var(--good)}
+.examlist .fail .mk,.examhead.bad{color:var(--crit)}
+.examlist .quiet .mk{color:var(--ink-4)}
+.examlist .dt{color:var(--ink-4);font-size:11px}
+.examhead{font-family:var(--mono);font-size:13px;margin:var(--s3) 0 0}
+.lawpapers{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,148px),1fr));gap:var(--s2);margin:0 0 var(--s4)}
+.lawpaper{min-height:72px;padding:var(--s3);text-align:left;display:flex;flex-direction:column;gap:var(--s1);justify-content:center}
+.lawpaper b{font-weight:600;color:var(--ink)}
+.lawpaper span{font-family:var(--mono);font-size:11px;color:var(--ink-4);line-height:1.4}
+.lawpaper.on{border-color:var(--ink);color:var(--ink);background:var(--surface-2)}
+.lawflags{display:flex;flex-direction:column;gap:0;margin:var(--s3) 0}
+.lawflag{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:var(--s3) 0;border-bottom:1px solid var(--line-2);min-height:44px}
+.lawflag .fn{font-family:var(--mono);font-size:13px;letter-spacing:.04em}
+.lawadd{display:flex;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s3)}
+.lawadd .input{flex:1 1 160px;min-height:44px}
+.lawfields{display:flex;flex-direction:column;gap:var(--s4);margin-top:var(--s3)}
+.lawfields .input{min-height:44px}
+.lawknob{display:flex;flex-direction:column;gap:var(--s2)}
+.lawknob > label{font-size:16px;font-weight:600;line-height:1.4;color:var(--ink)}
+.lawknob .hint{margin:0;font-size:14px;line-height:1.5;color:var(--ink-3)}
+.lawsrc{min-height:280px;font-family:var(--mono);font-size:12px;line-height:1.5;padding:var(--s3);background:var(--void);resize:vertical;cursor:text;user-select:text;caret-color:var(--ink);color:var(--ink)}
+.lawprev{margin-top:0;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--ink-3);white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;padding:var(--s3);border:1px solid var(--line-2);border-radius:var(--r2);background:var(--void)}
+#i-lawwrite[hidden],#i-lawprevwrap[hidden],#m-prev[hidden]{display:none}
+.music-drops{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
+@media(max-width:640px){.music-drops{grid-template-columns:1fr}}
+.music-prev{margin-top:var(--s4);display:flex;flex-direction:column;align-items:center;gap:var(--s3)}
+.music-prev img{width:min(100%,280px);aspect-ratio:1/1;object-fit:cover;border-radius:var(--r2);border:1px solid var(--line)}
+.music-prev audio{width:min(100%,280px)}
+#i-lawwrite > label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+</style>
+</head>
+<body data-page="inscribe">
+<div class="wrap-narrow">
+  <section class="hero" style="border-top:0;padding-bottom:var(--s6)">
+    <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; INSCRIBE · PERMANENT</div>
+    <h1 style="font-size:clamp(38px,7vw,72px)">Inscribe a star</h1>
+    <p class="lede">Write your star with your <b>own wallet</b> — a <b>name</b>, <b>bytes</b>, or a <b>law</b>. Three canvases, three acts: baptism · relic · law. Each is its own signature. The node builds the exact message, you <b>sign it in KrayWallet</b> — the key never leaves the extension. A baptism or a law burns 1&nbsp;₭. A file burns by size — live law <b>1 ₭ / 10 KB</b>, ceiling <b>10 MB</b>. Nothing fuses.</p>
+    <p class="note" id="size-law-live" style="margin-top:var(--s3)">Fire <b>1 ₭ / 10 KB</b> · ceiling <b>10 MB</b> · empty name or law <b>1 ₭</b>. This node quotes the live numbers.</p>
+  </section>
+
+  <section style="border-top:0;padding-top:0">
+    <div class="card tick" id="inspanel">
+      <div class="iacct" id="i-acct"><span>Connect your KrayWallet above to write — your KRAY account <b>is</b> your taproot address.</span></div>
+
+      <!-- ADD-TO-STAR banner — shown only when ?star=N points this inscribe at an
+           existing star you already own (the content is added to it, not born anew). -->
+      <div class="chip" id="i-target" style="display:none;width:100%;border-radius:var(--r1);margin-bottom:var(--s5)"></div>
+
+      <div class="tabs itabs">
+        <!-- BAPTISM LEADS. It is the most permanent thing a citizen can do here — a
+             name is unique in the whole universe forever and can never be renamed or
+             retaken — so it reads first. Then media, which is what most people arrive
+             wanting to write. Each tab says what it is for on hover. -->
+        <button type="button" class="tab chip on" data-itab="name" title="BAPTISM — a name for a star: one plain word (letters and digits). Unique in the whole universe forever. A different act from content — not a file."><svg width="14" height="14"><use href="#g-name"/></svg>Baptism</button>
+        <button type="button" class="tab chip" data-itab="post" title="TEXT — type the bytes here: plain, markdown, HTML, or SVG. Same inscribe act as a file. Sealed exactly as typed."><svg width="14" height="14"><use href="#g-inscribe"/></svg>Text</button>
+        <button type="button" class="tab chip" data-itab="media" id="i-filetab" title="FILE — drop files or a whole folder. The studio sorts the batch by folder. Each file is one star. Up to 10 MB each, 200 per batch."><svg width="14" height="14"><use href="#g-like"/></svg>File</button>
+        <button type="button" class="tab chip" data-itab="music" title="MUSIC — MP3 + 1:1 cover become one audio/mpeg. ID3v2 APIC carries the art. Audio frames are copied, never re-encoded — a 320 kbps drop stays 320.">♪ Music</button>
+        <button type="button" class="tab chip" data-itab="law" title="LAW — hang a contract on a star you already own. A different act from bytes. The reducer runs the IR. Burns 1 ₭."><svg width="14" height="14"><use href="#g-anchor"/></svg>Law</button>
+      </div>
+
+      <div data-ipane="name">
+        <div class="field">
+          <label for="i-name">Name · unique in the universe, forever</label>
+          <input class="input" id="i-name" maxlength="64" placeholder="lyra, orion, andromeda…" autocomplete="off">
+        </div>
+      </div>
+      <div data-ipane="media" hidden>
+        <div class="field">
+          <label>File · Single or Batch. We place each one. You check the ₭, then sign.</label>
+          <div class="drop" id="e-drop"><b>Drop here</b><span>Single = one file. Batch = the folder as a collection. JSON sits on its pair.</span>
+            <div class="ibatch-pick">
+              <button type="button" class="btn" id="e-pick"><small>Single</small><span>one file</span></button>
+              <button type="button" class="btn" id="e-pickdir"><small>Batch</small><span>folder</span></button>
+            </div>
+            <input type="file" id="e-file" hidden>
+            <input type="file" id="e-dir" webkitdirectory multiple hidden>
+          </div>
+        </div>
+        <label class="ibatch-coll"><input type="checkbox" id="e-coll" checked> Hang this drop as one collection (KRAY parent above, or the first file as the face). An L1 blessing + batch = every file is an L1 child under one SHA-256 cohort.</label>
+        <div id="e-batch" class="ibatch" hidden></div>
+        <div id="e-preview" hidden style="margin-top:var(--s4);text-align:center"><img id="e-previmg" alt="" style="max-width:100%;max-height:260px;border-radius:var(--r2);border:1px solid var(--line)"></div>
+      </div>
+      <div data-ipane="music" hidden>
+        <p class="imeta" style="margin:0 0 var(--s4);color:var(--ink-3);line-height:1.55">One drop of <b>MP3</b> (already encoded — 320 kbps is the format ceiling) and one <b>1:1 cover</b>. The door writes ID3v2 APIC around the frames. It never LAME-encodes. One <code>audio/mpeg</code>, one sha256, one star. The name may be the baptism or the JSON document below.</p>
+        <div class="music-drops">
+          <div class="field">
+            <label>MP3 · audio/mpeg · frames copied, never re-encoded</label>
+            <div class="drop" id="m-mp3drop"><b>Choose an MP3</b><span>encode at 320 CBR or V0 before you drop — we will not touch the bitrate</span>
+              <input type="file" id="m-mp3" accept="audio/mpeg,.mp3" hidden>
+            </div>
+          </div>
+          <div class="field">
+            <label>Cover · 1:1 · PNG stays lossless</label>
+            <div class="drop" id="m-coverdrop"><b>Choose a cover</b><span>square PNG is sealed as-is · anything else is cropped 1:1 as PNG</span>
+              <input type="file" id="m-cover" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+            </div>
+          </div>
+        </div>
+        <div id="m-prev" hidden class="music-prev">
+          <img id="m-coverimg" alt="">
+          <audio id="m-audio" controls preload="metadata"></audio>
+          <div class="imeta" id="m-note"></div>
+        </div>
+      </div>
+      <div data-ipane="law" hidden>
+        <p class="imeta" style="margin:0 0 var(--s4);color:var(--ink-3);line-height:1.55">Anyone can write a law — same idea as Ethereum or Solana, a smaller language. <b>Code</b> is the real path: paste JSON an AI drafted, or type it. The other buttons are common patterns (mint, raffle, escrow…) so you can start fast. Run test. Then seal. Tutorial you can paste into Claude: <a href="/docs/contracts.md">/docs/contracts.md</a>.</p>
+        <div class="field">
+          <label for="i-lawstar">Face · a star you own that does not yet carry a law</label>
+          <div class="istars" id="i-lawfaces"></div>
+          <input class="input" id="i-lawstar" inputmode="numeric" placeholder="star number" autocomplete="off" style="margin-top:var(--s3)">
+        </div>
+        <div class="field" style="margin-top:var(--s4)">
+          <label>Paper · write your own, or start from a common pattern</label>
+          <div class="lawpapers" id="i-lawkind">
+            <button type="button" class="btn lawpaper on" data-lkind="code"><b>Code</b><span>write or drop a file</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="being"><b>Being</b><span>alive · open · agent</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="pass"><b>Pass</b><span>once valid</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="times3"><b>3-use</b><span>three latches</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="escrow"><b>Escrow</b><span>buyer · seller</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="tunnel"><b>Tunnel</b><span>punch ₭</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="vest"><b>Vest</b><span>release over acts</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="scroll"><b>Scroll</b><span>open claim</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="raffle"><b>Raffle</b><span>enter · settle · draw</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="mint"><b>Mint</b><span>inscribe a child</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="stamp"><b>Stamp</b><span>you name winner</span></button>
+            <button type="button" class="btn lawpaper" data-lkind="list"><b>List</b><span>allowlist</span></button>
+          </div>
+          <p class="imeta" id="i-lawhint" style="margin:0 0 var(--s3);line-height:1.55"></p>
+          <div id="i-lawfields"></div>
+          <div id="i-lawwrite">
+            <label for="i-lawcode" id="i-lawsrc-lab" style="display:block;margin:var(--s4) 0 var(--s2)">Source · click, paste, or write</label>
+            <textarea class="input lawsrc" id="i-lawcode" rows="16" spellcheck="false" autocomplete="off" placeholder='click here — paste JSON vars + rules (the sealed paper). A Solidity draft is fine in chat — translate it first. A file drop is optional'></textarea>
+            <div class="drop" id="i-lawfile" style="margin-top:var(--s3)"><b>Or drop a .json IR</b><span>optional — from an editor or an AI. Only JSON vars+rules run.</span>
+              <input type="file" id="i-lawfilein" accept=".json,application/json,text/plain,text/json" hidden>
+            </div>
+          </div>
+          <div id="i-lawprevwrap" hidden>
+            <label class="imeta" style="display:block;margin:var(--s4) 0 var(--s2)">Source · compiled IR from the knobs</label>
+            <pre class="lawprev" id="i-lawprev">set the knobs — this is the paper the exam will run</pre>
+          </div>
+          <div class="actions" style="margin-top:var(--s3)">
+            <button type="button" class="btn" id="i-lawrun" style="min-height:44px">Run test</button>
+          </div>
+          <div id="i-lawexam"></div>
+        </div>
+      </div>
+      <div data-ipane="post" hidden>
+        <div class="field">
+          <label for="i-content" id="i-content-lab">Content · text/plain</label>
+          <div class="tabs" id="i-posttype" style="margin-bottom:var(--s3)">
+            <button type="button" class="tab chip on" data-pct="text/plain">Plain</button>
+            <button type="button" class="tab chip" data-pct="text/markdown">Markdown</button>
+            <button type="button" class="tab chip" data-pct="text/html">HTML</button>
+            <button type="button" class="tab chip" data-pct="image/svg+xml">SVG</button>
+          </div>
+          <textarea class="input" id="i-content" maxlength="10000000" placeholder="Write what deserves to exist forever — byte-unique in the whole universe, first writer wins."></textarea>
+        </div>
+      </div>
+
+      <div class="card tick" id="i-metaform" hidden style="margin-top:var(--s5);padding:var(--s5)">
+        <div class="field" style="margin:0">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;margin:0 0 var(--s3)">
+            <label for="i-metadata" style="margin:0">Document · optional JSON, sealed with the relic. Prose becomes a JSON string. Not the contract.</label>
+            <button type="button" class="btn" id="i-metapick" style="min-height:44px;flex:none">Upload JSON</button>
+          </div>
+          <textarea class="input" id="i-metadata" rows="8" placeholder="{ }" spellcheck="false" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px"></textarea>
+          <input type="file" id="i-metafile" accept=".json,application/json,text/json" multiple hidden>
+          <div class="imeta" id="i-docbytes" style="margin-top:var(--s2)">0 / 8,192 bytes · empty is absence · or upload one JSON / a sidecar batch</div>
+        </div>
+      </div>
+
+      <!-- The star's number is assigned AT BIRTH (born from fire) — never chosen. The optional
+           lineage gives this NEW star a PARENT — cascaded provenance, either way:
+             · recursion — a KRAY star you already wrote becomes the parent, or
+             · origin    — a Bitcoin L1 ordinal you hold becomes the parent (proven from L1).
+           Hidden on the Baptism tab (a pure name has no parent). -->
+      <div class="card tick" id="i-lineage" hidden style="margin-top:var(--s5);padding:var(--s5)">
+        <div class="field" data-iparent style="margin:0">
+          <label>Parent · optional — give this star a lineage (cascaded provenance)</label>
+          <p class="imeta" style="margin:0 0 var(--s3);line-height:1.55;color:var(--ink-3)">A record is this: an image sleeve as the parent, each track a child. Two writers share a song by both holding the claimed parent stars (send the face, then one signature). A Bitcoin L1 ordinal you hold can sit on the same act.</p>
+          <!-- TWO BLOODS, YOUR CHOICE — stars only, ordinals only, or BOTH. One parent or
+               many (comma-separated, up to 8 + 8). Every parent must be YOURS; the whole
+               lineage rides inside ONE signature (a single parent keeps the frozen v2 path). -->
+          <div class="label" style="margin:var(--s2) 0 4px">★ KRAY star parents — recursion · tap your stars or type numbers</div>
+          <input class="input" id="i-parent" placeholder="none — one or many: 3, 18, 37" autocomplete="off">
+          <div class="fanpick" id="i-ppick" style="display:flex;flex-wrap:wrap;gap:6px;margin:var(--s2) 0"></div>
+          <div class="label" style="margin:var(--s3) 0 4px;color:var(--btc)">₿ Bitcoin L1 ordinal parents — origin · tap your ordinals or paste ids</div>
+          <input class="input" id="i-oparent" placeholder="none — one or many: <txid>i0, <txid>i0" autocomplete="off">
+          <input class="input" id="i-osatpoint" placeholder="blessing satpoint — send the parent to yourself first: txid:vout:offset" autocomplete="off" style="margin-top:6px">
+          <div class="imeta" style="margin:4px 0 0;color:var(--ink-3)">One send-to-self. The whole folder becomes L1 children of that ordinal — each star gets its own SHA-256 bind from the blessing + its bytes. Signet needs 2 confirmations on that send before the bag assembles.</div>
+          <div class="fanpick" id="i-opick" style="display:flex;flex-wrap:wrap;gap:6px;margin:var(--s2) 0"></div>
+          <!-- THE LIVE LINEAGE — the family forming before your eyes, exactly what the signature will seal -->
+          <div class="imeta" id="i-lin-live" style="margin-top:var(--s3)"></div>
+        </div>
+      </div>
+
+      <div class="imeta" id="i-meta">0 bytes</div>
+      <button class="btn primary block" id="i-go" disabled style="margin-top:var(--s4)"><svg width="15" height="15"><use href="#g-inscribe"/></svg><span id="i-golabel">Inscribe — fee 1 ₭</span></button>
+      <div class="iout" id="i-out"></div>
+    </div>
+  </section>
+</div>
+
+<script src="/kray.js" defer></script>
+<script type="module" src="/id3-cover.js"></script>
+
+<!-- kNum/kSuffix globals (verbatim helpers the INSCRIBE IIFE reaches) -->
+<script>
+/* kSuffix + kNum &mdash; number helpers the Inscribe account line uses, brought over
+   VERBATIM from the explorer's LIVE module (which this standalone page does not
+   include) so the balance renders identically. Top-level declarations are global,
+   which is how the copied INSCRIBE IIFE reaches kNum(). */
+  function kSuffix(n){
+    var a=Math.abs(n);
+    if(a>=1e15) return [n/1e15,'Q'];
+    if(a>=1e12) return [n/1e12,'T'];
+    if(a>=1e9)  return [n/1e9, 'B'];
+    if(a>=1e6)  return [n/1e6, 'M'];
+    if(a>=1e3)  return [n/1e3, 'K'];
+    return [n,''];
+  }
+  function kNum(v){                   // counts only — never a ₭ pile
+    var n=Number(v)||0, p=kSuffix(n), x=p[0], u=p[1];
+    if(!u) return n.toLocaleString();
+    return (Math.abs(x)>=100?x.toFixed(0):Math.abs(x)>=10?x.toFixed(1):x.toFixed(2))+u;
+  }
+  function kWhole(v){ try{ return BigInt(String(v==null?'0':v).replace(/[^0-9]/g,'')||'0').toLocaleString(); }catch(_){ return String(v); } }
+</script>
+
+<script src="/contract-exam.js"></script>
+<script src="/inscribe-batch.js"></script>
+<!-- INSCRIBE write surface (verbatim) -->
+<script>
+/* ---- INSCRIBE — the write surface. Everything Ordinals does, radically simpler:
+   prepare (the node builds the canonical message) → sign (KrayWallet popup — the
+   key never touches this page) → submit (BIP-340 verified, sealed in the next
+   fast block, 1-₭ eternal fee). Content is byte-unique forever. ---- */
+(function(){
+  "use strict";
+  var $=function(id){return document.getElementById(id);};
+  var panel=$('inspanel'); if(!panel) return;
+  var acct=$('i-acct'), meta=$('i-meta'), out=$('i-out'), go=$('i-go'), golabel=$('i-golabel');
+  var tab = 'name', me=null, pub=null, busy=false, postType='text/plain', DOC_CAP=8192;
+  var lawKind='code';
+  var lawExamFp='';
+  function short(a){return a.slice(0,8)+'…'+a.slice(-5);}
+  function esc(s){return s.replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function sink(kind, word){
+    if(window.KRAY && typeof KRAY.sink==='function') return KRAY.sink(kind, word);
+    var burn=kind==='burn'||kind==='burned'||kind==='fire';
+    var label=word||(burn?'BURNED':'FREEZE');
+    return '<span class="sink sink-'+(burn?'burn':'freeze')+'" title="'
+      +(burn?'Fungible ₭ destroyed in the fire — not a frozen star':'Star frozen in the black hole — visible, beyond reach')
+      +'">'+label+' <i aria-hidden="true">'+(burn?'🔥':'❄')+'</i></span>';
+  }
+  var fileB64=null, fileType=null, fileName=null, fileBytes=0;
+  var fileQueue=[];
+  var lastSkip='';
+  var B=window.KrayInscribeBatch;
+  var musicB64=null, musicBytes=0, musicName=null, musicMp3=null, musicCover=null, musicOn=false, musicUrls=[];
+  // (parent selector tabs retired — both lineage inputs are always open in the card)
+  // ── ADD-TO-STAR ── ?star=N targets an EXISTING star you own: the content is ADDED
+  // to it (same number, same name), never a new star born from fire. No query = born new.
+  var TARGET=(function(){ var q=new URLSearchParams(location.search).get('star'); return (q!=null && /^\d+$/.test(q)) ? q : null; })();
+  function currentContent(){ return tab==='post' ? $('i-content').value : tab==='name' ? $('i-name').value : ''; }
+  function contentType(){ return tab==='music' ? 'audio/mpeg' : tab==='media' ? (fileType||'application/octet-stream') : tab==='post' ? postType : 'text/plain'; }
+  function validOrdinal(){ var v=(($('i-oparent')||{}).value||'').trim(); return v!=='' && v.split(',').every(function(x){ return /^[0-9a-f]{64}i\d+$/.test(x.trim().toLowerCase()); }); }
+  // MULTIPARENTS (message v3) — both bloods in ONE signed act, comma-separated lists
+  function lineageLists(){
+    var pv=(($('i-parent')||{}).value||'').trim(), ov=(($('i-oparent')||{}).value||'').trim();
+    var ps=pv?pv.split(',').map(function(s){return s.replace(/[#\s]/g,'');}).filter(Boolean):[];
+    var os=ov?ov.split(',').map(function(s){return s.trim().toLowerCase();}).filter(Boolean):[];
+    return {ps:ps, os:os};
+  }
+  function useV3(){ var L=lineageLists(); return tab!=='name' && TARGET==null && (L.ps.length+L.os.length>1 || (L.ps.length>0 && L.os.length>0)); }
+  // ORIGIN = this exact content, but its parent is a Bitcoin L1 ordinal instead of
+  // a KRAY star. Same pen, same seal; only the lineage — and the proof — differ.
+  // a SINGLE L1 parent (and no star parent) keeps the frozen v2 `origin` act
+  function useOrdinal(){ var L=lineageLists(); return tab!=='name' && L.os.length===1 && L.ps.length===0 && validOrdinal(); }
+  function currentBytesI(){
+    if(tab==='music') return musicBytes||0;
+    if(tab==='media'){
+      if(fileQueue.length){ var n=0; fileQueue.forEach(function(it){ n+=it.size; }); return n; }
+      return fileBytes||0;
+    }
+    var t = tab==='post' ? $('i-content').value : ''; return new Blob([t]).size;
+  }
+  function burnNowI(){
+    if(tab==='media' && fileQueue.length && B) return B.burnsOf(fileQueue, window.kraynetBytesPerKray||1000000);
+    return Math.max(1, Math.ceil((currentBytesI()||1)/(window.kraynetBytesPerKray||1000000)));
+  }
+  // the wall-toll rides BESIDE the fire under the SAME linear law, so for sized bytes it equals the burn;
+  // zero-byte acts (name, law) pay no toll — their labels stay the eternal "burns 1 ₭"
+  function costTextI(b){ return (window.kraynetAtlasFeeOn && currentBytesI()>0) ? (b+' ₭ + '+b+' ₭ atlas') : (b+' ₭'); }
+  function paintGolabel(){
+    if(tab==='law'){
+      golabel.textContent = (lawExamFp && lawExamFp===lawFingerprint())
+        ? 'Seal law — burns 1 ₭'
+        : 'Run test first — then seal';
+      return;
+    }
+    var b=burnNowI();
+    if(tab==='name'){ golabel.textContent='Baptize — burns 1 ₭'; return; }
+    if(tab==='music' && !musicOn){ golabel.textContent='Drop MP3 and cover — then seal'; return; }
+    if(tab==='media' && fileQueue.length>1){ golabel.textContent='Looks right — seal '+fileQueue.length+' stars · '+costTextI(b); return; }
+    golabel.textContent = (useOrdinal() ? 'Mint child — burns ' : (tab==='music'?'Inscribe music — burns ':'Inscribe — burns '))+costTextI(b);
+  }
+  function lawStarNo(){ return String((($('i-lawstar')||{}).value||'')).replace(/[^0-9]/g,''); }
+  function lawSource(){ return String((($('i-lawcode')||{}).value||'')); }
+  function lawFingerprint(){
+    if(lawKind!=='code' && window.KrayContractPapers)
+      return KrayContractPapers.fingerprint($('i-lawfields'), lawKind, { from: me||undefined });
+    return 'code|'+lawSource();
+  }
+  function lawPaperReady(){
+    if(lawKind!=='code' && window.KrayContractPapers)
+      return KrayContractPapers.ready($('i-lawfields'), lawKind);
+    var raw=lawSource().trim();
+    if(!raw) return false;
+    try{ var j=JSON.parse(raw); return !!(j && j.rules); }catch(_){ return false; }
+  }
+  function hasPayload(){
+    if(tab==='law'){
+      var paperOk = lawKind==='mint' && window.KrayContractPapers
+        ? KrayContractPapers.sealReady($('i-lawfields'), lawKind)
+        : lawPaperReady();
+      return !!(lawStarNo() && paperOk && lawExamFp && lawExamFp===lawFingerprint());
+    }
+    if(tab==='music') return !!musicOn && !!musicB64;
+    return tab==='media' ? !!(fileQueue.length || fileB64) : currentContent().trim().length>0;
+  }
+  function paintGo(){ go.disabled = busy || !(me && hasPayload()); }
+  function paintLawHint(){
+    var paper = window.KrayContractPapers && KrayContractPapers.byId(lawKind);
+    var el=$('i-lawhint');
+    if(el) el.textContent = paper
+      ? (paper.blurb + (lawKind==='code'
+        ? ' Click the source box — paste or type. A file drop is optional.'
+        : ' The paper below is compiled from the numbers. Run test. Then seal.'))
+      : '';
+  }
+  function paintLawSurface(){
+    var write=$('i-lawwrite'), prev=$('i-lawprevwrap'), ta=$('i-lawcode'), drop=$('i-lawfile');
+    if(write) write.hidden = false;
+    if(prev) prev.hidden = true;
+    if(drop) drop.hidden = lawKind!=='code';
+    var lab=$('i-lawsrc-lab');
+    if(lab) lab.textContent = lawKind==='code' ? 'Source · click, paste, or write' : 'Compiled paper · the IR the exam runs';
+    if(ta){
+      ta.disabled=false;
+      if(lawKind==='code') ta.removeAttribute('readonly');
+      else { ta.setAttribute('readonly',''); ta.placeholder='compiled IR from the numbers — this is the paper the exam runs'; }
+    }
+  }
+  function lawPiece(){
+    if(lawKind==='code'){
+      return { source: lawSource(), from: me||undefined };
+    }
+    if(!(window.KrayContractPapers)) return { source: lawSource(), from: me||undefined };
+    var piece = KrayContractPapers.read($('i-lawfields'), lawKind, { from: me||undefined });
+    if(me) piece.from = me;
+    var star=lawStarNo();
+    if(star) piece.star = star;
+    return piece;
+  }
+  var lawExamGen=0, lawExamTimer=null;
+  function compileFromKnobs(force){
+    var ta=$('i-lawcode');
+    var host=$('i-lawexam');
+    if(lawKind==='code' || !ta || !(window.KrayContractExam && window.KrayContractPapers)) return;
+    if(!force && !KrayContractPapers.ready($('i-lawfields'), lawKind)) return;
+    var piece = lawPiece();
+    var gen=++lawExamGen;
+    if(host && !host.querySelector('.examhead.ok')) host.textContent='compiling the knobs — no ₭, no journal…';
+    KrayContractExam.run(piece).then(function(exam){
+      if(gen!==lawExamGen) return;
+      if(exam && exam.code){
+        ta.value = JSON.stringify(exam.code, null, 2);
+      }
+      if(exam && exam.ready){
+        KrayContractExam.paint(host, exam);
+        lawExamFp = lawFingerprint();
+      } else if(force){
+        KrayContractExam.paint(host, exam);
+        lawExamFp='';
+      }
+      refreshMeta();
+    }).catch(function(e){
+      if(gen!==lawExamGen) return;
+      lawExamFp='';
+      if(force && host) host.innerHTML='<p class="examhead bad">exam door failed — '+esc((e&&e.message)||'offline')+'</p>';
+      refreshMeta();
+    });
+  }
+  function scheduleKnobExam(){
+    lawExamFp='';
+    lawExamGen++;
+    clearTimeout(lawExamTimer);
+    lawExamTimer=setTimeout(function(){ compileFromKnobs(false); }, 180);
+  }
+  function pasteTemplate(id){
+    lawKind = id || 'code';
+    paintLawHint();
+    paintLawSurface();
+    var fields=$('i-lawfields');
+    if(!(window.KrayContractPapers)) return;
+    if(lawKind==='code'){
+      if(fields) fields.innerHTML='';
+      lawExamFp='';
+      var exam=$('i-lawexam'); if(exam) exam.innerHTML='';
+      var ta=$('i-lawcode');
+      if(ta){ ta.disabled=false; ta.removeAttribute('readonly'); if(tab==='law') setTimeout(function(){ ta.focus(); }, 0); }
+      refreshMeta();
+      return;
+    }
+    KrayContractPapers.paint(fields, lawKind, {
+      me: me||'',
+      onChange: scheduleKnobExam
+    });
+    compileFromKnobs(true);
+  }
+  // upload — the bytes the user picks are the bytes sealed (base64 on the wire)
+  fetch('/api/kraynet/donation/info').then(function(r){return r.json()}).then(function(d){
+    if(d&&d.bytesPerKrayBurn) window.kraynetBytesPerKray=d.bytesPerKrayBurn;
+    if(d) window.kraynetAtlasFeeOn=!!d.atlasFeeActive;   // the wall-toll: when on, a sized act pays burn + an equal atlas fee
+    if(d&&d.contentMax) window.kraynetContentMax=Number(d.contentMax);
+    if(d&&d.contentMax && $('i-content')) $('i-content').maxLength=Number(d.contentMax);
+    if(d&&d.inscriptionMetaMax) DOC_CAP=Number(d.inscriptionMetaMax)||DOC_CAP;
+    var rate=(window.KRAY&&KRAY.sizeLawRate)?KRAY.sizeLawRate(d.bytesPerKrayBurn):('1 ₭ / '+Number(d.bytesPerKrayBurn||10000).toLocaleString()+' bytes');
+    var cap=(window.KRAY&&KRAY.formatBytes&&d.contentMax)?KRAY.formatBytes(d.contentMax):((Number(d.contentMax)||10000000)/1000000)+' MB';
+    var law=$('size-law-live');
+    if(law) law.innerHTML='Fire <b>'+rate+'</b> · ceiling <b>'+cap+'</b> · empty name or law <b>1 ₭</b>. This node quotes the live numbers.';
+    var tab=$('i-filetab');
+    if(tab) tab.title='FILE — drop files or a whole folder. The studio sorts the batch by folder. Each file is one star. Up to '+cap+' each, 200 per batch.';
+    if(typeof paintDocBytes==='function') paintDocBytes();
+    if(typeof refreshMeta==='function') refreshMeta();
+  }).catch(function(){});  // era rate + consensus document cap — pages never invent the number
+  function revokeMusic(){
+    musicUrls.forEach(function(u){ try{ URL.revokeObjectURL(u); }catch(_){ /* blob already dead */ } });
+    musicUrls=[];
+  }
+  function blobUrl(bytes, mime){
+    var u=URL.createObjectURL(new Blob([bytes],{type:mime||'application/octet-stream'}));
+    musicUrls.push(u);
+    return u;
+  }
+  function bytesToB64(u8){
+    var CHUNK=0x8000, s='';
+    for(var i=0;i<u8.length;i+=CHUNK) s+=String.fromCharCode.apply(null, u8.subarray(i, i+CHUNK));
+    return btoa(s);
+  }
+  function id3(){ return (window.KRAY && KRAY.id3) || null; }
+  function paintMusicStage(relic, note){
+    var prev=$('m-prev'), img=$('m-coverimg'), au=$('m-audio'), lab=$('m-note');
+    if(!prev) return;
+    revokeMusic();
+    if(musicCover && img){ img.src=blobUrl(musicCover.bytes, musicCover.mime); img.hidden=false; }
+    else if(img){ img.removeAttribute('src'); img.hidden=true; }
+    if(au){
+      if(relic) au.src=blobUrl(relic, 'audio/mpeg');
+      else if(musicMp3) au.src=blobUrl(musicMp3, 'audio/mpeg');
+    }
+    if(lab) lab.textContent=note||'';
+    prev.hidden=!(musicMp3||musicCover);
+  }
+  function remuxMusic(){
+    var tool=id3();
+    musicOn=false; musicB64=null; musicBytes=0;
+    if(!tool){ paintMusicStage(null, 'cover mux is not loaded — hard-refresh'); refreshMeta(); return; }
+    if(!musicMp3){ paintMusicStage(null, 'drop the MP3 first'); refreshMeta(); return; }
+    if(!tool.isMp3(musicMp3, musicName, 'audio/mpeg')){
+      out.className='iout err'; out.textContent='✗ Music is MP3 only — encode at 320 before you drop. We never re-encode.';
+      paintMusicStage(null, 'not an MP3'); refreshMeta(); return;
+    }
+    if(!musicCover){
+      var rate=tool.mpeg1L3BitrateKbps ? tool.mpeg1L3BitrateKbps(musicMp3) : null;
+      paintMusicStage(null, 'MP3 ready'+(rate?' · '+rate+' kbps':'')+' · drop the 1:1 cover to build the relic');
+      refreshMeta(); return;
+    }
+    try{
+      var relic=tool.musicRelic(musicMp3, musicCover.bytes, musicCover.mime);
+      var body=tool.mpegBody(relic);
+      var src=tool.mpegBody(musicMp3);
+      if(!body || !src || body.length!==src.length) throw new Error('MPEG frames changed — refuse');
+      for(var i=0;i<body.length;i++) if(body[i]!==src[i]) throw new Error('MPEG frames changed — refuse');
+      musicB64=bytesToB64(relic);
+      musicBytes=relic.length;
+      musicOn=true;
+      var rate=tool.mpeg1L3BitrateKbps(relic);
+      paintMusicStage(relic, (musicCover.reused?'square cover sealed as-is':'cropped 1:1 as PNG')
+        +' · MPEG frames byte-identical'+(rate?' · '+rate+' kbps':'')+' · '+relic.length.toLocaleString()+' bytes');
+      out.className='iout'; out.textContent='';
+    }catch(e){
+      out.className='iout err';
+      out.textContent='✗ '+(e && e.message ? e.message : 'music relic refused');
+      paintMusicStage(null, 'mux refused');
+    }
+    refreshMeta();
+  }
+  function loadPic(file){
+    if(typeof createImageBitmap==='function') return createImageBitmap(file);
+    return new Promise(function(resolve, reject){
+      var img=new Image();
+      var u=URL.createObjectURL(file);
+      img.onload=function(){ URL.revokeObjectURL(u); resolve(img); };
+      img.onerror=function(){ URL.revokeObjectURL(u); reject(new Error('cover is not an image')); };
+      img.src=u;
+    });
+  }
+  function squareCover(file){
+    var kind=file.type||(/\.(png)$/i.test(file.name)?'image/png':/\.jpe?g$/i.test(file.name)?'image/jpeg':'');
+    return loadPic(file).then(function(bmp){
+      var w=bmp.width||bmp.naturalWidth, h=bmp.height||bmp.naturalHeight;
+      var reuse=(w===h) && (kind==='image/png' || kind==='image/jpeg');
+      if(reuse){
+        return file.arrayBuffer().then(function(b){
+          if(bmp.close) bmp.close();
+          return { bytes:new Uint8Array(b), mime:kind==='image/png'?'image/png':'image/jpeg', reused:true };
+        });
+      }
+      var side=Math.min(w,h);
+      var sx=Math.floor((w-side)/2), sy=Math.floor((h-side)/2);
+      var out=Math.min(side, 2048);
+      var c=document.createElement('canvas');
+      c.width=c.height=out;
+      c.getContext('2d').drawImage(bmp, sx, sy, side, side, 0, 0, out, out);
+      if(bmp.close) bmp.close();
+      return new Promise(function(resolve, reject){
+        c.toBlob(function(blob){
+          if(!blob){ reject(new Error('cover encode failed')); return; }
+          blob.arrayBuffer().then(function(b){
+            resolve({ bytes:new Uint8Array(b), mime:'image/png', reused:false });
+          });
+        }, 'image/png');
+      });
+    });
+  }
+  function takeMusicMp3(f){
+    if(!f) return;
+    var cap=Number(window.kraynetContentMax)||10000000;
+    if(f.size>cap){ out.className='iout err'; out.textContent='✗ '+f.size.toLocaleString()+' bytes — the protocol ceiling is '+cap.toLocaleString(); return; }
+    f.arrayBuffer().then(function(ab){
+      musicMp3=new Uint8Array(ab);
+      musicName=f.name||'track.mp3';
+      remuxMusic();
+    });
+  }
+  function takeMusicCover(f){
+    if(!f) return;
+    squareCover(f).then(function(c){
+      musicCover=c;
+      remuxMusic();
+    }).catch(function(e){
+      out.className='iout err';
+      out.textContent='✗ '+(e && e.message ? e.message : 'cover refused');
+    });
+  }
+  function paintFileQueue(){
+    if(!B) return;
+    B.paint($('e-batch'), fileQueue, function(i){
+      if(!fileQueue[i]) return;
+      B.revoke(fileQueue[i]);
+      fileQueue.splice(i,1);
+      syncSoloFromQueue();
+      paintFileQueue();
+      refreshMeta();
+    }, {
+      burn: burnNowI(),
+      parent: (($('i-parent')||{}).value||''),
+      origin: !!(($('i-oparent')||{}).value||'').trim(),
+      faceFirst: !!( $('e-coll') && $('e-coll').checked ),
+      skipped: lastSkip,
+      rate: window.kraynetBytesPerKray||1000000
+    });
+    syncSoloFromQueue();
+  }
+  function syncSoloFromQueue(){
+    if(fileQueue.length===1){
+      var it=fileQueue[0];
+      fileB64=it.b64; fileType=it.type; fileName=it.name; fileBytes=it.size;
+      if(it.url){ $('e-previmg').src=it.url; $('e-preview').hidden=false; }
+      else $('e-preview').hidden=true;
+    } else {
+      fileB64=fileQueue.length?fileQueue[0].b64:null;
+      fileType=fileQueue.length?fileQueue[0].type:null;
+      fileName=fileQueue.length?fileQueue[0].name:null;
+      fileBytes=fileQueue.length?fileQueue[0].size:0;
+      $('e-preview').hidden=true;
+    }
+  }
+  function clearFileQueue(){
+    if(B) fileQueue.forEach(B.revoke);
+    fileQueue=[];
+    fileB64=null; fileName=null; fileBytes=0; fileType=null;
+    $('e-preview').hidden=true;
+    if($('e-file')) $('e-file').value='';
+    if($('e-dir')) $('e-dir').value='';
+    paintFileQueue();
+  }
+  function addRawFiles(raw){
+    if(!B || !raw || !raw.length) return;
+    out.className='iout'; out.textContent='reading '+(raw.length)+' file'+(raw.length===1?'':'s')+'…';
+    B.ingest(raw).then(function(got){
+      var m=B.mergeQueue(fileQueue, got.items);
+      fileQueue=m.queue;
+      var notes=B.skipNote((got.skipped||[]).concat(m.skipped||[]));
+      lastSkip=notes;
+      paintFileQueue();
+      out.className='iout';
+      out.textContent='';
+      refreshMeta();
+    }).catch(function(e){
+      out.className='iout err';
+      out.textContent='✗ '+((e&&e.message)||'folder refused');
+    });
+  }
+  function takeFile(f){ if(f) addRawFiles([f]); }
+  function takeMetaDocs(list){
+    var files = B ? B.filesFromList(list) : [].slice.call(list || [])
+    if(!files.length) return
+    if(!B || !B.attachDocs){
+      var f=files[0]
+      if(!f) return
+      ;(f.text ? f.text() : f.arrayBuffer().then(function(ab){ return new TextDecoder().decode(ab) })).then(function(t){
+        $('i-metadata').value=t
+        refreshMeta()
+      })
+      return
+    }
+    B.attachDocs(fileQueue, files).then(function(got){
+      lastSkip=B.skipNote(got.skipped||[])
+      if(got.box) $('i-metadata').value=got.box
+      paintFileQueue()
+      refreshMeta()
+      out.className='iout'
+      out.textContent=got.note || ''
+    }).catch(function(e){
+      out.className='iout err'
+      out.textContent='✗ '+((e&&e.message)||'JSON refused')
+    })
+  }
+  var pick=$('e-pick'), pickdir=$('e-pickdir');
+  // THE LOCK MUST SPEAK — the studio only writes with a connected address, but a dead-silent
+  // click reads as "the site is broken". Same lock, now with a voice.
+  function needWallet(){ fail('connect your KrayWallet first (button in the header) — the studio writes with YOUR address'); }
+  if(pick) pick.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); if(me) $('e-file').click(); else needWallet(); });
+  if(pickdir) pickdir.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); if(me) $('e-dir').click(); else needWallet(); });
+  $('e-file').addEventListener('change',function(e){ addRawFiles(B?B.filesFromList(e.target.files):[e.target.files[0]]); e.target.value=''; });
+  $('e-dir').addEventListener('change',function(e){ addRawFiles(B?B.filesFromList(e.target.files):[]); e.target.value=''; });
+  ['dragenter','dragover'].forEach(function(ev){ $('e-drop').addEventListener(ev,function(e){ e.preventDefault(); $('e-drop').classList.add('over'); }); });
+  ['dragleave','drop'].forEach(function(ev){ $('e-drop').addEventListener(ev,function(e){ e.preventDefault(); $('e-drop').classList.remove('over'); }); });
+  var metapick=$('i-metapick'), metafile=$('i-metafile'), metaform=$('i-metaform')
+  if(metapick && metafile){
+    metapick.addEventListener('click',function(e){ e.preventDefault(); if(me) metafile.click(); else needWallet(); })
+    metafile.addEventListener('change',function(e){ takeMetaDocs(e.target.files); e.target.value=''; })
+  }
+  if(metaform){
+    ;['dragenter','dragover'].forEach(function(ev){ metaform.addEventListener(ev,function(e){ e.preventDefault(); metaform.classList.add('over'); }); })
+    ;['dragleave','drop'].forEach(function(ev){ metaform.addEventListener(ev,function(e){ e.preventDefault(); metaform.classList.remove('over'); }); })
+    metaform.addEventListener('drop',function(e){
+      if(!me){ needWallet(); return }
+      if(!e.dataTransfer) return
+      if(B && B.filesFromTransfer) B.filesFromTransfer(e.dataTransfer).then(takeMetaDocs)
+      else if(e.dataTransfer.files.length) takeMetaDocs(e.dataTransfer.files)
+    })
+  }
+  $('e-drop').addEventListener('drop',function(e){
+    if(!me){ needWallet(); return; }
+    if(B) B.filesFromTransfer(e.dataTransfer).then(addRawFiles);
+    else if(e.dataTransfer.files.length) takeFile(e.dataTransfer.files[0]);
+  });
+  function wireDrop(id, inputId, take){
+    var box=$(id), inp=$(inputId);
+    if(!box||!inp) return;
+    box.addEventListener('click',function(){ if(me) inp.click(); else needWallet(); });
+    inp.addEventListener('change',function(e){ take(e.target.files[0]); });
+    ['dragenter','dragover'].forEach(function(ev){ box.addEventListener(ev,function(e){ e.preventDefault(); box.classList.add('over'); }); });
+    ['dragleave','drop'].forEach(function(ev){ box.addEventListener(ev,function(e){ e.preventDefault(); box.classList.remove('over'); }); });
+    box.addEventListener('drop',function(e){ if(!me){ needWallet(); return; } if(e.dataTransfer.files.length) take(e.dataTransfer.files[0]); });
+  }
+  wireDrop('m-mp3drop','m-mp3',takeMusicMp3);
+  wireDrop('m-coverdrop','m-cover',takeMusicCover);
+  // THE ADDRESS IS THE USER — no identity, no pen: the writing surface stays
+  // locked until a wallet address is connected.
+  var FIELDS=['i-content','i-name','i-parent','i-oparent','i-metadata','i-lawstar'];
+  function lockFields(locked){
+    FIELDS.forEach(function(id){ var e=$(id); if(e) e.disabled=locked; });
+    var mp=$('i-metapick'); if(mp) mp.disabled=locked;
+    var ta=$('i-lawcode');
+    if(ta){
+      ta.disabled=false;
+      if(lawKind==='code') ta.removeAttribute('readonly');
+      else ta.setAttribute('readonly','');
+    }
+  }
+  lockFields(true);
+
+  panel.querySelectorAll('.itabs .chip').forEach(function(ch){
+    ch.addEventListener('click',function(){
+      if(!ch.getAttribute('data-itab')) return;
+      panel.querySelectorAll('.itabs .chip').forEach(function(c){c.classList.remove('on');});
+      ch.classList.add('on'); tab=ch.getAttribute('data-itab');
+      panel.querySelectorAll('[data-ipane]').forEach(function(p){p.hidden = p.getAttribute('data-ipane')!==tab;});
+      var lin=$('i-lineage'); if(lin) lin.hidden = (tab==='name') || (tab==='law') || !!TARGET; // lineage is relic-only — never baptism, never law
+      var mf=$('i-metaform'); if(mf) mf.hidden = (tab==='name') || (tab==='law'); // metadata rides the relic, never a baptism, never a law
+      if(tab==='law'){ loadLawFaces(); paintLawSurface(); if(lawKind==='code'){ var t=$('i-lawcode'); if(t) setTimeout(function(){ t.focus(); }, 0); } }
+      paintGolabel();
+      out.className='iout'; out.textContent=''; refreshMeta();
+    });
+  });
+
+  var POST_HINT={
+    'text/plain':'Write what deserves to exist forever — byte-unique in the whole universe, first writer wins.',
+    'text/markdown':'# Title\n\nMarkdown — headings, lists, quotes, code. Source on the star; Render Markdown formats it (scripts stripped).',
+    'text/html':'<section>\n  <h1>…</h1>\n</section>\n<!-- sealed as text/html — Run HTML cages it -->',
+    'image/svg+xml':'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">…</svg>\n<!-- drawn in code; rendered as a picture, never executed -->'
+  };
+  var ptypeBox=$('i-posttype');
+  if(ptypeBox) ptypeBox.querySelectorAll('[data-pct]').forEach(function(ch){
+    ch.addEventListener('click',function(){
+      ptypeBox.querySelectorAll('[data-pct]').forEach(function(c){c.classList.remove('on');});
+      ch.classList.add('on'); postType=ch.getAttribute('data-pct')||'text/plain';
+      var lab=$('i-content-lab'); if(lab) lab.textContent='Content · '+postType;
+      var ta=$('i-content'); if(ta && POST_HINT[postType]) ta.placeholder=POST_HINT[postType];
+      refreshMeta();
+    });
+  });
+
+  // THE PASTE TRAP (Signet star #57 taught this): a canon .md pasted with "Plain" still
+  // selected seals as text/plain FOREVER — and Render Markdown never appears on the star.
+  // Two additive doors, both loud and reversible (the chip row stays the source of truth):
+  //   1 · pasting text that opens like Markdown (frontmatter or headings) flips the chip;
+  //   2 · dropping a text file straight onto the canvas fills it AND types it by file name.
+  function setPostType(pct){
+    if(!ptypeBox || postType===pct) return;
+    var ch=ptypeBox.querySelector('[data-pct="'+pct+'"]');
+    if(ch) ch.click();                       // through the chip's own handler — label + hint update
+  }
+  var contentTa=$('i-content');
+  if(contentTa){
+    contentTa.addEventListener('paste',function(e){
+      if(tab!=='post' || postType!=='text/plain' || !e.clipboardData) return;
+      var t=e.clipboardData.getData('text/plain')||'';
+      var looksMd=/^---\r?\n/.test(t) || (t.match(/^#{1,6}\s\S/gm)||[]).length>=2;
+      if(looksMd){
+        setPostType('text/markdown');
+        out.className='iout';
+        out.textContent='detected Markdown — chip switched to text/markdown (tap Plain above if this is wrong)';
+      }
+    });
+    ;['dragenter','dragover'].forEach(function(ev){ contentTa.addEventListener(ev,function(e){ e.preventDefault(); }); });
+    contentTa.addEventListener('drop',function(e){
+      e.preventDefault();
+      var f=e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if(!f) return;
+      var mt=(B && B.mimeOf) ? B.mimeOf(f) : (f.type||'text/plain');
+      if(!(/^text\//.test(mt) || mt==='image/svg+xml' || /json/.test(mt))){
+        out.className='iout err';
+        out.textContent='✗ the Text canvas takes text — seal binary relics on the File canvas';
+        return;
+      }
+      (f.text ? f.text() : f.arrayBuffer().then(function(ab){ return new TextDecoder().decode(ab); })).then(function(t){
+        contentTa.value=t;
+        if(mt==='text/markdown'||mt==='text/html'||mt==='image/svg+xml') setPostType(mt);
+        out.className='iout';
+        out.textContent=(f.name||'file')+' → Text canvas · will seal as '+postType;
+        refreshMeta();
+      });
+    });
+  }
+
+  // Parent TYPE — recursion (a KRAY star you wrote) OR origin (a Bitcoin L1 ordinal you hold).
+  // Cascaded provenance: either kind of parent can father this new inscription star.
+  // (the old parent-type tabs are gone — both bloods are always open above; a single L1
+  //  keeps the v2 origin act, any plural or mixed lineage rides the v3 message)
+
+  var shaTimer=null;
+  function refreshMeta(){
+    paintGolabel(); paintLineage(); paintDocBytes();
+    if(tab==='music'){
+      meta.textContent = musicOn
+        ? (musicName||'track.mp3')+' · '+musicBytes.toLocaleString()+' bytes · audio/mpeg · ID3 APIC · MPEG frames untouched · gene is the MPEG sha256 — burns '+costTextI(Math.max(1,Math.ceil(musicBytes/(window.kraynetBytesPerKray||1000000))))+' to born'
+        : 'Music needs both drops — MP3 + 1:1 cover · one relic · we never re-encode';
+      paintGo(); return;
+    }
+    if(tab==='media'){
+      if(fileQueue.length>1){
+        meta.textContent = 'Ready to verify · '+fileQueue.length+' stars · '+costTextI(burnNowI())+' · sign once';
+      } else if(fileQueue.length===1){
+        var one=fileQueue[0];
+        meta.textContent = one.name+' · '+one.size.toLocaleString()+' bytes · '+one.type+' — burns '+costTextI(burnNowI())+' to born, sealed byte-exact';
+      } else {
+        meta.textContent = fileB64 ? fileName+' · '+fileBytes.toLocaleString()+' bytes · '+fileType+' — burns '+costTextI(Math.max(1,Math.ceil(fileBytes/(window.kraynetBytesPerKray||1000000))))+' to born'+', sealed byte-exact' : 'no file chosen · drop a folder or files · up to '+((Number(window.kraynetContentMax)||10000000)/1000000)+' MB each';
+      }
+      paintGo(); return;
+    }
+    if(tab==='law'){
+      if(lawExamFp && lawExamFp!==lawFingerprint()){
+        lawExamFp='';
+      }
+      var n=lawStarNo();
+      meta.textContent = n
+        ? ('star #'+Number(n).toLocaleString()+' · paper '+lawKind+' · a separate signed act · burns 1 ₭')
+        : 'pick a face you own — a law hangs on a star, never on empty air';
+      paintGo(); return;
+    }
+    var s=currentContent(), bytes=new TextEncoder().encode(s).length;
+    if(tab==='name'){ meta.textContent=bytes+' bytes · unique in the whole universe · first writer wins'; paintGo(); return; }
+    meta.textContent=bytes+' bytes · '+contentType();
+    clearTimeout(shaTimer);
+    if(bytes && window.crypto && crypto.subtle){
+      shaTimer=setTimeout(function(){
+        crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function(h){
+          var hex=Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+          meta.textContent=bytes+' bytes · '+contentType()+' · sha256 '+hex.slice(0,16)+'… — the exact on-chain commitment';
+        });
+      },150);
+    }
+    paintGo();
+  }
+  function formMeta(){
+    if(tab==='name') return null;
+    var raw=(($('i-metadata')||{}).value||'').trim();
+    if(!raw) return null;
+    // One box. Valid JSON seals as typed. Anything else (Markdown, prose) rides
+    // as a JSON string so v4 stays JSON — not a second field, not a new tab.
+    try{ JSON.parse(raw); return raw; }catch(_){ return JSON.stringify(raw); }
+  }
+  function paintDocBytes(){
+    var el=$('i-docbytes'); if(!el) return;
+    if(tab==='name'){ el.textContent=''; return; }
+    var m=formMeta(), n=m?new TextEncoder().encode(m).length:0;
+    el.textContent = n ? (n.toLocaleString()+' / '+DOC_CAP.toLocaleString()+' bytes sealed') : '0 / '+DOC_CAP.toLocaleString()+' bytes · empty is absence';
+    el.style.color = n>DOC_CAP ? 'var(--crit)' : '';
+  }
+  ['i-content','i-name','i-parent','i-oparent','i-metadata','i-lawstar','i-lawcode'].forEach(function(id){ var e=$(id); if(e) e.addEventListener('input',function(){ refreshMeta(); if(tab==='media') paintFileQueue(); }); });
+  if($('e-coll')) $('e-coll').addEventListener('change',function(){ if(tab==='media') paintFileQueue(); paintGolabel(); });
+  var lawstar=$('i-lawstar');
+  if(lawstar) lawstar.addEventListener('input', function(){ if(lawKind!=='code') compileFromKnobs(); });
+
+  // the connected wallet's L1 ordinals — offered as parents, auto-loaded from ord.
+  // Same taproot wallet serves mainnet and kray.network, so the ordinals you hold
+  // on Bitcoin appear here with one click, ready to become a parent.
+  function loadWalletOrdinals(){
+    var box=$('i-opick'); if(!box||!me) return;
+    box.innerHTML='<span class="flab" style="align-self:center">reading your ordinals…</span>';
+    fetch('/api/kraynet/wallet-ordinals?address='+encodeURIComponent(me)).then(function(r){return r.json();}).then(function(d){
+      if(!d.ordinals || !d.ordinals.length){ box.innerHTML='<span class="flab" style="align-self:center">'+(d.online===false?'ord mirror offline — paste a parent id above':'no L1 ordinals in this wallet — paste one above')+'</span>'; return; }
+      box.innerHTML='<span class="flab" style="align-self:center">Your ordinals</span>'+d.ordinals.slice(0,24).map(function(o){
+        var art=(o.contentType||'').indexOf('image/')===0 ? '<img src="'+esc(o.url)+'" alt="" style="width:34px;height:34px;object-fit:cover;border-radius:6px;vertical-align:middle;margin-right:6px">' : '';
+        return '<button class="chip" data-ord="'+esc(o.id)+'" title="'+esc(o.id)+'">'+art+esc(o.id.slice(0,8))+'…'+esc(o.id.slice(-2))+'</button>';
+      }).join('');
+      box.querySelectorAll('[data-ord]').forEach(function(bt){
+        bt.addEventListener('click',function(){
+          var oid=bt.getAttribute('data-ord'), cur=$('i-oparent').value.trim();
+          // click APPENDS to the lineage (comma list); clicking one already listed removes it
+          if(cur.indexOf(oid)>=0){ $('i-oparent').value=cur.split(',').map(function(s){return s.trim();}).filter(function(s){return s!==oid;}).join(', '); bt.classList.remove('on'); }
+          else { $('i-oparent').value = cur ? cur+', '+oid : oid; bt.classList.add('on'); }
+          refreshMeta(); });
+      });
+    }).catch(function(){ box.innerHTML='<span class="flab" style="align-self:center">could not read ordinals — paste a parent id above</span>'; });
+  }
+
+  // YOUR STARS — offered as parents with one tap (click again to remove). Same
+  // toggle grammar as the ordinals picker; typing in the input stays in sync.
+  function loadMyStars(){
+    var box=$('i-ppick'); if(!box||!me) return;
+    fetch('/api/kraynet/profile/'+encodeURIComponent(me)+'/inscriptions?limit=24').then(function(r){return r.json();}).then(function(d){
+      var items=(d&&d.items)||[];
+      if(!items.length){ box.innerHTML='<span class="flab" style="align-self:center">no stars yet — your first has no star parent (type numbers if you hold some elsewhere)</span>'; return; }
+      box.innerHTML='<span class="flab" style="align-self:center">Your stars</span>'+items.map(function(s){
+        var title='star #'+esc(s.star)+(s.name?' · “'+esc(s.name)+'”':'');
+        return (window.KRAY && KRAY.starChipButton)
+          ? KRAY.starChipButton('data-pstar="'+esc(s.star)+'" title="'+title+'"', s)
+          : '<button type="button" class="chip" data-pstar="'+esc(s.star)+'" title="'+title+'">#'+Number(s.star).toLocaleString()+'</button>';
+      }).join('');
+      box.querySelectorAll('[data-pstar]').forEach(function(bt){
+        bt.addEventListener('click',function(){
+          var no=bt.getAttribute('data-pstar'), cur=$('i-parent').value.trim();
+          var list=cur?cur.split(',').map(function(s){return s.replace(/[#\s]/g,'');}).filter(Boolean):[];
+          var at=list.indexOf(no);
+          if(at>=0) list.splice(at,1); else list.push(no);
+          $('i-parent').value=list.join(', ');
+          refreshMeta();
+        });
+      });
+      syncLineageChips();
+    }).catch(function(){ box.innerHTML=''; });
+  }
+  // keep every picker chip lit exactly when its parent is in the lineage (typing included)
+  function syncLineageChips(){
+    var L=lineageLists();
+    document.querySelectorAll('#i-ppick [data-pstar]').forEach(function(c){ c.classList.toggle('on', L.ps.indexOf(c.getAttribute('data-pstar'))>=0); });
+    document.querySelectorAll('#i-opick [data-ord]').forEach(function(c){ c.classList.toggle('on', L.os.indexOf(String(c.getAttribute('data-ord')).toLowerCase())>=0); });
+  }
+  // THE LIVE LINEAGE — say exactly what the signature will seal, as it forms
+  function paintLineage(){
+    var lv=$('i-lin-live'); if(!lv) return;
+    var L=lineageLists();
+    if(!L.ps.length && !L.os.length){ lv.innerHTML='no parents — this star is born a <b>root</b> (a lineage is optional)'; syncLineageChips(); return; }
+    var bits=[], bad=[];
+    L.ps.forEach(function(p){ if(/^(0|[1-9]\d*)$/.test(p)) bits.push('<b>✦ #'+Number(p).toLocaleString()+'</b>'); else bad.push(p); });
+    L.os.forEach(function(o){ if(/^[0-9a-f]{64}i\d+$/.test(o)) bits.push('<b style="color:var(--btc)">₿ '+esc(o.slice(0,8))+'…</b>'); else bad.push(o); });
+    lv.innerHTML='born with <b>'+bits.length+' parent'+(bits.length===1?'':'s')+'</b> — '+bits.join(' · ')
+      +' · the whole lineage sealed in <b>one signature</b>'
+      +(L.ps.length>8||L.os.length>8?' <span style="color:var(--crit)">· over the cap (8 stars + 8 ordinals)</span>':'')
+      +(bad.length?' <span style="color:var(--crit)">· not understood: '+bad.map(esc).join(', ')+'</span>':'');
+    syncLineageChips();
+  }
+
+  var pick=$('i-starpick');
+  function paintStars(_stars){
+    // v2: a star's number is assigned at BIRTH (the next creation number) — you never
+    // pick it or pre-own a range, so there is no target picker. No-op for callers.
+    if(pick) pick.innerHTML='';
+  }
+  async function loadAccount(){
+    if(!me) return;
+    try{
+      var a=await (await fetch('/api/kraynet/account/'+me)).json();
+      acct.innerHTML='<span><b class="gold">'+short(me)+'</b></span>'
+        +'<span>balance <b>'+kWhole(a.balance)+'</b> ₭</span>'
+        +'<span>born as <b>'+(a.freeStar ? '#'+Number(a.freeStar).toLocaleString() : '— get ₭ first')+'</b></span>'
+        +'<span>inscriptions <b>'+((a.inscriptions&&a.inscriptions.total)||0)+'</b></span>';
+    }catch(_){ acct.innerHTML='<span>account read failed — node offline?</span>'; }
+    paintGo();
+  }
+  function loadLawFaces(){
+    var box=$('i-lawfaces'); if(!box||!me) return;
+    fetch('/api/kraynet/account/'+encodeURIComponent(me)).then(function(r){return r.json();}).then(function(a){
+      var faces=((a&&a.written)||[]).filter(function(s){ return s && s.contract==null; });
+      if(!faces.length){
+        box.innerHTML='<span class="flab">no bare face yet — baptize or inscribe first, then hang the law. Two acts. Two signatures.</span>';
+        return;
+      }
+      box.innerHTML=faces.slice(0,24).map(function(s){
+        var title='star #'+esc(String(s.star))+(s.name?' · “'+esc(s.name)+'”':'');
+        return (window.KRAY && KRAY.starChipButton)
+          ? KRAY.starChipButton('data-lstar="'+esc(String(s.star))+'" title="'+title+'"', s)
+          : '<button type="button" class="chip" data-lstar="'+esc(String(s.star))+'" title="'+title+'">#'+Number(s.star).toLocaleString()+(s.name?' · '+esc(s.name):'')+'</button>';
+      }).join('');
+      box.querySelectorAll('[data-lstar]').forEach(function(bt){
+        bt.addEventListener('click',function(){
+          $('i-lawstar').value=bt.getAttribute('data-lstar');
+          syncLawChips(); refreshMeta();
+          if(lawKind!=='code') compileFromKnobs();
+        });
+      });
+      if(TARGET!=null && !$('i-lawstar').value) $('i-lawstar').value=TARGET;
+      syncLawChips(); refreshMeta();
+    }).catch(function(){ box.innerHTML='<span class="flab">could not read your stars</span>'; });
+  }
+  function syncLawChips(){
+    var n=lawStarNo();
+    document.querySelectorAll('#i-lawfaces [data-lstar]').forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-lstar')===n); });
+  }
+  var lkind=$('i-lawkind');
+  if(lkind) lkind.querySelectorAll('[data-lkind]').forEach(function(ch){
+    ch.addEventListener('click',function(){
+      lkind.querySelectorAll('[data-lkind]').forEach(function(c){c.classList.remove('on');});
+      ch.classList.add('on');
+      pasteTemplate(ch.getAttribute('data-lkind')||'code');
+      refreshMeta();
+    });
+  });
+  pasteTemplate('code');
+  function runLawExam(){
+    if(lawKind!=='code'){ compileFromKnobs(true); return; }
+    var host=$('i-lawexam');
+    if(!(window.KrayContractExam && KrayContractExam.run)){
+      if(host) host.textContent='exam script not loaded';
+      return;
+    }
+    host.textContent='running the IR — no ₭, no journal…';
+    KrayContractExam.run(lawPiece()).then(function(exam){
+      KrayContractExam.paint(host, exam);
+      lawExamFp = exam && exam.ready ? lawFingerprint() : '';
+      refreshMeta();
+    }).catch(function(e){
+      lawExamFp='';
+      if(host) host.innerHTML='<p class="examhead bad">exam door failed — ' + esc((e&&e.message)||'offline') + '</p>';
+      refreshMeta();
+    });
+  }
+  var lawRun=$('i-lawrun');
+  if(lawRun) lawRun.addEventListener('click', function(ev){ ev.preventDefault(); runLawExam(); });
+  var lawDrop=$('i-lawfile'), lawFile=$('i-lawfilein');
+  if(lawDrop && lawFile){
+    lawDrop.addEventListener('click', function(){ lawFile.click(); });
+    lawDrop.addEventListener('dragover', function(ev){ ev.preventDefault(); });
+    function takeLawFile(f){
+      if(!(window.KrayContractExam && KrayContractExam.readFile)) return;
+      KrayContractExam.readFile(f).then(function(txt){
+        var ta=$('i-lawcode'); if(ta) ta.value=txt;
+        lawKind='code';
+        var box=$('i-lawkind');
+        if(box) box.querySelectorAll('[data-lkind]').forEach(function(c){ c.classList.toggle('on', c.getAttribute('data-lkind')==='code'); });
+        var fields=$('i-lawfields'); if(fields) fields.innerHTML='';
+        paintLawHint();
+        lawExamFp=''; runLawExam();
+      }).catch(function(e){ var host=$('i-lawexam'); if(host) host.innerHTML='<p class="examhead bad">'+esc((e&&e.message)||'file refused')+'</p>'; });
+    }
+    lawFile.addEventListener('change', function(){ if(lawFile.files&&lawFile.files[0]) takeLawFile(lawFile.files[0]); });
+    lawDrop.addEventListener('drop', function(ev){ ev.preventDefault(); var f=ev.dataTransfer&&ev.dataTransfer.files&&ev.dataTransfer.files[0]; if(f) takeLawFile(f); });
+  }
+  function lawBody(){
+    var star=lawStarNo();
+    if(!star) throw new Error('name the face — a law hangs on a star you own');
+    var piece=lawPiece();
+    var body={ action:'contract', from:me, star:star };
+    if(piece.form) body.form=piece.form;
+    if(piece.living) body.living=piece.living;
+    if(piece.source != null || (!piece.form && !piece.living)){
+      var raw=lawSource().trim();
+      var parsed;
+      try{ parsed=JSON.parse(raw); }catch(_){ throw new Error('source must be JSON — vars and rules'); }
+      if(!parsed || !parsed.rules) throw new Error('the IR needs vars and rules — the same paper the reducer runs');
+      body.code=parsed;
+    }
+    return body;
+  }
+
+  window.addEventListener('kray-connected',function(ev){ me=ev.detail.address; lockFields(false); loadAccount(); loadMyStars(); loadWalletOrdinals(); if(tab==='law') loadLawFaces(); });
+  window.addEventListener('kray-disconnected',function(){
+    me=null; paintStars([]); lockFields(true);
+    acct.innerHTML='<span>Connect your KrayWallet above to write — your KRAY account <b>is</b> your taproot address.</span>';
+    paintGo();
+  });
+  if(window.__krayAddr){ me=window.__krayAddr; lockFields(false); loadAccount(); loadMyStars(); loadWalletOrdinals(); }
+  setInterval(function(){ if(me) loadAccount(); }, 12000); // the next creation number advances as stars are born from fire
+
+  function fail(m){ out.className='iout err'; out.textContent='✗ '+m; }
+  window.__krayPub=null; // cached wallet pubkey, shared with the guardian panel
+  go.addEventListener('click', async function(){
+    if(busy || !me) return; busy=true; paintGo(); out.className='iout'; out.textContent='preparing — the node builds the exact message to sign…';
+    try{
+      if(tab==='law'){
+        var body=lawBody();
+        var pr=await fetch('/api/kraynet/prepare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+        var prep=await pr.json(); if(!pr.ok || prep.error) throw new Error(prep.error||'prepare refused');
+        if(!String(prep.message||'').startsWith('kray-core.contract.v2|')) throw new Error('the door did not offer a v2 law message — refuse, do not sign a foreign domain');
+        out.textContent='approve in your KrayWallet — you are sealing the IR, not bytes…';
+        var sig=await (window.krayWallet.signMessageWithConfirmation||window.krayWallet.signMessage).call(window.krayWallet, prep.message);
+        if(!pub){ var p=await window.krayWallet.getPublicKey(); pub=(p && p.publicKey) || p; window.__krayPub=pub; }
+        var sub={action:'contract', from:me, star:body.star, nonce:prep.nonce, publicKey:pub, signature:(sig && sig.signature) || sig, scheme:'kraywallet'};
+        if(body.living) sub.living=body.living;
+        if(body.form) sub.form=body.form;
+        if(body.code) sub.code=prep.code || body.code;
+        var sr=await fetch('/api/kraynet/submit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(sub)});
+        var res=await sr.json(); if(!sr.ok || res.error) throw new Error(res.error||'refused');
+        out.className='iout ok';
+        var pot=res.address||'';
+        var tx=res.hash?('/tx/'+res.hash):('/star/'+body.star);
+        out.innerHTML='✓ law sealed on star #'+Number(body.star).toLocaleString()+(pot?' · '+esc(pot):'')+' · '+sink('burn')+' burned 1 ₭ · <a href="/star/'+esc(body.star)+'#lawcard">the being</a>'+(res.hash?' · <a href="'+tx+'">the seal act</a>':'');
+        loadLawFaces(); loadAccount();
+        return;
+      }
+      var v3 = useV3();   // MULTIPARENTS: the lists ride the v3 message, both bloods in one act
+      var meta = formMeta(); // METADATA (v4): one box — JSON as typed, or prose wrapped as a JSON string
+      if(meta && new TextEncoder().encode(meta).length>DOC_CAP) throw new Error('document is '+new TextEncoder().encode(meta).length.toLocaleString()+' bytes — cap is '+DOC_CAP.toLocaleString());
+      // origin.v2 has no metadata fields — a titled origin child rides inscribe v4 + origins
+      var action = tab==='name' ? 'name' : (!v3 && !meta && useOrdinal()) ? 'origin' : 'inscribe';
+      var body={action:action, from:me}; // the star number is assigned at birth — never sent
+      if(TARGET!=null) body.star=TARGET;  // …unless ?star=N adds this content to a star you already own
+      if(action==='name'){ body.name=currentContent().trim(); }
+      else {
+        if(tab==='music'){ body.content=musicB64; body.encoding='base64'; }
+        else if(tab==='media'){
+          if(fileQueue[0] && B && B.ensureB64) await B.ensureB64(fileQueue[0]);
+          body.content=(fileQueue[0]&&fileQueue[0].b64)||fileB64; body.encoding='base64';
+          if(fileQueue[0]&&fileQueue[0].meta) body.meta=fileQueue[0].meta;
+        }
+        else body.content=currentContent();
+        body.contentType=contentType();
+        if(meta) body.meta=meta;
+        else if(tab==='media' && fileQueue[0] && fileQueue[0].meta) body.meta=fileQueue[0].meta;
+        if(v3){ var L=lineageLists(); if(L.ps.length) body.parents=L.ps; if(L.os.length) body.origins=L.os; }
+        else if(action==='origin') body.parentId=$('i-oparent').value.trim();       // a Bitcoin L1 ordinal is the parent
+        else if(meta && useOrdinal()){ body.origins=[$('i-oparent').value.trim().toLowerCase()]; }
+        else { var par=$('i-parent').value.trim(); if(par) body.parent=par.replace(/[#,\s]/g,''); } // a KRAY star is the parent (recursion)
+        var oids = body.origins || (body.parentId ? [body.parentId] : []);
+        if(oids.length){
+          var pts=(($('i-osatpoint')||{}).value||'').split(',').map(function(s){return s.trim();}).filter(Boolean);
+          if(pts.length!==oids.length) throw new Error('each L1 parent needs its blessing satpoint (txid:vout:offset) — send the parent to yourself first');
+          out.textContent='proving the L1 parent from Bitcoin — walking the sat…';
+          body.originProofs=[];
+          for(var oi=0;oi<oids.length;oi++){
+            var op=await fetch('/api/kraynet/origin-proof',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({from:me,parentId:oids[oi],satpoint:pts[oi]})});
+            var oj=await op.json(); if(!op.ok||oj.error) throw new Error(oj.error||'origin-proof refused');
+            body.originProofs.push(oj.proof);
+          }
+        }
+      }
+      if(tab==='media' && fileQueue.length>1 && B){
+        var extra={};
+        if(body.meta!=null) extra.meta=body.meta;
+        if(body.parents) extra.parents=body.parents;
+        if(body.origins) extra.origins=body.origins;
+        else if(body.parentId) extra.origins=[body.parentId];
+        if(body.originProofs) extra.originProofs=body.originProofs;
+        if(body.parent) extra.parent=body.parent;
+        if(TARGET!=null) extra.star=TARGET;
+        var batch=await B.seal({
+          from:me, queue:fileQueue, extra:extra,
+          faceFirst: !!( $('e-coll') && $('e-coll').checked ),
+          sign:function(msg){ return (window.krayWallet.signMessageWithConfirmation||window.krayWallet.signMessage).call(window.krayWallet, msg); },
+          signQuiet:function(msg){ return window.krayWallet.signMessage(msg); },
+          getPublicKey:function(){ return window.krayWallet.getPublicKey(); },
+          publicKey:pub,
+          onProgress:function(t){ out.className='iout'; out.textContent=t; }
+        });
+        var applied=batch.applied||0;
+        var first=(batch.results||[]).filter(function(r){ return r.ok && r.star!=null; })[0];
+        var leftover = batch.leftover!=null && batch.leftover>=0 ? batch.leftover : (batch.results||[]).findIndex(function(r){ return !r.ok; });
+        out.className=applied?'iout ok':'iout err';
+        var links=(batch.results||[]).filter(function(r){ return r.ok && r.star!=null; }).slice(0,8).map(function(r){
+          return '<a href="/star/'+esc(String(r.star))+'" target="_blank" rel="noopener">#'+Number(r.star).toLocaleString()+'</a>';
+        }).join(' · ');
+        out.innerHTML=(applied?'✓ collection · '+applied+' star'+(applied===1?'':'s'):'✗ nothing sealed')
+          +(batch.parent?' · parent #'+esc(String(batch.parent)):'')
+          +(links?' · '+links:'')
+          +(first?' · <a href="/star/'+esc(String(first.star))+'">open</a>':'')
+          +(leftover>=0?' · stopped at file '+(leftover+1)+' — '+esc((batch.results[leftover]&&batch.results[leftover].error)||'refused')+' · remainder stays in the tray':'');
+        if(leftover>=0){
+          fileQueue.slice(0, leftover).forEach(B.revoke);
+          fileQueue=fileQueue.slice(leftover);
+        } else {
+          clearFileQueue();
+        }
+        paintFileQueue();
+        refreshMeta(); loadAccount();
+        return;
+      }
+      var pr=await fetch('/api/kraynet/prepare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+      var prep=await pr.json(); if(!pr.ok || prep.error) throw new Error(prep.error||'prepare refused');
+      out.textContent='approve in your KrayWallet — confirm the exact message in the popup…';
+      // USER ACTION → confirmation popup (never a silent sign); falls back if the wallet lacks it
+      var sig=await (window.krayWallet.signMessageWithConfirmation||window.krayWallet.signMessage).call(window.krayWallet, prep.message);
+      if(!pub){ var p=await window.krayWallet.getPublicKey(); pub=(p && p.publicKey) || p; window.__krayPub=pub; }
+      var sub={action:action, from:me, nonce:prep.nonce, publicKey:pub, signature:(sig && sig.signature) || sig};
+      if(TARGET!=null) sub.star=TARGET;  // mirror the target into submit — the node signed |onstar=N
+      if(action==='name'){ sub.name=body.name; }
+      else {
+        sub.content=body.content; sub.contentType=body.contentType; if(body.encoding) sub.encoding=body.encoding;
+        if(body.meta!=null) sub.meta=body.meta;
+        if(body.parents) sub.parents=body.parents; if(body.origins) sub.origins=body.origins;   // v3 lists mirror into submit — the node signed exactly these
+        if(body.originProofs) sub.originProofs=body.originProofs;
+        if(action==='origin') sub.parentId=body.parentId; else if(body.parent) sub.parent=body.parent;
+      }
+      var sr=await fetch('/api/kraynet/submit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(sub)});
+      var res=await sr.json(); if(!sr.ok || res.error) throw new Error(res.error||'refused');
+      out.className='iout ok';
+      var born = (res.star!=null ? res.star : prep.star); // the number actually assigned at birth
+      var url = res.url || ('/star/'+born);
+      var hang = (born!=null) ? ' · <a href="/inscribe?star='+encodeURIComponent(String(born))+'&tab=law">hang a law on this face →</a>' : '';
+      if(action==='origin') out.innerHTML='✓ origin child — star #'+Number(born).toLocaleString()+' born from Bitcoin L1 ordinal '+esc((body.parentId||'').slice(0,10))+'… · <a href="'+url+'" target="_blank" rel="noopener">view</a>'+hang;
+      else if(body.parents || body.origins) out.innerHTML='✓ sealed — star #'+Number(born).toLocaleString()+' born with '+(((body.parents||[]).length)+((body.origins||[]).length))+' parents ('+((body.parents||[]).length)+' ★ + '+((body.origins||[]).length)+' ₿), the whole lineage in ONE signature · <a href="'+url+'" target="_blank" rel="noopener">view</a>'+hang;
+      else if(action==='inscribe') out.innerHTML = TARGET!=null
+        ? '✓ sealed — content added to star #'+Number(born).toLocaleString()+' · <a href="'+url+'" target="_blank" rel="noopener">view content</a> · enters the mosaic on the next beat'+hang
+        : '✓ sealed — star #'+Number(born).toLocaleString()+' born from fire · <a href="'+url+'" target="_blank" rel="noopener">view content</a> · enters the mosaic on the next beat'+hang;
+      else out.innerHTML='✓ baptized — star #'+Number(born).toLocaleString()+' is now “'+esc(body.name)+'” forever'+hang;
+      ['i-content','i-name','i-parent','i-oparent','i-metadata'].forEach(function(id){var e=$(id); if(e) e.value='';});
+      clearFileQueue();
+      musicB64=null; musicBytes=0; musicName=null; musicMp3=null; musicCover=null; musicOn=false; revokeMusic();
+      var mp=$('m-prev'), m3=$('m-mp3'), mc=$('m-cover');
+      if(mp) mp.hidden=true; if(m3) m3.value=''; if(mc) mc.value='';
+      refreshMeta(); loadAccount();
+    }catch(e){ fail(e && e.message ? e.message : 'refused'); }
+    finally{ busy=false; paintGo(); }
+  });
+  // ── ADD-TO-STAR init ── point the surface at the owned star: banner on, Baptism
+  // tab out of reach (naming lives on /baptize), and a CONTENT tab selected.
+  if(TARGET!=null){
+    var tgt=$('i-target');
+    if(tgt){ tgt.textContent='Adding content to star #'+Number(TARGET).toLocaleString()+' — it keeps its number and name; the content becomes its inscription. A law is a different tab, a different signature.'; tgt.style.display='flex'; }
+    var nameTab=panel.querySelector('.itabs .chip[data-itab="name"]'); if(nameTab) nameTab.style.display='none';
+    var mediaTab=panel.querySelector('.itabs .chip[data-itab="media"]'); if(mediaTab) mediaTab.click(); // default to a CONTENT tab, never Baptism
+    var ls=$('i-lawstar'); if(ls && !ls.value) ls.value=TARGET;
+  }
+  var wantTab=(new URLSearchParams(location.search).get('tab')||'').toLowerCase();
+  if(wantTab==='law' || wantTab==='music' || wantTab==='media' || wantTab==='post'){
+    var jump=panel.querySelector('.itabs .chip[data-itab="'+wantTab+'"]');
+    if(jump) jump.click();
+  }
+  refreshMeta();
+})();
+</script>
+</body>
+</html>

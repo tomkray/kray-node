@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Rank</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* rank — page-local only; the system lives in /kray.css */
+  .hero .stamp{display:flex;gap:var(--s5);flex-wrap:wrap;margin-top:var(--s7);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+  .hero .stamp b{color:var(--ink)}
+  #rail{margin-bottom:var(--s5)}
+  #rail .tab{display:inline-flex;align-items:center;gap:8px}
+  #rail .tab-mark{display:block;flex:none}
+  .bookstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3);margin:0 0 var(--s5)}
+  .bookstats .stat .v.ok{color:var(--good)}
+  .bookstats .stat .v.bad{color:var(--crit,#f5776b)}
+  .bookstats .stat .v.glow{color:var(--gold,#e8b923)}
+  .bookstats .stat .v.x{color:var(--ember,#ff6b6b)}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);box-shadow:var(--shadow)}
+  .dtable{width:100%}
+  .dtable th.r,.dtable td.r{text-align:right}
+  .dtable td.rk{color:var(--ink-4);white-space:nowrap}
+  .dtable .medal{display:inline-block;width:20px}
+  .dtable tr.top1 td.rk{color:var(--ink);font-weight:600}
+  .dtable tr.trow-click{cursor:pointer}
+  .dtable td.who{max-width:1px;width:100%}
+  .dtable td.who a{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+  .dtable td.who small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-4);font-size:10px;letter-spacing:.02em}
+  .dtable td.bal{color:var(--ink);font-weight:600}
+  .dtable td.glow{color:var(--gold,#e8b923);font-weight:600}
+  .dtable td.x{color:var(--ember,#ff6b6b);font-weight:600}
+  .vdot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:middle;box-shadow:0 0 6px var(--good)}
+  .sim{color:var(--ink-4);font-size:9.5px;letter-spacing:.1em}
+  .shr{height:3px;border-radius:2px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line);margin-top:4px}
+  .shr i{display:block;height:100%;background:var(--ink-3)}
+  .shr.glow i{background:var(--gold,#e8b923)}
+  .shr.x i{background:var(--ember,#ff6b6b)}
+  .empty{padding:var(--s7) var(--s4);text-align:center;color:var(--ink-3);font-size:14px}
+  #note{margin-top:var(--s5);padding:var(--s4) var(--s5);font-size:13px;color:var(--ink-3);line-height:1.55}
+  #note b{color:var(--ink-2);font-weight:500}
+  .srcline{font-family:var(--mono);font-size:12px;color:var(--ink-4);margin-top:var(--s5)}
+  @media(max-width:1023px){.bookstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:900px){.dtable .hidem{display:none}}
+  @media(max-width:639px){.bookstats{grid-template-columns:minmax(0,1fr)}}
+  @media(max-width:560px){.dtable .hides{display:none}}
+</style>
+</head>
+<body data-page="rank">
+
+<div class="wrap">
+  <section class="hero" style="border-top:0;padding-top:var(--s8)">
+    <div class="eyebrow" id="eyebrow">DERIVED FROM THE JOURNAL · SAME ORDER ON EVERY NODE</div>
+    <h1 id="htitle">Rank</h1>
+    <p class="lede" id="lede"></p>
+    <div class="stamp">
+      <span>network <b id="netlab">—</b></span>
+      <span>cascade <b id="caslab">—</b></span>
+      <span>tripwire <b id="conslab">—</b></span>
+      <span>refreshed every <b>6s</b></span>
+    </div>
+  </section>
+</div>
+
+<section style="padding-top:var(--s7)"><div class="wrap">
+  <div class="shead"><span class="n">01</span>
+    <h2 id="shead-t">The books</h2>
+    <span class="sub" id="shead-s">One standing. Three proven ledgers. The address is the tie-break — equal keys never shuffle.</span></div>
+  <div class="tabs" id="rail" role="tablist"></div>
+  <div class="bookstats" id="stats"></div>
+  <div id="tbl"><div class="empty">loading…</div></div>
+  <div class="card" id="note"></div>
+  <div class="srcline">Read from <span class="mono">/api/kraynet/analytics</span> — a pure fold of the anchored journal. <span id="stamp"></span></div>
+</div></section>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function ka(v){
+    var n=Number(v||0), a=Math.abs(n);
+    var u=[[1e15,'Q'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];
+    for(var i=0;i<u.length;i++) if(a>=u[i][0]) return (n/u[i][0]).toFixed(a/u[i][0]>=100?0:a/u[i][0]>=10?1:2).replace(/\.0+$/,'')+u[i][1];
+    return String(n);
+  }
+  function full(v){ try{ return BigInt(v).toLocaleString(); }catch(_){ return String(v); } }
+  function num(v){ return Number(v||0).toLocaleString(); }
+  function shortRoot(r){ r=String(r||''); return r? r.slice(0,12)+'…' : '—'; }
+
+  // One URL. Hash is the book. /rank/x was discarded — a second path is a second story.
+  var BOOKS=[
+    {id:'kray',  label:'₭', hash:'kray',  title:'KRAY'},
+    {id:'x',     label:'Ӿ', hash:'nyx',   title:'Nyx'},
+    {id:'glow',  label:'✦', hash:'glow',  title:'glow'},
+    {id:'stars', label:'stars', hash:'stars', title:'stars'},
+    {id:'works', label:'works', hash:'works', title:'works'}
+  ];
+  function bookFromHash(){
+    var h=(location.hash||'').replace(/^#/,'').toLowerCase();
+    if(h==='fenyx'||h==='nyx'||h==='fenix'||h==='phoinix'||h==='nix'||h==='x'||h==='Ӿ') return 'x';
+    if(h==='glow'||h==='✦') return 'glow';
+    if(h==='stars'||h==='star') return 'stars';
+    if(h==='works'||h==='names') return 'works';
+    return 'kray';
+  }
+  var cur=bookFromHash(), last=null;
+
+  function setBook(id){
+    cur=id;
+    var b=BOOKS.filter(function(x){return x.id===id;})[0]||BOOKS[0];
+    if(location.hash.replace(/^#/,'')!==b.hash){
+      try{ history.replaceState(null,'','/rank#'+b.hash); }catch(_){ location.hash=b.hash; }
+    }
+    if(last) render(last);
+  }
+
+  function sortKray(rows, key){
+    return rows.slice().sort(function(a,b){
+      var av, bv;
+      if(key==='balance'||key==='glow'){ av=BigInt(a[key]||0); bv=BigInt(b[key]||0); }
+      else { av=Number(a[key]||0); bv=Number(b[key]||0); }
+      if(av<bv) return 1; if(av>bv) return -1;
+      return a.address<b.address?-1:a.address>b.address?1:0;
+    });
+  }
+
+  function whoCell(r){
+    return '<td class="who"><a href="/address/'+esc(r.address)+'">'
+      +(r.validating?'<span class="vdot" title="validating this interval"></span>':'')
+      +esc(r.who||r.address.slice(0,18)+'…'+r.address.slice(-8))
+      +(r.simulated?' <span class="sim">SIMULATED</span>':'')
+      +'<small>'+esc(r.address)+'</small></a></td>';
+  }
+  function rkCell(i){
+    var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    return '<td class="rk"><span class="medal">'+medal+'</span>'+(i+1)+'</td>';
+  }
+  function shareBar(pct, cls){
+    return '<td class="r hides">'+Number(pct||0).toFixed(2)+'%<span class="shr'+(cls?' '+cls:'')+'"><i style="width:'
+      +Math.max(1, Math.min(100, Number(pct)||0)).toFixed(1)+'%"></i></span></td>';
+  }
+  function stat(v, k, cls){
+    return '<div class="stat"><div class="v'+(cls?' '+cls:'')+'">'+v+'</div><div class="k">'+k+'</div></div>';
+  }
+
+  var COPY={
+    kray:{
+      eye:'THE FUNGIBLE BOOK · REPLAY-IDENTICAL',
+      title:'Rank · ₭',
+      lede:'Every address that holds ₭, ordered. This standing is <b>derived</b>: any node that replays the journal produces the same order — there is no index to trust. Protocol pots (treasury, the hole) are left out; including them would misstate how ₭ is distributed.',
+      head:'The ₭ standing',
+      sub:'Sort is ₭ held. Stars, works and glow ride as columns — they are other books, opened by the tabs.',
+      note:function(d, rows){
+        var total=d.rankTotal||0, shown=rows.length;
+        return '<b>What this list is.</b> '+num(total)+' address'+(total===1?'':'es')+' hold ₭'
+          +(shown<total?', and the top '+num(shown)+' are shown.':'.')
+          +' <b>stars</b> counts containers held; <b>works</b> living inscriptions written'
+          +(rows.some(function(r){return r.names;})?' and <b>+n</b> names baptised':'')
+          +'. A green dot means work in interval '+num((d.chain&&d.chain.interval)||0)+' right now.';
+      }
+    },
+    x:{
+      eye:'NYX · THE FIREBORN BOOK · Σ Ӿ = Σ BURNED',
+      title:'Rank · Nyx',
+      lede:'The same shape at every scale. A satoshi dies — night — <b>₭</b> is born. ₭ dies in fire — night again — <b>Nyx</b> is born, 1:1, the light that remains. That night holds the road already paid (the tank): the bird does not pay twice. <b>Fenyx</b> is not a second money — it is the hybrid that names both parents: the phoenix that rises, and Nyx the goddess. The Y is hers. The glyph is already <b>Ӿ</b>. A stranger re-derives every cell from the bytes. Glow is the other light. The two never mix. The law is Fireborn.',
+      head:'The Nyx standing',
+      sub:'Ordered by spendable Ӿ. Fenyx is the hybrid behind the name. Minted is lifetime fire. Lane is Ӿ inside the fold. Tank is remaining feeless sends.',
+      note:function(d){
+        var x=(d.lights&&d.lights.x)||{}, c=(d.lights&&d.lights.conservation)||{};
+        return '<b>Nyx — the Fireborn law on the page.</b> The hybrid is <b>Fenyx</b> (φοῖνιξ + Νύξ). One burn mints money <b>and</b> bandwidth: Ӿ 1:1, plus '
+          +num(x.sendsPerKray||1000)+' feeless x-sends for life (the tank). The signed x-send domain carries <b>no fee</b> — the reducer prescribes 0 or 1 ₭. '
+          +'<b>Conservation:</b> minted Ӿ = '+full(c.xMinted||x.total||0)+' · burned ₭ = '+full(c.burned||0)
+          +' · spendable + lane = '+full(c.xSpendable||0)+' + '+full(c.xLane||0)
+          +'. Tripwire '+(c.ok?'<b>holds</b> — this node\'s replay matches the math.':'<b>failed</b> — this node would HALT a write; do not trust a drifted book.')
+          +' Name: <b>Nyx</b>. Hybrid: <b>Fenyx</b>. Glyph: <b>Ӿ</b>. Mechanic: THE FIREBORN LAW.';
+      }
+    },
+    glow:{
+      eye:'THE SOULBOUND BOOK · 1 PER FROZEN STAR',
+      title:'Rank · ✦ glow',
+      lede:'Glow is <b>honor, never money</b>. One ✦ per distinct star sent to <code>KRAY_BLACK_HOLE</code>. No key encodes to that account, so a freeze cannot be undone and glow cannot be transferred or bought. It is a tally of past acts — a stranger counts the same freezes from the journal.',
+      head:'The glow standing',
+      sub:'Ordered by ✦. Addresses that never froze a star are not on this book.',
+      note:function(d){
+        var g=(d.lights&&d.lights.glow)||{};
+        return '<b>What glow is.</b> '+num(g.total||0)+' ✦ engraved on '+num(g.holders||0)+' address'+(g.holders===1?'':'es')+'. '
+          +'Farming junk stars is allowed and visible forever on the black-hole register — count is raw; quality is public. '
+          +'₭ burns. Stars freeze. The two lights never mix.';
+      }
+    },
+    stars:{
+      eye:'CONTAINERS HELD · DERIVED',
+      title:'Rank · stars',
+      lede:'Stars an address <b>holds now</b> — born-from-fire containers. Same citizen set as the ₭ book (protocol pots excluded), re-ordered. A star at the hole is not held.',
+      head:'The star standing',
+      sub:'Ordered by stars held. ₭ and glow ride as columns.',
+      note:function(d, rows){
+        return '<b>What this list is.</b> '+num((d.stars&&d.stars.total)||0)+' stars exist on this journal. This table orders ₭-holding citizens by how many they hold. Frozen stars live on the <a href="/blackhole">black-hole register</a>, and on the glow book.';
+      }
+    },
+    works:{
+      eye:'INSCRIPTIONS WRITTEN · DERIVED',
+      title:'Rank · works',
+      lede:'Living inscriptions an address <b>wrote</b> (not merely holds). Names baptised ride as <b>+n</b>. Same citizen set, re-ordered.',
+      head:'The works standing',
+      sub:'Ordered by works written. +n is names this mouth baptised.',
+      note:function(d){
+        var lib=d.library||{};
+        return '<b>What this list is.</b> '+num(lib.works||0)+' living works and '+num(lib.names||0)+' names on this journal. Cursed marks are excluded. The library is the shelf; this is the authors\' standing.';
+      }
+    }
+  };
+
+  function paintHero(d){
+    var c=COPY[cur]||COPY.kray;
+    document.getElementById('eyebrow').textContent=c.eye;
+    document.getElementById('htitle').textContent=c.title;
+    document.getElementById('lede').innerHTML=c.lede;
+    document.getElementById('shead-t').textContent=c.head;
+    document.getElementById('shead-s').textContent=c.sub;
+    document.getElementById('netlab').textContent=d.network+(d.simulation?' · simulation':'');
+    document.getElementById('caslab').textContent=shortRoot(d.chain&&d.chain.cascadeRoot);
+    var ok=d.lights&&d.lights.conservation&&d.lights.conservation.ok;
+    var cons=document.getElementById('conslab');
+    cons.textContent=ok===false?'HALT':'holds';
+    cons.style.color=ok===false?'var(--crit,#f5776b)':'';
+  }
+
+  function paintStats(d){
+    var el=document.getElementById('stats');
+    var L=d.lights||{}, x=L.x||{}, g=L.glow||{}, c=L.conservation||{}, s=d.supply||{}, st=d.stars||{};
+    if(cur==='x'){
+      el.innerHTML=
+        stat(ka(x.total||c.xMinted||0),'Ӿ minted · = burned ₭','x')+
+        stat(ka(x.totalSpendable||0),'spendable')+
+        stat(ka(x.totalLane||0),'in the lane')+
+        stat(c.ok===false?'broken':'holds', c.ok===false?'tripwire':'Σ Ӿ = Σ burned', c.ok===false?'bad':'ok');
+      return;
+    }
+    if(cur==='glow'){
+      el.innerHTML=
+        stat(ka(g.total||0),'✦ total glow','glow')+
+        stat(num(g.holders||0),'addresses')+
+        stat('soulbound','never transfers')+
+        stat('1 : 1','star frozen → ✦');
+      return;
+    }
+    if(cur==='stars'){
+      el.innerHTML=
+        stat(num(st.total||0),'stars born')+
+        stat(num(st.written||0),'inscribed')+
+        stat(num(st.named||0),'named')+
+        stat(num(d.rankTotal||0),'₭ holders');
+      return;
+    }
+    if(cur==='works'){
+      el.innerHTML=
+        stat(num((d.library&&d.library.works)||st.written||0),'works')+
+        stat(num((d.library&&d.library.names)||st.named||0),'names')+
+        stat(ka((d.library&&d.library.bytes)||0),'bytes sealed')+
+        stat(num(d.rankTotal||0),'₭ holders');
+      return;
+    }
+    el.innerHTML=
+      stat(ka(s.heldByCitizens||s.circulating||0),'₭ held by citizens')+
+      stat(num(d.rankTotal||0),'addresses')+
+      stat(ka(s.burned||0),'₭ burned → Ӿ')+
+      stat(ka((L.glow&&L.glow.total)||0),'✦ glow','glow');
+  }
+
+  function tableKray(d, key){
+    var rows=sortKray(d.rank||[], key);
+    if(!rows.length) return {html:'<div class="empty">No address holds ₭ yet. The first proven mint will appear here.</div>', rows:rows};
+    var h='<div class="tblwrap"><table class="dtable"><thead><tr>'
+      +'<th class="rk">#</th><th>address</th>'
+      +'<th class="r">₭ held</th><th class="r hides">share</th>'
+      +'<th class="r hidem">stars</th><th class="r hidem">works</th><th class="r hidem">✦</th>'
+      +'</tr></thead><tbody>';
+    rows.forEach(function(r,i){
+      h+='<tr class="trow-click'+(i===0?' top1':'')+'" data-href="/address/'+esc(r.address)+'">'
+        +rkCell(i)+whoCell(r)
+        +'<td class="r bal" title="'+esc(full(r.balance))+' ₭">'+ka(r.balance)+' ₭</td>'
+        +shareBar(r.share)
+        +'<td class="r hidem">'+num(r.stars)+'</td>'
+        +'<td class="r hidem">'+num(r.works)+(r.names?' <span class="dim2">+'+num(r.names)+'n</span>':'')+'</td>'
+        +'<td class="r hidem glow" title="'+esc(full(r.glow))+' ✦">'+ka(r.glow)+'</td>'
+        +'</tr>';
+    });
+    return {html:h+'</tbody></table></div>', rows:rows};
+  }
+
+  function tableX(d){
+    var rows=((d.lights&&d.lights.x&&d.lights.x.rank)||[]);
+    if(!rows.length) return {html:'<div class="empty">No Ӿ yet. Burn ₭ (inscribe, name, seal a law, or Fireburn) — Ӿ is born 1:1 to the burner.</div>', rows:rows};
+    var h='<div class="tblwrap"><table class="dtable"><thead><tr>'
+      +'<th class="rk">#</th><th>address</th>'
+      +'<th class="r">spendable Ӿ</th><th class="r hides">share</th>'
+      +'<th class="r hidem">minted</th><th class="r hidem">lane</th><th class="r hidem">tank</th>'
+      +'</tr></thead><tbody>';
+    rows.forEach(function(r,i){
+      h+='<tr class="trow-click'+(i===0?' top1':'')+'" data-href="/address/'+esc(r.address)+'">'
+        +rkCell(i)+whoCell(r)
+        +'<td class="r x" title="'+esc(full(r.spendable))+' Ӿ">'+ka(r.spendable)+' Ӿ</td>'
+        +shareBar(r.share,'x')
+        +'<td class="r hidem" title="lifetime fire — not the same as spendable">'+ka(r.minted)+'</td>'
+        +'<td class="r hidem" title="Ӿ inside the TK-fold lane">'+ka(r.lane)+'</td>'
+        +'<td class="r hidem" title="remaining feeless x-sends">'+ka(r.tank)+'</td>'
+        +'</tr>';
+    });
+    return {html:h+'</tbody></table></div>', rows:rows};
+  }
+
+  function tableGlow(d){
+    var rows=((d.lights&&d.lights.glow&&d.lights.glow.rank)||[]);
+    if(!rows.length) return {html:'<div class="empty">No glow yet. Freeze a star — send it to the hole. ✦ +1, forever, on your stone.</div>', rows:rows};
+    var h='<div class="tblwrap"><table class="dtable"><thead><tr>'
+      +'<th class="rk">#</th><th>address</th>'
+      +'<th class="r">✦ glow</th><th class="r hides">share</th>'
+      +'</tr></thead><tbody>';
+    rows.forEach(function(r,i){
+      h+='<tr class="trow-click'+(i===0?' top1':'')+'" data-href="/address/'+esc(r.address)+'">'
+        +rkCell(i)+whoCell(r)
+        +'<td class="r glow" title="'+esc(full(r.glow))+' ✦">'+ka(r.glow)+' ✦</td>'
+        +shareBar(r.share,'glow')
+        +'</tr>';
+    });
+    return {html:h+'</tbody></table></div>', rows:rows};
+  }
+
+  function render(d){
+    last=d;
+    paintHero(d);
+    document.getElementById('rail').innerHTML=BOOKS.map(function(s){
+      return '<button class="tab'+(s.id===cur?' on':'')+'" data-s="'+s.id+'" role="tab" aria-selected="'+(s.id===cur?'true':'false')+'" title="'+esc(s.title||s.label)+'" aria-label="'+esc(s.title||s.label)+'">'
+        +(s.mark?'<svg class="tab-mark" width="14" height="14" aria-hidden="true"><use href="#'+s.mark+'"/></svg>':'')
+        +esc(s.label)+'</button>';
+    }).join('');
+    document.querySelectorAll('#rail .tab').forEach(function(b){
+      b.addEventListener('click', function(){ setBook(b.getAttribute('data-s')); });
+    });
+    paintStats(d);
+
+    var out;
+    if(cur==='x') out=tableX(d);
+    else if(cur==='glow') out=tableGlow(d);
+    else if(cur==='stars') out=tableKray(d,'stars');
+    else if(cur==='works') out=tableKray(d,'works');
+    else out=tableKray(d,'balance');
+    document.getElementById('tbl').innerHTML=out.html;
+
+    var note=(COPY[cur]||COPY.kray).note(d, out.rows);
+    document.getElementById('note').innerHTML=note;
+    document.getElementById('stamp').textContent=' Last read '+new Date(d.at).toLocaleTimeString()+'.';
+    document.title='KRAY.NETWORK · '+(COPY[cur]||COPY.kray).title;
+  }
+
+  document.getElementById('tbl').addEventListener('click', function(e){
+    var tr=e.target.closest('tr[data-href]');
+    if(tr && !e.target.closest('a')) location.href=tr.getAttribute('data-href');
+  });
+  window.addEventListener('hashchange', function(){ setBook(bookFromHash()); });
+
+  // The books live in two doors of the same fold. Analytics carries the rich envelope
+  // (spendable / lane / tank / tripwire) after the node reloads. /lights is the older
+  // door — already live — so a stale process still paints Ӿ and glow instead of empty tables.
+  function attachLights(d, L){
+    if(!d) return d;
+    if(L){
+      if(!d.lights) d.lights = L;
+      else {
+        if(!d.lights.glow && L.glow) d.lights.glow = L.glow;
+        if(!d.lights.x && L.x) d.lights.x = L.x;
+        if(!d.lights.conservation && L.conservation) d.lights.conservation = L.conservation;
+      }
+    }
+    var glowBy = {};
+    ((d.lights && d.lights.glow && d.lights.glow.rank) || []).forEach(function(r){ glowBy[r.address] = r.glow; });
+    (d.rank || []).forEach(function(r){
+      var g = glowBy[r.address];
+      if(g != null && (!r.glow || r.glow === '0' || r.glow === 0)) r.glow = String(g);
+    });
+    ((d.lights && d.lights.x && d.lights.x.rank) || []).forEach(function(r){
+      if(r.spendable == null && r.x != null) r.spendable = r.x;
+      if(r.minted == null && r.x != null) r.minted = r.x;
+      if(r.lane == null) r.lane = '0';
+      if(r.tank == null) r.tank = '0';
+    });
+    return d;
+  }
+
+  function tick(){
+    Promise.all([
+      fetch('/api/kraynet/analytics').then(function(r){ return r.json(); }),
+      fetch('/api/kraynet/lights').then(function(r){ return r.json(); }).catch(function(){ return null; })
+    ]).then(function(pair){
+      render(attachLights(pair[0], pair[1]));
+    }).catch(function(){
+      var s=document.getElementById('stamp');
+      if(s) s.textContent=' The node stopped answering — the table above is the last good reading.';
+    });
+  }
+  tick(); setInterval(tick, 6000);
+})();
+</script>
+</body>
+</html>

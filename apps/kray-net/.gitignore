@@ -1,0 +1,7 @@
+# scratch / local artifacts — the explorer runs from source, nothing built
+*.log
+_*.mjs
+_*.json
+node_modules/
+data/
+data-main/

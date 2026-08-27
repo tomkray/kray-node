@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Land</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+/* ============================================================================
+   KRAY.NETWORK — LAND · page-local (v2 "Blueprint")
+   The system lives in /kray.css. Here: the atlas of 1:1 parcels — each tile
+   rendered as the REAL inscription it holds — plus the deed, legend and pager.
+   ONE colour: Bitcoin amber, only where the land is sealed to L1.
+   ========================================================================== */
+
+/* status chip in the hero (JS sets its text: "land #N" / "district…") */
+#netlab{text-transform:none;letter-spacing:.04em}
+
+/* ── the deed — this land's identity ── */
+.deed{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s5);
+  padding:var(--s6) 0 var(--s4);flex-wrap:wrap}
+.deedmain{min-width:min(100%,280px);flex:1}
+.bitland{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--btc);border:1px solid var(--btc-line);
+  background:var(--btc-soft);border-radius:var(--r-pill);padding:5px 13px;margin-bottom:var(--s3)}
+.bitland i{font-style:normal;font-size:12px}
+.bitland.building{color:var(--ink-3);border-color:var(--line-2);background:transparent}
+.deed h1{font-family:var(--mono);font-size:clamp(26px,4vw,38px);font-weight:600;
+  letter-spacing:-.01em;line-height:1.1}
+.deed h1 .hash{color:var(--ink)}
+.sub{font-size:14px;color:var(--ink-3);margin-top:var(--s2);max-width:64ch}
+.seal{display:flex;flex-wrap:wrap;gap:8px;margin-top:var(--s3)}
+.chip.ok{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
+.chip.gold{color:var(--ink-2);border-color:var(--line-2)}
+
+/* deed stats — compact 2×2 of v2 stat cards */
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s2);min-width:0;flex:1 1 220px}
+.stat{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:12px 14px}
+.stat b{display:block;font-family:var(--sans);font-weight:500;font-size:20px;letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.1}
+.stat span{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+
+/* ── THE MAP — a framed stage of perfect 1:1 parcels (blocks.html "stage" pattern) ── */
+.plot{position:relative;width:100%;max-width:760px;aspect-ratio:1;margin:var(--s2) auto var(--s1);
+  border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);overflow:hidden;
+  box-shadow:var(--shadow);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px}
+/* each parcel is an absolute tile at its byte-weighted treemap slot; when the district
+   re-packs (a new write lands) every tile GLIDES to its new slot — mempool-goggles live */
+.lot{position:absolute;overflow:hidden;text-decoration:none;background:var(--panel);
+  border:1px solid var(--line);border-radius:3px;
+  transition:left .6s var(--ease),top .6s var(--ease),width .6s var(--ease),height .6s var(--ease),opacity .45s var(--ease),transform .18s var(--ease),border-color .16s,box-shadow .16s;
+  will-change:left,top,width,height}
+.lot.enter{opacity:0;transform:scale(.4)}
+.lot.leave{opacity:0;transform:scale(.4);pointer-events:none}
+.lot:hover{z-index:5;border-color:var(--line-2);box-shadow:0 12px 30px -16px rgba(0,0,0,.6);text-decoration:none}
+.lot img,.lot video{width:100%;height:100%;object-fit:cover;display:block}
+.lot .txt{width:100%;height:100%;padding:9px 10px;font-family:var(--mono);font-size:9.5px;line-height:1.45;
+  color:var(--ink-2);overflow:hidden;word-break:break-word;background:linear-gradient(150deg,var(--surface),var(--panel))}
+.lot .bap{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  background:radial-gradient(circle at 50% 40%,var(--line-2),transparent 70%)}
+.lot .bap b{font-family:var(--sans);font-size:14px;color:var(--ink);text-align:center;padding:0 6px;
+  overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.lot .bap i{font-style:normal;font-size:16px;color:var(--ink-3)}
+.lot .absent{width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:8.5px;letter-spacing:.06em;color:var(--ink-4);text-align:center;padding:6px;
+  background:repeating-linear-gradient(45deg,transparent,transparent 6px,var(--line) 6px,var(--line) 12px)}
+.lot .tagline{position:absolute;left:0;right:0;bottom:0;padding:14px 7px 6px;font-family:var(--mono);font-size:8.5px;
+  color:rgba(255,255,255,.82);background:linear-gradient(transparent,rgba(0,0,0,.9));pointer-events:none;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:0;transition:opacity .16s}
+.lot:hover .tagline{opacity:1}
+/* the rarity mark — only the special stars wear their glyph in the corner */
+.lot .rmark{position:absolute;top:4px;right:4px;width:16px;height:16px;z-index:3;pointer-events:none;filter:drop-shadow(0 0 4px rgba(0,0,0,.7))}
+.lot .rmark svg{width:100%;height:100%}
+.rmark.r-mythic{color:#f7931a}.rmark.r-legendary{color:#c98bff}.rmark.r-epic{color:#6bb6ff}.rmark.r-rare{color:#4ec98a}
+.lot.r-mythic{border-color:var(--btc-line)}
+.lot.r-legendary,.lot.r-epic,.lot.r-rare{border-color:var(--line-2)}
+.lot.me{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal),0 0 24px color-mix(in srgb,var(--signal) 22%,transparent)}
+
+/* the sealing sweep — Bitcoin stamps the land */
+.sweep{position:absolute;inset:0;pointer-events:none;opacity:0;border-radius:var(--r3);
+  background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.30) 48%,rgba(255,255,255,.55) 52%,transparent 65%)}
+.plot.minting .sweep{animation:sweep .95s ease-out 1}
+@keyframes sweep{0%{opacity:0;transform:translateX(-60%)}30%{opacity:1}100%{opacity:0;transform:translateX(60%)}}
+@media (prefers-reduced-motion:reduce){
+  .plot.minting .sweep{animation:none}
+  .lot{transition:none}
+}
+
+/* ── legend ── */
+.legend{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;padding:var(--s3) 0 var(--s1);
+  font-family:var(--mono);font-size:10.5px;color:var(--ink-4)}
+.legend b{color:var(--ink-3);font-weight:500}
+.legend .sw{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:middle;border:1px solid}
+.note{border-left:2px solid var(--line-2);padding:4px 0 4px 16px;margin:var(--s5) 0;color:var(--ink-3);font-size:13.5px;max-width:70ch}
+
+/* ── the honest empty land ── */
+.nolands{border:1px dashed var(--line-2);border-radius:var(--r3);padding:52px 32px;text-align:center;background:var(--surface)}
+.nolands .big{font-family:var(--mono);font-size:19px;color:var(--ink-2);margin-bottom:10px}
+.nolands p{font-size:13.5px;color:var(--ink-3);max-width:56ch;margin:0 auto 18px}
+
+/* ── pager ── */
+.pager{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:var(--s4) 0 var(--s7);flex-wrap:wrap}
+.pgb{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);
+  border:1px solid var(--line-2);border-radius:var(--r1);padding:9px 14px;min-height:42px;text-decoration:none;transition:.15s var(--ease)}
+.pgb:hover{color:var(--ink);border-color:var(--ink);text-decoration:none}
+.pgb[aria-disabled="true"]{opacity:.35;pointer-events:none}
+
+@media(max-width:760px){.plot{aspect-ratio:1/1;max-width:100%}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body data-page="land">
+
+<div class="wrap">
+  <section class="hero" style="border-top:0;padding:var(--s8) 0 var(--s4)">
+    <div class="eyebrow"><svg width="13" height="13" style="vertical-align:-2px;margin-right:2px"><use href="#g-anchor"/></svg> THE LAND · THE CITY BITCOIN MINTED</div>
+    <p class="lede" style="margin-top:var(--s5)">Every parcel is a creation — an inscription or a baptism — and its ground is <b>the bytes it sealed</b>. Land is minted by writing and witnessed by Bitcoin; an anchor with nothing written under it mints no land, and says so.</p>
+    <div class="row" style="margin-top:var(--s5)">
+      <svg width="15" height="15" class="dim" style="opacity:.6"><use href="#g-star"/></svg>
+      <span class="chip" id="netlab">—</span>
+    </div>
+  </section>
+</div>
+
+<div class="wrap">
+  <div id="body"><div class="eyebrow">surveying the land…</div></div>
+</div>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  "use strict";
+  // Three ways to name a place: the land's own number, the anchor's KRAY height
+  // (for anyone auditing roots), or a single LOT — which resolves to the land
+  // that holds it and lights that lot up.
+  var pm=/^\/parcel\/(\d+)\/?$/.exec(location.pathname);
+  var m=/^\/land(?:\/(h?\d+))?\/?$/.exec(location.pathname);
+  if(!m && !pm){ document.getElementById('body').innerHTML='<div class="nolands"><div class="big">not a land</div><a class="btn" href="/land">the district being built →</a></div>'; return; }
+  var LOT  = pm ? pm[1] : null;       // a single lot: find its land, then light it
+  var LAND = pm ? null : (m[1] || null); // null = the district under construction
+  var MESTAR = null;                  // the star of the lot to light, once known
+
+  /* the real Bitcoin block, on the explorer everyone already trusts. regtest has
+     no public explorer, so it links nowhere — a 404 is worse than a plain number. */
+  function mempool(h, chain){
+    if(chain==='signet') return 'https://mempool.space/signet/block/'+h;
+    if(!chain || chain==='mainnet' || chain==='bitcoin') return 'https://mempool.space/block/'+h;
+    return '';
+  }
+
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function n(v){ return Number(v).toLocaleString(); }
+  function fmtB(b){ b=Number(b)||0; if(b>=1e6) return (b/1e6).toFixed(1)+' MB'; if(b>=1e3) return (b/1e3).toFixed(1)+' KB'; return b+' B'; }
+  function short(a){ return a? a.slice(0,8)+'…'+a.slice(-5) : '—'; }
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── SQUARIFIED TREEMAP (Bruls / Huizing / van Wijk) ───────────────────────
+     Every pixel is allotted — no gaps, no leftovers, exactly like a mempool
+     block. Lot AREA is proportional to the SQUARE ROOT of the bytes the
+     creation sealed: the protocol allows 10,000,000 bytes, so on raw bytes a short
+     post beside a large image would be 0.0001% of the ground — invisible, and a
+     lot nobody can click is not a lot. The root compresses that 10,000× spread
+     to ~100×, which a map can actually show, and big works still hold visibly
+     bigger ground. */
+  var lastFloored=0;
+  function squarify(items, W, H){
+    var out=[];
+    // ── AREA IS THE REAL BYTE SIZE ─────────────────────────────────────────
+    // A lot's area is proportional to the bytes actually sealed — exactly, not on
+    // a curve. That is what produces the city: one multi-MB image towers over a
+    // street of small posts, the way a full block towers in mempool.space.
+    //
+    // The one concession: a lot nobody can tap is not a lot. So a weight FLOOR is
+    // applied — the smallest number of bytes whose share still covers a 44x44px
+    // touch target — and because the floor changes the total, it is re-derived
+    // twice until it settles. The floor is applied to the WEIGHTS, never to the
+    // laid-out cells, so the treemap still tiles the rectangle exactly with no
+    // leftover space. How many lots were raised is reported, never hidden.
+    var raw=items.map(function(it){ return Math.max(1, Number(it.size)||1); });
+    var MINA=44*44, weights=raw.slice(), floored=0;
+    for(var pass=0; pass<3; pass++){
+      var sum=weights.reduce(function(a,b){return a+b;},0)||1;
+      var minW=(MINA/(W*H))*sum;
+      floored=0;
+      weights=raw.map(function(v){ if(v<minW){ floored++; return minW; } return v; });
+    }
+    lastFloored=floored;
+    var total=weights.reduce(function(a,b){return a+b;},0) || 1;
+    var scale=(W*H)/total;
+    var areas=weights.map(function(w){ return w*scale; });
+    var idx=items.map(function(_,i){ return i; }).sort(function(a,b){ return areas[b]-areas[a]; });
+    var x=0,y=0,w=W,h=H,i=0;
+    function worst(row,side,sum){
+      var mx=0,mn=Infinity;
+      for(var k=0;k<row.length;k++){ mx=Math.max(mx,areas[row[k]]); mn=Math.min(mn,areas[row[k]]); }
+      var s2=sum*sum, sd2=side*side;
+      return Math.max((sd2*mx)/s2, s2/(sd2*mn));
+    }
+    while(i<idx.length){
+      var side=Math.min(w,h), row=[idx[i]], sum=areas[idx[i]]; i++;
+      while(i<idx.length){
+        var nsum=sum+areas[idx[i]];
+        if(worst(row.concat([idx[i]]),side,nsum) <= worst(row,side,sum)){ row.push(idx[i]); sum=nsum; i++; }
+        else break;
+      }
+      // lay the row along the shorter side, then shrink the remaining rectangle
+      var thick = sum/side;
+      var off = 0;
+      for(var k=0;k<row.length;k++){
+        var len = areas[row[k]]/thick;
+        if(w>=h) out.push({ i:row[k], x:x, y:y+off, w:thick, h:len });
+        else     out.push({ i:row[k], x:x+off, y:y, w:len, h:thick });
+        off += len;
+      }
+      if(w>=h){ x+=thick; w-=thick; } else { y+=thick; h-=thick; }
+      if(w<0.5||h<0.5) break;
+    }
+    return out;
+  }
+
+  /* one lot, rendered as what it actually holds */
+  function lotInner(p, big){
+    if(p.kind==='baptism'){
+      return '<div class="bap"><i>☆</i>'+(big?'<b>“'+esc(p.name)+'”</b>':'')+'</div>';
+    }
+    if(!p.held) return '<div class="absent">bytes held<br>elsewhere</div>';
+    var ct=String(p.contentType||'');
+    if(ct.indexOf('image/')===0) return '<img loading="lazy" alt="" src="'+p.url+'">';
+    if(ct.indexOf('video/')===0) return '<video src="'+p.url+'" muted playsinline'+(reduce?'':' autoplay loop')+'></video>';
+    if(ct.indexOf('audio/')===0 || /^application\/pdf\b/.test(ct) || /^text\/|json|javascript|xml|markdown|csv|yaml|x-python|x-java|html/.test(ct)) return '<div class="kv-hyd" data-kvurl="'+p.url+'" data-kvct="'+esc(ct)+'">…</div>';
+    return '<div class="absent">'+esc(ct.split('/')[1]||ct)+'</div>';
+  }
+
+  // THE LIVE TREEMAP — each parcel is an absolute tile at its byte-weighted squarify
+  // slot, KEYED by star, so when a new write lands the whole map RE-PACKS and every tile
+  // GLIDES to its new slot (mempool-goggles) instead of being redrawn.
+  function paint(d){
+    var plot=document.getElementById('plot'); if(!plot) return;
+    var ps=d.parcels||[];
+    plot.classList.toggle('solo', ps.length===1);
+    if(!ps.length){ plot.querySelectorAll('.lot').forEach(function(el){ el.remove(); }); return; }
+    var S=Math.max(80, plot.clientWidth||700), cells=squarify(ps, S, S), seen={};
+    cells.forEach(function(c){
+      var p=ps[c.i], key=String(p.star); seen[key]=1;
+      var isMe = MESTAR!=null && String(p.star)===String(MESTAR);
+      var el=plot.querySelector('.lot[data-star="'+key+'"]'), fresh=false;
+      if(!el){ fresh=true;
+        el=document.createElement('a'); el.setAttribute('data-star', key); el.href='/star/'+p.star;
+        el.className='lot enter r-'+esc(p.rarity||'common')+(isMe?' me':'');
+        var spec=/^(mythic|legendary|epic|rare)$/.test(p.rarity||'');
+        var rmk=spec?'<span class="rmark r-'+esc(p.rarity)+'"><svg viewBox="0 0 24 24"><use href="#g-r-'+esc(p.rarity)+'"/></svg></span>':'';
+        el.innerHTML=lotInner(p,false)+rmk+'<span class="tagline"></span>';
+        plot.appendChild(el);
+      }
+      el.style.left=(c.x/S*100).toFixed(3)+'%'; el.style.top=(c.y/S*100).toFixed(3)+'%';
+      el.style.width=(c.w/S*100).toFixed(3)+'%'; el.style.height=(c.h/S*100).toFixed(3)+'%';
+      el.title='lot #'+(p.lot||'—')+' · star #'+n(p.star)+(p.name?' “'+esc(p.name)+'”':'')+' · '+fmtB(p.size)+' · '+esc(p.kind)+' by '+short(p.by)+(isMe?' — THIS LOT':'');
+      var tag=el.querySelector('.tagline'); if(tag) tag.textContent='lot #'+(p.lot||'?')+' · '+fmtB(p.size);
+      if(fresh) requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.remove('enter'); }); });
+    });
+    // a lot that is no longer here fades out and is removed
+    plot.querySelectorAll('.lot').forEach(function(el){
+      var k=el.getAttribute('data-star'); if(k && !seen[k]){ el.classList.add('leave'); setTimeout(function(){ if(el.parentNode) el.remove(); }, 460); }
+    });
+    // document lots wear the site-wide FROZEN PORTRAIT (kray.js) — locked, inert, once
+    plot.querySelectorAll('.kv-hyd[data-kvurl]:not([data-loaded])').forEach(function(el){ el.setAttribute('data-loaded','1');
+      if(window.KRAY && KRAY.frozenPreview) KRAY.frozenPreview(el, el.getAttribute('data-kvurl'), el.getAttribute('data-kvct'), {mini:true});
+      else el.textContent='…';
+    });
+  }
+  // update the four headline numbers without a full re-render (keeps the treemap alive)
+  function updateStats(d){
+    var bs=document.querySelectorAll('.stats .stat b'); if(bs.length<4||!d.totals) return;
+    bs[0].textContent=n(d.totals.parcels); bs[1].textContent=fmtB(d.totals.bytes);
+    bs[2].textContent=n(d.totals.inscriptions); bs[3].textContent=n(d.totals.baptisms);
+  }
+
+  var current=null;
+  function render(d){
+    current=d;
+    var minted=!d.live && d.anchor && (d.anchor.verified || d.anchor.simulated);  // gold ⟺ SEALED on Bitcoin (buried), not merely broadcast
+    document.getElementById('netlab').textContent = d.live ? 'district under construction' : ('land #'+n(d.land));
+
+    var head = '<div class="deed"><div class="deedmain">'
+      + (minted
+          ? '<div class="bitland"><i>₿</i>BITLAND · MINTED BY BITCOIN</div>'
+          : '<div class="bitland building"><i>◌</i>'+(d.live?'STAKING · NOT YET SEALED':'AWAITING ITS SEAL')+'</div>')
+      + '<h1>'+(d.live?'The district <span class="hash">forming</span>':'LAND <span class="hash">#'+n(d.land)+'</span>')+'</h1>'
+      + '<div class="sub">'+(d.live
+          ? 'Every creation sealed from block '+n(d.range.fromBlock)+' onward is staking a lot here. The next real Bitcoin block mints this land and every parcel in it.'
+          : 'Minted from the creations sealed between blocks '+n(d.range.fromBlock)+' and '+n(d.range.toBlock)+' — '+n(d.range.blocks)+' fast blocks, consolidated into one cascade root and witnessed by Bitcoin.')
+      + '</div><div class="seal">'
+      + (d.anchor && d.anchor.btcHeight ? '<a class="chip btc" href="'+mempool(d.anchor.btcHeight,d.anchor.btcChain)+'" target="_blank" rel="noopener" style="text-decoration:none">₿ block '+n(d.anchor.btcHeight)+(d.anchor.btcChain?' · '+esc(d.anchor.btcChain):'')+' ↗</a>' : '')
+      + (minted ? '<span class="chip btc" title="'+esc(d.anchor.txid)+'">tx '+d.anchor.txid.slice(0,12)+'…</span>' : '')
+      + (minted && d.anchor.confirmations ? '<span class="chip ok">'+d.anchor.confirmations+' confirmation'+(d.anchor.confirmations===1?'':'s')+'</span>' : '')
+      + (minted && d.anchor.verified ? '<span class="chip ok">root read back ✓</span>' : '')
+      + (d.anchor && d.anchor.cascadeRoot ? '<span class="chip gold" title="'+esc(d.anchor.cascadeRoot)+'">cascade '+d.anchor.cascadeRoot.slice(0,10)+'…</span>' : '')
+      + (d.truncated ? '<span class="chip">showing the first '+n(d.parcels.length)+' lots</span>' : '')
+      + '</div></div>'
+      + '<div class="stats">'
+      + '<div class="stat"><b>'+n(d.totals.parcels)+'</b><span>lots</span></div>'
+      + '<div class="stat"><b>'+fmtB(d.totals.bytes)+'</b><span>ground sealed</span></div>'
+      + '<div class="stat"><b>'+n(d.totals.inscriptions)+'</b><span>inscriptions</span></div>'
+      + '<div class="stat"><b>'+n(d.totals.baptisms)+'</b><span>baptisms</span></div>'
+      + '</div></div>';
+
+    var body;
+    if(!d.exists){
+      // THE HONEST CASE — and it is a meaningful one
+      body = '<div class="nolands"><div class="big">'+(d.live?'No land is forming yet':'This anchor minted no land')+'</div>'
+        + '<p>Between block '+n(d.range.fromBlock)+' and block '+n(d.range.toBlock)+' the network turned, conserved and sealed — but nobody wrote. '
+        + 'Land is minted by writing: a lot exists only where a creation stands.</p>'
+        + '<a class="btn primary" href="/inscribe">✎ stake the first lot</a> <a class="btn" href="/land">the district forming now</a></div>';
+    } else {
+      body = '<div class="plot'+(minted?' sealed':'')+'" id="plot"><div class="sweep"></div></div>'
+        + '<div class="legend">'
+        + '<span><b>lot area</b> = the bytes actually sealed'
+          + (lastFloored ? ' · '+lastFloored+' small lot'+(lastFloored===1?'':'s')+' raised to stay tappable' : '')
+          + '</span>'
+        + '<span><span class="sw" style="border-color:var(--btc)"></span>mythic</span>'
+        + '<span><span class="sw" style="border-color:var(--gold-line)"></span>rare and above</span>'
+        + '<span><span class="sw" style="border-color:rgba(0,0,0,.35)"></span>common</span>'
+        + '<span><b>☆</b> baptism · a name written into the atlas</span>'
+        + '<span>'+n(d.totals.writers)+' writer'+(d.totals.writers===1?'':'s')+' built here</span>'
+        + '</div>'
+        + '<div class="note">Every lot is a creation: an inscription or a baptism, sealed in a fast block and witnessed by Bitcoin when this land was minted. Transfers move value but build nothing, so they own no ground. Click a lot to open its star.</div>';
+    }
+
+    var nb = d.neighbours || {};
+    var pager = '<div class="pager">'
+      + (nb.prev!=null ? '<a class="pgb" href="/land/'+nb.prev+'">← land #'+n(nb.prev)+'</a>' : '<span class="pgb" aria-disabled="true">← the first land</span>')
+      + '<a class="btn" href="/land">'+(d.live?'you are watching it form':'the district forming now →')+'</a>'
+      + (nb.next!=null ? '<a class="pgb" href="/land/'+nb.next+'">land #'+n(nb.next)+' →</a>'
+                       : (d.live ? '<span class="pgb" aria-disabled="true">not yet minted</span>' : '<a class="pgb" href="/land">the newest →</a>'))
+      + '</div>';
+
+    document.getElementById('body').innerHTML = head + body + pager;
+    if(d.exists) requestAnimationFrame(function(){ paint(d); });
+
+    // the arrow keys walk land to land
+    document.onkeydown = function(e){
+      if(/^(INPUT|TEXTAREA)$/.test(e.target.tagName||'')) return;
+      if(e.key==='ArrowLeft' && nb.prev!=null) location.href='/land/'+nb.prev;
+      if(e.key==='ArrowRight' && nb.next!=null) location.href='/land/'+nb.next;
+    };
+  }
+
+  function load(){
+    if(LOT!=null){
+      return fetch('/api/kraynet/parcel/'+LOT).then(function(r){return r.json();}).then(function(pd){
+        if(pd.error) throw new Error(pd.error);
+        MESTAR = pd.parcel ? pd.parcel.star : null;
+        LAND = pd.land;
+        return fetch('/api/kraynet/land/'+LAND).then(function(r){return r.json();}).then(function(d){
+          if(d.error) throw new Error(d.error);
+          render(d); return d;
+        });
+      });
+    }
+    return fetch('/api/kraynet/land/'+(LAND||'forming')).then(function(r){return r.json();}).then(function(d){
+      if(d.error) throw new Error(d.error);
+      render(d);
+      return d;
+    });
+  }
+
+  load().catch(function(e){
+    document.getElementById('body').innerHTML='<div class="nolands"><div class="big">'+esc((e&&e.message)||'the node is not answering')+'</div>'
+      +'<p>'+(LAND?'No anchor sealed that height on this node.':'The node may be restarting — nothing is lost.')+'</p>'
+      +'<a class="btn primary" href="/">← the explorer</a> <a class="btn" href="/land">the district forming</a></div>';
+  });
+
+  // the live district keeps building, and seals in front of you
+  if(!LAND && LOT==null){
+    var lastParcels=null;
+    setInterval(function(){
+      fetch('/api/kraynet/land/forming').then(function(r){return r.json();}).then(function(d){
+        if(d.error) return;
+        // an anchor landed: what we were watching has just been minted
+        if(current && current.live && d.range.fromBlock > current.range.fromBlock){
+          var plot=document.getElementById('plot');
+          if(plot && !reduce){ plot.classList.add('minting'); }
+          var minted = current.range.toBlock;
+          setTimeout(function(){
+            render(d);
+            var b=document.getElementById('body');
+            var t=document.createElement('div');
+            t.className='note';
+            t.innerHTML='⛓ <b style="color:var(--gold)">Bitcoin just minted the land you were watching.</b> <a href="/land/h'+minted+'">open it →</a>';
+            b.insertBefore(t, b.firstChild);
+          }, reduce?0:950);
+          return;
+        }
+        if(lastParcels===null || d.totals.parcels !== lastParcels){
+          lastParcels=d.totals.parcels;
+          // glide, don't redraw: if the plot is already live on-screen, animate the new
+          // parcel into place; only re-render when identity flips (first lot, or new land)
+          if(document.getElementById('plot') && current && current.exists && current.live && d.exists){ current=d; paint(d); updateStats(d); }
+          else render(d);
+        }
+      }).catch(function(){});
+    }, 4000);
+  }
+
+  var rt=null;
+  window.addEventListener('resize', function(){
+    if(!current || !current.exists) return;
+    clearTimeout(rt); rt=setTimeout(function(){ paint(current); }, 160);
+  });
+})();
+</script>
+</body>
+</html>

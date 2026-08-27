@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Marketplace</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* Marketplace — page-local presentation. Tokens stay in /kray.css (8pt, one amber). */
+  body[data-page="market"] .hero{padding:var(--s6) 0 var(--s4)}
+  body[data-page="market"] .hero .lede{margin-top:var(--s3);font-size:15px;max-width:68ch}
+  .proofbar{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s4)}
+  .mk-tabs{display:flex;gap:var(--s2);margin:var(--s5) 0 var(--s4)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--s4)}
+  .cardm{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+  .cardm:hover{border-color:var(--btc-line)}
+  .cardm .art{aspect-ratio:1;background:var(--surface-2);display:flex;align-items:center;justify-content:center;overflow:hidden;border-bottom:1px solid var(--line)}
+  .cardm .art img,.cardm .art iframe{width:100%;height:100%;object-fit:contain;border:0}
+  .cardm .art .glyph{font-family:var(--mono);font-size:12px;color:var(--ink-4)}
+  .cardm .body{padding:var(--s3);display:flex;flex-direction:column;gap:var(--s2);min-width:0}
+  .cardm .nm{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cardm .no{font-family:var(--mono);font-size:11px;color:var(--ink-4)}
+  .cardm .px{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;font-size:15px}
+  .cardm .acts{display:flex;gap:var(--s2);margin-top:var(--s2)}
+  .cardm .acts .btn{flex:1;min-height:40px;font-size:13px;justify-content:center}
+  .mine-tag{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;color:var(--signal);border:1px solid var(--btc-line);border-radius:var(--r1);padding:2px 6px;align-self:flex-start}
+  .empty{color:var(--ink-4);font-family:var(--mono);font-size:13px;padding:var(--s6) 0;text-align:center}
+  .toast{position:fixed;left:50%;bottom:var(--s5);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:var(--s3) var(--s4);border-radius:var(--r2);font-size:13px;max-width:90vw;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body data-page="market">
+<div class="wrap">
+  <section class="hero" style="border-top:0">
+    <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; SIGNED · ATOMIC · REPLAYABLE</div>
+    <h1>Marketplace</h1>
+    <p class="lede">Stars for sale, proven in the bytes. A listing is a <b>signed offer</b>; a buy pays the seller and moves the star in <b>one atomic step</b> — the escrow is the mathematics, not a third party. Fee exactly <b>1&nbsp;₭</b> to the validators. Replay is the only history.</p>
+    <div class="proofbar">
+      <span class="chip btc">signed</span>
+      <span class="chip">atomic swap</span>
+      <span class="chip">fee 1 ₭</span>
+      <span class="chip">no custodian</span>
+      <span class="chip live" id="live"><i></i>book</span>
+      <span class="chip" id="acct">connect KrayWallet</span>
+    </div>
+  </section>
+
+  <section style="border-top:0;padding-top:0">
+    <div class="tabs mk-tabs" id="tabs" role="tablist" aria-label="View">
+      <button type="button" class="tab on" data-tab="listed">Listed</button>
+      <button type="button" class="tab" data-tab="yours">Yours</button>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty" hidden></div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/kray.js" defer></script>
+<script defer>
+(function () {
+  'use strict';
+  var listings = [], tab = 'listed', me = window.__krayAddr || null;
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); };
+  var num = function (v) { try { return BigInt(String(v).replace(/[^0-9]/g, '') || '0').toLocaleString(); } catch (_) { return String(v); } };
+  var short = function (a) { return a ? a.slice(0, 8) + '…' + a.slice(-4) : ''; };
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('on'); }, 3200); }
+
+  function paintAcct() { var e = $('acct'); if (e) e.textContent = me ? ('signed as ' + short(me)) : 'connect KrayWallet'; }
+
+  async function load() {
+    try {
+      var r = await fetch('/api/kraynet/market').then(function (x) { return x.json(); });
+      listings = (r && r.listings) || [];
+      $('live').classList.add('on');
+    } catch (_) { listings = []; }
+    draw();
+  }
+
+  function art(l) {
+    if (!l.media) return '<div class="art"><span class="glyph">★ ' + esc(l.star) + '</span></div>';
+    var t = String(l.contentType || '');
+    if (t.indexOf('image/') === 0) return '<div class="art"><img loading="lazy" src="' + esc(l.media) + '" alt=""></div>';
+    return '<div class="art"><iframe loading="lazy" src="' + esc(l.media.replace('/content/', '/render/')) + '#toolbar=0&navpanes=0&scrollbar=0" sandbox="allow-scripts allow-same-origin"></iframe></div>';
+  }
+
+  function card(l) {
+    var mine = me && l.seller === me;
+    var acts;
+    if (mine) {
+      acts = '<button type="button" class="btn" data-relist="' + esc(l.star) + '" data-price="' + esc(l.price) + '">Relist</button>' +
+             '<button type="button" class="btn" data-cancel="' + esc(l.star) + '">Cancel</button>';
+    } else {
+      acts = '<button type="button" class="btn primary" data-buy="' + esc(l.star) + '" data-price="' + esc(l.price) + '" data-seller="' + esc(l.seller) + '">Buy · ' + num(l.price) + ' ₭</button>';
+    }
+    return '<article class="cardm">' + art(l) +
+      '<div class="body">' +
+        (mine ? '<span class="mine-tag">◆ your listing</span>' : '') +
+        '<a class="nm" href="/star/' + esc(l.star) + '" style="color:inherit;text-decoration:none">' + esc(l.name || ('Star #' + l.star)) + '</a>' +
+        '<span class="no">★ ' + esc(l.star) + (l.rarity ? ' · ' + esc(l.rarity) : '') + '</span>' +
+        '<span class="px">' + num(l.price) + ' ₭</span>' +
+        '<div class="acts">' + acts + '</div>' +
+      '</div></article>';
+  }
+
+  function draw() {
+    me = window.__krayAddr || me;
+    paintAcct();
+    var rows = tab === 'yours' ? listings.filter(function (l) { return me && l.seller === me; }) : listings;
+    var g = $('grid'), e = $('empty');
+    if (!rows.length) {
+      g.innerHTML = '';
+      e.hidden = false;
+      e.textContent = tab === 'yours' ? (me ? 'You have no live listings. Open a star in your KrayWallet to list it.' : 'Connect your KrayWallet to see your listings.') : 'No stars are listed right now. List one from your KrayWallet.';
+      return;
+    }
+    e.hidden = true;
+    g.innerHTML = rows.map(card).join('');
+  }
+
+  async function doBuy(star, price, seller, btn) {
+    if (!window.__krayAddr) { toast('Connect your KrayWallet in the header first.'); return; }
+    btn.disabled = true; var old = btn.textContent; btn.textContent = 'Signing…';
+    try {
+      await window.KRAY.act('star-buy', { star: String(star), price: String(price), seller: seller });
+      toast('Bought ★ ' + star + ' — the star is yours, proven on-chain.');
+      await load();
+    } catch (e) { toast((e && e.message) || 'refused'); btn.disabled = false; btn.textContent = old; }
+  }
+  async function doCancel(star, btn) {
+    btn.disabled = true; var old = btn.textContent; btn.textContent = 'Signing…';
+    try {
+      await window.KRAY.act('star-delist', { star: String(star) });
+      toast('Listing for ★ ' + star + ' cancelled.');
+      await load();
+    } catch (e) { toast((e && e.message) || 'refused'); btn.disabled = false; btn.textContent = old; }
+  }
+  async function doRelist(star, current) {
+    var v = prompt('New price in ₭ for star #' + star + ' (current ' + num(current) + '):', String(current).replace(/[^0-9]/g, ''));
+    if (v == null) return;
+    var price = String(v).replace(/[^0-9]/g, '');
+    if (!price || Number(price) <= 0) { toast('Enter a positive whole number of ₭.'); return; }
+    try {
+      await window.KRAY.act('star-list', { star: String(star), price: price });
+      toast('★ ' + star + ' re-listed at ' + num(price) + ' ₭.');
+      await load();
+    } catch (e) { toast((e && e.message) || 'refused'); }
+  }
+
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest('[data-buy],[data-cancel],[data-relist],[data-tab]');
+    if (!t) return;
+    if (t.dataset.tab) { tab = t.dataset.tab; document.querySelectorAll('#tabs .tab').forEach(function (b) { b.classList.toggle('on', b === t); }); draw(); return; }
+    if (t.dataset.buy != null) return doBuy(t.dataset.buy, t.dataset.price, t.dataset.seller, t);
+    if (t.dataset.cancel != null) return doCancel(t.dataset.cancel, t);
+    if (t.dataset.relist != null) return doRelist(t.dataset.relist, t.dataset.price);
+  });
+
+  window.addEventListener('kray-connected', function (e) { me = e.detail && e.detail.address; draw(); });
+  window.addEventListener('kray-disconnected', function () { me = null; draw(); });
+  window.addEventListener('DOMContentLoaded', function () { me = window.__krayAddr || null; paintAcct(); load(); setInterval(load, 15000); });
+})();
+</script>
+</body>
+</html>

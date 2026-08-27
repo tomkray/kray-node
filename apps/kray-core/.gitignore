@@ -1,0 +1,17 @@
+# Local node data — a running KRAY-CORE node writes these; never commit them.
+data/
+**/kray-journal-*.jsonl
+**/kray-ledger-*.json
+**/kray-ledger-*.json.*
+**/kray-blocks-*.jsonl
+**/kray-glow-*.jsonl
+**/kray-glow-*.json
+**/kray-glow-*.json.*
+
+# installed crypto libs (self-contained: @noble/curves, @scure/btc-signer)
+node_modules/
+
+# scratch / scenario artifacts
+**/_*.json
+**/_*.mjs
+*.log

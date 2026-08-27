@@ -1,0 +1,28 @@
+{
+  "name": "kray-network",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "KRAY.NETWORK \u2014 a Bitcoin-anchored L2 that proves itself: \u20ad born only from burned satoshis (immutable 10,000-\u20ad per-mint cap), stars born by inscription, value moved only by signature \u2016 SPV proof \u2016 Bitcoin anchor. The base protocol (kray-core) and the live node + explorer (kray-net). From Origin, With Honor.",
+  "license": "MIT",
+  "repository": "github:tomkray/kray-node",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "guardian": "node scripts/guardian/guardian.mjs",
+    "explorer": "node apps/kray-net/server.mjs",
+    "follow": "node scripts/follow/kray-follow.mjs",
+    "preflight": "node scripts/follow/preflight.mjs",
+    "preflight:mainnet": "node scripts/operator/preflight-mainnet.mjs",
+    "verify:mainnet-bridge": "node scripts/operator/verify-mainnet-bridge.mjs",
+    "audit:mainnet": "node scripts/operator/audit-mainnet-prep.mjs",
+    "test": "node apps/kray-net/network-boot.test.mjs && node apps/kray-net/pot-signer-holes.test.mjs && node apps/kray-net/node-pack.test.mjs && node apps/kray-net/id3-cover.test.mjs && node apps/kray-net/id3-cover-swarm.test.mjs && node apps/kray-net/body-hash.test.mjs && node apps/kray-net/peer-book.test.mjs && cd apps/kray-core && npm run test:fast",
+    "test:boot": "node apps/kray-net/network-boot.test.mjs && node apps/kray-net/pot-signer-holes.test.mjs && node apps/kray-net/node-pack.test.mjs && node apps/kray-net/id3-cover.test.mjs && node apps/kray-net/id3-cover-swarm.test.mjs && node apps/kray-net/body-hash.test.mjs && node apps/kray-net/peer-book.test.mjs && node scripts/follow/lights-fold-exam.mjs",
+    "test:id3-cover": "node apps/kray-net/id3-cover.test.mjs && node apps/kray-net/id3-cover-swarm.test.mjs && node apps/kray-net/body-hash.test.mjs && node apps/kray-net/peer-book.test.mjs",
+    "test:core": "cd apps/kray-core && npm run test:core",
+    "test:hardcore": "cd apps/kray-core && npm run test:hardcore",
+    "test:all": "cd apps/kray-core && npm test",
+    "density": "node apps/kray-core/src/test/density-proof.ts"
+  }
+}

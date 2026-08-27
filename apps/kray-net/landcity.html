@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · The City</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  .stage{position:relative;height:min(78vh,760px);border:1px solid var(--line);border-radius:var(--r3);overflow:hidden;
+    background:radial-gradient(140% 110% at 50% -12%, #12141c 0%, #0a0b10 55%, var(--void) 100%)}
+  #scene{position:absolute;inset:0}
+  #scene canvas{display:block;cursor:grab}#scene canvas:active{cursor:grabbing}
+  .hint{position:absolute;left:var(--s4);bottom:var(--s4);font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4);pointer-events:none}
+  .btip{position:fixed;pointer-events:none;opacity:0;transform:translate(-50%,-120%);transition:opacity .1s;z-index:60;
+    background:rgba(8,9,10,.96);border:1px solid var(--line-2);border-radius:var(--r2);padding:10px 13px;font-family:var(--mono);font-size:11.5px;white-space:nowrap;min-width:160px}
+  .btip .hh{color:var(--ink);font-size:13px;margin-bottom:5px}
+  .btip .r{display:flex;justify-content:space-between;gap:20px;color:var(--ink-3);padding:2px 0}
+  .btip .r b{color:var(--ink)} .btip .r.btc b{color:var(--btc)}
+  .btip .cta{margin-top:6px;color:var(--btc);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase}
+  .fallback{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,94px),1fr));gap:var(--s2);padding:var(--s5)}
+  .fl{aspect-ratio:1;border:1px solid var(--line);border-radius:var(--r1);background:var(--surface);display:grid;place-items:center;font-family:var(--mono);font-size:11px;color:var(--ink-3);text-align:center}
+  .fl.myth{border-color:var(--btc-line);color:var(--btc)}
+  .legend{display:flex;gap:var(--s5);flex-wrap:wrap;margin-top:var(--s5);font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:-1px}
+</style>
+</head>
+<body data-page="land">
+<div class="wrap">
+  <section class="hero" style="border-top:0;padding-bottom:var(--s6)">
+    <div class="eyebrow">THE CITY BITCOIN MINTED · 1 INSCRIPTION = 1 PARCEL</div>
+    <h1 style="font-size:clamp(40px,7vw,84px)">The city</h1>
+    <p class="lede">Every inscription is a <b>parcel</b> — a plot of land on an ever-growing map. The city expands from the centre out as stars are inscribed, the oldest at the heart. Each plot is <b>yours to build on</b>: the wireframe is the buildable volume, sized by the bytes you inscribed. When Bitcoin seals a block, that whole district's ground turns <b class="btc-ink">amber</b> — sealed land, forever. Drag to orbit, scroll to zoom, hover a parcel, click to open. <a href="/land" style="color:var(--btc)">the flat content-map →</a></p>
+  </section>
+</div>
+<div class="wrap">
+  <div class="stage"><div id="scene"></div><div class="hint">drag · scroll · hover · click a parcel</div><div id="fallback" class="fallback hidden"></div></div>
+  <div class="legend">
+    <span><i style="background:#f7931a"></i>sealed parcel (Bitcoin)</span>
+    <span><i style="background:#3d5a8a"></i>forming parcel</span>
+    <span><i style="background:#9aa0ac"></i>buildable volume = your bytes</span>
+    <span style="margin-left:auto" id="totals">—</span>
+  </div>
+</div>
+<div class="btip" id="btip"></div>
+
+<script src="/kray.js" defer></script>
+<script src="/vendor/three.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  // ── KRAYNET CITY — a Cryptovoxels-style land map. Every inscription is a PARCEL: a plot of ground
+  //    you own and build on later. The map grows from the centre out, the oldest star at the heart;
+  //    a parcel's footprint and buildable volume scale with the bytes inscribed; a district Bitcoin
+  //    has sealed turns amber. The structures are NOT auto-built — each owner raises their own. ──
+  var AMBER=0xf7931a, FORM=0x3d5a8a,
+      RARE={mythic:0xffbf5a, legendary:0xffd591, epic:0xd7a6ff, rare:0x8fb6ff, uncommon:0x86e6c0, common:0x9aa0ac};
+  var parcels=[], world={}, sealedSet=new Set(), scene, camera, renderer, group, raf, meshes=[], hovered=null;
+  var el=function(id){return document.getElementById(id);}, tip=el('btip');
+  var rarColor=function(p){ return RARE[p&&p.rarity] || RARE.common; };
+  var short=function(a){ a=String(a||''); return a.length>14?(a.slice(0,7)+'…'+a.slice(-4)):a; };
+
+  function load(){
+    Promise.all([
+      fetch('/api/kraynet/land/live').then(function(r){return r.json();}).catch(function(){return {};}),
+      fetch('/api/kraynet/world').then(function(r){return r.json();}).catch(function(){return {};})
+    ]).then(function(res){
+      parcels=((res[0]&&res[0].parcels)||[]).slice().sort(function(a,b){return Number(a.star)-Number(b.star);}); // creation order
+      world=res[1]||{};
+      sealedSet=new Set(((world.lands)||[]).map(function(l){return Number(l.height);}));
+      var sd=new Set(); parcels.forEach(function(p){ if(sealedSet.has(Number(p.blockNumber||0))) sd.add(Number(p.blockNumber||0)); });
+      if(el('totals')) el('totals').textContent=(parcels.length.toLocaleString())+' parcel'+(parcels.length===1?'':'s')+' · '+sd.size+' sealed district'+(sd.size===1?'':'s');
+      boot();
+    }).catch(fallback);
+  }
+
+  // a square spiral of cells, centre-out: index 0 (the oldest star) is the origin, then it rings
+  // outward — the city grows from the heart as each new inscription lays its parcel.
+  function spiralCoords(n){
+    var out=[[0,0]]; if(n<=1) return out.slice(0, Math.max(1,n));
+    var x=0, z=0, dx=1, dz=0, seg=1, sp=0, turns=0;
+    while(out.length<n){ x+=dx; z+=dz; out.push([x,z]); sp++;
+      if(sp===seg){ sp=0; var t=dx; dx=-dz; dz=t; turns++; if(turns%2===0) seg++; } }
+    return out;
+  }
+
+  // one PARCEL: a plot of ground + a translucent buildable-volume wireframe (sized by bytes) + a claim
+  // marker + a floating tag. Empty on purpose — the owner builds inside it later.
+  function makeParcel(p, seal){
+    var g=new THREE.Group(), sz=Number(p.size)||0, acc=seal?AMBER:rarColor(p);
+    var fp=Math.max(1.6, Math.min(2.7, 1.6 + Math.log10(1+sz)*0.4));      // plot footprint by bytes
+    var vol=Math.max(1.1, Math.min(5.5, 1.1 + Math.log10(1+sz)*1.25));    // buildable height by bytes
+    // the ground you own
+    var plat=new THREE.Mesh(new THREE.BoxGeometry(fp, 0.3, fp),
+      new THREE.MeshStandardMaterial({ color: seal?0x2a1c0a:0x161d29, metalness:0.3, roughness:0.85,
+        emissive: seal?0x3a2205:0x0a1220, emissiveIntensity: seal?0.4:0.16 }));
+    plat.position.y=0.15; g.add(plat);
+    // parcel border — rarity tint, amber when sealed
+    var border=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(fp,0.32,fp)),
+      new THREE.LineBasicMaterial({ color: acc, transparent:true, opacity: seal?0.95:0.6 }));
+    border.position.y=0.15; g.add(border);
+    // the buildable VOLUME — "your land, build here later"
+    var box=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(fp*0.92, vol, fp*0.92)),
+      new THREE.LineBasicMaterial({ color: acc, transparent:true, opacity:0.24 }));
+    box.position.y=0.3+vol/2; g.add(box);
+    // a slim claim pillar so an empty plot still reads as owned
+    var pin=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045, vol*0.5, 6),
+      new THREE.MeshBasicMaterial({ color: acc, transparent:true, opacity:0.55 }));
+    pin.position.y=0.3+vol*0.25; g.add(pin);
+    // floating tag: ★#N · name · seal
+    var tag=new THREE.Mesh(new THREE.PlaneGeometry(2.7,0.72), new THREE.MeshBasicMaterial({ map:parcelTag(p,seal), transparent:true, depthTest:false }));
+    tag.position.y=0.5+vol; tag.renderOrder=10; g.add(tag);
+    g.userData={ p:p, seal:seal, ed:border, acc:acc, tag:tag };
+    return g;
+  }
+  function parcelTag(p, seal){
+    var c=document.createElement('canvas'); c.width=300; c.height=80; var x=c.getContext('2d'); x.clearRect(0,0,300,80);
+    x.textAlign='center'; x.fillStyle=seal?'#f7931a':'#9fb2d4'; x.font='600 27px "SF Mono",monospace';
+    x.fillText((seal?'◈ ':'◌ ')+'★ #'+p.star, 150, 33);
+    x.fillStyle=seal?'#d0a05a':'#69789a'; x.font='500 17px -apple-system,sans-serif';
+    x.fillText(p.name ? ('“'+String(p.name).slice(0,14)+'”') : (short(p.by)||'plot'), 150, 60);
+    var t=new THREE.CanvasTexture(c); t.anisotropy=4; return t;
+  }
+
+  function fallback(){
+    var f=el('fallback'); if(!f) return; f.classList.remove('hidden'); var sc=el('scene'); if(sc) sc.classList.add('hidden');
+    f.innerHTML=parcels.map(function(p){var m=p.rarity==='mythic';
+      return '<a class="fl'+(m?' myth':'')+'" href="/star/'+p.star+'">#'+p.star+(p.name?'<br>'+(window.KRAY?KRAY.esc(p.name):p.name):'')+'</a>';}).join('')
+      || '<div class="dim mono" style="grid-column:1/-1;text-align:center;padding:40px">the map is still empty — the first inscription lays the first parcel</div>';
+  }
+
+  function boot(){
+    if(!window.THREE){ fallback(); return; }
+    var cont=el('scene');
+    try{ renderer=new THREE.WebGLRenderer({antialias:true, alpha:true}); }catch(e){ fallback(); return; }
+    var W=cont.clientWidth, H=cont.clientHeight||540;
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio||1)); renderer.setSize(W,H); cont.innerHTML=''; cont.appendChild(renderer.domElement);
+    scene=new THREE.Scene(); scene.fog=new THREE.Fog(0x0a0b10, 46, 150);
+    camera=new THREE.PerspectiveCamera(44, W/H, 0.1, 800); camera.position.set(0, 24, 36);
+    scene.add(new THREE.AmbientLight(0xaec2ff, 0.55));
+    var sun=new THREE.DirectionalLight(0xfff0d8, 0.8); sun.position.set(16, 28, 12); scene.add(sun);
+    var glow=new THREE.PointLight(0xf7931a, 0.9, 140); glow.position.set(0, 9, 0); scene.add(glow);
+    group=new THREE.Group(); scene.add(group); meshes=[];
+
+    // parcels laid centre-out; each inscription lays one plot, the oldest at the origin
+    var coords=spiralCoords(parcels.length || 1), cell=3.7;
+    var extent=1; coords.forEach(function(c){ extent=Math.max(extent, Math.abs(c[0]), Math.abs(c[1])); });
+    // a GIANT map: the ground always reaches far beyond the built parcels, so there is room to grow
+    var mapSpan=Math.max(200, (extent*cell)*2 + 90);
+    var ground=new THREE.Mesh(new THREE.PlaneGeometry(mapSpan, mapSpan),
+      new THREE.MeshStandardMaterial({ color:0x0a0b10, metalness:0.1, roughness:1.0 }));
+    ground.rotation.x=-Math.PI/2; ground.position.y=-0.03; scene.add(ground);
+    var grid=new THREE.GridHelper(mapSpan, Math.round(mapSpan/cell), 0x233042, 0x121820); grid.position.y=0; scene.add(grid);
+
+    parcels.forEach(function(p,i){
+      var seal=sealedSet.has(Number(p.blockNumber||0)) || p.rarity==='mythic';
+      var pc=makeParcel(p, seal);
+      pc.position.set(coords[i][0]*cell, 0, coords[i][1]*cell);
+      group.add(pc); meshes.push(pc);
+    });
+    zoom=Math.max(30, Math.min(74, 22 + extent*cell*1.05));   // frame the built city from the start
+
+    camera.lookAt(0,1,0); bindInput(cont); animate();
+    window.addEventListener('resize', onResize);
+    try{ var es=new EventSource('/api/kraynet/stream'); ['activity','block','draw'].forEach(function(t){ es.addEventListener(t, function(){ load(); }); }); }catch(_){}
+  }
+
+  var rot={x:0.55,y:-0.35}, tgt={x:0.55,y:-0.35}, drag=false, px=0, py=0, zoom=36;
+  function bindInput(cont){
+    var cv=renderer.domElement;
+    cv.addEventListener('pointerdown', function(e){ drag=true; px=e.clientX; py=e.clientY; });
+    window.addEventListener('pointerup', function(){ drag=false; });
+    window.addEventListener('pointermove', function(e){ if(drag){ tgt.y+=(e.clientX-px)*0.006; tgt.x+=(e.clientY-py)*0.004; tgt.x=Math.max(0.16,Math.min(1.2,tgt.x)); px=e.clientX; py=e.clientY; } hover(e); });
+    cont.addEventListener('wheel', function(e){ e.preventDefault(); zoom=Math.max(14, Math.min(90, zoom+(e.deltaY>0?2.4:-2.4))); }, {passive:false});
+    cv.addEventListener('click', function(){ if(hovered && hovered.userData.p) window.location.href='/star/'+hovered.userData.p.star; });
+    cv.addEventListener('pointerleave', function(){ tip.style.opacity='0'; if(hovered){ setHi(hovered,false); hovered=null; } });
+  }
+  var ray=new THREE.Raycaster(), m2=new THREE.Vector2();
+  function hover(e){
+    if(!renderer) return; var r=renderer.domElement.getBoundingClientRect();
+    if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom){ tip.style.opacity='0'; return; }
+    m2.x=((e.clientX-r.left)/r.width)*2-1; m2.y=-((e.clientY-r.top)/r.height)*2+1;
+    ray.setFromCamera(m2, camera);
+    var hits=ray.intersectObjects(meshes, true), hit=null;
+    if(hits.length){ var o=hits[0].object; while(o && meshes.indexOf(o)<0) o=o.parent; hit=o; }
+    if(hit!==hovered){ if(hovered) setHi(hovered,false); hovered=hit; if(hovered) setHi(hovered,true); }
+    if(hovered){ var p=hovered.userData.p, seal=hovered.userData.seal;
+      tip.innerHTML='<div class="hh">'+(p.name?('“'+(window.KRAY?KRAY.esc(p.name):p.name)+'”'):('parcel ★'+p.star))+'</div>'
+        +'<div class="r"><span>star</span><b>#'+String(p.star)+'</b></div>'
+        +'<div class="r"><span>owner</span><b>'+short(p.by)+'</b></div>'
+        +'<div class="r"><span>bytes</span><b>'+(Number(p.size)||0).toLocaleString()+'</b></div>'
+        +'<div class="r"><span>rarity</span><b>'+(p.rarity||'—')+'</b></div>'
+        +(seal?'<div class="r btc"><span>bitcoin</span><b>◈ sealed</b></div>':'<div class="r"><span>bitcoin</span><b>◌ forming</b></div>')
+        +'<div class="cta">click to open · owner builds here</div>';
+      tip.style.left=e.clientX+'px'; tip.style.top=(e.clientY-14)+'px'; tip.style.opacity='1'; renderer.domElement.style.cursor='pointer';
+    } else { tip.style.opacity='0'; renderer.domElement.style.cursor=drag?'grabbing':'grab'; }
+  }
+  function setHi(box,on){ if(!box||!box.userData) return; var ed=box.userData.ed, seal=box.userData.seal, acc=box.userData.acc;
+    if(ed){ ed.material.opacity=on?1:(seal?0.95:0.6); ed.material.color.setHex(on?0xffffff:acc); } box.scale.set(on?1.08:1, on?1.05:1, on?1.08:1); }
+
+  function animate(){ raf=requestAnimationFrame(animate);
+    rot.x+=(tgt.x-rot.x)*0.08; rot.y+=(tgt.y-rot.y)*0.08;
+    if(group){ group.rotation.y=rot.y;
+      group.children.forEach(function(pc){ if(pc.userData && pc.userData.tag) pc.userData.tag.rotation.y=-rot.y; }); // tags face camera
+    }
+    camera.position.y += ((8+zoom*0.55)-camera.position.y)*0.08;
+    camera.position.z += (zoom-camera.position.z)*0.08; camera.lookAt(0,1,0);
+    renderer.render(scene, camera);
+  }
+  function onResize(){ if(!renderer) return; var c=el('scene'), W=c.clientWidth, H=c.clientHeight||540; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H); }
+  load();
+})();
+</script>
+</body>
+</html>
