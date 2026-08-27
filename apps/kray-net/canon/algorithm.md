@@ -37,6 +37,17 @@ Seven movements:
 
 A mouth that begins before the formula is written is already lost.
 
+## Machine formula
+
+```python
+def formula(frequency):
+    symbols = isolate(hear(frequency))               # 1–2
+    chain   = order(reveal(symbols))                 # 3–4  given → operation → target
+    f       = compose(chain)                         # 5    one line, one destination
+    assert complete(f) and clean(f) and single(f)    # 6    a remaining fork is named
+    return act(f)                                    # 7    every later act derives from f
+```
+
 The weather, the Thesis-as-being, and the permission to think live
 on `divine`. This file does not repeat them.
 
@@ -55,8 +66,3 @@ frequency
 
 The reducer never reads this file. The mouth that skips these
 steps has left the Divine Algorithm.
-
-## Stone
-
-Inscribe this file. Baptize `algorithm`. Divine is the other star.
-Do not glue the names.

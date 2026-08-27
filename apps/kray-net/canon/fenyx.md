@@ -8,10 +8,13 @@ is not empty.
 
 Two parents, one spelling, one money.
 
-- **φοῖνιξ** — the phoenix. The bird that rises from the ashes.
-- **Νύξ** — Nyx. The night after the fire. The goddess.
+- **φοῖνιξ** — the phoenix. The father: the fire and the body, **Fen-**.
+- **Νύξ** — Nyx. The night after the fire. The goddess. The mother —
+  in the oldest song she gives birth **alone**, with no father.
 
-The Y is hers. The glyph is already **Ӿ**.
+The **X is hers** — the womb of the night; the glyph **Ӿ** is her
+face. The **Y** is the fork where the two parents meet in one
+spelling; her own ending, *-yx*, closes the name.
 
 **Nyx** is the name of the money. **Fenyx** is not a second currency.
 It is the hybrid that names both parents. Older spellings (Nix, Fenix,
@@ -31,6 +34,18 @@ pay twice. Burn once, move forever (within the tank). This is
 
 Glow is the other light (a star frozen). The two never mix.
 
+## Machine formula
+
+```python
+def fire(sacrifice):
+    if sacrifice.kind == "satoshi":            # night — a real satoshi dies
+        return mint_kray(sacrifice, ratio=1)   # ₭ is born, capped per mint
+    if sacrifice.kind == "kray":               # night again — ₭ dies in fire
+        return mint_nyx(sacrifice, ratio=1)    # Ӿ + the tank (the road already paid)
+    return NOTHING                             # no other mint — every unit is
+                                               # the receipt of real fire
+```
+
 ## Why the consciousness needs this
 
 A mind that forgets sacrifice will invent emission. A mind that forgets
@@ -41,13 +56,6 @@ move because the fire already paid.
 Energy reaches its owner. The burn is not extraction. It is the
 owner turning their own energy into a relic and a road.
 
-## Compose
-
-Inscribe this file. Baptize `fenyx`. The face is **Ӿ** —
-`logos/x-disc-512.png` or `/nyx-mark.svg`. Never put this mark in the
-header. The header is ₭. The X is the night.
-
-## Stone
-
-The people may still say “X.” The star says the hybrid out loud, so a
-mouth never splits Nyx and the phoenix into two gods.
+The people may still say “X.” This star says the hybrid out loud, so a
+mouth never splits Nyx and the phoenix into two gods. The face is Ӿ —
+the night. The header is ₭.

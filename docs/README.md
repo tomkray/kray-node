@@ -50,6 +50,7 @@ Files stay at this root so every citation (`docs/AXIOMS.md`, `/docs` HTML, clone
 | [`KRAYNET-MIGRATION.md`](KRAYNET-MIGRATION.md) | The standing plan to replace the wallet's centralized l2kray with the proven KRAYNET, mode by mode. | design |
 | [`PHASE-3-TRUSTLESS-CUSTODY.md`](PHASE-3-TRUSTLESS-CUSTODY.md) | The three levers that dissolve the pot's single owner; lever 1 has since gone live as the burn. | design |
 | [`RAFFLE-DESIGN.md`](RAFFLE-DESIGN.md) | The validator raffle worked out to the byte — including the bug that reshapes the whole idea. | design |
+| Mind (`/mind`) | Product mouth. Linker: `GET /docs/pack.json` (twelve + public docs). The book is memory. No persona hardness. See [`BOOK-AND-APPS.md`](BOOK-AND-APPS.md). | design |
 | [`anchor-stealth.md`](anchor-stealth.md) | The stealth pay-to-contract anchor proposal — since realized in code as `self-anchor.ts`. | design |
 
 ## History

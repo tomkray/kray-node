@@ -88,7 +88,9 @@
     { p: 'blocks', href: '/blocks', label: 'Chain' },
     { p: 'network', href: '/network', label: 'Network' },
     { p: 'land', href: '/land', label: 'Land' },
+    { p: 'city', href: '/city', label: 'City' },
     { p: 'library', href: '/library', label: 'Library' },
+    { p: 'mind', href: '/mind', label: 'Mind' },
     { p: 'dashboard', href: '/dashboard', label: 'Dashboard' },
     { p: 'mine', href: '/mine', label: 'Donate' },
     { p: 'inscribe', href: '/inscribe', label: 'Inscribe' },
@@ -744,7 +746,7 @@
     return '<footer class="foot"><div class="wrap">' +
       '<div class="g12">' +
         '<div class="foot-brand c4"><div class="b">₭ KRAY.NETWORK</div><div class="t">The book: sacrifice → ₭ → stars. Replay proves it. Sealed to Bitcoin. DeFi is an app on this ledger — not the node.</div></div>' +
-        '<div class="col foot-col"><h5>Explore</h5><a href="/">Explorer</a><a href="/blocks">Chain</a><a href="/network">Network</a><a href="/land">Land</a><a href="/library">Library</a><a href="/dashboard">Dashboard</a></div>' +
+        '<div class="col foot-col"><h5>Explore</h5><a href="/">Explorer</a><a href="/blocks">Chain</a><a href="/network">Network</a><a href="/land">Land</a><a href="/city">City</a><a href="/library">Library</a><a href="/mind">Mind</a><a href="/dashboard">Dashboard</a></div>' +
         '<div class="col foot-col"><h5>Apps</h5><a href="/market">Marketplace</a><a href="/defi">DeFi</a><a href="/rune">Runes</a><a href="/send">Send</a></div>' +
         '<div class="col foot-col prove"><h5>Prove</h5><a href="/proof">Proof</a><a href="/verify">Verify</a><a href="/anchor">The anchor</a><a href="/burn">Bitcoin Proof</a><a href="/docs">Docs</a><a href="/docs#atlas">Site atlas</a></div>' +
       '</div>' +

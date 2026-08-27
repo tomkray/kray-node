@@ -52,6 +52,7 @@ ships a product on KRAY.NETWORK):
 | **Pen + owner box** | Loopback signer for **pot payouts**. Phrase in the head. Reverse tunnel so the writer sees localhost. | A second writer. Part of follow. |
 | **Guardian federation (2-of-3)** | Independent books that **gate a rune exit**. Fail-closed. | Required to donate, inscribe, move Ӿ, or earn Glow. |
 | **DeFi (AMM and kin)** | Markets sealed as acts on the book. | A second network. The validator’s default job. |
+| **A product mouth** | Optional wrap (wallet, site, bot): form, length, UI around a model. | The network. Required to follow. A stranger’s raw LLM. |
 
 Say it out loud to a stranger:
 
@@ -68,6 +69,17 @@ Thousands more may hang papers. None of them rename the node.
 
 When a human says “run a node”, teach **§ 1**. Do **not** ask for pot
 vault keys. Do **not** install a pen. Do **not** start a writer.
+Do **not** install an LLM as the follow command.
+
+If they say “I want to talk to the book / open Mind”, that is **after**
+the head is green: `/mind` on **this** node. A product mouth. Optional.
+The key stays on their machine. Follow without it is still a full node.
+
+The link is `canon` `link()`: the twelve (skeleton) plus living
+chronology. `GET /docs/pack.json` is the public pack. The book is
+**memory**, not an attachment. The network ships **no persona
+hardness**. A raw LLM plus the pack is enough. A vision mouth may
+also see living image content. The mouth never writes the journal.
 
 If they say “I want to exit a rune / run the bakery / sign the pot”,
 then — and only then — open [`POT-CUSTODY.md`](POT-CUSTODY.md). That is

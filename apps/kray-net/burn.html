@@ -49,6 +49,11 @@
       whole chain <b>in your own browser</b>, from Bitcoin's generator point upward. Not one number was chosen by a human.</div>
   </div>
 
+  <div class="bp-card" id="nums-card">
+    <div class="bp-k">NUMS identity — no inputs, no server. SHA-256 of Bitcoin's generator, in your browser, now</div>
+    <div id="nums-out"><div class="x">hashing G…</div></div>
+  </div>
+
   <div class="bp-card">
     <div class="bp-k">What to verify — the sealed state (prefilled live from this node; edit to audit any burn)</div>
     <div class="bp-in">
@@ -91,6 +96,22 @@
     $('steps').appendChild(d); requestAnimationFrame(function(){ requestAnimationFrame(function(){ d.classList.add('on') }) })
     return d
   }
+  // NUMS identity first — no block, no root. If this fails, the rest of the page is a lie.
+  if (window.BurnProof && BurnProof.numsIdentity) {
+    BurnProof.numsIdentity().then(function (n) {
+      var ok = n.numsIsHashOfG
+      $('nums-out').innerHTML =
+        '<div class="bp-hex">G.x (Bitcoin, 2009) = ' + n.gx + '</div>' +
+        '<div class="bp-hex">SHA256(uncompressed G) = <b>' + n.numsX + '</b></div>' +
+        '<div class="bp-hex">BIP-341 NUMS constant&nbsp;&nbsp; = ' + n.bip341 + '</div>' +
+        '<div class="x" style="margin-top:10px">' + (ok
+          ? '<span class="bp-ok">✓ NUMS — this is SHA-256 of Bitcoin\'s own G.</span> A private key would be the discrete log of a hash output. Nobody has it. Every burn address is this key, taproot-tweaked by the sealed root — the tweak cannot invent a key that G never had.'
+          : '<span class="bp-bad">✗ This browser did not hash to the BIP-341 NUMS point.</span> Do not treat any address on this page as a burn.') + '</div>'
+    }).catch(function (e) {
+      $('nums-out').innerHTML = '<div class="bp-bad">✗ NUMS check failed — ' + String(e && e.message || e).replace(/[<>]/g, '') + '</div>'
+    })
+  }
+
   // prefill from THIS node's live burn contract (falls back to manual — the proof never needs the server)
   fetch('/api/kraynet/donation/info').then(function(r){ return r.json() }).then(function(d){
     var sa = d && d.selfAnchor

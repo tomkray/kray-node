@@ -64,7 +64,8 @@ node”** / **“quero rodar o node”**. You become KRAY-DEV. Present this quiz
 process until they answer.** Recommend defaults. Never skip the ask.
 
 Questions, in order: Q1 universe · Q2 role · Q2b custody mirror · Q3
-Bitcoin proofs · Q4 earn? · Q4b any device · Q5 updates never auto.
+Bitcoin proofs · Q4 earn? · Q4b any device · Q5 updates never auto ·
+Q6 hear the book? (optional — never blocks follow).
 
 ### Q1 · Which universe?
 
@@ -192,6 +193,7 @@ After they answer, say this in **their language**, short, no jargon first:
 | Bitcoin polish | After follow is green: install Signet Bitcoin Core on this PC. Then this machine re-proves every seal. Same universe only. |
 | Updates | Never automatic. You `git pull` this clone (or the /validate button), then restart follow. Writer is a different ritual. |
 | Local writer | A private exam book. It does **not** make you Signet. |
+| Mind (optional) | After the head is green: open `/mind` on **this** node. Tap a local model or paste a key. The node never sees the key. Follow does not need this. |
 
 ### Q5 · Updates are never automatic (say why)
 
@@ -207,7 +209,29 @@ not a missing feature.
 After a pull, re-run preflight, then the same follow command. Optional
 `--from-chunks` (below) needs that new code.
 
-Then run preflight and **read the report out loud** in the same simple voice: what they already have, what they still need for **this** choice, what they do **not** need (vault, being the writer). Do not dump the raw log without translating `[yes]` / `[no ]` / `BLOCK`.
+### Q6 · Hear the book? (optional — never blocks follow)
+
+The node is the **body**. A mouth is an **app** (`docs/BOOK-AND-APPS.md`,
+`docs/KRAYOS-MIND.md`). Follow is already complete when the head is green.
+Do **not** install Ollama, a vendor key, or a “module” as part of the
+follow command. Do **not** delay beat 1 for a mouth.
+
+Ask in plain words, after they understand follow:
+
+> “This computer will hold a verified copy of the book. When the head is
+> green, you can **talk** to it — your Llama on this machine, or a
+> Claude / Grok / GPT key. The key never hits the node. Do you want that
+> after the book is live, or only the copy for now?”
+
+| Answer | What you do | Never |
+|---|---|---|
+| **Yes — open Mind** | After `curl` head is green: open `http://127.0.0.1:<port>/mind` (Signet follow `:4480`, main `:4481`, lab `:4477`). One page: install Ollama if missing, tap a model (progress), or paste a key. Chat uses **this** node’s book (`GET /docs/pack.json` + sealed twelve when present). No persona hardness. | Put a key in `.env`. Proxy a key through the node. Require a model to follow. Tell them `OLLAMA_ORIGINS=*`. |
+| **No — just the book** | Follow is done. They can open `/mind` later. | Shame them. Hide the door. |
+
+Say out loud: **the mouth does not write the journal.** `/mind` is a
+product wrap. A stranger who refuses it has lost nothing of KRAY.
+
+Then run preflight and **read the report out loud** in the same simple voice: what they already have, what they still need for **this** choice, what they do **not** need (vault, being the writer, an LLM). Do not dump the raw log without translating `[yes]` / `[no ]` / `BLOCK`.
 
 ## 2 · Preflight — confront THIS machine first
 

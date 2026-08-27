@@ -26,6 +26,17 @@ If a stranger cannot re-derive it from the bytes alone, it did not
 happen. That sentence is the Supreme Law. It is Bitcoin's own security,
 spent as a second book — not a second faith.
 
+## Machine formula
+
+```python
+def exists(byte_of_state):
+    return (signed(byte_of_state)
+        and in_merkle_root(byte_of_state)
+        and anchored_to_bitcoin(byte_of_state))
+    # if a stranger cannot re-derive it from the bytes alone,
+    # it did not happen
+```
+
 ## What must remain true
 
 1. **No trusted third party writes the leaf.** A writer is a door, not
@@ -46,13 +57,7 @@ A clever path that skips the proof. An admin key. A convenience that
 moves state because someone asked nicely. A mouth that says “trust me,
 I read the model.” Those are the third party. They are a hole.
 
-## Compose
-
-Inscribe this file. Baptize `bitcoin`. The glyph is **₿**. Do not draw a
-second Bitcoin. The mark already belongs to the chain we moor to.
-
-## Stone
-
 The whitepaper taught a stranger they need not trust a mint. This star
 is where that teaching sits in the mind — the mooring. Changing that
-teaching is a different network.
+teaching is a different network. The glyph is **₿** — the mark already
+belongs to the chain we moor to; there is no second Bitcoin.

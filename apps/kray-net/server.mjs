@@ -78,6 +78,7 @@ import { speakMessage, parseSpeakMessage, readAudience, verifySpeak, speakId, SP
 import { compileLivingLaw, callerInt } from '../kray-core/src/protocol/star-law.ts'
 import { compileForm, requireMintShelf, resolveMintShelf } from '../kray-core/src/protocol/star-forms.ts'
 import { packNodeTree, nodeVersionView } from './node-pack.mjs'
+import { docsPack, docsFile } from './docs-pack.mjs'
 import { defaultDataDirName, applyWriterIsolationOrDie } from './network-boot.mjs'
 import { potSignerHoles, potSignerConfigured, assertPotSignerLoopback, choosePotSignerHole } from './pot-signer-holes.mjs'
 import { createInbox } from './inbox.mjs'
@@ -4409,6 +4410,7 @@ const server = createServer(async (req, res) => {
           '/blocks': 'blocks.html', '/chain': 'blocks.html',
           '/land3d': 'landcity.html', '/city': 'landcity.html', '/land': 'map.html',
           '/rank': 'rank.html', '/dashboard': 'dashboard.html', '/library': 'library.html',
+          '/mind': 'mind.html',
           '/docs': 'docs.html', '/inscribe': 'inscribe.html', '/send': 'send.html', '/baptize': 'baptize.html',
           '/mine': 'mine.html', '/rune': 'rune.html', '/defi': 'defi.html', '/pool': 'pool.html',
           '/market': 'market.html', '/marketplace': 'market.html',
@@ -4545,8 +4547,26 @@ const server = createServer(async (req, res) => {
           })
       } }
       // ── the RICH pages (from apps/kray-net/) — one front-end, on the v2 engine ──
-      if (p === '/docs/contracts.md' || p === '/skill/kraynet-dev') {
+      if (p === '/docs/pack.json') {
+        const pack = docsPack()
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'public, max-age=60',
+          'Access-Control-Allow-Origin': '*',
+        })
+        return res.end(JSON.stringify(pack))
+      }
+      if (p === '/skill/kraynet-dev') {
         return serveFile(res, join(__dir, '../../docs/CONTRACTS.md'), 'text/plain; charset=utf-8')
+      }
+      {
+        const dm = /^\/docs\/([a-z0-9][a-z0-9._-]{0,80})\.md$/i.exec(p)
+        if (dm) {
+          const f = docsFile(dm[1])
+          if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('not found') }
+          res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=60' })
+          return res.end(f.text)
+        }
       }
       if (p === '/anchor') return serveFile(res, join(APP_DIR, 'anchor.html'), 'text/html; charset=utf-8')
       // The black-hole register — where frozen stars glow forever and burned ₭ died in the fire. The
@@ -4818,6 +4838,9 @@ const server = createServer(async (req, res) => {
           'contract': 'law', 'contract-call': 'law',
           'quantum-commit': 'quantum', 'quantum-migrate': 'quantum',
           'transfer-star': 'starmove',
+          // THE NATIVE STAR MARKET — list / delist / buy are user acts; the constellation
+          // hangs a market-coloured node for each so a sale reads at a glance.
+          'star-list': 'market', 'star-delist': 'market', 'star-buy': 'market',
         }
         const flow = []
         for (const e of events) {
@@ -4826,7 +4849,8 @@ const server = createServer(async (req, res) => {
           if (!fam) continue
           if (e.kind === 'transfer-star' && String(e.to || '') === 'KRAY_BLACK_HOLE') fam = 'fire'
           const blk = blockOfSeq(e.seq)
-          flow.push({ seq: e.seq, kind: e.kind, family: fam, block: blk ? blk.number : null, amount: e.amount ?? null, to: e.to ?? null, at: e.at ?? null })
+          // market acts carry price, not amount — surface it in the same field so the hover shows the ₭
+          flow.push({ seq: e.seq, kind: e.kind, family: fam, block: blk ? blk.number : null, amount: e.amount ?? e.price ?? null, to: e.to ?? null, at: e.at ?? null })
         }
         return ok(res, { count: flow.length, flow: flow.slice(-300) })
       }

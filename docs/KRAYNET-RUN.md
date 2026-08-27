@@ -37,7 +37,7 @@ Public writers:
 | Bitcoin mainnet | https://www.kray.network |
 
 Pages on any writer: `/` · `/validate` · `/verify` · `/burn` · `/docs` ·
-`/profile/<addr>` · `/star/<n>` · `/runes`.
+`/mind` · `/profile/<addr>` · `/star/<n>` · `/runes`.
 
 ## The wallet
 

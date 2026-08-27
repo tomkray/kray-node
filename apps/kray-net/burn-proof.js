@@ -72,9 +72,9 @@
     const hrp = HRP[net || 'signet']; if (!hrp) throw new Error('unknown network')
 
     // STEP 1-2 · Bitcoin's generator, hashed → the NUMS key (chosen by nobody)
-    const uncompressedG = h2b('04' + hex32(GX) + hex32(GY))
-    const numsX = b2h(await sha256(uncompressedG))
-    const numsIsHashOfG = numsX === '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0'
+    const id = await numsIdentity()
+    const numsX = id.numsX
+    const numsIsHashOfG = id.numsIsHashOfG
     const H = liftX(big(numsX)) // a REAL curve point — lift_x succeeds
 
     // STEP 3 · the public anchor bytes ("KRAY.NETWORK" | v1 | block | root) — same 49 bytes KRAY always anchors
@@ -90,8 +90,25 @@
     // STEP 5 · plain bech32m of that key — the burn address
     const address = bech32m(hrp, [1, ...convertBits(h2b(outputKey), 8, 5)])
 
-    return { gx: hex32(GX), gy: hex32(GY), uncompressedG: b2h(uncompressedG), numsX, numsIsHashOfG, payload, commit, tweak: hex32(t), outputKey, address }
+    return { gx: id.gx, gy: id.gy, uncompressedG: id.uncompressedG, numsX, numsIsHashOfG, payload, commit, tweak: hex32(t), outputKey, address }
   }
 
-  globalThis.BurnProof = { derive }
+  // BIP-341 § note: the taproot NUMS point is SHA256 of uncompressed G. No human chose the bytes.
+  const BIP341_NUMS = '50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0'
+
+  /** NUMS identity alone — no block, no root, no server. SHA256(uncompressed G) ≟ BIP-341 constant. */
+  async function numsIdentity() {
+    const uncompressedG = h2b('04' + hex32(GX) + hex32(GY))
+    const numsX = b2h(await sha256(uncompressedG))
+    return {
+      gx: hex32(GX),
+      gy: hex32(GY),
+      uncompressedG: b2h(uncompressedG),
+      numsX,
+      bip341: BIP341_NUMS,
+      numsIsHashOfG: numsX === BIP341_NUMS,
+    }
+  }
+
+  globalThis.BurnProof = { derive, numsIdentity, BIP341_NUMS }
 })()

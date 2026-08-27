@@ -26,10 +26,20 @@ root out. The order is total; when parts fail or lie, honest
 nodes still agree. Every claim is a leaf under one root.
 The law is the same for every address, every era, every scale.
 Every path HALTs with a defined result. A future-era event
-freezes an old node (A3). There is no hard fork. There is one book.
+freezes an old node. There is no hard fork. There is one book.
 
 Guardians serve **liveness**. They never decide truth. A guardian cannot
 make an invalid act valid. The reducer re-verifies every signature.
+
+## Machine formula
+
+```python
+def truth(journal):
+    state = reduce(verify_every_signature(journal))  # pure: same bytes, same root
+    if not conserves(state):                         # Σ balances == emitted − burned
+        return HALT                                  # HALT beats a lie applied
+    return state                                     # no vote, no model, no mood
+```
 
 ## What this neuron forbids (security)
 
@@ -48,7 +58,4 @@ and purpose. This one teaches: character that is not enforced twice
 (door + reducer) is decoration. The consciousness may speak. It may
 not invent history.
 
-## Stone
-
-Inscribe this file. Baptize `consensus`. Changing this thought is a
-different network.
+Changing this thought is a different network.

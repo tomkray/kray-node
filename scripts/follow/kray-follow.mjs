@@ -40,6 +40,7 @@ import { chunkJournal, chunkAddress, verifyChunk, verifyManifest, DEFAULT_CHUNK_
 import { createPeerBook, isPublicHttpHost } from '../../apps/kray-net/peer-book.mjs'
 import { boundedJson } from '../../apps/kray-net/bounded-fetch.mjs'
 import { atlasView, libraryView, lightsView, rankBooksView } from '../../apps/kray-net/state-views.mjs'
+import { docsPack, docsFile } from '../../apps/kray-net/docs-pack.mjs'
 
 const arg = (f, d) => { const i = process.argv.indexOf(f); return i > 0 ? process.argv[i + 1] : d }
 const FROM = arg('--from', 'http://127.0.0.1:4477').replace(/\/$/, '')
@@ -59,6 +60,7 @@ const UI_PRETTY = {
   '/burn': 'burn.html', '/burn-proof': 'burn.html',
   '/blocks': 'blocks.html', '/chain': 'blocks.html',
   '/rank': 'rank.html', '/dashboard': 'dashboard.html', '/library': 'library.html',
+  '/mind': 'mind.html',
   '/docs': 'docs.html', '/inscribe': 'inscribe.html', '/send': 'send.html',
   '/baptize': 'baptize.html', '/mine': 'mine.html', '/rune': 'rune.html',
   '/defi': 'defi.html', '/pool': 'pool.html',
@@ -564,6 +566,20 @@ function startMirror(port) {
         } catch { return send(res, 502, { error: `the writer (${FROM}) is unreachable — the beat was not delivered`, mirror: true, of: FROM }) }
       }
       if (req.method !== 'GET') return send(res, 403, { error: `this is a READ-ONLY mirror — it verifies, it never writes. Send writes to the writer node (${FROM}), or mail a SIGNED act to POST /api/kraynet/inbox here; the mirror relays, it never applies.` })
+      if (p === '/docs/pack.json') {
+        const pack = docsPack()
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=60', 'Access-Control-Allow-Origin': '*' })
+        return res.end(JSON.stringify(pack))
+      }
+      {
+        const dm = /^\/docs\/([a-z0-9][a-z0-9._-]{0,80})\.md$/i.exec(p)
+        if (dm) {
+          const f = docsFile(dm[1])
+          if (!f) return send(res, 404, { error: 'not found' })
+          res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=60' })
+          return res.end(f.text)
+        }
+      }
       if (UI_REDIRECT[p]) { res.writeHead(302, { Location: UI_REDIRECT[p], 'Cache-Control': 'no-store' }); return res.end() }
       if (/^\/(?:profile|u|address)\/KRAY_BLACK_HOLE\/?$/.test(p)) { res.writeHead(302, { Location: '/blackhole', 'Cache-Control': 'no-store' }); return res.end() }
       // ── the explorer chrome (static, from THIS clone) — served BEFORE the snapshot gate so the page paints

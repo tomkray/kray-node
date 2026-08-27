@@ -94,8 +94,8 @@
   // One URL. Hash is the book. /rank/x was discarded — a second path is a second story.
   var BOOKS=[
     {id:'kray',  label:'₭', hash:'kray',  title:'KRAY'},
-    {id:'x',     label:'Ӿ', hash:'nyx',   title:'Nyx'},
-    {id:'glow',  label:'✦', hash:'glow',  title:'glow'},
+    {id:'x',     label:'Ӿ', hash:'nyx',   title:'Ӿ'},
+    {id:'glow',  label:'✦', hash:'glow',  title:'GLOW'},
     {id:'stars', label:'stars', hash:'stars', title:'stars'},
     {id:'works', label:'works', hash:'works', title:'works'}
   ];
@@ -164,10 +164,10 @@
       }
     },
     x:{
-      eye:'NYX · THE FIREBORN BOOK · Σ Ӿ = Σ BURNED',
-      title:'Rank · Nyx',
-      lede:'The same shape at every scale. A satoshi dies — night — <b>₭</b> is born. ₭ dies in fire — night again — <b>Nyx</b> is born, 1:1, the light that remains. That night holds the road already paid (the tank): the bird does not pay twice. <b>Fenyx</b> is not a second money — it is the hybrid that names both parents: the phoenix that rises, and Nyx the goddess. The Y is hers. The glyph is already <b>Ӿ</b>. A stranger re-derives every cell from the bytes. Glow is the other light. The two never mix. The law is Fireborn.',
-      head:'The Nyx standing',
+      eye:'Ӿ · THE FIREBORN BOOK · Σ Ӿ = Σ BURNED',
+      title:'Rank · Ӿ',
+      lede:'The same shape at every scale. A satoshi dies — night — <b>₭</b> is born. ₭ dies in fire — night again — <b>Ӿ</b> is born, 1:1, the light that remains. That night holds the road already paid (the tank): the bird does not pay twice. <b>Fenyx</b> is not a second money — it is the hybrid that names both parents: the phoenix that rises, and Nyx the goddess. The Y is hers. The glyph is already <b>Ӿ</b>. A stranger re-derives every cell from the bytes. GLOW is the other light. The two never mix. The law is Fireborn.',
+      head:'The Ӿ standing',
       sub:'Ordered by spendable Ӿ. Fenyx is the hybrid behind the name. Minted is lifetime fire. Lane is Ӿ inside the fold. Tank is remaining feeless sends.',
       note:function(d){
         var x=(d.lights&&d.lights.x)||{}, c=(d.lights&&d.lights.conservation)||{};
@@ -181,13 +181,13 @@
     },
     glow:{
       eye:'THE SOULBOUND BOOK · 1 PER FROZEN STAR',
-      title:'Rank · ✦ glow',
-      lede:'Glow is <b>honor, never money</b>. One ✦ per distinct star sent to <code>KRAY_BLACK_HOLE</code>. No key encodes to that account, so a freeze cannot be undone and glow cannot be transferred or bought. It is a tally of past acts — a stranger counts the same freezes from the journal.',
-      head:'The glow standing',
+      title:'Rank · ✦ GLOW',
+      lede:'GLOW is <b>honor, never money</b>. One ✦ per distinct star sent to <code>KRAY_BLACK_HOLE</code>. No key encodes to that account, so a freeze cannot be undone and GLOW cannot be transferred or bought. It is a tally of past acts — a stranger counts the same freezes from the journal.',
+      head:'The GLOW standing',
       sub:'Ordered by ✦. Addresses that never froze a star are not on this book.',
       note:function(d){
         var g=(d.lights&&d.lights.glow)||{};
-        return '<b>What glow is.</b> '+num(g.total||0)+' ✦ engraved on '+num(g.holders||0)+' address'+(g.holders===1?'':'es')+'. '
+        return '<b>What GLOW is.</b> '+num(g.total||0)+' ✦ engraved on '+num(g.holders||0)+' address'+(g.holders===1?'':'es')+'. '
           +'Farming junk stars is allowed and visible forever on the black-hole register — count is raw; quality is public. '
           +'₭ burns. Stars freeze. The two lights never mix.';
       }
@@ -243,7 +243,7 @@
     }
     if(cur==='glow'){
       el.innerHTML=
-        stat(ka(g.total||0),'✦ total glow','glow')+
+        stat(ka(g.total||0),'✦ total GLOW','glow')+
         stat(num(g.holders||0),'addresses')+
         stat('soulbound','never transfers')+
         stat('1 : 1','star frozen → ✦');

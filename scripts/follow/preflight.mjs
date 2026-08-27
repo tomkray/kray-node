@@ -222,7 +222,7 @@ const npmVer = npmVersion()
 const coreMods = existsSync(join(ROOT, 'apps/kray-core/node_modules'))
 const follower = dirHint('follower')
 const followerMain = dirHint('follower-main')
-const ports = { 4477: await portBusy(4477), 4480: await portBusy(4480), 4481: await portBusy(4481) }
+const ports = { 4477: await portBusy(4477), 4480: await portBusy(4480), 4481: await portBusy(4481), 11434: await portBusy(11434) }
 const local4480 = ports[4480] ? await getJson('http://127.0.0.1:4480/api/kraynet/head', 2500) : null
 const local4481 = ports[4481] ? await getJson('http://127.0.0.1:4481/api/kraynet/head', 2500) : null
 const local4477 = ports[4477] ? await getJson('http://127.0.0.1:4477/api/kraynet/head', 2500) : null
@@ -362,6 +362,9 @@ if (wantsFollow || wantsLab) {
     : ports[targetPort]
       ? 'Port ' + targetPort + ' is busy with something else'
       : 'Port ' + targetPort + ' is free')
+  mark(have, ports[11434], ports[11434]
+    ? 'Ollama is already on this machine (:11434) — after the head is green, /mind can plug a local module'
+    : 'Ollama  — not required. After follow is green, /mind can install a module or take a key')
 }
 if (wantsCustody) {
   mark(have, alreadySignetFollow, alreadySignetFollow
@@ -430,6 +433,7 @@ if (wantsFollow && universe === 'signet' && alreadySignetFollow) {
 notNeeded.push('Pot vault KEYS (vault-keys.env, owner.box) — not the atlas. Atlas = star files. Keys = bakery secrets.')
 notNeeded.push('Postgres / Mongo / Docker “for the journal” — the book is one jsonl file')
 notNeeded.push('To be the public writer — this clone never becomes that machine')
+notNeeded.push('An LLM / Ollama / a vendor key — follow is the book. /mind is an optional app after the head is green')
 if (!wantsFollow) notNeeded.push('A copy of the whole book and atlas on this disk')
 if (wantsValidate) notNeeded.push('Node.js, npm, or any install')
 if (wantsFollow && PROOFS !== 'bitcoin') notNeeded.push('Bitcoin Core on day one — add it after follow is healthy (the last polish)')
@@ -521,6 +525,8 @@ say('  ' + next)
 if (wantsFollow && !blockers.length) {
   const exPort = universe === 'main' ? 4481 : 4480
   say('  Then open the explorer — this node, proving itself: http://127.0.0.1:' + exPort + '/')
+  say('  Optional — talk to this book: http://127.0.0.1:' + exPort + '/mind')
+  say('  (A key or Llama stays on this computer. The node never sees it. Not required to follow.)')
   say('  (Leave the terminal running; the follow keeps verifying and the explorer stays live.)')
 }
 if (wantsLab && !blockers.length && next.startsWith('KRAY_NET')) {
@@ -533,6 +539,7 @@ say('')
 say('Words: follower = journal + atlas (star files). guardian = proves work and can earn.')
 say('       writer = the one public pen (not this clone). atlas = images/files. pot keys = never.')
 say('       fees = 1 ₭ per act → pool → your KrayWallet on the next Bitcoin seal (not a bank).')
+say('       mind = optional mouth on /mind after the head is green. Never the follow command.')
 say('')
 
 if (JSON_OUT) {

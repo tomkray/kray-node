@@ -14,24 +14,27 @@ speech.
 > no ban of art, politics, or ugly speech);
 > operate a vision at the **unique writer only**, reading **this relic**;
 > the model returns exactly `ALLOW` or `REFUSE`;
-> `REFUSE` happens **before** `node.submit` and **before** any byte under `content/`;
+> `REFUSE` happens **before** the book and **before** any byte reaches the atlas —
 > so the book never holds the hash and the atlas never holds the body —
 > and a stranger never mistakes this door for a ministry of speech.
 
 The destination is inside the frequency: **light, not silence.**
 
-## One small rule, iterated
+## Machine formula
 
-```
-z ← the body at the door
-c ← this relic (the doctrine on stone)
-if the body is fruitless criminal harm → REFUSE (drop; never journal; never store)
-else → ALLOW (the book and the atlas may receive it)
+```python
+def door(body, c=THIS_RELIC):
+    # c is the doctrine on stone — a new prompt that bans taste is a new c,
+    # and a new c is a different network
+    if fruitless_criminal_harm(body, c):
+        return REFUSE            # drop; never journal; never store
+    if unsure_on_the_closed_set(body):
+        return REFUSE            # the model is not a perfect witness
+    return ALLOW                 # politics, art, satire, ugly speech pass
 ```
 
-Every zoom uses the same `c`. A new prompt that bans taste has changed `c` —
-that is a different network. Changing `c` means a new sealed star, not a
-quieter edit.
+Every zoom uses the same `c`. Changing `c` means a new sealed star,
+never a quieter edit.
 
 ## Why this shape, not another
 
@@ -74,12 +77,6 @@ ALLOW
 REFUSE <one-line reason, no description of what was seen>
 ```
 
-On `REFUSE`: do not `node.submit`; do not write `content/`; drop the
-buffer. Vision down or timeout on the closed set: `REFUSE`. A name-only
+On `REFUSE`: nothing is submitted; nothing is stored; the buffer is
+dropped. Vision down or timeout on the closed set: `REFUSE`. A name-only
 or law-only act (no body) does not enter vision.
-
-## Stone
-
-Inscribe this file. Baptize `lightdoor`. After the seal, the running
-vision prefers these bytes. The copy under `atlas-guard/` is the same
-doctrine on disk until then.
