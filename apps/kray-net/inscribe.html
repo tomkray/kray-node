@@ -56,12 +56,18 @@
 .lawknob .hint{margin:0;font-size:14px;line-height:1.5;color:var(--ink-3)}
 .lawsrc{min-height:280px;font-family:var(--mono);font-size:12px;line-height:1.5;padding:var(--s3);background:var(--void);resize:vertical;cursor:text;user-select:text;caret-color:var(--ink);color:var(--ink)}
 .lawprev{margin-top:0;font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--ink-3);white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;padding:var(--s3);border:1px solid var(--line-2);border-radius:var(--r2);background:var(--void)}
-#i-lawwrite[hidden],#i-lawprevwrap[hidden],#m-prev[hidden]{display:none}
+#i-lawwrite[hidden],#i-lawprevwrap[hidden],#m-prev[hidden],#m-crop[hidden]{display:none}
 .music-drops{display:grid;grid-template-columns:1fr 1fr;gap:var(--s4)}
 @media(max-width:640px){.music-drops{grid-template-columns:1fr}}
 .music-prev{margin-top:var(--s4);display:flex;flex-direction:column;align-items:center;gap:var(--s3)}
 .music-prev img{width:min(100%,280px);aspect-ratio:1/1;object-fit:cover;border-radius:var(--r2);border:1px solid var(--line)}
 .music-prev audio{width:min(100%,280px)}
+.music-crop{margin-top:var(--s4);width:min(100%,280px);display:flex;flex-direction:column;align-items:center;gap:var(--s3)}
+.music-crop-stage{position:relative;width:100%;border:1px solid var(--line);border-radius:var(--r2);overflow:hidden;background:var(--void);touch-action:none;cursor:grab}
+.music-crop-stage:active{cursor:grabbing}
+.music-crop-stage img{display:block;width:100%;height:auto;pointer-events:none}
+.music-crop-box{position:absolute;box-sizing:border-box;border:2px solid var(--ink);box-shadow:0 0 0 9999px rgba(0,0,0,.5);pointer-events:none}
+#m-cropok{min-height:44px;width:100%}
 #i-lawwrite > label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
 </style>
 </head>
@@ -126,10 +132,18 @@
           </div>
           <div class="field">
             <label>Cover · 1:1 · PNG stays lossless</label>
-            <div class="drop" id="m-coverdrop"><b>Choose a cover</b><span>square PNG is sealed as-is · anything else is cropped 1:1 as PNG</span>
+            <div class="drop" id="m-coverdrop"><b>Choose a cover</b><span>square PNG/JPEG seals as-is · not square: you choose the 1:1</span>
               <input type="file" id="m-cover" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
             </div>
           </div>
+        </div>
+        <div id="m-crop" hidden class="music-crop">
+          <p class="imeta" id="m-cropnote">Not square — drag the frame. The 1:1 below is what seals forever.</p>
+          <div class="music-crop-stage" id="m-cropstage">
+            <img id="m-cropsrc" alt="">
+            <div id="m-cropbox" class="music-crop-box"></div>
+          </div>
+          <button type="button" class="btn" id="m-cropok">This 1:1 is the cover</button>
         </div>
         <div id="m-prev" hidden class="music-prev">
           <img id="m-coverimg" alt="">
@@ -302,6 +316,8 @@
   var B=window.KrayInscribeBatch;
   var balK=0n;
   var musicB64=null, musicBytes=0, musicName=null, musicMp3=null, musicCover=null, musicOn=false, musicUrls=[];
+  var musicHintBytes=0; // File.size the instant the MP3 lands — relic bytes replace it after mux
+  var musicCoverSrc=null, musicCropUrl=null;
   // (parent selector tabs retired — both lineage inputs are always open in the card)
   // ── ADD-TO-STAR ── ?star=N targets an EXISTING star you own: the content is ADDED
   // to it (same number, same name), never a new star born from fire. No query = born new.
@@ -321,8 +337,15 @@
   // a KRAY star. Same pen, same seal; only the lineage — and the proof — differ.
   // a SINGLE L1 parent (and no star parent) keeps the frozen v2 `origin` act
   function useOrdinal(){ var L=lineageLists(); return tab!=='name' && L.os.length===1 && L.ps.length===0 && validOrdinal(); }
+  function musicLandedBytes(){
+    if(musicBytes) return musicBytes;
+    if(musicMp3 && musicMp3.length) return musicMp3.length;
+    return musicHintBytes||0;
+  }
+  function musicCeil(){ return Number(window.kraynetContentMax)||0; }
+  function musicOver(){ var cap=musicCeil(); return cap>0 && musicLandedBytes()>cap; }
   function currentBytesI(){
-    if(tab==='music') return musicBytes||0;
+    if(tab==='music') return musicLandedBytes();
     if(tab==='media'){
       if(fileQueue.length){ var n=0; fileQueue.forEach(function(it){ n+=it.size; }); return n; }
       return fileBytes||0;
@@ -347,7 +370,7 @@
   function quoteI(){
     if(tab==='name' || tab==='law') return {bytes:0, fire:1, atlas:0, total:1, ready:!!eraRateI(), empty:false};
     var bytes=currentBytesI();
-    var empty=(tab==='media' && !fileQueue.length && !fileB64) || (tab==='music' && !musicOn) || (tab==='post' && !bytes);
+    var empty=(tab==='media' && !fileQueue.length && !fileB64) || (tab==='music' && !musicLandedBytes()) || (tab==='post' && !bytes);
     if(empty) return {bytes:bytes||0, fire:0, atlas:0, total:0, ready:!!eraRateI(), empty:true};
     var fire=burnNowI();
     var atlas=(window.kraynetAtlasFeeOn && bytes>0) ? fire : 0;
@@ -382,7 +405,7 @@
       var blocked = tab==='media' && B && B.blockedOf && B.blockedOf(fileQueue).length;
       if(!q.ready){ st.textContent='waiting for this node\'s quote'; st.className='itick-status'; }
       else if(q.empty){ st.textContent='drop or type — the fire prices as the bytes land'; st.className='itick-status'; }
-      else if(blocked){ st.textContent='over this node\'s ceiling — quote is live; compress or split to seal'; st.className='itick-status short'; }
+      else if(blocked || (tab==='music' && musicOver())){ st.textContent='over this node\'s ceiling — quote is live; compress or split to seal'; st.className='itick-status short'; }
       else if(!me){ st.textContent='connect to read your balance against this fire'; st.className='itick-status'; }
       else {
         var need=BigInt(totN)-balK;
@@ -401,7 +424,17 @@
       return;
     }
     if(tab==='name'){ golabel.textContent='Baptize — burns 1 ₭'; return; }
-    if(tab==='music' && !musicOn){ golabel.textContent='Drop MP3 and cover — then seal'; return; }
+    if(tab==='music' && musicOn && musicCover && !musicCover.reused && !musicCover.accepted){
+      golabel.textContent='Confirm this 1:1 cover — then seal';
+      return;
+    }
+    if(tab==='music' && !musicOn){
+      if(musicOver()) golabel.textContent='Over this node\'s ceiling — compress to seal';
+      else if(musicMp3 && musicCover) golabel.textContent='Music relic refused — drop again';
+      else if(musicMp3) golabel.textContent='Drop the 1:1 cover — then seal';
+      else golabel.textContent='Drop MP3 and cover — then seal';
+      return;
+    }
     if(tab==='media' && !fileQueue.length && !fileB64){ golabel.textContent='Drop a file — then seal'; return; }
     if(tab==='post' && q.empty){ golabel.textContent='Type the bytes — then seal'; return; }
     if(tab==='media' && fileQueue.length>1){ golabel.textContent='Looks right — seal '+fileQueue.length+' stars · '+costTextI(q); return; }
@@ -428,11 +461,11 @@
         : lawPaperReady();
       return !!(lawStarNo() && paperOk && lawExamFp && lawExamFp===lawFingerprint());
     }
-    if(tab==='music') return !!musicOn && !!musicB64;
+    if(tab==='music') return !!musicOn && !!musicB64 && !!(musicCover && (musicCover.reused || musicCover.accepted));
     return tab==='media' ? !!(fileQueue.length || fileB64) : currentContent().trim().length>0;
   }
   function queueBlocked(){ return !!(B && B.blockedOf && B.blockedOf(fileQueue).length); }
-  function paintGo(){ go.disabled = busy || !(me && hasPayload()) || (tab==='media' && queueBlocked()); }
+  function paintGo(){ go.disabled = busy || !(me && hasPayload()) || (tab==='media' && queueBlocked()) || (tab==='music' && musicOver()); }
   function paintLawHint(){
     var paper = window.KrayContractPapers && KrayContractPapers.byId(lawKind);
     var el=$('i-lawhint');
@@ -589,9 +622,10 @@
       for(var i=0;i<body.length;i++) if(body[i]!==src[i]) throw new Error('MPEG frames changed — refuse');
       musicB64=bytesToB64(relic);
       musicBytes=relic.length;
+      musicHintBytes=relic.length;
       musicOn=true;
       var rate=tool.mpeg1L3BitrateKbps(relic);
-      paintMusicStage(relic, (musicCover.reused?'square cover sealed as-is':'cropped 1:1 as PNG')
+      paintMusicStage(relic, (musicCover.reused?'square cover sealed as-is':(musicCover.accepted?'your 1:1 sleeve':'choose the 1:1 — then confirm'))
         +' · MPEG frames byte-identical'+(rate?' · '+rate+' kbps':'')+' · '+relic.length.toLocaleString()+' bytes');
       out.className='iout'; out.textContent='';
     }catch(e){
@@ -600,6 +634,12 @@
       paintMusicStage(null, 'mux refused');
     }
     refreshMeta();
+  }
+  function markMusicDrop(id, title, note){
+    var box=$(id); if(!box) return;
+    var b=box.querySelector('b'), s=box.querySelector('span');
+    if(b && title) b.textContent=title;
+    if(s && note) s.textContent=note;
   }
   function loadPic(file){
     if(typeof createImageBitmap==='function') return createImageBitmap(file);
@@ -611,52 +651,144 @@
       img.src=u;
     });
   }
-  function squareCover(file){
-    var kind=file.type||(/\.(png)$/i.test(file.name)?'image/png':/\.jpe?g$/i.test(file.name)?'image/jpeg':'');
-    return loadPic(file).then(function(bmp){
-      var w=bmp.width||bmp.naturalWidth, h=bmp.height||bmp.naturalHeight;
-      var reuse=(w===h) && (kind==='image/png' || kind==='image/jpeg');
-      if(reuse){
-        return file.arrayBuffer().then(function(b){
-          if(bmp.close) bmp.close();
-          return { bytes:new Uint8Array(b), mime:kind==='image/png'?'image/png':'image/jpeg', reused:true };
+  function coverKind(file){
+    return file.type||(/\.(png)$/i.test(file.name)?'image/png':/\.jpe?g$/i.test(file.name)?'image/jpeg':'');
+  }
+  function encodeCoverCrop(bmp, sx, sy, side){
+    var out=Math.min(side, 2048);
+    var c=document.createElement('canvas');
+    c.width=c.height=out;
+    c.getContext('2d').drawImage(bmp, sx, sy, side, side, 0, 0, out, out);
+    return new Promise(function(resolve, reject){
+      c.toBlob(function(blob){
+        if(!blob){ reject(new Error('cover encode failed')); return; }
+        blob.arrayBuffer().then(function(b){
+          resolve({ bytes:new Uint8Array(b), mime:'image/png', reused:false, accepted:false });
         });
-      }
-      var side=Math.min(w,h);
-      var sx=Math.floor((w-side)/2), sy=Math.floor((h-side)/2);
-      var out=Math.min(side, 2048);
-      var c=document.createElement('canvas');
-      c.width=c.height=out;
-      c.getContext('2d').drawImage(bmp, sx, sy, side, side, 0, 0, out, out);
-      if(bmp.close) bmp.close();
-      return new Promise(function(resolve, reject){
-        c.toBlob(function(blob){
-          if(!blob){ reject(new Error('cover encode failed')); return; }
-          blob.arrayBuffer().then(function(b){
-            resolve({ bytes:new Uint8Array(b), mime:'image/png', reused:false });
-          });
-        }, 'image/png');
-      });
+      }, 'image/png');
     });
+  }
+  function hideCoverCrop(){
+    var box=$('m-crop'); if(box) box.hidden=true;
+    if(musicCoverSrc && musicCoverSrc.bmp && musicCoverSrc.bmp.close) musicCoverSrc.bmp.close();
+    musicCoverSrc=null;
+    if(musicCropUrl){ try{ URL.revokeObjectURL(musicCropUrl); }catch(_){ /* already dead */ } musicCropUrl=null; }
+    var img=$('m-cropsrc'); if(img) img.removeAttribute('src');
+  }
+  function layoutCoverCrop(){
+    var src=musicCoverSrc, img=$('m-cropsrc'), box=$('m-cropbox');
+    if(!src||!img||!box) return;
+    var rw=img.clientWidth, rh=img.clientHeight;
+    if(!rw||!rh) return;
+    box.style.left=(src.sx*(rw/src.w))+'px';
+    box.style.top=(src.sy*(rh/src.h))+'px';
+    box.style.width=(src.side*(rw/src.w))+'px';
+    box.style.height=(src.side*(rh/src.h))+'px';
+  }
+  function previewCoverCrop(bmp, sx, sy, side){
+    var img=$('m-coverimg'); if(!img) return;
+    var out=Math.min(side, 280);
+    var c=document.createElement('canvas');
+    c.width=c.height=out;
+    c.getContext('2d').drawImage(bmp, sx, sy, side, side, 0, 0, out, out);
+    img.src=c.toDataURL('image/png');
+    img.hidden=false;
+    var prev=$('m-prev'); if(prev) prev.hidden=false;
+  }
+  function applyCoverCrop(accepted){
+    var src=musicCoverSrc; if(!src) return Promise.resolve();
+    var go=function(bmp){
+      return encodeCoverCrop(bmp, src.sx, src.sy, src.side).then(function(c){
+        c.accepted=!!accepted;
+        musicCover=c;
+        remuxMusic();
+      });
+    };
+    return src.bmp ? go(src.bmp) : loadPic(src.file).then(go);
   }
   function takeMusicMp3(f){
     if(!f) return;
-    var cap=Number(window.kraynetContentMax);
-    if(cap>0 && f.size>cap){ out.className='iout err'; out.textContent='✗ '+f.size.toLocaleString()+' bytes — the protocol ceiling is '+cap.toLocaleString(); return; }
+    musicName=f.name||'track.mp3';
+    musicHintBytes=Number(f.size)||0;
+    musicOn=false; musicB64=null; musicBytes=0;
+    markMusicDrop('m-mp3drop', musicName, bytesLabelI(musicHintBytes)+' · drop the 1:1 cover');
+    out.className='iout'; out.textContent='';
+    refreshMeta();
     f.arrayBuffer().then(function(ab){
       musicMp3=new Uint8Array(ab);
-      musicName=f.name||'track.mp3';
+      musicHintBytes=musicMp3.length;
       remuxMusic();
+    }).catch(function(e){
+      out.className='iout err';
+      out.textContent='✗ '+(e && e.message ? e.message : 'MP3 refused');
+      refreshMeta();
     });
   }
   function takeMusicCover(f){
     if(!f) return;
-    squareCover(f).then(function(c){
-      musicCover=c;
-      remuxMusic();
+    hideCoverCrop();
+    markMusicDrop('m-coverdrop', f.name||'cover', 'reading…');
+    loadPic(f).then(function(bmp){
+      var w=bmp.width||bmp.naturalWidth, h=bmp.height||bmp.naturalHeight;
+      var kind=coverKind(f);
+      if((w===h) && (kind==='image/png' || kind==='image/jpeg')){
+        return f.arrayBuffer().then(function(b){
+          if(bmp.close) bmp.close();
+          musicCover={ bytes:new Uint8Array(b), mime:kind==='image/png'?'image/png':'image/jpeg', reused:true, accepted:true };
+          markMusicDrop('m-coverdrop', f.name||'cover', 'square · sealed as-is');
+          remuxMusic();
+        });
+      }
+      var side=Math.min(w,h);
+      musicCoverSrc={ file:f, bmp:bmp, w:w, h:h, sx:Math.floor((w-side)/2), sy:Math.floor((h-side)/2), side:side, name:f.name||'cover' };
+      var crop=$('m-crop'); if(crop) crop.hidden=false;
+      var note=$('m-cropnote');
+      if(note) note.textContent=w+'×'+h+' — drag the square. The 1:1 below is what seals forever.';
+      var srcImg=$('m-cropsrc');
+      musicCropUrl=URL.createObjectURL(f);
+      if(srcImg){ srcImg.onload=function(){ layoutCoverCrop(); }; srcImg.src=musicCropUrl; }
+      previewCoverCrop(bmp, musicCoverSrc.sx, musicCoverSrc.sy, side);
+      markMusicDrop('m-coverdrop', f.name||'cover', w+'×'+h+' · choose the 1:1');
+      return encodeCoverCrop(bmp, musicCoverSrc.sx, musicCoverSrc.sy, side).then(function(c){
+        musicCover=c;
+        remuxMusic();
+      });
     }).catch(function(e){
       out.className='iout err';
       out.textContent='✗ '+(e && e.message ? e.message : 'cover refused');
+    });
+  }
+  function wireCoverCrop(){
+    var stage=$('m-cropstage'), ok=$('m-cropok');
+    if(stage){
+      var drag=null;
+      stage.addEventListener('pointerdown',function(e){
+        if(!musicCoverSrc) return;
+        stage.setPointerCapture(e.pointerId);
+        drag={ x:e.clientX, y:e.clientY, sx:musicCoverSrc.sx, sy:musicCoverSrc.sy };
+      });
+      stage.addEventListener('pointermove',function(e){
+        if(!drag||!musicCoverSrc) return;
+        var img=$('m-cropsrc'); if(!img||!img.clientWidth) return;
+        var scx=musicCoverSrc.w/img.clientWidth, scy=musicCoverSrc.h/img.clientHeight;
+        musicCoverSrc.sx=Math.max(0, Math.min(drag.sx+(e.clientX-drag.x)*scx, musicCoverSrc.w-musicCoverSrc.side));
+        musicCoverSrc.sy=Math.max(0, Math.min(drag.sy+(e.clientY-drag.y)*scy, musicCoverSrc.h-musicCoverSrc.side));
+        layoutCoverCrop();
+        if(musicCoverSrc.bmp) previewCoverCrop(musicCoverSrc.bmp, musicCoverSrc.sx, musicCoverSrc.sy, musicCoverSrc.side);
+      });
+      function endDrag(){
+        if(!drag) return;
+        drag=null;
+        applyCoverCrop(false);
+      }
+      stage.addEventListener('pointerup',endDrag);
+      stage.addEventListener('pointercancel',endDrag);
+    }
+    if(ok) ok.addEventListener('click',function(){
+      if(!musicCoverSrc) return;
+      applyCoverCrop(true).then(function(){
+        if(musicCoverSrc) markMusicDrop('m-coverdrop', musicCoverSrc.name, '1:1 chosen · this sleeve seals');
+      });
     });
   }
   function paintFileQueue(){
@@ -801,14 +933,15 @@
   function wireDrop(id, inputId, take){
     var box=$(id), inp=$(inputId);
     if(!box||!inp) return;
-    box.addEventListener('click',function(){ if(me) inp.click(); else needWallet(); });
-    inp.addEventListener('change',function(e){ take(e.target.files[0]); });
+    box.addEventListener('click',function(){ inp.click(); });
+    inp.addEventListener('change',function(e){ take(e.target.files[0]); e.target.value=''; });
     ['dragenter','dragover'].forEach(function(ev){ box.addEventListener(ev,function(e){ e.preventDefault(); box.classList.add('over'); }); });
     ['dragleave','drop'].forEach(function(ev){ box.addEventListener(ev,function(e){ e.preventDefault(); box.classList.remove('over'); }); });
-    box.addEventListener('drop',function(e){ if(!me){ needWallet(); return; } if(e.dataTransfer.files.length) take(e.dataTransfer.files[0]); });
+    box.addEventListener('drop',function(e){ if(e.dataTransfer.files.length) take(e.dataTransfer.files[0]); });
   }
   wireDrop('m-mp3drop','m-mp3',takeMusicMp3);
   wireDrop('m-coverdrop','m-cover',takeMusicCover);
+  wireCoverCrop();
   // THE ADDRESS IS THE USER — no identity, no pen: the writing surface stays
   // locked until a wallet address is connected.
   var FIELDS=['i-content','i-name','i-parent','i-oparent','i-metadata','i-lawstar'];
@@ -907,9 +1040,13 @@
   function refreshMeta(){
     paintGolabel(); paintLineage(); paintDocBytes();
     if(tab==='music'){
-      meta.textContent = musicOn
-        ? (musicName||'track.mp3')+' · '+musicBytes.toLocaleString()+' bytes · audio/mpeg · ID3 APIC · MPEG frames untouched · gene is the MPEG sha256 — burns '+costTextI(quoteI())+' to born'
-        : 'Music needs both drops — MP3 + 1:1 cover · one relic · we never re-encode';
+      if(musicOn){
+        meta.textContent = (musicName||'track.mp3')+' · '+musicBytes.toLocaleString()+' bytes · audio/mpeg · ID3 APIC · MPEG frames untouched · gene is the MPEG sha256 — burns '+costTextI(quoteI())+' to born';
+      } else if(musicMp3 || musicHintBytes){
+        meta.textContent = (musicName||'track.mp3')+' · '+musicLandedBytes().toLocaleString()+' bytes · audio/mpeg — burns '+costTextI(quoteI())+(musicCover?' · muxing the sleeve':' · drop the 1:1 cover');
+      } else {
+        meta.textContent = 'Music needs both drops — MP3 + 1:1 cover · one relic · we never re-encode';
+      }
       paintGo(); return;
     }
     if(tab==='media'){
@@ -1294,9 +1431,12 @@
       else out.innerHTML='✓ baptized — star #'+Number(born).toLocaleString()+' is now “'+esc(body.name)+'” forever'+hang;
       ['i-content','i-name','i-parent','i-oparent','i-metadata'].forEach(function(id){var e=$(id); if(e) e.value='';});
       clearFileQueue();
-      musicB64=null; musicBytes=0; musicName=null; musicMp3=null; musicCover=null; musicOn=false; revokeMusic();
+      musicB64=null; musicBytes=0; musicName=null; musicMp3=null; musicCover=null; musicOn=false; musicHintBytes=0; revokeMusic();
+      hideCoverCrop();
       var mp=$('m-prev'), m3=$('m-mp3'), mc=$('m-cover');
       if(mp) mp.hidden=true; if(m3) m3.value=''; if(mc) mc.value='';
+      markMusicDrop('m-mp3drop','Choose an MP3','encode at 320 CBR or V0 before you drop — we will not touch the bitrate');
+      markMusicDrop('m-coverdrop','Choose a cover','square PNG/JPEG seals as-is · not square: you choose the 1:1');
       refreshMeta(); loadAccount();
     }catch(e){ fail(e && e.message ? e.message : 'refused'); }
     finally{ busy=false; paintGo(); }
