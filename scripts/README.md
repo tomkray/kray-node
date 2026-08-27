@@ -1,19 +1,14 @@
 # `scripts/` — the public doors
 
-A stranger clones this repository to **follow** and **validate**. The workshop
-that built the idea (`scripts/exam/`, `scripts/lab/`, this-operator vitrine
-sync) is not in the official tree. Those folders stay on the working repo.
-Houses: [`docs/FOLDER-LAW.md`](../docs/FOLDER-LAW.md) — official is the clone;
-the writer disk is that clone plus secrets and the journal; the workshop is
-exam tools and is zero for the live network.
+A stranger clones this repository to **follow** and **validate**.
 
-| House | What it is | Ships in `kray-network` |
+| House | What it is | Ships here |
 |---|---|---|
 | **`follow/`** | Door 2 — full node of one public history | **Yes** |
 | **`guardian/`** | Door 1 — measure, prime, mine | **Yes** |
-| **`operator/pot-signer.mjs`** | Pot signs off the public process | **Yes** (no keys) |
+| **`pot-signer.mjs`** | Pot signs off the public process (no keys) | **Yes** |
 | **`oss-guard.sh`** | Public-tree leak check | **Yes** |
-| `exam/` · `lab/` · vitrine sync | Workshop / this operator | **No** |
+| `exam/` · `lab/` | Private workshop | **No** |
 
 Any assistant: [`docs/RUN-NODE.md`](../docs/RUN-NODE.md) first — quiz, then
 preflight this machine, then one recipe.
@@ -41,7 +36,7 @@ KRAY_FOLDER_SK=<64-hex> node scripts/folder/fold-once.mjs
 ```
 
 The secret is that house's own key (it pays the eternal 1 ₭). Never a writer
-vault key. Never paste it into the node. A second house is not a second writer.
+vault key. Never paste it into the node.
 
 ## Guardian
 
@@ -49,11 +44,7 @@ vault key. Never paste it into the node. A second house is not a second writer.
 node scripts/guardian/guardian.mjs https://signet.kray.network
 ```
 
-Explorer pages (`index.html`, `validate.html`, …) stay in `apps/kray-net/`
-— folder law, [`docs/FOLDER-LAW.md`](../docs/FOLDER-LAW.md). Era URLs
-(`/v2.html`, `/kray-v2.js`, `/kray-v2.css`) alias the same files; they are
-not names.
+Explorer pages (`index.html`, `validate.html`, …) stay in `apps/kray-net/`.
 
-Live journals: `data-signet/` · `data-main/` (mainnet starts empty). Lab
-bench names are not a public door. Operator live keys stay in gitignored
-`/signet/` and `/mainnet/`.
+Live journals: `data-signet/` · `data-main/` (gitignored). Operator live
+keys stay in gitignored `/signet/` and `/mainnet/`.

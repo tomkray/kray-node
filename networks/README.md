@@ -26,20 +26,19 @@ Read the folder for the network you mean. Do not copy files across.
 ## What a clone contains vs what it must never grow
 
 ```
-KRAY-NODE/                         ← git clone …/kray-network.git
-├── AGENTS.md                      ← which house is this folder
+KRAY-NODE/                         ← git clone …/kray-node.git
+├── AGENTS.md                      ← public door
 ├── networks/
 │   ├── signet/                    ← public Signet recipe (tracked)
 │   └── mainnet/                   ← public mainnet recipe (tracked)
 ├── apps/kray-core/                ← the law
 ├── apps/kray-net/                 ← the writer + explorer
-├── CLAUDE.md · AGENTS.md          ← any LLM first door
 ├── docs/RUN-NODE.md               ← quiz + preflight + one recipe
 ├── scripts/follow/                ← Door 2
-├── scripts/guardian/              ← Door 1 (mining swarm lives here)
-└── scripts/follow/kray-follow.mjs ← the full node (stable door: scripts/kray-follow.mjs)
-# never in this clone — workshop only
-# scripts/exam/  scripts/lab/  WORKSHOP.md
+├── scripts/guardian/              ← Door 1
+└── scripts/follow/kray-follow.mjs ← the full node
+# never in this clone
+# scripts/exam/  scripts/lab/
 
 # never commit — gitignored operator / state
 /signet/                           ← Signet pot keys (operator machine)

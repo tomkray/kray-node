@@ -4,8 +4,8 @@
 > **before** the first start command when a human says “run a node”, “full
 > node”, “follow”, “guardian”, “start Signet”, or “I cloned this into Cursor
 > / Claude”. Law: [`AXIOMS.md`](AXIOMS.md) (Supreme Law + one writer).
-> Houses: [`FOLDER-LAW.md`](FOLDER-LAW.md). Operator ship ritual (Creator
-> only): [`KRAYNET-RUN.md`](KRAYNET-RUN.md).
+> Houses: [`FOLDER-LAW.md`](FOLDER-LAW.md). Boot and verify:
+> [`KRAYNET-RUN.md`](KRAYNET-RUN.md).
 
 This repository is **code**. It is not the live journal and not the pot vault.
 A stranger who clones it is **never** the public writer. Two writers fork the book.
@@ -36,8 +36,7 @@ node scripts/follow/preflight.mjs --universe signet --role follow
 bash scripts/follow/signet.sh        # Windows: scripts\follow\signet.cmd
 ```
 
-(That is the public door. `kray-network` is the developer backup — friends
-do not clone it.) The launcher installs libraries by itself the first time
+That is the public door. The launcher installs libraries by itself the first time
 and starts the follow; the explorer of **your own** node opens at
 `http://127.0.0.1:4480/` once it verifies. Needs only **Node.js 24+**
 (`node -v`). No database, no keys, no Docker.

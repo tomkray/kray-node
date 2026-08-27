@@ -15,7 +15,7 @@ cd "$ROOT"
 # LAN IP, any personal /Users//home//C:\Users path, any '*-umbrel' / 'mac-mini-*'
 # machine-name shape, any personal email by provider, and secret-shaped env
 # assignments. None of these spell a real identity.
-SHAPES='100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}|[0-9a-z-]+\.ts\.net|\b(nyon|vincione|aluzix)\b|\b10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\b|\b192\.168\.[0-9]{1,3}\.|C:\\\\Users\\\\[A-Za-z]|/Users/[a-z0-9_-]+/|/home/[a-z0-9_-]+/|[a-z0-9]+-umbrel\b|mac-mini-[a-z0-9]+|[a-z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|icloud|proton)\.[a-z]+|KRAY_CONSOLIDATION_SECRET=[0-9a-f]{64}|KRAY_VAULT_GUARDIAN_SECRETS?=[0-9a-f]{64}|KRAY_(POT|GUARDIAN)_SIGNER_TOKEN=[A-Za-z0-9+/]{16,}|KRAY_BTC_RPC_PASS=[A-Za-z0-9+/]{8,}|BEGIN (OPENSSH |RSA )?PRIVATE KEY'
+SHAPES='100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}|[0-9a-z-]+\.ts\.net|\b10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\b|\b192\.168\.[0-9]{1,3}\.|C:\\\\Users\\\\[A-Za-z]|/Users/[a-z0-9_-]+/|/home/[a-z0-9_-]+/|[a-z0-9]+-umbrel\b|mac-mini-[a-z0-9]+|[a-z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|icloud|proton)\.[a-z]+|KRAY_CONSOLIDATION_SECRET=[0-9a-f]{64}|KRAY_VAULT_GUARDIAN_SECRETS?=[0-9a-f]{64}|KRAY_(POT|GUARDIAN)_SIGNER_TOKEN=[A-Za-z0-9+/]{16,}|KRAY_BTC_RPC_PASS=[A-Za-z0-9+/]{8,}|BEGIN (OPENSSH |RSA )?PRIVATE KEY'
 
 # tracked files only — working-tree secrets that are gitignored must stay ignored.
 # Placeholder doc paths (/Users/you, /home/user, <user>) are allowed.

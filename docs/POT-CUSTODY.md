@@ -20,13 +20,13 @@ cannot steal. That is already a theorem (`vault.ts`).
 
 ## The ladder (each rung is real; do not skip)
 
-1. **One process (left behind, 2026-08-17).** The previous Mini Mac process held
+1. **One process (left behind, 2026-08-17).** The previous writer process held
    the owner secret in RAM. That process was stopped. The running node sources
    `node-hot.env` and talks to the cofre via loopback. Rung 1 is no longer live.
 2. **Two processes, same machine (this slice).** `scripts/pot-signer.mjs` holds
    the owner secret and binds `127.0.0.1` only. The public node holds the
    **pubkey**, a door token, and (on Signet lab) the guardian secrets. A hack of
-   the HTTP API cannot sign. A hack of the whole Mini Mac still can. The signer
+   the HTTP API cannot sign. A hack of the whole writer box still can. The signer
    rebuilds the payout and refuses a dest that is not the signed exit.
 2b. **Owner secret boxed at rest (this slice).** scrypt + AES-256-GCM
    (`pot-key-box.ts`). Stolen file ≠ pot. Running signer still has the key in
@@ -39,8 +39,9 @@ cannot steal. That is already a theorem (`vault.ts`).
    `pot-key-share.ts`. Any two `signet/shares/share-N.json` rebuild the 32-byte
    owner; one share is not the pot. Reconstruct, then reseal `owner.box` and
    unlock the signer as today. This is **not** FROST (no distributed signing).
-   Carry share-2 by USB to a **cofre-only** box. Never the vitrine, Origin, or
-   the L1 Umbrel. Never Tailscale-bind the signer. Never put a host in git.
+   Carry share-2 by USB to a **cofre-only** box. Never the public writer,
+   never the L1 bitcoin box. Never bind the signer on a mesh VPN.
+   Never put a host in git.
 6. **Hardware.** The owner secret never sits on a disk. Harder here: the leaf is
    tapscript, not a plain BIP-86 key path. Named, not now.
 7. **Covenants (`OP_CTV`).** Bitcoin itself would lock where the pot may pay.
@@ -51,9 +52,9 @@ is the one the attacker already has. Theater.
 
 **Encrypt it for the private signer, at rest? Yes.** A stolen `vault-keys.env` is
 then not the pot, unless they also have your passphrase. While the signer is
-running the key is open in RAM (honest). `scripts/seal-vault-owner.mjs` writes
-`signet/owner.box`; the signer opens it with `KRAY_POT_SIGNER_PASS`. The phrase
-never lives in `node-hot.env`.
+running the key is open in RAM (honest). The seal tool writes `signet/owner.box`;
+the signer opens it with `KRAY_POT_SIGNER_PASS`. The phrase never lives in
+`node-hot.env`.
 
 ## Files (gitignored — one house per network)
 
@@ -64,25 +65,25 @@ Never copy one into the other.
 |---|---|---|
 | `signet/vault-keys.env` | Signet owner secret (until retired) + pubs + lab guardian secrets + door token | **only** the pot-signer |
 | `signet/owner.box` | Signet owner secret encrypted; useless without your phrase | pot-signer with `KRAY_POT_SIGNER_PASS` |
-| `signet/shares/share-N.json` | one Shamir share (not the pot) | two shares + phrase rebuild the box; never the vitrine / Origin / L1 |
+| `signet/shares/share-N.json` | one Shamir share (not the pot) | two shares + phrase rebuild the box; never the public writer / L1 |
 | `signet/node-hot.env` | Signet pubs + lab guardian secrets + signer URL + token | the Signet public node |
 | `mainnet/vault-keys.env` | **new** mainnet owner secret — never the Signet file | **only** the pot-signer |
 | `mainnet/owner.box` | mainnet owner secret encrypted | pot-signer with `KRAY_POT_SIGNER_PASS` |
 | `mainnet/node-hot.env` | mainnet pubs + signer URL + token | the mainnet public node |
 
-`node scripts/split-signet-custody.mjs` writes the hot file and ensures the token
-exists. It never prints a secret. It never overwrites the live owner key.
+The split tool writes the hot file and ensures the token exists. It never
+prints a secret. It never overwrites the live owner key.
 
 ## Two houses (elite Signet)
 
 Do not open the pot-signer on the internet. The node may only call
 `http://127.0.0.1:4479`. A second machine is reached by an SSH **reverse**
-tunnel, so the vitrine sees localhost and the secret never leaves the cofre.
+tunnel, so the writer sees localhost and the secret never leaves the cofre.
 
 | House | Role | Holds | Must never hold |
 |---|---|---|---|
-| **Cofre** | private signer machine | `vault-keys.env` / `owner.box`, `pot-signer` | a public bind, Funnel, a copy of the vitrine disk |
-| **Vitrine L2** | public writer (`signet.kray.network`) | KRAYNET node, `node-hot.env`, Signet bitcoind/ord | owner secret, `vault-keys.env`, `owner.box` |
+| **Cofre** | private signer machine | `vault-keys.env` / `owner.box`, `pot-signer` | a public bind, Funnel, a copy of the writer disk |
+| **Public writer** | public writer (`signet.kray.network`) | KRAYNET node, `node-hot.env`, Signet bitcoind/ord | owner secret, `vault-keys.env`, `owner.box` |
 | **L1 oracle** | Bitcoin + ord + **full node** (follow + read-only mirror) | chain + indexer + verified journal/atlas | owner secret, pot-signer, a second writer, a public bind of the signer |
 
 A follower is not a fourth house and not a second writer. It clones **this repo**
@@ -90,15 +91,15 @@ from GitHub, then `kray-follow.mjs --from https://signet.kray.network --watch --
 That is the foundation full node: same journal and atlas, read-only mirror, no pot
 key. Code updates are `git pull` on `main`. History updates are the follow loop.
 
-Default elite split: cofre signs, vitrine writes the L2, L1 stays the Bitcoin
-oracle (and may follow). Do not put the owner key on the L1 box. Do not open the
-pot-signer on the internet or Tailscale.
+Default elite split: cofre signs, the public writer writes the L2, L1 stays
+the Bitcoin oracle (and may follow). Do not put the owner key on the L1 box.
+Do not open the pot-signer on the internet or a mesh VPN.
 
 Ceremony (from the cofre — never on the public writer):
 
 ```
 # vault-keys.env is gitignored. Never copy it onto the writer disk.
-node scripts/operator/pot-signer.mjs --env signet/vault-keys.env
+node scripts/pot-signer.mjs --env signet/vault-keys.env
 # expose the signer to the writer on loopback only, by your own means
 # the public tree does not ship a host map or a deploy script
 ```
@@ -109,7 +110,8 @@ The cooperative leaf's guardian co-sign is no longer a rubber stamp on the write
 (Signet, 2026-08-22), the writer consults **remote guardian co-signers** on every pot withdraw:
 
 - **The rule:** a payout collects the owner signature (the pot-signer, unchanged) **plus** a 2-of-3 quorum of
-  guardian daemons (`scripts/operator/guardian-signer.mjs`). Each daemon, before lending its share, re-checks
+  guardian co-signer daemons (operator-local; not shipped in this clone).
+  Each daemon, before lending its share, re-checks
   the exit against **its own mirror's book** (`KRAY_GUARDIAN_BOOK_URL` → a `kray-follow` replica that
   re-derived the whole cascade) — `authorizeGuardianSign` refuses a validly-signed exit whose amount exceeds
   the exiter's replayed balance. A compromised writer can no longer over-drain the pot: the books say no.
@@ -135,7 +137,7 @@ The cooperative leaf's guardian co-sign is no longer a rubber stamp on the write
 ## What live Signet is (honest, no host map)
 
 The public writer is on `node-hot.env` (`potSigner=loopback`). Rung 1 is no longer
-the running process. A leftover `vault-keys.env` on the vitrine disk is shredded
+the running process. A leftover `vault-keys.env` on the writer disk is shredded
 only after a lab withdraw has paid. The follower recipe never copies that file.
 
 ## The wire
@@ -144,12 +146,12 @@ Locked split. Do not invent a fourth house. Do not skip a box.
 
 1. Writer relaunched on `node-hot.env` — `GET /api/kraynet/bridge/params` → `potSigner: true`.
 2. Lab withdraw still needs the Creator's wallet (signed `rune-exit` + own Signet sats).
-3. Then shred leftover `vault-keys.env` on the vitrine only.
+3. Then shred leftover `vault-keys.env` on the writer disk only.
 4. Later: `owner.box` + passphrase (in the head, not next to the box). Then Shamir 2-of-3 (`split-owner-shares.mjs`). Then hardware.
 
 **Never:** Funnel/public bind of the signer · owner secret on the L1/follower box ·
 donate-as-withdraw-gate · treat iCloud as another machine · `--force` overwrite
-live pot keys · kill the cofre signer/tunnel while the vitrine is paying.
+live pot keys · kill the cofre signer/tunnel while the writer is paying.
 
 A follower on the L1 box is welcome. It is not the cofre.
 
@@ -234,8 +236,8 @@ operator's conscious rite (deleting the head file after inspecting) resets it.
   history — it does not yet make the three guardians compare heads with EACH OTHER (a cross-guardian
   consistency layer would close the "writer partitions the guardians onto three forks from birth" corner;
   today that corner is already narrow because each book independently re-proves anchors on its own bitcoind).
-- **Deploy (the maintenance law):** daemon + mirror ship together per box via the workshop's
-  `update-guardians.sh` (same clone serves both). Order-safe either way: an updated daemon against an old
+- **Deploy (the maintenance law):** daemon + mirror ship together per box
+  (same clone serves both). Order-safe either way: an updated daemon against an old
   mirror answers 503 (retriable) once a memory exists, and bootstraps via `/head` when none does.
 
 ---
@@ -281,7 +283,7 @@ what changed one bit.
   (`pot-signer.test.ts`, `exit-payout.test.ts`). Pinned in the deterministic suite.
 - **Deploy law (CONSENSUS change — fleet first, flag last):** a pre-rung-5 follower HALTs on the second
   burn of one txid, so the order is absolute: (1) ship this code to every journal-replaying box
-  (guardian fleet via `update-guardians.sh`, writer via `sync-vitrine.sh`); (2) only then set
+  (every journal-replaying box, then the writer); (2) only then set
   `KRAY_EXIT_LOAF=1` on the writer. The flag OFF keeps every byte of today's behavior.
 - **Honest residues, named:** (1) value that never exits stays pot-backed — the loaf shrinks the pot per
   withdraw wave, it does not force anyone out; the pooled in-flight residue keeps its rung-4/FROST

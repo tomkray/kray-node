@@ -1,16 +1,11 @@
 # KRAYNET — run & validate
 
-> **Status: NORMATIVE (operator guide) — 2026-08-17.** One node. Two public
-> universes of state. Folder names: [`FOLDER-LAW.md`](FOLDER-LAW.md).
-> Live anchor and validator settle have shipped — see
-> [`MAINNET-READINESS.md`](MAINNET-READINESS.md). Public map:
+> **Status: NORMATIVE — how to boot and verify the same binary.**
+> Folder names: [`FOLDER-LAW.md`](FOLDER-LAW.md). Public map:
 > [`../networks/README.md`](../networks/README.md).
+> To **follow a public history**, start at [`RUN-NODE.md`](RUN-NODE.md).
 
-**Stranger or any LLM:** stop. You want [`RUN-NODE.md`](RUN-NODE.md)
-(quiz + preflight + follow). This file is the **operator** ship ritual
-for the unique writer — it is not how a clone becomes Signet.
-
-This is the operator's guide to the **same binary** every network runs:
+This page documents the process every network runs:
 `apps/kray-net/server.mjs`.
 
 ## Boot
@@ -34,26 +29,12 @@ Mainnet also requires `KRAY_BTC_RPC`, `KRAY_ORD_URL`, and a **new** `bc1`
 `KRAY_POT_ADDRESS`. The writer refuses a mixed universe (Signet journal, lab
 RPC, `tb1` pot, `TRUSTED_DEV=1` on main). Recipe: [`networks/mainnet/`](../networks/mainnet/).
 
-## Ship (lab → official → writer → the others)
-
-The same ritual every time. Phrase: commit, push, update the writer and the others.
-
-| Step | Do | Never |
-|---|---|---|
-| 1 | Prove on the lab / regtest writer (`KRAY_NET=regtest`, port `4477`) | Hammer live Signet to invent a feature |
-| 2 | Commit named paths in the official clone. Push `origin` `main` | `git add -A` near secrets; push the workshop as the public door |
-| 3 | Operator rsync official code onto the writer disk | `git pull` / reclone over `data-signet/` |
-| 4 | Restart only the Signet `server.mjs`. Chrome stamp follows file mtime | Reindex bitcoind; kill a sibling lab writer |
-| 5 | Same commit on the other houses (pen, follower). Restart only the process that loaded the change | Restart the pot-signer for an explorer-only edit |
-
-Folder law: [`FOLDER-LAW.md`](FOLDER-LAW.md). Houses: official / writer disk / workshop.
-
-Public writers (not this laptop):
+Public writers:
 
 | Network | URL |
 |---|---|
 | Signet (live) | https://signet.kray.network |
-| Bitcoin mainnet (live, genesis) | https://www.kray.network |
+| Bitcoin mainnet | https://www.kray.network |
 
 Pages on any writer: `/` · `/validate` · `/verify` · `/burn` · `/docs` ·
 `/profile/<addr>` · `/star/<n>` · `/runes`.

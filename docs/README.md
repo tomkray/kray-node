@@ -2,8 +2,7 @@
 
 Start at the repository door: [`../README.md`](../README.md) (the ₭) and the
 public network map [`../networks/README.md`](../networks/README.md). Any
-assistant: [`../CLAUDE.md`](../CLAUDE.md) → [`../AGENTS.md`](../AGENTS.md) →
-[`RUN-NODE.md`](RUN-NODE.md).
+assistant: [`../AGENTS.md`](../AGENTS.md) → [`RUN-NODE.md`](RUN-NODE.md).
 
 The page people open from the footer is [`../apps/kray-net/docs.html`](../apps/kray-net/docs.html)
 (`/docs`). The LLM contract tutorial on the wire is [`CONTRACTS.md`](CONTRACTS.md)
@@ -37,7 +36,7 @@ Files stay at this root so every citation (`docs/AXIOMS.md`, `/docs` HTML, clone
 | doc | one-line purpose | status |
 | --- | --- | --- |
 | [`RUN-NODE.md`](RUN-NODE.md) | Any clone / any LLM: quiz → preflight this machine → follow, guardian, or lab. “Full node” = follow. | normative |
-| [`KRAYNET-RUN.md`](KRAYNET-RUN.md) | Operator guide: lab → push official `main` → rsync writer → restart node → the others. API + proof suite. | normative |
+| [`KRAYNET-RUN.md`](KRAYNET-RUN.md) | Boot, env, API, and the hermetic proof suite for the same binary. | normative |
 | [`MAINNET-READINESS.md`](MAINNET-READINESS.md) | The plan of record for donor → proof → anchor → validator working exactly as it will on mainnet. | normative |
 | [`../networks/README.md`](../networks/README.md) | Official map: `networks/signet/` vs `networks/mainnet/`. | normative |
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Clone, prove, follow. The official tree is the validator door. | normative |

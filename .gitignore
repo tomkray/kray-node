@@ -61,8 +61,15 @@ data-signet-local/
 ops/
 logs/
 
-# Operator handoff (house names, deploy rite) — keep on this disk, never the public door
+# Operator handoff / ship ritual — keep on this disk, never the public door
 docs/HANDOFF-*.md
+docs/OPERATOR-SHIP.md
+docs/KRAYOS-MIND.md
+docs/kept/
+
+# Writer-disk deploy kit — lives on this backup + workshop, never the public door
+networks/mainnet/origin-vitrine/
+networks/mainnet/origin-local.env.example
 
 # Private scroll — keep on this disk, never the public door
 manifesto/
@@ -83,9 +90,9 @@ apps/kray-api/
 bin/
 .oss-guard-local
 
-# opsec — private operator tooling + agent config never ship to the public door
-.cursor/
+# opsec — never the public door
 scripts/operator/
-docs/HANDOFF-*.md
-docs/KRAYOS-MIND.md
 .vscode/
+scripts/gen-signet-vault-keys.mjs
+scripts/seal-vault-owner.mjs
+scripts/split-signet-custody.mjs

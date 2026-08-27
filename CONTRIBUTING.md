@@ -39,8 +39,7 @@ PRs that weaken any law are closed, kindly and firmly.
 
 - **One public remote.** Friends clone and PR against
   [`github.com/tomkray/kray-node`](https://github.com/tomkray/kray-node)
-  (`main`). That is the only user door. Do not send validators to `kray-net`
-  or this backup.
+  (`main`). That is the only user door.
 - Everything in the repository is in English.
 - No secrets, credentials, wallet files, or node data — ever. Lab datadirs
   are gitignored. The official clone does not ship the workshop (`scripts/exam/`,
@@ -52,13 +51,15 @@ PRs that weaken any law are closed, kindly and firmly.
   and `networks/mainnet/`. Live keys and journals live in gitignored `/signet/`,
   `/mainnet/`, `data-signet/`, `data-main/`. Never copy one universe into the
   other. See [`networks/README.md`](networks/README.md).
-- **Scripts have houses.** Public work goes in `scripts/follow|guardian/`
-  (and `operator/pot-signer.mjs`). See [`scripts/README.md`](scripts/README.md).
-  Explorer chrome is `index.html`, `kray.js`, `kray.css`. Era URL aliases
-  on the writer are compatibility, not names.
-- No live host map: Tailscale IPs, MagicDNS names, SSH public keys, and
-  `signet/*.env` / `mainnet/*.env` stay off the public tree. Operator files live
-  in gitignored `ops/`. Run `bash scripts/oss-guard.sh` before a public push.
+- **Scripts have houses.** Public work goes in `scripts/follow/` ·
+  `scripts/guardian/` · `scripts/pot-signer.mjs`. See
+  [`scripts/README.md`](scripts/README.md). Explorer chrome is `index.html`,
+  `kray.js`, `kray.css`. Era URL aliases on the writer are compatibility,
+  not names.
+- No live host map: mesh IPs, private DNS names, SSH public keys, and
+  `signet/*.env` / `mainnet/*.env` stay off the public tree. Operator files
+  live in gitignored `ops/`. Run `bash scripts/oss-guard.sh` before a
+  public push.
 - No fictitious data in the explorer: a value is real or it is honestly absent.
 - Match the style around you: heavily-commented, narrative source files that a
   stranger can audit in one sitting.

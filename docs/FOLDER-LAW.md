@@ -21,10 +21,8 @@ rune bridge / DeFi / pen / federation are applications on it, not a second node.
 
 **The public door is one repository.** Users and validators clone
 [`https://github.com/tomkray/kray-node`](https://github.com/tomkray/kray-node)
-(`main`). Product is edited in the developer backup (`kray-network`) and
-mirrored to that public door. A workshop may exist beside it as a
-**sibling folder** (exam tools and operator secrets). It is not a second
-protocol, not a second editor, and not a clone URL.
+(`main`). Exam tools, if any, live in a private sibling folder. They are
+not a second protocol and not a clone URL.
 
 ## Three houses
 
@@ -36,9 +34,8 @@ These are not three protocols. They are three roles of the same node.
 | **Writer disk** | That same node as the unique writer, plus secrets and the journal | A second writer; a public bind of the pot-signer; a Funnel of the vault |
 | **Workshop** | Our exam tools. Not the vault. Not Signet. | A clone URL; a claim that the official tree is incomplete without it |
 
-The workshop works for us, on a laptop, when we break the node on purpose.
-For the live network it is zero. Nothing is missing from the official clone
-because the workshop exists.
+A workshop is a private exam folder. For the live network it is zero.
+Nothing is missing from the official clone because a workshop exists.
 
 A stranger who clones official and says “run a node” is conducted by
 [`RUN-NODE.md`](RUN-NODE.md): quiz, then preflight of **their** machine,
@@ -46,12 +43,10 @@ then follow. They are never this writer disk.
 
 How a senior tells the houses apart:
 
-- `scripts/exam/` or `scripts/lab/` on disk → this folder is the **workshop**.
+- `scripts/exam/` or `scripts/lab/` on disk → this folder is a **workshop**.
 - Neither folder, `origin` is `tomkray/kray-node`, branch `main` → **public door**.
-- Neither folder, `origin` is `tomkray/kray-network`, branch `main` → **developer backup**.
-- A live `KRAY_NET=signet` process plus gitignored `/signet/` and `data-signet/`
-  → **writer disk**. Code arrives by operator rsync. Never by recloning over
-  the journal. A follower is not this house.
+- A live `KRAY_NET` process plus gitignored keys and a journal → **writer disk**.
+  Never reclone over the journal. A follower is not this house.
 
 Secrets (`vault-keys.env`, `owner.box`, `node-hot.env`) belong to the writer
 disk. They are not workshop tools.
@@ -76,7 +71,7 @@ disk. They are not workshop tools.
 | Mainnet follow | `follower-main/` `:4481` | `follower` |
 | Docs | `docs/*.md` at this root | `docs/law/` as a second tree |
 | Public scripts | `scripts/follow/` · `scripts/guardian/` · pot-signer | `exam/` · `lab/` on the official clone |
-| Public remote | [`github.com/tomkray/kray-node`](https://github.com/tomkray/kray-node) · `main` | `tomkray/kray-net` or `tomkray/kray-network` as a user door |
+| Public remote | [`github.com/tomkray/kray-node`](https://github.com/tomkray/kray-node) · `main` | any other remote as a user door |
 
 Docs shelf grouping (Law / Run / Design / History) lives in
 [`README.md`](README.md) only. Citations stay `docs/AXIOMS.md`.
@@ -117,6 +112,6 @@ After ignition this page is closed. A rename is a fork.
   or do not start. After mainnet, do not start.
 - Do not copy Signet state onto mainnet to "save time."
 - Do not send a stranger to a workshop remote.
-- Do not `git pull` official `main` onto a writer disk that already holds a journal. Code arrives by rsync of the official clone after it is on `origin` `main`. Lab / regtest first; then that push; then the writer; then the other houses. Restart only the process that loaded the new files. See [`KRAYNET-RUN.md`](KRAYNET-RUN.md) § Ship.
+- Do not `git pull` onto a writer disk that already holds a journal.
 - Do not start a second Signet writer.
 - Do not treat exam storms as a public validator door.

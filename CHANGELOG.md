@@ -588,8 +588,8 @@ that built the machine, kept as history.
 - Official door: README redesigned around the protocol symbol **₭**. Operator
   guide and the doc index no longer describe a v1-alongside-v2 node, a
   localhost-only wallet, or leftover lab datadir names. Public clone is
-  [`tomkray/kray-network`](https://github.com/tomkray/kray-network) on
-  **`main`** (the repository is public). Mainnet is not ignited.
+  [`tomkray/kray-node`](https://github.com/tomkray/kray-node) on
+  **`main`**.
 - Official default branch is `main`. Operator guide is `docs/KRAYNET-RUN.md`.
   `npm run test:core` is the storm suite.
 - Folder law (`docs/FOLDER-LAW.md`): names are locked now, not "while Signet

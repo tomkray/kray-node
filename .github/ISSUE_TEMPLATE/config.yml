@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability (private)
-    url: https://github.com/tomkray/kray-network/security/advisories/new
+    url: https://github.com/tomkray/kray-node/security/advisories/new
     about: Anything exploitable goes here or to the channel in SECURITY.md — never a public issue.
