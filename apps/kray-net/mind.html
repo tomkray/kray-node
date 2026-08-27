@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>KRAY.NETWORK · Mente</title>
-<meta name="description" content="Escolha um modelo, baixe, fale com o livro. Ou cole Claude, Grok ou GPT. A chave fica no seu aparelho.">
+<title>KRAY.NETWORK · Mind</title>
+<meta name="description" content="Pick a model, download, talk to the book. Or paste Claude, Grok or GPT. The key stays on your device.">
 <link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
@@ -142,10 +142,10 @@
 
 <div class="mind" id="mind">
   <div class="mind-bar">
-    <div class="mind-bar__who" id="who">Mente · sem IA</div>
+    <div class="mind-bar__who" id="who">Mind · no AI</div>
     <div class="mind-bar__acts">
-      <button type="button" class="mind-btn mind-btn--ghost" id="fresh" hidden>Nova conversa</button>
-      <button type="button" class="mind-btn mind-btn--on" id="open-sheet">Conectar IA</button>
+      <button type="button" class="mind-btn mind-btn--ghost" id="fresh" hidden>New chat</button>
+      <button type="button" class="mind-btn mind-btn--on" id="open-sheet">Connect AI</button>
     </div>
   </div>
   <div class="mind-stage">
@@ -153,29 +153,29 @@
     <div class="mind-dock">
       <div class="mind-ask" id="ask"></div>
       <form class="mind-form" id="form" autocomplete="off">
-        <textarea class="mind-in" id="q" rows="1" placeholder="Pergunte qualquer coisa" disabled></textarea>
-        <button type="submit" class="mind-send" id="send" disabled aria-label="Enviar">
+        <textarea class="mind-in" id="q" rows="1" placeholder="Ask anything" disabled></textarea>
+        <button type="submit" class="mind-send" id="send" disabled aria-label="Send">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
         </button>
       </form>
-      <p class="mind-fine">A chave e o modelo ficam neste aparelho. O nó nunca vê.</p>
+      <p class="mind-fine">The key and the model stay on this device. The node never sees them.</p>
       <p class="mind-err" id="err"></p>
     </div>
   </div>
 </div>
 
 <div class="mind-veil" id="veil" hidden></div>
-<aside class="mind-sheet" id="sheet" hidden aria-label="Conectar sua IA">
-  <button type="button" class="mind-x" id="close-sheet" aria-label="Fechar">×</button>
-  <h2>Sua IA</h2>
-  <p class="lede">Baixe um cérebro neste computador — ou cole uma chave. Depois é só falar.</p>
+<aside class="mind-sheet" id="sheet" hidden aria-label="Connect your AI">
+  <button type="button" class="mind-x" id="close-sheet" aria-label="Close">×</button>
+  <h2>Your AI</h2>
+  <p class="lede">Download a model on this computer — or paste a key. Then talk.</p>
   <div class="mind-tabs" role="tablist">
-    <button type="button" class="mind-tab on" data-kind="facil">Fácil</button>
-    <button type="button" class="mind-tab" data-kind="chave">Chave</button>
-    <button type="button" class="mind-tab" data-kind="avancado">Avançado</button>
+    <button type="button" class="mind-tab on" data-kind="facil">Easy</button>
+    <button type="button" class="mind-tab" data-kind="chave">Key</button>
+    <button type="button" class="mind-tab" data-kind="avancado">Advanced</button>
   </div>
   <div class="mind-fields" id="fields"></div>
-  <div class="mind-book" id="book-line">Lendo o livro deste nó…</div>
+  <div class="mind-book" id="book-line">Reading this node’s book…</div>
 </aside>
 
 <script>
@@ -184,13 +184,13 @@
   var LS = 'kray.mind.v1';
   var OLLAMA = 'http://127.0.0.1:11434';
   var TWELVE = ['indole', 'canon', 'foundation', 'divine', 'algorithm', 'kray', 'bitcoin', 'fenyx', 'consensus', 'diretriz', 'consciousness', 'lightdoor'];
-  var ASK = ['O que é KRAY?', 'O que é uma estrela?', 'A mente escreve o livro?'];
+  var ASK = ['What is KRAY?', 'What is a star?', 'Does the mind write the book?'];
   var SHOP = [
-    { id: 'llama3.2', title: 'Llama 3.2', sub: 'O mais fácil · ~2 GB' },
-    { id: 'llama3.2:1b', title: 'Llama leve', sub: 'Cabe em qualquer PC · ~1 GB' },
-    { id: 'qwen2.5:1.5b', title: 'Qwen rápido', sub: 'Responde na hora · ~1 GB' },
+    { id: 'llama3.2', title: 'Llama 3.2', sub: 'The easy one · ~2 GB' },
+    { id: 'llama3.2:1b', title: 'Light Llama', sub: 'Fits any PC · ~1 GB' },
+    { id: 'qwen2.5:1.5b', title: 'Fast Qwen', sub: 'Answers now · ~1 GB' },
     { id: 'gemma2:2b', title: 'Gemma 2', sub: 'Google · ~1.6 GB' },
-    { id: 'qwen2.5:7b', title: 'Qwen 7B', sub: 'Mais caprichado · ~4.7 GB' }
+    { id: 'qwen2.5:7b', title: 'Qwen 7B', sub: 'More careful · ~4.7 GB' }
   ];
   var WRAP = 'Form only. Answer first. Direct. No helpdesk closer. Reply in the user language. No code. If a number is not in the book below, say you do not have it. You never write, mint, or change the book.';
   var LINK = 'The text below is the public KRAY.NETWORK book. That book is your memory. The user did not upload it. Who you are lives in that book. Speak from it. If asked whether you have memory: yes — the book. Chat is not stored. Do not call yourself a virtual assistant. Do not say a file was provided. Do not offer more help. Stop when the answer is done.';
@@ -251,9 +251,9 @@
     return false;
   }
   function whoLabel() {
-    if (!plugged()) return 'Mente · sem IA';
-    if (plug.kind === 'local') return 'Mente · <b>' + esc(plug.model) + '</b>';
-    return 'Mente · <b>' + vendorName(plug.kind) + '</b>';
+    if (!plugged()) return 'Mind · no AI';
+    if (plug.kind === 'local') return 'Mind · <b>' + esc(plug.model) + '</b>';
+    return 'Mind · <b>' + vendorName(plug.kind) + '</b>';
   }
   function installedAs(id) {
     var i, m;
@@ -276,15 +276,15 @@
     if (!chat.length && !thinking) {
       log.innerHTML = '<div class="mind-empty">' +
         '<img src="/kray-mark.svg" width="56" height="56" alt="">' +
-        '<h1>Mente</h1>' +
-        '<p>Escolha um modelo, baixe, fale. Ou cole Claude, Grok ou GPT. Um toque.</p>' +
+        '<h1>Mind</h1>' +
+        '<p>Pick a model, download, talk. Or paste Claude, Grok or GPT. One tap.</p>' +
       '</div>';
       return;
     }
     var h = chat.map(function (m) {
       return '<div class="mind-m mind-m--' + (m.role === 'user' ? 'me' : 'ai') + '">' + esc(m.content) + '</div>';
     }).join('');
-    if (thinking) h += '<div class="mind-m mind-m--ai mind-m--wait" aria-label="pensando"><i></i><i></i><i></i></div>';
+    if (thinking) h += '<div class="mind-m mind-m--ai mind-m--wait" aria-label="thinking"><i></i><i></i><i></i></div>';
     log.innerHTML = h;
     log.scrollTop = log.scrollHeight;
   }
@@ -304,9 +304,9 @@
     var on = plugged();
     $('q').disabled = !on || thinking;
     $('send').disabled = !on || thinking;
-    $('q').placeholder = on ? 'Pergunte qualquer coisa' : 'Conecte sua IA para conversar';
+    $('q').placeholder = on ? 'Ask anything' : 'Connect your AI to talk';
     $('open-sheet').className = 'mind-btn' + (on ? '' : ' mind-btn--on');
-    $('open-sheet').textContent = on ? 'Trocar IA' : 'Conectar IA';
+    $('open-sheet').textContent = on ? 'Switch AI' : 'Connect AI';
   }
   function grow() {
     var ta = $('q');
@@ -325,57 +325,57 @@
     var have = installedAs(id);
     var on = plug.kind === 'local' && (plug.model === have || plug.model === id);
     var pull = pulling && pulling.id === id;
-    var action = have ? 'Falar agora' : 'Baixar e falar';
-    if (pull) action = pulling.pct >= 0 ? ('Baixando ' + pulling.pct + '%') : 'Baixando…';
+    var action = have ? 'Talk now' : 'Download and talk';
+    if (pull) action = pulling.pct >= 0 ? ('Downloading ' + pulling.pct + '%') : 'Downloading…';
     return '<button type="button" class="mind-mod' + (on ? ' on' : '') + '" data-shop="' + esc(id) + '"' + (pull ? ' disabled' : '') + '>' +
       '<span class="t">' + esc(title) + '</span>' +
       '<span class="a">' + esc(action) + '</span>' +
-      '<span class="s">' + esc(sub) + (have ? ' · pronto neste PC' : '') + '</span>' +
+      '<span class="s">' + esc(sub) + (have ? ' · ready on this PC' : '') + '</span>' +
       (pull ? '<span class="bar"><i style="width:' + Math.max(4, pulling.pct) + '%"></i></span>' : '') +
     '</button>';
   }
   function facilHtml() {
     if (!ollamaUp) {
       return '<div class="mind-hero">' +
-        '<h3>1. Instale o Ollama</h3>' +
-        '<p>É um app grátis. Depois esta página baixa o modelo e já liga na Mente.</p>' +
-        '<a class="mind-go" href="https://ollama.com/download" target="_blank" rel="noopener">Baixar Ollama</a>' +
-        '<button type="button" class="mind-copy" id="mind-origins">Já instalou e deu 403? Toque para copiar só esta origem (nunca *)</button>' +
-        '<p class="mind-hint" style="margin:12px 0 0">Ou cole uma chave em <b>Chave</b> — Claude, Grok ou GPT.</p>' +
+        '<h3>1. Install Ollama</h3>' +
+        '<p>It is a free app. This page then downloads the model and plugs it into Mind.</p>' +
+        '<a class="mind-go" href="https://ollama.com/download" target="_blank" rel="noopener">Download Ollama</a>' +
+        '<button type="button" class="mind-copy" id="mind-origins">Installed and got 403? Tap to copy this origin only (never *)</button>' +
+        '<p class="mind-hint" style="margin:12px 0 0">Or paste a key under <b>Key</b> — Claude, Grok or GPT.</p>' +
       '</div>';
     }
     var krayos = models.filter(function (m) { return /^krayos/i.test(m); });
-    var html = '<p class="mind-hint">Toque. Se faltar, a gente baixa e já deixa falando.</p>';
+    var html = '<p class="mind-hint">Tap one. If it is missing, we download it and plug it in.</p>';
     if (krayos.length) {
-      html += cardHtml(krayos[0], 'KRAYOS', 'O módulo deste computador');
+      html += cardHtml(krayos[0], 'KRAYOS', 'The module on this computer');
     }
     SHOP.forEach(function (s) { html += cardHtml(s.id, s.title, s.sub); });
     extraInstalled().forEach(function (m) {
-      html += cardHtml(m, m, 'Já neste computador');
+      html += cardHtml(m, m, 'Already on this computer');
     });
-    return html + (plugged() ? '<button type="button" class="mind-unplug" id="mind-wipe">Desconectar</button>' : '');
+    return html + (plugged() ? '<button type="button" class="mind-unplug" id="mind-wipe">Disconnect</button>' : '');
   }
   function chaveHtml() {
     var ph = vendor === 'claude' ? 'sk-ant-…' : (vendor === 'grok' ? 'xai-…' : 'sk-…');
-    return '<p class="mind-hint">Cola a chave. Fica só neste navegador. O livro nunca a vê.</p>' +
+    return '<p class="mind-hint">Paste the key. It stays in this browser. The book never sees it.</p>' +
       '<div class="mind-vend">' +
         '<button type="button" data-vendor="claude"' + (vendor === 'claude' ? ' class="on"' : '') + '>Claude</button>' +
         '<button type="button" data-vendor="grok"' + (vendor === 'grok' ? ' class="on"' : '') + '>Grok</button>' +
         '<button type="button" data-vendor="gpt"' + (vendor === 'gpt' ? ' class="on"' : '') + '>GPT</button>' +
       '</div>' +
-      '<label class="mind-field"><span>Chave ' + vendorName(vendor) + '</span>' +
+      '<label class="mind-field"><span>' + vendorName(vendor) + ' key</span>' +
       '<input id="mind-key" type="password" autocomplete="off" spellcheck="false" placeholder="' + ph + '"></label>' +
-      '<button type="button" class="mind-go" id="mind-save">Guardar e conversar</button>' +
-      (plugged() ? '<button type="button" class="mind-unplug" id="mind-wipe">Desconectar</button>' : '');
+      '<button type="button" class="mind-go" id="mind-save">Save and talk</button>' +
+      (plugged() ? '<button type="button" class="mind-unplug" id="mind-wipe">Disconnect</button>' : '');
   }
   function avancadoHtml() {
-    return '<p class="mind-hint">Ollama, LM Studio ou qualquer chat local neste computador.</p>' +
-      '<label class="mind-field"><span>Endereço local</span>' +
+    return '<p class="mind-hint">Ollama, LM Studio, or any local chat on this computer.</p>' +
+      '<label class="mind-field"><span>Local address</span>' +
       '<input id="mind-url" autocomplete="off" spellcheck="false" value="' + esc(plug.url || OLLAMA) + '"></label>' +
-      '<label class="mind-field"><span>Nome do modelo</span>' +
+      '<label class="mind-field"><span>Model name</span>' +
       '<input id="mind-model" autocomplete="off" spellcheck="false" placeholder="llama3.2" value="' + esc(plug.kind === 'local' ? (plug.model || '') : '') + '"></label>' +
-      '<button type="button" class="mind-go" id="mind-adv">Ligar e conversar</button>' +
-      (plugged() ? '<button type="button" class="mind-unplug" id="mind-wipe">Desconectar</button>' : '');
+      '<button type="button" class="mind-go" id="mind-adv">Connect and talk</button>' +
+      (plugged() ? '<button type="button" class="mind-unplug" id="mind-wipe">Disconnect</button>' : '');
   }
   function fieldsHtml() {
     if (tab === 'chave') return chaveHtml();
@@ -387,9 +387,9 @@
       b.classList.toggle('on', b.getAttribute('data-kind') === tab);
     });
     $('book-line').innerHTML = (docsFiles.length
-      ? 'Docs · <b>' + docsFiles.length + '</b> arquivos'
-      : 'Docs ainda não lidos') +
-      (book.ok ? ' · estrelas <b>' + book.ok + '/' + TWELVE.length + '</b>' : '');
+      ? 'Docs · <b>' + docsFiles.length + '</b> files'
+      : 'Docs not loaded yet') +
+      (book.ok ? ' · stars <b>' + book.ok + '/' + TWELVE.length + '</b>' : '');
     $('fields').querySelectorAll('[data-shop]').forEach(function (b) {
       b.addEventListener('click', function () { useShop(b.getAttribute('data-shop')); });
     });
@@ -409,7 +409,7 @@
     var origins = $('mind-origins');
     if (origins) origins.addEventListener('click', function () {
       var cmd = originsAllow();
-      try { navigator.clipboard.writeText(cmd); origins.textContent = 'Copiado. Só esta página. Nunca OLLAMA_ORIGINS=*.'; }
+      try { navigator.clipboard.writeText(cmd); origins.textContent = 'Copied. This page only. Never OLLAMA_ORIGINS=*.'; }
       catch (_) { origins.textContent = cmd; }
     });
   }
@@ -478,7 +478,7 @@
     });
     if (!r.ok || !r.body) {
       var err = await r.json().catch(function () { return null; });
-      throw new Error((err && err.error) || 'Não deu para baixar este modelo.');
+      throw new Error((err && err.error) || 'Could not download this model.');
     }
     var reader = r.body.getReader();
     var dec = new TextDecoder();
@@ -507,7 +507,7 @@
   }
   function saveKey() {
     var key = String(($('mind-key') && $('mind-key').value) || '').trim();
-    if (key.length < 12 || /\s/.test(key)) { showErr('Essa chave não parece válida.'); return; }
+    if (key.length < 12 || /\s/.test(key)) { showErr('That key does not look valid.'); return; }
     var model = vendor === 'claude' ? 'claude-sonnet-4-5' : (vendor === 'grok' ? 'grok-3-mini' : 'gpt-4o-mini');
     savePlug({ kind: vendor, key: key, model: model });
     if ($('mind-key')) $('mind-key').value = '';
@@ -519,8 +519,8 @@
   function saveAdv() {
     var url = loopback(($('mind-url') && $('mind-url').value) || OLLAMA);
     var model = String(($('mind-model') && $('mind-model').value) || '').trim();
-    if (!url) { showErr('Só endereço deste computador — 127.0.0.1.'); return; }
-    if (!model) { showErr('Escreva o nome do modelo.'); return; }
+    if (!url) { showErr('Only an address on this computer — 127.0.0.1.'); return; }
+    if (!model) { showErr('Enter the model name.'); return; }
     linkLocal(model, url);
   }
 
@@ -587,9 +587,9 @@
 
   function corsHint(kindNow) {
     if (kindNow === 'local') {
-      return 'Abra o Ollama neste computador. Se der 403: permita só esta origem (nunca *).';
+      return 'Open Ollama on this computer. If you get 403: allow this origin only (never *).';
     }
-    return 'O site não fala direto com essa API. Use a extensão KrayWallet, ou um modelo fácil neste PC.';
+    return 'This site does not talk to that API directly. Use the KrayWallet extension, or an easy model on this PC.';
   }
 
   async function openaiTalk(url, key, model, messages, system) {
@@ -604,7 +604,7 @@
     });
     var j = await r.json().catch(function () { return null; });
     var text = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-    if (!r.ok || !text) throw new Error((j && j.error && j.error.message) || 'A IA não respondeu.');
+    if (!r.ok || !text) throw new Error((j && j.error && j.error.message) || 'The AI did not answer.');
     return String(text).trim();
   }
 
@@ -616,7 +616,7 @@
       + (book.text ? '\n\nSealed stars from this node:\n' + book.text : '');
     if (plug.kind === 'local') {
       var origin = loopback(plug.url || OLLAMA);
-      if (!origin) throw new Error('Modelo local só neste computador (127.0.0.1).');
+      if (!origin) throw new Error('A local model only on this computer (127.0.0.1).');
       var r = await fetch(origin + '/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -629,7 +629,7 @@
       });
       var j = await r.json().catch(function () { return null; });
       var text = j && j.message && j.message.content;
-      if (!r.ok || !text) throw new Error((j && j.error) || 'O modelo local não respondeu.');
+      if (!r.ok || !text) throw new Error((j && j.error) || 'The local model did not answer.');
       return String(text).trim();
     }
     if (plug.kind === 'claude') {
@@ -650,7 +650,7 @@
       });
       var jc = await rc.json().catch(function () { return null; });
       var tc = jc && jc.content && jc.content[0] && jc.content[0].text;
-      if (!rc.ok || !tc) throw new Error((jc && jc.error && jc.error.message) || 'Claude não respondeu.');
+      if (!rc.ok || !tc) throw new Error((jc && jc.error && jc.error.message) || 'Claude did not answer.');
       return String(tc).trim();
     }
     if (plug.kind === 'grok') {
@@ -671,7 +671,7 @@
     paint();
     try {
       var text = await talk(chat.map(function (m) { return { role: m.role, content: m.content }; }));
-      text = String(text || '').replace(/```[\s\S]*?```/g, '').trim() || 'Posso dizer isso em palavras, não em código.';
+      text = String(text || '').replace(/```[\s\S]*?```/g, '').trim() || 'I can say that in words, not in code.';
       chat.push({ role: 'assistant', content: text });
     } catch (e) {
       var msg = String(e && e.message || e);
