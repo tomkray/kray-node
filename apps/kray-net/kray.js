@@ -712,6 +712,7 @@
         '<a class="wm-item" href="/u/' + encodeURIComponent(addr) + '" role="menuitem"><svg width="15" height="15"><use href="#g-star"/></svg> My profile</a>' +
         '<a class="wm-item" href="/dashboard" role="menuitem"><svg width="15" height="15"><use href="#g-block"/></svg> Dashboard</a>' +
         '<a class="wm-item" href="/mine" role="menuitem"><svg width="15" height="15"><use href="#g-glow"/></svg> Donate → mint ₭</a>' +
+        '<a class="wm-item" href="/mind" role="menuitem"><svg width="15" height="15"><use href="#g-t-resonance"/></svg> Talk to the book</a>' +
         '<a class="wm-item" href="/validate" role="menuitem"><svg width="15" height="15"><use href="#g-vote"/></svg> Be a validator</a>' +
         '<button class="wm-item wm-danger" type="button" id="kray-disconnect" role="menuitem"><svg width="15" height="15"><use href="#g-send"/></svg> Disconnect</button>' +
       '</div>');
