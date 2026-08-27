@@ -146,8 +146,8 @@
 .rn-chip__out{color:var(--btc);font-variant-numeric:tabular-nums}
 
 /* ── the tab pedals (studio · parent-type · rune console) keep JS class names ── */
-.itabs{display:flex;gap:var(--s2);flex-wrap:wrap;margin-bottom:var(--s4)}
-.topbtn{font-family:var(--mono);font-size:12px;letter-spacing:.04em;padding:9px 15px;border-radius:var(--r1);border:1px solid var(--line);color:var(--ink-3);background:transparent;cursor:pointer;transition:.15s;min-height:40px}
+.itabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:var(--s3);margin-bottom:var(--s5)}
+.topbtn{display:inline-flex;align-items:center;justify-content:center;width:100%;font-family:var(--mono);font-size:12px;letter-spacing:.04em;padding:var(--s3) var(--s4);border-radius:var(--r1);border:1px solid var(--line);color:var(--ink-3);background:transparent;cursor:pointer;transition:.15s;min-height:48px}
 .topbtn:hover{color:var(--ink);border-color:var(--line-2)}
 .topbtn.on{color:var(--signal-ink);background:var(--signal);border-color:var(--signal);font-weight:600}
 
@@ -408,7 +408,7 @@
   <!-- ── THE STUDIO — write a star: text · sigil · media · name ── -->
   <div class="card tick" id="studio">
     <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-inscribe"/></svg><h2>Write a star</h2></div>
-    <p class="sub">A name, or bytes you type or drop. Signed by your wallet, sealed forever — the fire scales with the bytes (1 ₭ floor).</p>
+    <p class="sub">A name, or bytes you type or drop. Signed by your wallet, sealed forever — this node quotes the fire.</p>
     <div class="itabs">
       <button class="topbtn on" data-itab="post">✎ Text</button>
       <button class="topbtn" data-itab="media">🖼 File</button>
@@ -426,7 +426,7 @@
     </div>
     <div data-ipane="media" hidden>
       <div class="flab">File · Single or Batch. We place each one. You check the ₭, then sign.</div>
-      <div class="drop" id="i-drop"><b>Drop here</b><span>Single = one file. Batch = the folder as a collection. JSON sits on its pair.</span>
+        <div class="drop" id="i-drop"><b>Drop here</b><span>Any file — size quotes the ticket at once. Batch = the folder as a collection. JSON sits on its pair.</span>
         <div class="ibatch-pick">
           <button type="button" class="btn" id="i-pick"><small>Single</small><span>one file</span></button>
           <button type="button" class="btn" id="i-pickdir"><small>Batch</small><span>folder</span></button>
@@ -436,7 +436,7 @@
       </div>
       <label class="ibatch-coll"><input type="checkbox" id="i-coll" checked> Hang this drop as one collection (KRAY parent above, or the first file as the face). An L1 blessing + batch = every file is an L1 child under one SHA-256 cohort.</label>
       <div id="i-batch" class="ibatch" hidden></div>
-      <div id="i-preview" hidden><img id="i-previmg" alt=""></div>
+      <div id="i-preview" class="iprev" hidden></div>
     </div>
     <div data-ipane="name" hidden>
       <div class="flab">Name · unique in the universe, forever</div>
@@ -463,6 +463,14 @@
       <div id="i-opick" class="chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px" hidden></div>
     </div>
     <div class="imeta" id="i-meta">0 bytes</div>
+    <div class="iticket" id="i-ticket">
+      <div class="itick"><span class="k">Size</span><span class="v" id="i-tk-size">—</span></div>
+      <div class="itick"><span class="k">Fire</span><span class="v" id="i-tk-fire">—</span></div>
+      <div class="itick" id="i-tk-atlas-wrap" hidden><span class="k">Atlas</span><span class="v" id="i-tk-atlas">—</span></div>
+      <div class="itick"><span class="k">Total</span><span class="v" id="i-tk-total">—</span></div>
+      <div class="itick"><span class="k">Balance</span><span class="v" id="i-tk-bal">—</span></div>
+      <p class="itick-status" id="i-tk-status">waiting for this node's quote</p>
+    </div>
     <button class="btn primary" id="i-go" style="margin-top:var(--s4)" disabled>✎ <span id="i-golabel">Inscribe — fee 1 ₭</span></button>
     <div class="out" id="i-out"></div>
   </div>
@@ -1101,6 +1109,8 @@
       return;
     }
     profile=p;
+    try{ window.kraynetStudioBal=BigInt(String(p.balance==null?'0':p.balance).replace(/[^0-9]/g,'')||'0'); }catch(_){ window.kraynetStudioBal=0n; }
+    if(typeof paintStudioTicket==='function') paintStudioTicket();
     $('netlab').textContent='KRAY NET · '+p.network+' · block #'+p.node.height.toLocaleString();
     // THE EXACT figure — every unit counted, to the last ₭ (never abbreviated here;
     // the abbreviation lives on chips, the truth lives on the balance).
@@ -1484,15 +1494,69 @@
     if(tab==='media' && fileQueue.length){ var n=0; fileQueue.forEach(function(it){ n+=it.size; }); return n; }
     return tab==='media' ? (fileBytes||0) : new Blob([currentText()]).size;
   }
-  function burnNow(){
-    if(tab==='media' && fileQueue.length && B) return B.burnsOf(fileQueue, window.kraynetBytesPerKray||1000000);
-    return Math.max(1, Math.ceil((currentBytes()||1)/(window.kraynetBytesPerKray||1000000)));
+  function eraRateP(){
+    if(window.KRAY && typeof KRAY.eraRate==='function') return KRAY.eraRate();
+    var n=Number(window.kraynetBytesPerKray);
+    return (Number.isFinite(n) && n>0) ? n : 0;
   }
-  // the button tells the TRUE price of the fire, live from the era's rate — never a stale "1"
+  function fireOfP(size){
+    if(window.KRAY && typeof KRAY.starFire==='function') return KRAY.starFire(size, eraRateP());
+    var r=eraRateP(); if(!r) return 1;
+    var s=Number(size); if(!Number.isFinite(s) || s<=0) return 1;
+    return Math.max(1, Math.ceil(s/r));
+  }
+  function burnNow(){
+    if(tab==='media' && fileQueue.length && B) return B.burnsOf(fileQueue, eraRateP());
+    return fireOfP(currentBytes());
+  }
+  function quoteP(){
+    if(tab==='name') return {bytes:0, fire:1, atlas:0, total:1, ready:!!eraRateP(), empty:false};
+    var bytes=currentBytes();
+    var empty=(tab==='media' && !fileQueue.length && !fileB64) || (tab==='post' && !bytes);
+    if(empty) return {bytes:bytes||0, fire:0, atlas:0, total:0, ready:!!eraRateP(), empty:true};
+    var fire=burnNow();
+    var atlas=(window.kraynetAtlasFeeOn && bytes>0) ? fire : 0;
+    return {bytes:bytes, fire:fire, atlas:atlas, total:fire+atlas, ready:!!eraRateP(), empty:false};
+  }
+  function costTextP(q){ return (!q || q.empty) ? '—' : (q.atlas ? (q.fire+' ₭ + '+q.atlas+' ₭ atlas') : (q.fire+' ₭')); }
+  function paintStudioTicket(){
+    var box=$('i-ticket'); if(!box) return;
+    var q=quoteP();
+    box.setAttribute('data-atlas', window.kraynetAtlasFeeOn ? 'on' : 'off');
+    var wrap=$('i-tk-atlas-wrap'); if(wrap) wrap.hidden=!window.kraynetAtlasFeeOn;
+    var bal=window.kraynetStudioBal||0n;
+    var size=$('i-tk-size'), fire=$('i-tk-fire'), atlas=$('i-tk-atlas'), tot=$('i-tk-total'), balEl=$('i-tk-bal'), st=$('i-tk-status');
+    var fireN=Number(q.fire), atlasN=Number(q.atlas), totN=Number(q.total);
+    if(!Number.isFinite(fireN) || fireN<0) fireN=0;
+    if(!Number.isFinite(atlasN) || atlasN<0) atlasN=0;
+    if(!Number.isFinite(totN) || totN<0) totN=0;
+    totN=Math.trunc(totN);
+    if(size) size.textContent=(q.empty && !q.bytes)?'—':((window.KRAY&&KRAY.formatBytes)?KRAY.formatBytes(q.bytes):q.bytes+' bytes');
+    if(fire) fire.textContent=!q.ready?'…':(q.empty?'—':fireN.toLocaleString()+' ₭');
+    if(atlas) atlas.textContent=!q.ready?'…':((q.empty||!atlasN)?'0 ₭':atlasN.toLocaleString()+' ₭');
+    if(tot) tot.textContent=!q.ready?'quoting…':(q.empty?'—':totN.toLocaleString()+' ₭');
+    if(balEl) balEl.textContent=kWhole(bal)+' ₭';
+    if(st){
+      var blocked = tab==='media' && B && B.blockedOf && B.blockedOf(fileQueue).length;
+      if(!q.ready){ st.textContent='waiting for this node\'s quote'; st.className='itick-status'; }
+      else if(q.empty){ st.textContent='drop or type — the fire prices as the bytes land'; st.className='itick-status'; }
+      else if(blocked){ st.textContent='over this node\'s ceiling — quote is live; compress or split to seal'; st.className='itick-status short'; }
+      else {
+        var need=BigInt(totN)-bal;
+        if(need>0n){ st.textContent='need '+need.toString()+' ₭ more — donate first'; st.className='itick-status short'; }
+        else { st.textContent='covered — '+kWhole(bal-BigInt(totN))+' ₭ left after the seal'; st.className='itick-status ok'; }
+      }
+    }
+  }
+  // the button tells the TRUE price of the fire, live from THIS node's quote
   function paintGolabel(){
-    var b=burnNow();
-    if(tab==='media' && fileQueue.length>1){ $('i-golabel').textContent='Looks right — seal '+fileQueue.length+' stars · '+b+' ₭'; return; }
-    $('i-golabel').textContent = tab==='name' ? 'Baptize — burns 1 ₭' : (useOrdinal() ? 'Mint child — burns ' : 'Inscribe — burns ')+b+' ₭';
+    var q=quoteP();
+    paintStudioTicket();
+    if(tab==='name'){ $('i-golabel').textContent='Baptize — burns 1 ₭'; return; }
+    if(tab==='media' && !fileQueue.length && !fileB64){ $('i-golabel').textContent='Drop a file — then seal'; return; }
+    if(tab==='post' && q.empty){ $('i-golabel').textContent='Type the bytes — then seal'; return; }
+    if(tab==='media' && fileQueue.length>1){ $('i-golabel').textContent='Looks right — seal '+fileQueue.length+' stars · '+costTextP(q); return; }
+    $('i-golabel').textContent = (useOrdinal() ? 'Mint child — burns ' : 'Inscribe — burns ')+costTextP(q);
   }
   // THE ORIGIN PICKER — your L1 ordinals, one click each; the paste field stays for power users
   function loadWalletOrdinals(){
@@ -1511,7 +1575,8 @@
     }).catch(function(){ box.innerHTML='<span class="flab">could not read ordinals — paste a parent id above</span>'; });
   }
   function hasPayload(){ return tab==='media' ? !!(fileQueue.length || fileB64) : currentText().trim().length>0; }
-  function paintGo(){ paintGolabel(); $('i-go').disabled = qbusy || me!==ADDR || !hasPayload(); }
+  function queueBlocked(){ return !!(B && B.blockedOf && B.blockedOf(fileQueue).length); }
+  function paintGo(){ paintGolabel(); $('i-go').disabled = qbusy || me!==ADDR || !hasPayload() || (tab==='media' && queueBlocked()); }
   document.querySelectorAll('#studio .itabs .topbtn').forEach(function(ch){
     ch.addEventListener('click',function(){
       document.querySelectorAll('#studio .itabs .topbtn').forEach(function(c){c.classList.remove('on');});
@@ -1552,14 +1617,17 @@
   async function refreshMeta(){
     var meta=$('i-meta'); paintGolabel(); paintDocBytes();
     if(tab==='media'){
-      if(fileQueue.length>1) meta.textContent = 'Ready to verify · '+fileQueue.length+' stars · '+burnNow()+' ₭ · sign once';
-      else if(fileQueue.length===1) meta.textContent = fileQueue[0].name+' · '+fileQueue[0].size.toLocaleString()+' bytes · '+fileQueue[0].type+' — burns '+burnNow()+' ₭ to born, sealed byte-exact';
-      else meta.textContent = fileB64 ? fileName+' · '+fileBytes.toLocaleString()+' bytes · '+fileType+' — burns '+Math.max(1,Math.ceil(fileBytes/(window.kraynetBytesPerKray||1000000)))+' ₭ to born'+', sealed byte-exact' : 'no file chosen · drop a folder or files · up to '+((Number(window.kraynetContentMax)||10000000)/1000000)+' MB each';
+      if(fileQueue.length>1) meta.textContent = 'Ready to verify · '+fileQueue.length+' stars · '+costTextP(quoteP())+' · sign once';
+      else if(fileQueue.length===1) meta.textContent = fileQueue[0].name+' · '+fileQueue[0].size.toLocaleString()+' bytes · '+fileQueue[0].type+' — burns '+costTextP(quoteP())+' to born, sealed byte-exact';
+      else {
+        var capLive=(window.KRAY&&KRAY.formatBytes&&window.kraynetContentMax)?KRAY.formatBytes(window.kraynetContentMax):'this node\'s ceiling';
+        meta.textContent = fileB64 ? fileName+' · '+fileBytes.toLocaleString()+' bytes · '+fileType+' — burns '+costTextP(quoteP())+' to born, sealed byte-exact' : 'no file chosen · drop a folder or files · up to '+capLive+' each';
+      }
       paintGo(); return;
     }
     var s=currentText(), bytes=new TextEncoder().encode(s).length;
     if(tab==='name'){ meta.textContent=bytes+' bytes · unique in the whole universe · first writer wins'; paintGo(); return; }
-    meta.textContent=bytes.toLocaleString()+' bytes · '+ctypeOf();
+    meta.textContent=bytes.toLocaleString()+' bytes · '+ctypeOf()+' — burns '+costTextP(quoteP());
     clearTimeout(shaTimer);
     if(bytes && window.crypto && crypto.subtle){
       shaTimer=setTimeout(function(){
@@ -1597,35 +1665,43 @@
       syncSoloFromQueue();
       paintFileQueue();
       refreshMeta();
-    }, {
-      burn: burnNow(),
-      parent: (($('i-parent')||{}).value||''),
-      origin: !!(($('i-oparent')||{}).value||'').trim(),
-      faceFirst: !!( $('i-coll') && $('i-coll').checked ),
-      skipped: lastSkip,
-      rate: window.kraynetBytesPerKray||1000000
-    });
+    }, (function(){
+      var q=quoteP();
+      return {
+        burn: q.fire,
+        atlas: q.atlas,
+        total: q.total,
+        atlasOn: !!window.kraynetAtlasFeeOn,
+        parent: (($('i-parent')||{}).value||''),
+        origin: !!(($('i-oparent')||{}).value||'').trim(),
+        faceFirst: !!( $('i-coll') && $('i-coll').checked ),
+        skipped: lastSkip,
+        rate: eraRateP()
+      };
+    })());
     syncSoloFromQueue();
   }
   function syncSoloFromQueue(){
     if(fileQueue.length===1){
       var it=fileQueue[0];
       fileB64=it.b64; fileType=it.type; fileName=it.name; fileBytes=it.size;
-      if(it.url && $('i-previmg')){ $('i-previmg').src=it.url; $('i-preview').hidden=false; }
-      else if($('i-preview')) $('i-preview').hidden=true;
+      if(B && B.mountPreview) B.mountPreview($('i-preview'), it);
+      else if($('i-preview')) $('i-preview').hidden=!it;
     } else {
       fileB64=fileQueue.length?fileQueue[0].b64:null;
       fileType=fileQueue.length?fileQueue[0].type:null;
       fileName=fileQueue.length?fileQueue[0].name:null;
       fileBytes=fileQueue.length?fileQueue[0].size:0;
-      if($('i-preview')) $('i-preview').hidden=true;
+      if(B && B.mountPreview) B.mountPreview($('i-preview'), null);
+      else if($('i-preview')){ $('i-preview').hidden=true; $('i-preview').innerHTML=''; }
     }
   }
   function clearFileQueue(){
     if(B) fileQueue.forEach(B.revoke);
     fileQueue=[];
     fileB64=null; fileName=null; fileBytes=0; fileType=null;
-    if($('i-preview')) $('i-preview').hidden=true;
+    if(B && B.mountPreview) B.mountPreview($('i-preview'), null);
+    else if($('i-preview')){ $('i-preview').hidden=true; $('i-preview').innerHTML=''; }
     if($('i-file')) $('i-file').value='';
     if($('i-dir')) $('i-dir').value='';
     paintFileQueue();
@@ -1633,27 +1709,45 @@
   function addRawFiles(raw){
     if(!B || !raw || !raw.length) return;
     var box=$('i-out');
-    box.className='out'; box.textContent='reading '+(raw.length)+' file'+(raw.length===1?'':'s')+'…';
-    B.ingest(raw).then(function(got){
-      var m=B.mergeQueue(fileQueue, got.items);
-      fileQueue=m.queue;
-      var notes=B.skipNote((got.skipped||[]).concat(m.skipped||[]));
-      lastSkip=notes;
+    var staged = B.stage ? B.stage(raw) : null;
+    if(staged && staged.items && staged.items.length){
+      var m0=B.mergeQueue(fileQueue, staged.items);
+      fileQueue=m0.queue;
+      lastSkip=B.skipNote((staged.skipped||[]).concat(m0.skipped||[]));
       paintFileQueue();
-      box.textContent='';
+      box.className='out'; box.textContent='';
+      refreshMeta();
+    } else {
+      box.className='out'; box.textContent='reading '+(raw.length)+' file'+(raw.length===1?'':'s')+'…';
+    }
+    var finish = B.enrich
+      ? B.enrich(fileQueue).then(function(){ return { skipped: (staged && staged.skipped) || [] }; })
+      : B.ingest(raw).then(function(got){
+          var m=B.mergeQueue(fileQueue, got.items);
+          fileQueue=m.queue;
+          return { skipped: (got.skipped||[]).concat(m.skipped||[]) };
+        });
+    finish.then(function(got){
+      lastSkip=B.skipNote(((staged&&staged.skipped)||[]).concat((got&&got.skipped)||[]));
+      paintFileQueue();
+      box.className='out'; box.textContent='';
       refreshMeta();
     }).catch(function(e){
       box.className='out err';
       box.textContent='✗ '+((e&&e.message)||'folder refused');
+      refreshMeta();
     });
   }
   fetch('/api/kraynet/donation/info').then(function(r){return r.json()}).then(function(d){
     if(d&&d.bytesPerKrayBurn) window.kraynetBytesPerKray=d.bytesPerKrayBurn;
+    if(d) window.kraynetAtlasFeeOn=!!d.atlasFeeActive;
     if(d&&d.contentMax) window.kraynetContentMax=Number(d.contentMax);
     if(d&&d.contentMax && $('i-content')) $('i-content').maxLength=Number(d.contentMax);
     if(d&&d.inscriptionMetaMax) DOC_CAP=Number(d.inscriptionMetaMax)||DOC_CAP;
     if(typeof paintDocBytes==='function') paintDocBytes();
+    if(typeof refreshMeta==='function') refreshMeta();
   }).catch(function(){});
+  window.addEventListener('kray-era-quote', function(){ if(typeof refreshMeta==='function') refreshMeta(); });
   function takeMetaDocs(list){
     var files = B ? B.filesFromList(list) : [].slice.call(list || [])
     if(!files.length) return
@@ -1686,14 +1780,13 @@
       else if(e.dataTransfer.files.length) takeMetaDocs(e.dataTransfer.files)
     })
   }
-  on('i-pick','click',function(e){ e.preventDefault(); e.stopPropagation(); if(me===ADDR) $('i-file').click(); });
-  on('i-pickdir','click',function(e){ e.preventDefault(); e.stopPropagation(); if(me===ADDR) $('i-dir').click(); });
+  on('i-pick','click',function(e){ e.preventDefault(); e.stopPropagation(); $('i-file').click(); });
+  on('i-pickdir','click',function(e){ e.preventDefault(); e.stopPropagation(); $('i-dir').click(); });
   on('i-file','change',function(e){ addRawFiles(B?B.filesFromList(e.target.files):[]); e.target.value=''; });
   on('i-dir','change',function(e){ addRawFiles(B?B.filesFromList(e.target.files):[]); e.target.value=''; });
   ['dragenter','dragover'].forEach(function(ev){ on('i-drop',ev,function(e){ e.preventDefault(); $('i-drop').classList.add('over'); }); });
   ['dragleave','drop'].forEach(function(ev){ on('i-drop',ev,function(e){ e.preventDefault(); $('i-drop').classList.remove('over'); }); });
   on('i-drop','drop',function(e){
-    if(me!==ADDR) return;
     if(B) B.filesFromTransfer(e.dataTransfer).then(addRawFiles);
   });
 
@@ -1733,6 +1826,7 @@
           }
         }
       }
+      if(tab==='media' && queueBlocked()) throw new Error('a file is over this node\'s ceiling — compress or split before you seal');
       if(tab==='media' && fileQueue.length>1 && B){
         var batchExtra={};
         if(extra.meta!=null) batchExtra.meta=extra.meta;

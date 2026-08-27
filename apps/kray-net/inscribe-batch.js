@@ -24,20 +24,34 @@
     return JUNK.test(name)
   }
 
+  var EXT = {
+    mp3: 'audio/mpeg', mpeg: 'audio/mpeg', mpga: 'audio/mpeg',
+    wav: 'audio/wav', wave: 'audio/wav', flac: 'audio/flac',
+    ogg: 'audio/ogg', oga: 'audio/ogg', opus: 'audio/opus',
+    m4a: 'audio/mp4', aac: 'audio/aac', aiff: 'audio/aiff', aif: 'audio/aiff', wma: 'audio/x-ms-wma',
+    mp4: 'video/mp4', m4v: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
+    mkv: 'video/x-matroska', avi: 'video/x-msvideo', ogv: 'video/ogg',
+    glb: 'model/gltf-binary', gltf: 'model/gltf+json', glft: 'model/gltf+json',
+    obj: 'model/obj', stl: 'model/stl', fbx: 'model/fbx', usdz: 'model/vnd.usdz+zip', ply: 'model/ply', '3mf': 'model/3mf',
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif',
+    svg: 'image/svg+xml', avif: 'image/avif', bmp: 'image/bmp', ico: 'image/x-icon',
+    pdf: 'application/pdf', zip: 'application/zip', gz: 'application/gzip', tar: 'application/x-tar',
+    json: 'application/json', wasm: 'application/wasm',
+    md: 'text/markdown', markdown: 'text/markdown', mdown: 'text/markdown',
+    html: 'text/html', htm: 'text/html', css: 'text/css',
+    js: 'text/javascript', mjs: 'text/javascript', cjs: 'text/javascript',
+    txt: 'text/plain', csv: 'text/csv'
+  }
+
   function mimeOf(file) {
-    var t = file.type || ''
-    var n = file.name || ''
-    if (/\.(md|markdown|mdown)$/i.test(n)) return 'text/markdown'
-    if (/\.html?$/i.test(n) && (!t || t === 'application/octet-stream')) return 'text/html'
-    if (/\.svg$/i.test(n)) return 'image/svg+xml'
-    if (/\.json$/i.test(n)) return 'application/json'
-    if (/\.(js|mjs|cjs)$/i.test(n)) return 'text/javascript'
-    // 3D — a browser hands a .glb/.gltf/… an EMPTY or octet-stream type, so infer the real
-    // model/* type from the extension. Without this it lands in the "unknown blob" bucket
-    // ('file') instead of the 3D shelf. Mirrors KrayWallet's guess3dType so both doors agree.
-    var m3 = (!t || t === 'application/octet-stream') && n.toLowerCase().match(/\.(glb|gltf|obj|stl|fbx|usdz|ply|3mf)$/)
-    if (m3) return ({ glb: 'model/gltf-binary', gltf: 'model/gltf+json', obj: 'model/obj', stl: 'model/stl', fbx: 'model/fbx', usdz: 'model/vnd.usdz+zip', ply: 'model/ply', '3mf': 'model/3mf' })[m3[1]] || ('model/' + m3[1])
-    return t || 'application/octet-stream'
+    var t = String((file && file.type) || '').trim().split(';')[0]
+    var n = (file && file.name) || ''
+    var ext = (n.toLowerCase().match(/\.([a-z0-9]+)$/) || [])[1]
+    var guessed = ext && EXT[ext]
+    var generic = !t || t === 'application/octet-stream' || t === 'text/plain' || t === 'application/json'
+    if (guessed && (generic || (t === 'application/json' && ext !== 'json'))) return guessed
+    if (t) return t
+    return guessed || 'application/octet-stream'
   }
 
   // the shelf glyph a non-image tile shows in the batch grid (matches the library shelves)
@@ -120,7 +134,11 @@
           if (f) jobs.push(Promise.resolve([f]))
         }
       }
-      return Promise.all(jobs).then(flatten)
+      return Promise.all(jobs).then(function (lists) {
+        var out = flatten(lists)
+        if (out.length) return out
+        return [].slice.call(dt.files || [])
+      })
     }
     return Promise.resolve([].slice.call(dt.files || []))
   }
@@ -139,8 +157,12 @@
       var path = pathOf(f)
       if (junkName(name)) { skipped.push({ path: path, why: 'system file' }); return }
       if (!f.size) { skipped.push({ path: path, why: 'empty' }); return }
-      var ceil = (typeof window !== 'undefined' && window.kraynetContentMax) ? Number(window.kraynetContentMax) : CEIL
-      if (f.size > ceil) { skipped.push({ path: path, why: 'over ' + Math.round(ceil / 1000000) + ' MB' }); return }
+      var ceil = liveCeil()
+      if (f.size > ceil) {
+        kept.push(f)
+        skipped.push({ path: path, why: 'over ' + Math.round(ceil / 1000000) + ' MB — quoted, not sealed' })
+        return
+      }
       var key = path + '|' + f.size + '|' + (f.lastModified || 0)
       if (seen[key]) { skipped.push({ path: path, why: 'duplicate drop' }); return }
       seen[key] = 1
@@ -150,8 +172,13 @@
     return { files: kept, skipped: skipped }
   }
 
+  function liveCeil() {
+    var n = (typeof window !== 'undefined' && window.kraynetContentMax) ? Number(window.kraynetContentMax) : CEIL
+    return (Number.isFinite(n) && n > 0) ? n : CEIL
+  }
+
   function isJsonFile(file) {
-    return /\.json$/i.test(file.name || '') || file.type === 'application/json'
+    return /\.json$/i.test((file && file.name) || '')
   }
 
   function stemOf(name) {
@@ -260,6 +287,37 @@
     return Array.from(new Uint8Array(buf)).map(function (b) { return b.toString(16).padStart(2, '0') }).join('')
   }
 
+  function previewUrl(file, type) {
+    if (!file || !/^(image|video|audio)\//.test(type || '')) return ''
+    try {
+      if (typeof URL !== 'undefined' && URL.createObjectURL) return URL.createObjectURL(file)
+    } catch (_) { /* node exam / revoked context */ }
+    return ''
+  }
+
+  function stageItem(file) {
+    var type = mimeOf(file)
+    var path = pathOf(file)
+    return {
+      file: file,
+      path: path,
+      name: file.name || path,
+      folder: folderOf(path),
+      type: type,
+      size: file.size,
+      sha: '',
+      url: previewUrl(file, type),
+      meta: null,
+      sidecar: '',
+      blocked: file.size > liveCeil() ? 'over' : ''
+    }
+  }
+
+  function stage(rawFiles) {
+    var org = organize(rawFiles)
+    return { items: org.files.map(stageItem), skipped: org.skipped }
+  }
+
   function toB64(u8) {
     var CHUNK = 0x8000
     var s = ''
@@ -275,7 +333,7 @@
       return crypto.subtle.digest('SHA-256', u8).then(function (h) {
         var type = mimeOf(file)
         var path = pathOf(file)
-        var url = type.indexOf('image/') === 0 ? URL.createObjectURL(file) : ''
+        var url = previewUrl(file, type)
         return {
           file: file,
           path: path,
@@ -305,9 +363,9 @@
     out.forEach(function (it) { sha[it.sha] = 1; path[it.path] = 1 })
     var skipped = []
     ;(items || []).forEach(function (it) {
-      if (sha[it.sha]) { skipped.push({ path: it.path, why: 'same bytes already in the batch' }); revoke(it); return }
+      if (it.sha && sha[it.sha]) { skipped.push({ path: it.path, why: 'same bytes already in the batch' }); revoke(it); return }
       if (path[it.path]) { skipped.push({ path: it.path, why: 'same path already in the batch' }); revoke(it); return }
-      sha[it.sha] = 1
+      if (it.sha) sha[it.sha] = 1
       path[it.path] = 1
       out.push(it)
     })
@@ -330,8 +388,12 @@
   }
 
   function burnOf(size, rate) {
-    rate = rate || 1000000
-    return Math.max(1, Math.ceil((size || 1) / rate))
+    if (window.KRAY && typeof KRAY.starFire === 'function') return KRAY.starFire(size, rate)
+    rate = Number(rate)
+    if (!Number.isFinite(rate) || rate <= 0) return 1
+    var s = Number(size)
+    if (!Number.isFinite(s) || s <= 0) return 1
+    return Math.max(1, Math.ceil(s / rate))
   }
 
   function burnsOf(queue, rate) {
@@ -355,6 +417,11 @@
   function paint(host, queue, onRemove, opts) {
     if (!host) return
     if (!queue || !queue.length) {
+      if (opts && opts.skipped) {
+        host.hidden = false
+        host.innerHTML = '<p class="ibatch-skip">' + esc(opts.skipped) + '</p>'
+        return
+      }
       host.hidden = true
       host.innerHTML = ''
       return
@@ -363,7 +430,13 @@
     opts = opts || {}
     var groups = groupsOf(queue)
     var sum = summarize(queue)
-    var burn = opts.burn != null ? opts.burn : burnsOf(queue, opts.rate)
+    var fire = opts.burn != null ? Number(opts.burn) : burnsOf(queue, opts.rate)
+    if (!Number.isFinite(fire) || fire < 0) fire = 0
+    var atlas = Number(opts.atlas || 0)
+    if (!Number.isFinite(atlas) || atlas < 0) atlas = 0
+    var total = opts.total != null ? Number(opts.total) : (fire + atlas)
+    if (!Number.isFinite(total) || total < 0) total = fire + atlas
+    var atlasOn = atlas > 0 || !!opts.atlasOn
     var parent = String(opts.parent || '').trim()
     var origin = !!opts.origin
     var faceFirst = !!opts.faceFirst && !parent && !origin && queue.length > 1
@@ -372,8 +445,11 @@
       : (origin && queue.length > 1
         ? sum.n + ' L1 children of the same ordinal · one blessing · one SHA-256 cohort'
         : (faceFirst ? 'first file is the face · the rest hang on it' : (origin ? 'one L1 child · one blessing' : 'each file is its own root star')))
+    var costHint = atlasOn
+      ? fire.toLocaleString() + ' fire + ' + atlas.toLocaleString() + ' atlas · to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's') + ' · look over the tray, then sign once'
+      : 'to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's') + ' · look over the tray, then sign once'
     var html = '<div class="ibatch-review">'
-      + '<div class="ibatch-cost"><b>' + Number(burn).toLocaleString() + ' ₭</b><span>to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's') + ' · look over the tray, then sign once</span></div>'
+      + '<div class="ibatch-cost"><b>' + total.toLocaleString() + ' ₭</b><span>' + costHint + '</span></div>'
       + '<p class="ibatch-plan">' + esc(plan)
       + ' · ' + sum.folders + ' folder' + (sum.folders === 1 ? '' : 's')
       + (sum.docs ? ' · ' + sum.docs + ' JSON document' + (sum.docs === 1 ? '' : 's') + ' seated on their file' : '')
@@ -386,14 +462,19 @@
       html += '<div class="ibatch-fold">' + esc(g.folder) + ' · ' + g.items.length + '</div><div class="ibatch-grid">'
       g.items.forEach(function (row) {
         var it = row.item
-        var thumb = it.url
+        var thumb = (it.url && /^image\//.test(it.type || ''))
           ? '<img src="' + esc(it.url) + '" alt="">'
-          : '<span class="ibatch-fb">' + fbGlyph(it.type) + '</span>'
-        html += '<div class="ibatch-card' + (faceFirst && row.i === 0 ? ' face' : '') + '" data-i="' + row.i + '">'
+          : (it.url && /^video\//.test(it.type || ''))
+            ? '<video src="' + esc(it.url) + '" muted playsinline></video>'
+            : '<span class="ibatch-fb">' + fbGlyph(it.type) + '</span>'
+        html += '<div class="ibatch-card' + (faceFirst && row.i === 0 ? ' face' : '') + (it.blocked ? ' blocked' : '') + '" data-i="' + row.i + '">'
           + thumb
-          + (faceFirst && row.i === 0 ? '<span class="ibatch-tag face">FACE</span>' : (it.sidecar ? '<span class="ibatch-tag">JSON</span>' : ''))
+          + (it.blocked ? '<span class="ibatch-tag">OVER</span>' : (faceFirst && row.i === 0 ? '<span class="ibatch-tag face">FACE</span>' : (it.sidecar ? '<span class="ibatch-tag">JSON</span>' : '')))
           + '<div class="ibatch-nm" title="' + esc(it.path) + (it.sidecar ? ' + ' + esc(it.sidecar) : '') + '">' + esc(it.name) + '</div>'
-          + '<div class="ibatch-sz">' + Number(it.size).toLocaleString() + ' B' + (it.sidecar ? ' · +doc' : '') + '</div>'
+          + '<div class="ibatch-sz">' + Number(it.size).toLocaleString() + ' B · ' + (function () {
+            var piece = burnOf(it.size, opts.rate)
+            return (atlasOn ? piece * 2 : piece).toLocaleString() + ' ₭'
+          }()) + (it.sidecar ? ' · +doc' : '') + '</div>'
           + '<button type="button" class="ibatch-x" data-rm="' + row.i + '" aria-label="remove">✕</button>'
           + '</div>'
       })
@@ -464,7 +545,14 @@
 
   async function ingest(rawFiles) {
     var org = organize(rawFiles)
-    var plan = await pairFiles(org.files, org.skipped)
+    var live = []
+    var blocked = []
+    org.files.forEach(function (f) {
+      var it = stageItem(f)
+      if (it.blocked) blocked.push(it)
+      else live.push(f)
+    })
+    var plan = await pairFiles(live, org.skipped)
     var items = []
     for (var i = 0; i < plan.pairs.length; i++) {
       var it = await readItem(plan.pairs[i].file)
@@ -473,8 +561,50 @@
       items.push(it)
     }
     for (var j = 0; j < plan.loose.length; j++) items.push(await readItem(plan.loose[j]))
+    items = items.concat(blocked)
     items.sort(function (a, b) { return nat(a.path, b.path) })
     return { items: items, skipped: org.skipped }
+  }
+
+  async function enrich(items) {
+    for (var i = 0; i < (items || []).length; i++) {
+      var it = items[i]
+      if (!it || it.sha || it.blocked) continue
+      try {
+        var hashed = await readItem(it.file)
+        it.sha = hashed.sha
+        it.type = it.type || hashed.type
+        if (!it.url && hashed.url) it.url = hashed.url
+        if (hashed.size) it.size = hashed.size
+      } catch (_) {
+        it.blocked = it.blocked || 'unreadable'
+      }
+    }
+    return items
+  }
+
+  function mountPreview(host, item) {
+    if (!host) return
+    if (!item) {
+      host.hidden = true
+      host.innerHTML = ''
+      return
+    }
+    var type = item.type || ''
+    host.hidden = false
+    if (/^image\//.test(type) && item.url) {
+      host.innerHTML = '<img alt="" src="' + esc(item.url) + '">'
+    } else if (/^video\//.test(type) && item.url) {
+      host.innerHTML = '<video src="' + esc(item.url) + '" controls muted playsinline></video>'
+    } else if (/^audio\//.test(type) && item.url) {
+      host.innerHTML = '<audio src="' + esc(item.url) + '" controls></audio><p class="imeta">' + esc(item.name || '') + '</p>'
+    } else {
+      host.innerHTML = '<div class="ibatch-fb">' + fbGlyph(type) + '</div><p class="imeta">' + esc(item.name || '') + ' · ' + esc(type) + '</p>'
+    }
+  }
+
+  function blockedOf(queue) {
+    return (queue || []).filter(function (it) { return it && it.blocked })
   }
 
   function wavesOf(queue) {
@@ -569,6 +699,7 @@
     var extra = Object.assign({}, opts.extra || {})
     var onProgress = opts.onProgress || function () {}
     if (!from || !queue.length) throw new Error('a batch needs files')
+    if (blockedOf(queue).length) throw new Error('a file is over this node\'s ceiling — compress or split before you seal')
     var confirmed = false
     async function signOne(msg) {
       if (!confirmed) {
@@ -642,6 +773,10 @@
     skipNote: skipNote,
     summarize: summarize,
     ingest: ingest,
+    stage: stage,
+    enrich: enrich,
+    mountPreview: mountPreview,
+    blockedOf: blockedOf,
     attachDocs: attachDocs,
     ensureB64: ensureB64,
     seal: seal,

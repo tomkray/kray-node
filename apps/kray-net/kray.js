@@ -588,9 +588,22 @@
     box.innerHTML = '<span class="kv-chip">' + KRAY.esc(String(ct || 'unknown')) + '</span>';
   };
 
-  /* ── the era's byte price, seeded ONCE for every page (the size-burn law) ── */
-  KRAY.burnOf = function (size) { return Math.max(1, Math.ceil((Number(size) || 1) / (window.kraynetBytesPerKray || 1000000))); };
-  /* SI (1000): the live ceiling is 10_000_000 bytes = 10 MB. Binary 1024 would print 9.54 MB and lie. */
+  /* ── the era's byte price — THIS node is the only mouth. Never invent 1 MB or 10 KB. ── */
+  KRAY.eraRate = function () {
+    var n = Number(window.kraynetBytesPerKray);
+    return (Number.isFinite(n) && n > 0) ? n : 0;
+  };
+  /* Same function as the reducer: max(1, ceil(size / bytesPerKray)). Empty body = 1 ₭ floor. */
+  KRAY.starFire = function (size, rate) {
+    var r = Number(rate);
+    if (!Number.isFinite(r) || r <= 0) r = KRAY.eraRate();
+    if (!r) return 1;
+    var s = Number(size);
+    if (!Number.isFinite(s) || s <= 0) return 1;
+    return Math.max(1, Math.ceil(s / r));
+  };
+  KRAY.burnOf = function (size) { return KRAY.starFire(size); };
+  /* SI (1000): 10_000_000 bytes = 10 MB. Binary 1024 would print 9.54 MB and lie. */
   KRAY.formatBytes = function (n) {
     n = Number(n);
     if (!isFinite(n) || n < 0) return '—';
@@ -605,7 +618,9 @@
     return String(Number(v.toFixed(digits))) + ' ' + units[u];
   };
   KRAY.sizeLawRate = function (bytesPer) {
-    var n = Number(bytesPer) || Number(window.kraynetBytesPerKray) || 10000;
+    var n = Number(bytesPer);
+    if (!Number.isFinite(n) || n <= 0) n = KRAY.eraRate();
+    if (!n) return 'quoting…';
     if (n === 10000) return '1 ₭ / 10 KB';
     if (n === 1000000) return '1 ₭ / 1 MB';
     return '1 ₭ / ' + KRAY.formatBytes(n);
@@ -614,6 +629,7 @@
     if (d && d.bytesPerKrayBurn) window.kraynetBytesPerKray = d.bytesPerKrayBurn;
     if (d && d.contentMax) window.kraynetContentMax = Number(d.contentMax);
     if (d) window.kraynetAtlasFeeOn = !!d.atlasFeeActive;
+    try { window.dispatchEvent(new CustomEvent('kray-era-quote')); } catch (e) { /* old host */ }
   }).catch(function () {}); } catch (e) { /* static context */ }
 
   /* ── theme ── */

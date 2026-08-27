@@ -67,11 +67,10 @@
 </head>
 <body data-page="inscribe">
 <div class="wrap-narrow">
-  <section class="hero" style="border-top:0;padding-bottom:var(--s6)">
+  <section class="hero" style="border-top:0">
     <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; INSCRIBE · PERMANENT</div>
-    <h1 style="font-size:clamp(38px,7vw,72px)">Inscribe a star</h1>
-    <p class="lede">Write your star with your <b>own wallet</b> — a <b>name</b>, <b>bytes</b>, or a <b>law</b>. Three canvases, three acts: baptism · relic · law. Each is its own signature. The node builds the exact message, you <b>sign it in KrayWallet</b> — the key never leaves the extension. A baptism or a law burns 1&nbsp;₭. A file burns by size — live law <b>1 ₭ / 10 KB</b>, ceiling <b>10 MB</b>. Nothing fuses.</p>
-    <p class="note" id="size-law-live" style="margin-top:var(--s3)">Fire <b>1 ₭ / 10 KB</b> · ceiling <b>10 MB</b> · empty name or law <b>1 ₭</b>. This node quotes the live numbers.</p>
+    <h1>Inscribe a star</h1>
+    <p class="note" id="size-law-live" style="margin-top:var(--s3)">Quoting this node's fire…</p>
   </section>
 
   <section style="border-top:0;padding-top:0">
@@ -89,7 +88,7 @@
              wanting to write. Each tab says what it is for on hover. -->
         <button type="button" class="tab chip on" data-itab="name" title="BAPTISM — a name for a star: one plain word (letters and digits). Unique in the whole universe forever. A different act from content — not a file."><svg width="14" height="14"><use href="#g-name"/></svg>Baptism</button>
         <button type="button" class="tab chip" data-itab="post" title="TEXT — type the bytes here: plain, markdown, HTML, or SVG. Same inscribe act as a file. Sealed exactly as typed."><svg width="14" height="14"><use href="#g-inscribe"/></svg>Text</button>
-        <button type="button" class="tab chip" data-itab="media" id="i-filetab" title="FILE — drop files or a whole folder. The studio sorts the batch by folder. Each file is one star. Up to 10 MB each, 200 per batch."><svg width="14" height="14"><use href="#g-like"/></svg>File</button>
+        <button type="button" class="tab chip" data-itab="media" id="i-filetab" title="FILE — drop files or a whole folder. The studio sorts the batch by folder. Each file is one star. Ceiling is this node's quote."><svg width="14" height="14"><use href="#g-like"/></svg>File</button>
         <button type="button" class="tab chip" data-itab="music" title="MUSIC — MP3 + 1:1 cover become one audio/mpeg. ID3v2 APIC carries the art. Audio frames are copied, never re-encoded — a 320 kbps drop stays 320.">♪ Music</button>
         <button type="button" class="tab chip" data-itab="law" title="LAW — hang a contract on a star you already own. A different act from bytes. The reducer runs the IR. Burns 1 ₭."><svg width="14" height="14"><use href="#g-anchor"/></svg>Law</button>
       </div>
@@ -103,7 +102,7 @@
       <div data-ipane="media" hidden>
         <div class="field">
           <label>File · Single or Batch. We place each one. You check the ₭, then sign.</label>
-          <div class="drop" id="e-drop"><b>Drop here</b><span>Single = one file. Batch = the folder as a collection. JSON sits on its pair.</span>
+          <div class="drop" id="e-drop"><b>Drop here</b><span>Any file — size quotes the ticket at once. Batch = the folder as a collection. JSON sits on its pair.</span>
             <div class="ibatch-pick">
               <button type="button" class="btn" id="e-pick"><small>Single</small><span>one file</span></button>
               <button type="button" class="btn" id="e-pickdir"><small>Batch</small><span>folder</span></button>
@@ -114,7 +113,7 @@
         </div>
         <label class="ibatch-coll"><input type="checkbox" id="e-coll" checked> Hang this drop as one collection (KRAY parent above, or the first file as the face). An L1 blessing + batch = every file is an L1 child under one SHA-256 cohort.</label>
         <div id="e-batch" class="ibatch" hidden></div>
-        <div id="e-preview" hidden style="margin-top:var(--s4);text-align:center"><img id="e-previmg" alt="" style="max-width:100%;max-height:260px;border-radius:var(--r2);border:1px solid var(--line)"></div>
+        <div id="e-preview" class="iprev" hidden></div>
       </div>
       <div data-ipane="music" hidden>
         <p class="imeta" style="margin:0 0 var(--s4);color:var(--ink-3);line-height:1.55">One drop of <b>MP3</b> (already encoded — 320 kbps is the format ceiling) and one <b>1:1 cover</b>. The door writes ID3v2 APIC around the frames. It never LAME-encodes. One <code>audio/mpeg</code>, one sha256, one star. The name may be the baptism or the JSON document below.</p>
@@ -231,6 +230,14 @@
       </div>
 
       <div class="imeta" id="i-meta">0 bytes</div>
+      <div class="iticket" id="i-ticket">
+        <div class="itick"><span class="k">Size</span><span class="v" id="i-tk-size">—</span></div>
+        <div class="itick"><span class="k">Fire</span><span class="v" id="i-tk-fire">—</span></div>
+        <div class="itick" id="i-tk-atlas-wrap" hidden><span class="k">Atlas</span><span class="v" id="i-tk-atlas">—</span></div>
+        <div class="itick"><span class="k">Total</span><span class="v" id="i-tk-total">—</span></div>
+        <div class="itick"><span class="k">Balance</span><span class="v" id="i-tk-bal">—</span></div>
+        <p class="itick-status" id="i-tk-status">waiting for this node's quote</p>
+      </div>
       <button class="btn primary block" id="i-go" disabled style="margin-top:var(--s4)"><svg width="15" height="15"><use href="#g-inscribe"/></svg><span id="i-golabel">Inscribe — fee 1 ₭</span></button>
       <div class="iout" id="i-out"></div>
     </div>
@@ -293,6 +300,7 @@
   var fileQueue=[];
   var lastSkip='';
   var B=window.KrayInscribeBatch;
+  var balK=0n;
   var musicB64=null, musicBytes=0, musicName=null, musicMp3=null, musicCover=null, musicOn=false, musicUrls=[];
   // (parent selector tabs retired — both lineage inputs are always open in the card)
   // ── ADD-TO-STAR ── ?star=N targets an EXISTING star you own: the content is ADDED
@@ -321,25 +329,83 @@
     }
     var t = tab==='post' ? $('i-content').value : ''; return new Blob([t]).size;
   }
-  function burnNowI(){
-    if(tab==='media' && fileQueue.length && B) return B.burnsOf(fileQueue, window.kraynetBytesPerKray||1000000);
-    return Math.max(1, Math.ceil((currentBytesI()||1)/(window.kraynetBytesPerKray||1000000)));
+  function eraRateI(){
+    if(window.KRAY && typeof KRAY.eraRate==='function') return KRAY.eraRate();
+    var n=Number(window.kraynetBytesPerKray);
+    return (Number.isFinite(n) && n>0) ? n : 0;
   }
-  // the wall-toll rides BESIDE the fire under the SAME linear law, so for sized bytes it equals the burn;
-  // zero-byte acts (name, law) pay no toll — their labels stay the eternal "burns 1 ₭"
-  function costTextI(b){ return (window.kraynetAtlasFeeOn && currentBytesI()>0) ? (b+' ₭ + '+b+' ₭ atlas') : (b+' ₭'); }
+  function fireOfI(size){
+    if(window.KRAY && typeof KRAY.starFire==='function') return KRAY.starFire(size, eraRateI());
+    var r=eraRateI(); if(!r) return 1;
+    var s=Number(size); if(!Number.isFinite(s) || s<=0) return 1;
+    return Math.max(1, Math.ceil(s/r));
+  }
+  function burnNowI(){
+    if(tab==='media' && fileQueue.length && B) return B.burnsOf(fileQueue, eraRateI());
+    return fireOfI(currentBytesI());
+  }
+  function quoteI(){
+    if(tab==='name' || tab==='law') return {bytes:0, fire:1, atlas:0, total:1, ready:!!eraRateI(), empty:false};
+    var bytes=currentBytesI();
+    var empty=(tab==='media' && !fileQueue.length && !fileB64) || (tab==='music' && !musicOn) || (tab==='post' && !bytes);
+    if(empty) return {bytes:bytes||0, fire:0, atlas:0, total:0, ready:!!eraRateI(), empty:true};
+    var fire=burnNowI();
+    var atlas=(window.kraynetAtlasFeeOn && bytes>0) ? fire : 0;
+    return {bytes:bytes, fire:fire, atlas:atlas, total:fire+atlas, ready:!!eraRateI(), empty:false};
+  }
+  function costTextI(q){
+    if(!q || q.empty) return '—';
+    return q.atlas ? (q.fire+' ₭ + '+q.atlas+' ₭ atlas') : (q.fire+' ₭');
+  }
+  function bytesLabelI(n){
+    if(window.KRAY && KRAY.formatBytes) return KRAY.formatBytes(n);
+    return Number(n||0).toLocaleString()+' bytes';
+  }
+  function paintTicket(){
+    var box=$('i-ticket'); if(!box) return;
+    var q=quoteI();
+    box.setAttribute('data-atlas', window.kraynetAtlasFeeOn ? 'on' : 'off');
+    var atlasWrap=$('i-tk-atlas-wrap');
+    if(atlasWrap) atlasWrap.hidden=!window.kraynetAtlasFeeOn;
+    var size=$('i-tk-size'), fire=$('i-tk-fire'), atlas=$('i-tk-atlas'), tot=$('i-tk-total'), bal=$('i-tk-bal'), st=$('i-tk-status');
+    var fireN=Number(q.fire), atlasN=Number(q.atlas), totN=Number(q.total);
+    if(!Number.isFinite(fireN) || fireN<0) fireN=0;
+    if(!Number.isFinite(atlasN) || atlasN<0) atlasN=0;
+    if(!Number.isFinite(totN) || totN<0) totN=0;
+    totN=Math.trunc(totN);
+    if(size) size.textContent = (q.empty && !q.bytes) ? '—' : bytesLabelI(q.bytes);
+    if(fire) fire.textContent = !q.ready ? '…' : (q.empty ? '—' : fireN.toLocaleString()+' ₭');
+    if(atlas) atlas.textContent = !q.ready ? '…' : ((q.empty || !atlasN) ? '0 ₭' : atlasN.toLocaleString()+' ₭');
+    if(tot) tot.textContent = !q.ready ? 'quoting…' : (q.empty ? '—' : totN.toLocaleString()+' ₭');
+    if(bal) bal.textContent = me ? (kWhole(balK)+' ₭') : 'connect';
+    if(st){
+      var blocked = tab==='media' && B && B.blockedOf && B.blockedOf(fileQueue).length;
+      if(!q.ready){ st.textContent='waiting for this node\'s quote'; st.className='itick-status'; }
+      else if(q.empty){ st.textContent='drop or type — the fire prices as the bytes land'; st.className='itick-status'; }
+      else if(blocked){ st.textContent='over this node\'s ceiling — quote is live; compress or split to seal'; st.className='itick-status short'; }
+      else if(!me){ st.textContent='connect to read your balance against this fire'; st.className='itick-status'; }
+      else {
+        var need=BigInt(totN)-balK;
+        if(need>0n){ st.textContent='need '+need.toString()+' ₭ more — donate first'; st.className='itick-status short'; }
+        else { st.textContent='covered — '+kWhole(balK-BigInt(totN))+' ₭ left after the seal'; st.className='itick-status ok'; }
+      }
+    }
+  }
   function paintGolabel(){
+    var q=quoteI();
+    paintTicket();
     if(tab==='law'){
       golabel.textContent = (lawExamFp && lawExamFp===lawFingerprint())
         ? 'Seal law — burns 1 ₭'
         : 'Run test first — then seal';
       return;
     }
-    var b=burnNowI();
     if(tab==='name'){ golabel.textContent='Baptize — burns 1 ₭'; return; }
     if(tab==='music' && !musicOn){ golabel.textContent='Drop MP3 and cover — then seal'; return; }
-    if(tab==='media' && fileQueue.length>1){ golabel.textContent='Looks right — seal '+fileQueue.length+' stars · '+costTextI(b); return; }
-    golabel.textContent = (useOrdinal() ? 'Mint child — burns ' : (tab==='music'?'Inscribe music — burns ':'Inscribe — burns '))+costTextI(b);
+    if(tab==='media' && !fileQueue.length && !fileB64){ golabel.textContent='Drop a file — then seal'; return; }
+    if(tab==='post' && q.empty){ golabel.textContent='Type the bytes — then seal'; return; }
+    if(tab==='media' && fileQueue.length>1){ golabel.textContent='Looks right — seal '+fileQueue.length+' stars · '+costTextI(q); return; }
+    golabel.textContent = (useOrdinal() ? 'Mint child — burns ' : (tab==='music'?'Inscribe music — burns ':'Inscribe — burns '))+costTextI(q);
   }
   function lawStarNo(){ return String((($('i-lawstar')||{}).value||'')).replace(/[^0-9]/g,''); }
   function lawSource(){ return String((($('i-lawcode')||{}).value||'')); }
@@ -365,7 +431,8 @@
     if(tab==='music') return !!musicOn && !!musicB64;
     return tab==='media' ? !!(fileQueue.length || fileB64) : currentContent().trim().length>0;
   }
-  function paintGo(){ go.disabled = busy || !(me && hasPayload()); }
+  function queueBlocked(){ return !!(B && B.blockedOf && B.blockedOf(fileQueue).length); }
+  function paintGo(){ go.disabled = busy || !(me && hasPayload()) || (tab==='media' && queueBlocked()); }
   function paintLawHint(){
     var paper = window.KrayContractPapers && KrayContractPapers.byId(lawKind);
     var el=$('i-lawhint');
@@ -462,15 +529,16 @@
     if(d&&d.contentMax) window.kraynetContentMax=Number(d.contentMax);
     if(d&&d.contentMax && $('i-content')) $('i-content').maxLength=Number(d.contentMax);
     if(d&&d.inscriptionMetaMax) DOC_CAP=Number(d.inscriptionMetaMax)||DOC_CAP;
-    var rate=(window.KRAY&&KRAY.sizeLawRate)?KRAY.sizeLawRate(d.bytesPerKrayBurn):('1 ₭ / '+Number(d.bytesPerKrayBurn||10000).toLocaleString()+' bytes');
-    var cap=(window.KRAY&&KRAY.formatBytes&&d.contentMax)?KRAY.formatBytes(d.contentMax):((Number(d.contentMax)||10000000)/1000000)+' MB';
+    var rate=(window.KRAY&&KRAY.sizeLawRate)?KRAY.sizeLawRate(d.bytesPerKrayBurn):('1 ₭ / '+Number(d.bytesPerKrayBurn).toLocaleString()+' bytes');
+    var cap=(window.KRAY&&KRAY.formatBytes&&d.contentMax)?KRAY.formatBytes(d.contentMax):(Number(d.contentMax)||0)+' bytes';
     var law=$('size-law-live');
-    if(law) law.innerHTML='Fire <b>'+rate+'</b> · ceiling <b>'+cap+'</b> · empty name or law <b>1 ₭</b>. This node quotes the live numbers.';
-    var tab=$('i-filetab');
-    if(tab) tab.title='FILE — drop files or a whole folder. The studio sorts the batch by folder. Each file is one star. Up to '+cap+' each, 200 per batch.';
+    if(law && d && d.bytesPerKrayBurn) law.innerHTML='Fire <b>'+rate+'</b> · ceiling <b>'+cap+'</b> · empty name or law <b>1 ₭</b>. This node quotes the live numbers.';
+    var filetab=$('i-filetab');
+    if(filetab && cap) filetab.title='FILE — drop files or a whole folder. The studio sorts the batch by folder. Each file is one star. Up to '+cap+' each, 200 per batch.';
     if(typeof paintDocBytes==='function') paintDocBytes();
     if(typeof refreshMeta==='function') refreshMeta();
   }).catch(function(){});  // era rate + consensus document cap — pages never invent the number
+  window.addEventListener('kray-era-quote', function(){ if(typeof refreshMeta==='function') refreshMeta(); });
   function revokeMusic(){
     musicUrls.forEach(function(u){ try{ URL.revokeObjectURL(u); }catch(_){ /* blob already dead */ } });
     musicUrls=[];
@@ -573,8 +641,8 @@
   }
   function takeMusicMp3(f){
     if(!f) return;
-    var cap=Number(window.kraynetContentMax)||10000000;
-    if(f.size>cap){ out.className='iout err'; out.textContent='✗ '+f.size.toLocaleString()+' bytes — the protocol ceiling is '+cap.toLocaleString(); return; }
+    var cap=Number(window.kraynetContentMax);
+    if(cap>0 && f.size>cap){ out.className='iout err'; out.textContent='✗ '+f.size.toLocaleString()+' bytes — the protocol ceiling is '+cap.toLocaleString(); return; }
     f.arrayBuffer().then(function(ab){
       musicMp3=new Uint8Array(ab);
       musicName=f.name||'track.mp3';
@@ -600,47 +668,72 @@
       syncSoloFromQueue();
       paintFileQueue();
       refreshMeta();
-    }, {
-      burn: burnNowI(),
-      parent: (($('i-parent')||{}).value||''),
-      origin: !!(($('i-oparent')||{}).value||'').trim(),
-      faceFirst: !!( $('e-coll') && $('e-coll').checked ),
-      skipped: lastSkip,
-      rate: window.kraynetBytesPerKray||1000000
-    });
+    }, (function(){
+      var q=quoteI();
+      return {
+        burn: q.fire,
+        atlas: q.atlas,
+        total: q.total,
+        atlasOn: !!window.kraynetAtlasFeeOn,
+        parent: (($('i-parent')||{}).value||''),
+        origin: !!(($('i-oparent')||{}).value||'').trim(),
+        faceFirst: !!( $('e-coll') && $('e-coll').checked ),
+        skipped: lastSkip,
+        rate: eraRateI()
+      };
+    })());
     syncSoloFromQueue();
   }
   function syncSoloFromQueue(){
     if(fileQueue.length===1){
       var it=fileQueue[0];
       fileB64=it.b64; fileType=it.type; fileName=it.name; fileBytes=it.size;
-      if(it.url){ $('e-previmg').src=it.url; $('e-preview').hidden=false; }
-      else $('e-preview').hidden=true;
+      if(B && B.mountPreview) B.mountPreview($('e-preview'), it);
+      else {
+        var box=$('e-preview');
+        if(box){ box.hidden=!it; if(box && !it) box.innerHTML=''; }
+      }
     } else {
       fileB64=fileQueue.length?fileQueue[0].b64:null;
       fileType=fileQueue.length?fileQueue[0].type:null;
       fileName=fileQueue.length?fileQueue[0].name:null;
       fileBytes=fileQueue.length?fileQueue[0].size:0;
-      $('e-preview').hidden=true;
+      if(B && B.mountPreview) B.mountPreview($('e-preview'), null);
+      else if($('e-preview')){ $('e-preview').hidden=true; $('e-preview').innerHTML=''; }
     }
   }
   function clearFileQueue(){
     if(B) fileQueue.forEach(B.revoke);
     fileQueue=[];
     fileB64=null; fileName=null; fileBytes=0; fileType=null;
-    $('e-preview').hidden=true;
+    if(B && B.mountPreview) B.mountPreview($('e-preview'), null);
+    else if($('e-preview')){ $('e-preview').hidden=true; $('e-preview').innerHTML=''; }
     if($('e-file')) $('e-file').value='';
     if($('e-dir')) $('e-dir').value='';
     paintFileQueue();
   }
   function addRawFiles(raw){
     if(!B || !raw || !raw.length) return;
-    out.className='iout'; out.textContent='reading '+(raw.length)+' file'+(raw.length===1?'':'s')+'…';
-    B.ingest(raw).then(function(got){
-      var m=B.mergeQueue(fileQueue, got.items);
-      fileQueue=m.queue;
-      var notes=B.skipNote((got.skipped||[]).concat(m.skipped||[]));
-      lastSkip=notes;
+    var staged = B.stage ? B.stage(raw) : null;
+    if(staged && staged.items && staged.items.length){
+      var m0=B.mergeQueue(fileQueue, staged.items);
+      fileQueue=m0.queue;
+      lastSkip=B.skipNote((staged.skipped||[]).concat(m0.skipped||[]));
+      paintFileQueue();
+      out.className='iout'; out.textContent='';
+      refreshMeta();
+    } else {
+      out.className='iout'; out.textContent='reading '+(raw.length)+' file'+(raw.length===1?'':'s')+'…';
+    }
+    var finish = B.enrich
+      ? B.enrich(fileQueue).then(function(){ return { skipped: (staged && staged.skipped) || [] }; })
+      : B.ingest(raw).then(function(got){
+          var m=B.mergeQueue(fileQueue, got.items);
+          fileQueue=m.queue;
+          return { skipped: (got.skipped||[]).concat(m.skipped||[]) };
+        });
+    finish.then(function(got){
+      lastSkip=B.skipNote(((staged&&staged.skipped)||[]).concat((got&&got.skipped)||[]));
       paintFileQueue();
       out.className='iout';
       out.textContent='';
@@ -648,6 +741,7 @@
     }).catch(function(e){
       out.className='iout err';
       out.textContent='✗ '+((e&&e.message)||'folder refused');
+      refreshMeta();
     });
   }
   function takeFile(f){ if(f) addRawFiles([f]); }
@@ -679,8 +773,8 @@
   // THE LOCK MUST SPEAK — the studio only writes with a connected address, but a dead-silent
   // click reads as "the site is broken". Same lock, now with a voice.
   function needWallet(){ fail('connect your KrayWallet first (button in the header) — the studio writes with YOUR address'); }
-  if(pick) pick.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); if(me) $('e-file').click(); else needWallet(); });
-  if(pickdir) pickdir.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); if(me) $('e-dir').click(); else needWallet(); });
+  if(pick) pick.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); $('e-file').click(); });
+  if(pickdir) pickdir.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); $('e-dir').click(); });
   $('e-file').addEventListener('change',function(e){ addRawFiles(B?B.filesFromList(e.target.files):[e.target.files[0]]); e.target.value=''; });
   $('e-dir').addEventListener('change',function(e){ addRawFiles(B?B.filesFromList(e.target.files):[]); e.target.value=''; });
   ['dragenter','dragover'].forEach(function(ev){ $('e-drop').addEventListener(ev,function(e){ e.preventDefault(); $('e-drop').classList.add('over'); }); });
@@ -701,7 +795,6 @@
     })
   }
   $('e-drop').addEventListener('drop',function(e){
-    if(!me){ needWallet(); return; }
     if(B) B.filesFromTransfer(e.dataTransfer).then(addRawFiles);
     else if(e.dataTransfer.files.length) takeFile(e.dataTransfer.files[0]);
   });
@@ -815,18 +908,19 @@
     paintGolabel(); paintLineage(); paintDocBytes();
     if(tab==='music'){
       meta.textContent = musicOn
-        ? (musicName||'track.mp3')+' · '+musicBytes.toLocaleString()+' bytes · audio/mpeg · ID3 APIC · MPEG frames untouched · gene is the MPEG sha256 — burns '+costTextI(Math.max(1,Math.ceil(musicBytes/(window.kraynetBytesPerKray||1000000))))+' to born'
+        ? (musicName||'track.mp3')+' · '+musicBytes.toLocaleString()+' bytes · audio/mpeg · ID3 APIC · MPEG frames untouched · gene is the MPEG sha256 — burns '+costTextI(quoteI())+' to born'
         : 'Music needs both drops — MP3 + 1:1 cover · one relic · we never re-encode';
       paintGo(); return;
     }
     if(tab==='media'){
       if(fileQueue.length>1){
-        meta.textContent = 'Ready to verify · '+fileQueue.length+' stars · '+costTextI(burnNowI())+' · sign once';
+        meta.textContent = 'Ready to verify · '+fileQueue.length+' stars · '+costTextI(quoteI())+' · sign once';
       } else if(fileQueue.length===1){
         var one=fileQueue[0];
-        meta.textContent = one.name+' · '+one.size.toLocaleString()+' bytes · '+one.type+' — burns '+costTextI(burnNowI())+' to born, sealed byte-exact';
+        meta.textContent = one.name+' · '+one.size.toLocaleString()+' bytes · '+one.type+' — burns '+costTextI(quoteI())+' to born, sealed byte-exact';
       } else {
-        meta.textContent = fileB64 ? fileName+' · '+fileBytes.toLocaleString()+' bytes · '+fileType+' — burns '+costTextI(Math.max(1,Math.ceil(fileBytes/(window.kraynetBytesPerKray||1000000))))+' to born'+', sealed byte-exact' : 'no file chosen · drop a folder or files · up to '+((Number(window.kraynetContentMax)||10000000)/1000000)+' MB each';
+        var capLive=(window.KRAY&&KRAY.formatBytes&&window.kraynetContentMax)?KRAY.formatBytes(window.kraynetContentMax):'this node\'s ceiling';
+        meta.textContent = fileB64 ? fileName+' · '+fileBytes.toLocaleString()+' bytes · '+fileType+' — burns '+costTextI(quoteI())+' to born, sealed byte-exact' : 'no file chosen · drop a folder or files · up to '+capLive+' each';
       }
       paintGo(); return;
     }
@@ -842,13 +936,13 @@
     }
     var s=currentContent(), bytes=new TextEncoder().encode(s).length;
     if(tab==='name'){ meta.textContent=bytes+' bytes · unique in the whole universe · first writer wins'; paintGo(); return; }
-    meta.textContent=bytes+' bytes · '+contentType();
+    meta.textContent=bytes+' bytes · '+contentType()+' — burns '+costTextI(quoteI());
     clearTimeout(shaTimer);
     if(bytes && window.crypto && crypto.subtle){
       shaTimer=setTimeout(function(){
         crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)).then(function(h){
           var hex=Array.from(new Uint8Array(h)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
-          meta.textContent=bytes+' bytes · '+contentType()+' · sha256 '+hex.slice(0,16)+'… — the exact on-chain commitment';
+          meta.textContent=bytes+' bytes · '+contentType()+' · sha256 '+hex.slice(0,16)+'… — burns '+costTextI(quoteI());
         });
       },150);
     }
@@ -954,11 +1048,13 @@
     if(!me) return;
     try{
       var a=await (await fetch('/api/kraynet/account/'+me)).json();
+      try{ balK=BigInt(String(a.balance==null?'0':a.balance).replace(/[^0-9]/g,'')||'0'); }catch(_){ balK=0n; }
       acct.innerHTML='<span><b class="gold">'+short(me)+'</b></span>'
         +'<span>balance <b>'+kWhole(a.balance)+'</b> ₭</span>'
         +'<span>born as <b>'+(a.freeStar ? '#'+Number(a.freeStar).toLocaleString() : '— get ₭ first')+'</b></span>'
         +'<span>inscriptions <b>'+((a.inscriptions&&a.inscriptions.total)||0)+'</b></span>';
     }catch(_){ acct.innerHTML='<span>account read failed — node offline?</span>'; }
+    paintTicket();
     paintGo();
   }
   function loadLawFaces(){
@@ -1127,6 +1223,7 @@
           }
         }
       }
+      if(tab==='media' && queueBlocked()) throw new Error('a file is over this node\'s ceiling — compress or split before you seal');
       if(tab==='media' && fileQueue.length>1 && B){
         var extra={};
         if(body.meta!=null) extra.meta=body.meta;
