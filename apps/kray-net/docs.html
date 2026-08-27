@@ -14,8 +14,8 @@
 html{scroll-padding-top:calc(var(--nav-h) + 20px)}
 
 /* hero */
-.dhero{padding:var(--s7) 0 var(--s6);border-bottom:1px solid var(--line);margin-bottom:var(--s6)}
-.dhero h1{font-weight:500;font-size:clamp(30px,5vw,46px);line-height:1.08;letter-spacing:-.03em;margin:var(--s4) 0 var(--s3);text-wrap:balance}
+.dhero{padding:var(--s5) 0 var(--s4);border-bottom:1px solid var(--line);margin-bottom:var(--s5)}
+.dhero h1{font-weight:500;font-size:22px;line-height:1.25;letter-spacing:-.02em;margin:var(--s2) 0 0;text-wrap:balance}
 .dtagline{font-family:var(--mono);font-size:13.5px;color:var(--ink);line-height:1.6;margin:var(--s3) 0 var(--s4);max-width:74ch}
 .dtagline b{color:var(--ink)}
 .dtagline span{display:block;font-family:var(--sans);font-size:13.5px;color:var(--ink-3);margin-top:var(--s2);max-width:74ch}
@@ -31,10 +31,10 @@ nav.side a.on{color:var(--ink);border-left-color:var(--signal)}
 
 /* main + sections */
 main{min-width:0;padding-bottom:var(--s9)}
-main section{padding:var(--s7) 0 var(--s2);border-top:1px solid var(--line);scroll-margin-top:calc(var(--nav-h) + var(--s5))}
+main section{padding:var(--s5) 0 var(--s2);border-top:1px solid var(--line);scroll-margin-top:calc(var(--nav-h) + var(--s5))}
 main section:first-of-type{border-top:none;padding-top:0}
-main hr.rule{border:0;margin:var(--s5) 0 0}
-main .shead{align-items:center;margin-bottom:var(--s5)}
+main hr.rule{border:0;margin:var(--s4) 0 0}
+main .shead{align-items:center;margin-bottom:var(--s4)}
 
 /* prose */
 main p{margin:var(--s3) 0;max-width:65ch;color:var(--ink-2)}
@@ -99,11 +99,7 @@ main .cascade b{color:var(--btc);font-weight:500}
 <div class="wrap">
   <div class="dhero">
     <div class="eyebrow">Official documentation</div>
-    <h1>How ₭ KRAY.NETWORK works</h1>
-    <p class="dtagline"><b>Powered by the Concord Protocol.</b> Bitcoin finality. Supersonic execution.<br>
-      <span>Concord is agreement — and here it is arithmetic, not goodwill: two nodes replaying the same
-      journal reach the same roots, or one of them is corrupt and Bitcoin says which.</span></p>
-    <p class="lede">A Bitcoin-anchored network where ₭ is fungible fuel and a star is born from fire — burn one ₭ and a permanent, numbered star is created. Everything here is written so a newcomer can follow it and an auditor can check it. Nothing is asserted that cannot be verified from your own machine.</p>
+    <h1>Documentation</h1>
   </div>
 
   <div class="docs">
@@ -247,11 +243,11 @@ main .cascade b{color:var(--btc);font-weight:500}
 
       <section id="inscribe">
         <div class="shead"><span class="n">06</span><h2>Write a star</h2><span class="sub">Everything Ordinals does, radically simpler — and byte-unique in the whole universe.</span></div>
-        <p>To inscribe is to burn. The live <strong>size-proportion law</strong> prices the sealed body: <strong>1 ₭ per 10 KB</strong> (<code>ceil(size / 10&nbsp;000)</code>, floor <strong>1 ₭</strong>), ceiling <strong>10 MB</strong> (10,000,000 bytes). A 1-byte poem and a 10 KB file both burn 1 ₭; 183 KB burns 19 ₭; 4.43 MB burns 443 ₭. A baptism or a hanging law stays the 1 ₭ floor (no body). When this node has the atlas wall on, a sized file pays that same amount again to the treasury. Other signed acts (send, call, bridge…) pay the eternal <strong>1 ₭ fee</strong> — never taken from a star. The studio is <a href="/inscribe">/inscribe</a>. Your profile can write the same acts.</p>
+        <p>To inscribe is to burn. The live <strong>size-proportion law</strong> prices the sealed body: <strong>1 ₭ per 10,000 B (10 KB)</strong> (<code>ceil(size / 10&nbsp;000)</code>, floor <strong>1 ₭</strong>), ceiling <strong>10 MB</strong> (10,000,000 bytes). A 1-byte poem and a 10 KB file both burn 1 ₭; 183 KB burns 19 ₭; 4.43 MB burns 443 ₭. A baptism or a hanging law stays the 1 ₭ floor (no body). When this node has the atlas wall on, a sized file pays that same amount again to the treasury. Other signed acts (send, call, bridge…) pay the eternal <strong>1 ₭ fee</strong> — never taken from a star. The studio is <a href="/inscribe">/inscribe</a>. Your profile can write the same acts.</p>
         <p class="note" id="size-law-live">This node quotes the live numbers below. Main is born in this law. Signet journals before seq 274 still replay the genesis 1 ₭ / MB · 21 MB path (A3) — the door never re-prices a sealed star.</p>
         <table class="dtable" id="size-law-table">
           <tr><th>Law</th><th>Live quote</th></tr>
-          <tr><td><strong>Fire</strong></td><td><span data-size-rate>1 ₭ / 10 KB</span> — <code>max(1, ceil(size / bytesPerKrayBurn))</code></td></tr>
+          <tr><td><strong>Fire</strong></td><td><span data-size-rate>1 ₭ / 10,000 B (10 KB)</span> — <code>max(1, ceil(size / bytesPerKrayBurn))</code></td></tr>
           <tr><td><strong>Ceiling</strong></td><td><span data-size-cap>10 MB</span> — one star, one body, this many bytes</td></tr>
           <tr><td><strong>Empty / name / law</strong></td><td>1 ₭ — no body, no atlas wall</td></tr>
           <tr><td><strong>Atlas wall</strong></td><td>equal to the fire when the sized body is greater than 0 and this node has it on</td></tr>

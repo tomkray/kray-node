@@ -588,7 +588,8 @@
     box.innerHTML = '<span class="kv-chip">' + KRAY.esc(String(ct || 'unknown')) + '</span>';
   };
 
-  /* ── the era's byte price — THIS node is the only mouth. Never invent 1 MB or 10 KB. ── */
+  /* ── the era's byte price — THIS node is the only mouth. Never invent a second rate.
+     10 KB is only the SI name of 10_000 B (1000, not 1024). Both names, one law. ── */
   KRAY.eraRate = function () {
     var n = Number(window.kraynetBytesPerKray);
     return (Number.isFinite(n) && n > 0) ? n : 0;
@@ -621,7 +622,7 @@
     var n = Number(bytesPer);
     if (!Number.isFinite(n) || n <= 0) n = KRAY.eraRate();
     if (!n) return 'quoting…';
-    if (n === 10000) return '1 ₭ / 10 KB';
+    if (n === 10000) return '1 ₭ / 10,000 B (10 KB)';
     if (n === 1000000) return '1 ₭ / 1 MB';
     return '1 ₭ / ' + KRAY.formatBytes(n);
   };
