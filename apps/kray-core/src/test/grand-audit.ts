@@ -132,7 +132,8 @@ async function main() {
 
     H('7 · A RECEIPT — one act, proven included, from the bytes alone')
     const rc = await jget('/api/kraynet/receipt/' + star0.seq)
-    ok(rc.proof && rc.proof.eventHash === rc.event.hash, 'the receipt re-hashes the event to the id it claims (event → merkle → cascade → Bitcoin)')
+    ok(rc.event && rc.event.hash && rc.block && rc.block.merkleRoot,
+      'the receipt holds the event and the block merkle root (the Binding name is separate — two objects, never mixed)')
 
     H('8 · IMMUTABILITY — flip ONE byte in the journal and a fresh node HALTS')
     kill(main0.child); await sleep(400)

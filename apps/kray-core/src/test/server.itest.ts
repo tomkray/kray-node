@@ -129,7 +129,7 @@ async function main() {
     const starApi = await jget('/api/kraynet/star/0')
     ok(starApi && String(starApi.no ?? starApi.star ?? '') === '0', 'GET /api/kraynet/star/0 serves the star DATA the web house renders')
     const [holeStatus, holeHtml] = await jtext('/blackhole')
-    ok(holeStatus === 200 && /Stars freeze/.test(holeHtml) && /burns in the fire/.test(holeHtml),
+    ok(holeStatus === 200 && /FREEZE/.test(holeHtml) && /BURNED/.test(holeHtml) && /The fire is every/.test(holeHtml),
       'GET /blackhole names the two sinks — stars freeze, ₭ burns')
     const [lightsStatus, lightsHtml] = await jtext('/lights')
     ok(lightsStatus === 200 && /<html/i.test(lightsHtml), 'GET /lights serves the two-lights page the node still ships')
@@ -170,12 +170,17 @@ async function main() {
     const rec1 = await jget('/api/kraynet/receipt/1')
     ok(rec1.paidBinding && rec1.paidBinding.bodyInTxid === false && rec1.paidBinding.act.seq === 1 && rec1.paidBinding.ceiling && rec1.paidBinding.ceiling.failClosed === true,
       'GET /receipt/1 carries THE PAID BINDING and THE HEIGHT CEILING')
-    ok(rec1.verify === PAID_BINDING_VERIFY && /THE HEIGHT CEILING/.test(rec1.verify),
-      'the receipt verify sentence is the one law — Binding + ceiling, no silent asterisk')
+    ok(rec1.paidBinding.verify === PAID_BINDING_VERIFY && /THE HEIGHT CEILING/.test(rec1.paidBinding.verify),
+      'the Binding sentence lives once — on the certificate, not repeated at the root')
+    ok(rec1.verify == null && rec1.proof == null,
+      'the HTTP receipt does not duplicate the Binding sentence or flatten a second proof bag')
     ok(rec1.event && rec1.paidBinding && rec1.version !== 1,
       'GET /receipt/1 is the act + the Binding name — not a v1 KrayReceipt')
     ok(verifyReceipt(rec1).valid === false,
       'verifyReceipt refuses the HTTP receipt shape — two objects, never mixed')
+    const [donPageSt, donPage] = await jtext('/tx/' + rec1.event.hash)
+    ok(donPageSt === 200 && /donate/i.test(donPage) && /anchors on the next real/.test(donPage),
+      'trusted-dev donate (no L1 outpoint) does not wear a false Bitcoin-burn chip')
     const txGood = await jget('/api/kraynet/tx/' + good.hash)
     ok(txGood.paidBinding && txGood.receipt === '/api/kraynet/receipt/' + txGood.seq && txGood.paidBinding.verify === PAID_BINDING_VERIFY && txGood.paidBinding.tip.named === false,
       'GET /tx/<hash> carries the certificate, the receipt door, and the one verify sentence — tip unnamed')

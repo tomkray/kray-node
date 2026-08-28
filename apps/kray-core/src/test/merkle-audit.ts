@@ -64,9 +64,9 @@ async function main() {
   if (sc > 0) {
     const anyStar = await jget('/api/kraynet/star/0')
     const rc = await jget('/api/kraynet/receipt/' + anyStar.seq)
-    if (rc && rc.proof) {
-      ok(rc.proof.eventHash === rc.event.hash, 'star #0 receipt: the event hashes to the id it claims')
-      ok(!!rc.proof.merkleRoot, 'star #0 receipt: it names the block merkle root it sits under')
+    if (rc && rc.event) {
+      ok(rc.event.hash && /^[0-9a-f]{64}$/.test(rc.event.hash), 'star #0 receipt: the event carries the id it claims')
+      ok(!!(rc.block && rc.block.merkleRoot), 'star #0 receipt: it names the block merkle root it sits under')
     }
   }
 

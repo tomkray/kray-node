@@ -406,6 +406,7 @@
     }
 
     var sealed = !!t.block, anchored = !!(t.anchor && t.anchor.txid);
+    var burnOnBitcoin = t.kind === 'donate' && !!(t.l1Txid || t.outpoint);
     var netlab = t.block ? ('block #'+Number(t.block.number).toLocaleString()) : 'pending seal';
 
     var h = '<div class="txhead">'
@@ -429,7 +430,11 @@
           : (t.l1Txid?(t.l1Explorer
           ?'<a class="chip btc" href="'+esc(t.l1Explorer)+'" target="_blank" rel="noopener" title="open this Bitcoin transaction on mempool.space" style="text-decoration:none">₿ '+esc(t.l1Txid.slice(0,10))+'… ↗</a>'
           :'<span class="chip btc" title="regtest · local chain">₿ '+esc(t.l1Txid.slice(0,10))+'…</span>'):''))
-        +(anchored?'<span class="chip btc"><svg width="12" height="12" style="vertical-align:-2px"><use href="#g-anchor"/></svg> anchored to Bitcoin'+(t.anchor.verified?' · root read back ✓':'')+'</span>':'<span class="chip">anchors on the next real ₿ block</span>')
+        +(anchored
+          ?'<span class="chip btc"><svg width="12" height="12" style="vertical-align:-2px"><use href="#g-anchor"/></svg> anchored to Bitcoin'+(t.anchor.verified?' · root read back ✓':'')+'</span>'
+          :(burnOnBitcoin
+            ?'<span class="chip btc"><svg width="12" height="12" style="vertical-align:-2px"><use href="#g-anchor"/></svg> burn on Bitcoin'+(t.anchorRoot?' · root sealed in the output':'')+'</span>'
+            :'<span class="chip">anchors on the next real ₿ block</span>'))
       +'</div>'
       +'<div class="headline">'+headline(t)+'</div>'
       +'<div class="txhash mono">'+esc(t.hash)+'</div>'
@@ -564,7 +569,10 @@
       +(anchored
         ? '<div class="step"><i>✓</i><span>consolidated into cascade root <b class="btc-ink">'+esc(String(t.anchor.cascadeRoot).slice(0,20))+'…</b></span></div>'
           +'<div class="step"><i>✓</i><span>committed to Bitcoin in tx <b class="btc-ink">'+esc(t.anchor.txid.slice(0,20))+'…</b> · '+t.anchor.confirmations+' confirmation'+(t.anchor.confirmations===1?'':'s')+'</span></div>'
-        : '<div class="step"><i>…</i><span>the next real Bitcoin block consolidates it into one cascade root</span></div>')
+        : (burnOnBitcoin
+          ? '<div class="step"><i>✓</i><span>the sat died on Bitcoin'+(t.l1Txid?' in tx <b class="btc-ink">'+esc(String(t.l1Txid).slice(0,20))+'…</b>':'')+(t.anchorRoot?' · the output sealed root <b class="btc-ink">'+esc(String(t.anchorRoot).slice(0,20))+'…</b>':'')+'</span></div>'
+            +'<div class="step"><i>…</i><span>the block cascade is not yet a covering Bitcoin name</span></div>'
+          : '<div class="step"><i>…</i><span>the next real Bitcoin block consolidates it into one cascade root</span></div>'))
       +(t.paidBinding && t.paidBinding.refused
         ? '<div class="step"><i>!</i><span>THE PAID BINDING certificate refused — '+esc(t.paidBinding.reason||'codec')+'. The event still stands.</span></div>'
         : '')

@@ -49,7 +49,7 @@ import { bodyHashOf } from './body-hash.js'
 import { isValidName } from '../kray-core/src/protocol/star-lore.ts'
 import { buildMerkleRoot, blockHash } from '../kray-core/src/protocol/block.ts'
 import { KrayAnchor } from '../kray-core/src/anchor/anchor.ts'
-import { PAID_BINDING_VERIFY, certificateDoor, certificateOrRefuse } from '../kray-core/src/anchor/paid-binding.ts'
+import { certificateDoor, certificateOrRefuse } from '../kray-core/src/anchor/paid-binding.ts'
 import { verifyDonationProof, proveTxBuried, MIN_BLOCK_WORK, donorOpReturnScriptHex, parseHeader, parseTx, verifySealProof } from '../kray-core/src/anchor/spv.ts'
 import { AnchorPool, DEFAULT_REWARD } from '../kray-core/src/economics/anchor-pool.ts'
 import { verifyRuneMovement } from '../kray-core/src/protocol/rune-bridge.ts'
@@ -1626,13 +1626,12 @@ function profileView(addr) {
   }
 }
 
-// ══ THE BLOCK / SEAL LAYER over the v2 journal ═══════════════════════════════
-// The v2 store is a pure journal; the rich explorer reads BLOCKS. We build a fast-
-// block chain IN MEMORY over that journal — the SAME merkle/hash shape as v1's
-// KrayChain (block.ts, reused, so the rich pages render byte-identically) — and mark
-// a deterministic periodic anchor as "sealed to Bitcoin". Dev: a synthetic txid stands
-// in for a real Bitcoin seal (no bitcoind wired to the v2 server yet), but the committed
-// OP_RETURN is REAL — KrayAnchor.payload(number, cascadeRoot), the exact 49 bytes.
+// ══ THE BLOCK / SEAL LAYER over the journal ══════════════════════════════════
+// The store is a pure journal; the explorer reads BLOCKS. Fast blocks live in
+// memory on the same merkle/hash shape as `block.ts`. A real bitcoind names a
+// cascade on Bitcoin when wired. Offline, a synthetic txid may stand in — it is
+// marked simulated, never a Bitcoin seal. The 49-byte payload is always
+// KrayAnchor.payload(number, cascadeRoot).
 const ZERO64 = '0'.repeat(64)
 const APP_DIR = __dir                                 // apps/kray-net — the rich front-end + assets
 const CONTENT_DIR = join(DATA_DIR, 'content')         // v2's content store — inscribed bytes, content-addressed
@@ -3056,6 +3055,8 @@ function txSummary(e, block) {
     out.outpoint = e.outpoint ?? null
     out.l1Txid = e.outpoint ? String(e.outpoint).split(':')[0] : null
     out.l1Explorer = mempoolTxUrl(out.l1Txid)
+    if (e.anchorBlock != null) out.anchorBlock = e.anchorBlock
+    if (e.anchorRoot) out.anchorRoot = e.anchorRoot
   }
   // A send-star / baptism event does not repeat the bytes — they live on the STAR.
   // Every tx that names a star must still show its name and the same content
@@ -4717,13 +4718,11 @@ const server = createServer(async (req, res) => {
       { let rc; if ((rc = p.match(/^\/api\/kraynet\/receipt\/(\d+)$/))) {
         const seq = parseInt(rc[1], 10), e = events[seq - 1]
         if (!e) return err(res, 404, 'no such event')
-        const blk = blockOfSeq(seq), a = anchorOf(blk)
+        const blk = blockOfSeq(seq)
         return ok(res, {
           seq, event: e,
           block: blk ? { number: blk.number, merkleRoot: blk.merkleRoot, hash: blk.hash, fromSeq: blk.fromSeq, toSeq: blk.toSeq } : null,
-          proof: { eventHash: e.hash, prevHash: e.prevHash, merkleRoot: blk ? blk.merkleRoot : null, cascadeRoot: a ? a.root : (blk ? blk.cascadeRoot : node.cascadeRoot()), anchored: !!(a && a.txid && !a.simulated), verified: !!(a && a.verified), txid: a ? a.txid : null, opreturn: a && blk ? KrayAnchor.payload(blk.number, a.root) : null },
           paidBinding: paidBindingOf(seq),
-          verify: PAID_BINDING_VERIFY,
         })
       } }
       // THE REAL BITCOIN OF THIS NODE'S OWN NETWORK — read live from our own bitcoind + ord, so the mirror

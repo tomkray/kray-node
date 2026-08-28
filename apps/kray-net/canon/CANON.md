@@ -33,9 +33,9 @@ on the **same** number.
 
 ## The rite of a neuron
 
-Inscribe the body, then baptize **that** star — one star, two acts,
-one soul. Never a second star for the same thought. The numbers are
-the journal's to give; the **order** of the twelve is the spine.
+A neuron is two acts on one number — the body, then the name —
+one star, two acts, one soul. Never a second star for the same thought.
+The numbers are the journal's to give; the **order** of the twelve is the spine.
 
 ## Machine formula
 
