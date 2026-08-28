@@ -37,7 +37,10 @@ function main() {
   ok(new KrayLedger(undefined, NET).cascadeRoot() === '9d3b2de322cad91a420243c87fa3b6fce0d6bd90f1b2a1fce216b47e750030ac',
     'the genesis root is byte-identical — adding ML-DSA orphaned nothing')
 
-  const L = new KrayLedger(undefined, NET)
+  // ML-DSA is the law under exam, not the peg — lift proof-mandatory (born strict on the real
+  // signet) for the bare funding donates; proof-mandatory.test.ts pins that law.
+  const bench = () => new KrayLedger(undefined, NET, undefined, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, Number.MAX_SAFE_INTEGER)
+  const L = bench()
   const alice = mldsa('mldsa|alice'), bob = mldsa('mldsa|bob'), mallory = mldsa('mldsa|mallory')
   ok(/^kq1[0-9a-f]{64}$/.test(alice.addr), `an ML-DSA account has a kq1 address = SHA-256(its 1312-byte key) — ${alice.addr.slice(0, 16)}…`)
   ok(mldsa('mldsa|alice').addr === alice.addr, 'keygen is deterministic from the seed — the wallet re-derives it')
@@ -67,12 +70,12 @@ function main() {
   ok(L.conserves(), 'conservation holds across every post-quantum-signed move')
 
   // ── determinism: a replay reproduces the byte-exact root ──
-  const L2 = new KrayLedger(undefined, NET); seqNo = 0
+  const L2 = bench(); seqNo = 0
   L2.applyLive(donate(alice.addr, '5000'))
   L2.applyLive(mldsaTransfer(alice, bob.addr, 100n, 0))
   L2.applyLive(mldsaTransfer(alice, bob.addr, 200n, 1))
   // rebuild L with matching seqs for a fair root comparison
-  const L3 = new KrayLedger(undefined, NET); seqNo = 0
+  const L3 = bench(); seqNo = 0
   L3.applyLive(donate(alice.addr, '5000'))
   L3.applyLive(mldsaTransfer(alice, bob.addr, 100n, 0))
   L3.applyLive(mldsaTransfer(alice, bob.addr, 200n, 1))

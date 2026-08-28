@@ -13,6 +13,73 @@ consensus flags and activation sequences — a tag never replaces a proof):
 - **MINOR** — door/features: replay-compatible endpoints or UI.
 - **PATCH** — chrome: docs, canon, cosmetics, no contract touched.
 
+## [Unreleased] — 2026-08-28 · THE TWIN REBIRTH — born strict (MAJOR: new genesis on signet + main)
+
+The Creator ratified restarting signet and mainnet from block #0 so the law is
+uniform from the first event — no grandfather clauses, ever. THIS COMMIT carries
+the law; the journals restart when the operator reruns the ignition rite on each
+writer (until then the old signet journal cannot replay on this commit — that is
+the point of a rebirth, and why this entry is MAJOR).
+
+- **PROOF MANDATORY (the audit's pre-mainnet gate, now consensus).** New
+  activation `PROOF_MANDATORY_SEQ` (regtest MAX · signet 0 · main 0): at/after
+  it the REDUCER refuses a `donate` / `rune-deposit` / `rune-settle` that does
+  not EMBED its own L1 SPV proof (donate also demands its once-ever outpoint).
+  Below the seq the old law replays byte-identically (A3). Verification
+  polarity is unchanged — a present proof is re-proven wherever the node holds
+  the pot script/key, and present-but-false still HALTs. AXIOMS.md's "door as
+  the gate" honest limit is closed on the networks that matter; the lab keeps
+  its dev-mint (regtest MAX).
+- **THE TABLE IS PINNED, NOT ASSERTED.** `proof-mandatory.test.ts`: the
+  activation boundary (A3), no-mutation on refuse, AND the per-network table
+  itself — a DEFAULT signet/main ledger refuses a proofless peg event, and the
+  one named bench-lift env (`KRAY_LAB_PROOF_MANDATORY_SEQ`, store.ts — regtest
+  always, signet only under `KRAY_TRUSTED_DEV`) is DEAD on main.
+- **THE DOOR MIRRORS THE REDUCER.** Donate / rune-deposit / rune-settle refuse
+  BEFORE journaling a doomed event when a proof cannot ride (a consensus flag
+  forced 0 on a strict network) — 503 with the redeem path named; the burn/
+  payout stays redeemable by its outpoint/txid. `KRAY_CONSENSUS_SELF_ANCHOR_PROOF`
+  defaults ON: the rebirth satisfies the same-commit law it was waiting for,
+  and born-strict makes it load-bearing (a keyless self-anchor burn must
+  journal its proof to mint at all).
+- Benches that exam OTHER laws lift proof-mandatory explicitly (window-law,
+  mldsa, quantum-migrate, network-parity, size-proportion `mainEra`,
+  signet-actions via the lab env) — the peg law is pinned in its own exam,
+  never silently weakened elsewhere.
+
+## [Unreleased] — 2026-08-28 · audit remedies (no consensus change)
+
+External audit of the 27–28 Aug window returned "OK to keep, with additive repairs".
+Every repair below is a case/pin/text — the reducer, the cascade law, and the anchor
+are untouched.
+
+- **PACK: the writer's gateway key can no longer ride the zip.** `.kray-api.json`
+  and every sealed `*.box` are skipped wherever they sit; the walk uses `lstat`
+  (a symlink cannot smuggle an outside target); the `scripts/operator` DIRECTORY
+  stays walkable so `pot-signer.mjs` actually ships (the audited false-green:
+  the path oracle said yes while the walk pruned the folder whole). The test now
+  parses the REAL zip's central directory — membership, not assertion.
+- **DOOR: a >32 MiB body can no longer hang a handler.** `readBody` settles on
+  close/error too (after `req.destroy()` the `end` event never fires — the audited
+  F-1), refuses an announced oversize before reading a byte, and answers **413**
+  distinctly from a 400 parse refusal. `/censorship/verify` adds its own small
+  ceiling (a claim is kilobytes).
+- **THE ASYMMETRIC GOLDEN.** `cascade-golden-market.test.ts` freezes the root of a
+  state where the market AND offer folds are both present — a reorder of the
+  conditional tail (invisible to the genesis golden, both fields absent there)
+  now fails on the bench instead of on a live replay.
+- **CHROME: the lodge strip no longer shows a lying 0.** A `rune-lodge` moves
+  nothing by law (`'0'` is truthy in JS, so the amount gate let the 0 through);
+  the strip now shows the RESOLVED exit value with its "locked on the signed
+  exit" note. kray-web gains the `/proof/<n>` shareable door (+ card.svg proxy),
+  the `/burn-proof` and `/mine-live` aliases, and the current `mind.html`.
+
+## [Unreleased] — 2026-08-28 · evidence door + A1 fuzz (no consensus change)
+
+- **CENSORSHIP VERIFY DOOR (ADR-3 3d, evidence only).** `GET /api/kraynet/censorship` publishes the live cascade opening. `POST /api/kraynet/censorship/verify` runs the already-proven `verifyCensorshipAnchored` and returns CENSORED or a named not-censored reason. Deadline is read from the signed bytes. Fail-closed on garbage. **Does not write the journal and does not open succession.**
+- **A1 CONSERVATION FUZZ.** Seeded swarm of donate + transfer stays conserved; one injected satoshi still HALTs the next apply.
+- **CITIZEN PEG STRIP.** `/burn` shows this node's live emitted / burned / circulating and whether the pot key is NUMS.
+
 ## [1.0.0] — 2026-08-26 · THE GENESIS RELEASE
 
 Signet and mainnet are both born at block #0 under this version — the same

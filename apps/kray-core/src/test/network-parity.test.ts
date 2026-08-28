@@ -33,7 +33,9 @@ let seq = 0
 
 function main() {
   console.log('\n╔═ VALUE NEVER CROSSES NETWORKS — the recipient/donor must be on THIS network ═╗\n')
-  const L = new KrayLedger(DEFAULT_POT_TARGET_SATS, NET)
+  // this exam is about the NETWORK wall, not the peg — lift proof-mandatory (born strict on the
+  // real signet) so the funding donate stays a bare fixture; proof-mandatory.test.ts pins that law.
+  const L = new KrayLedger(DEFAULT_POT_TARGET_SATS, NET, undefined, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, Number.MAX_SAFE_INTEGER)
 
   const A = wallet('signet', 'A')             // a real signet holder — it signs
   const tb1 = wallet('signet', 'B').addr      // same-network recipient

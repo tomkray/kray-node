@@ -80,8 +80,10 @@ export class KrayNode {
   donate(to: string, sats: bigint, at = 0, outpoint?: string, proof?: { rawTx: string; txoutproof: string; headers: string[] }, seal?: { blockNumber: number; root: string }): KrayEvent {
     // outpoint present ⇒ a PROVEN donation (SPV-verified L1 payment), credited once by that outpoint.
     // proof present (ADR-1) ⇒ the SPV proof rides IN the journal, so a cold replay re-verifies the burn
-    // from bytes (not the operator's word) and the anchored root commits the cause. Optional/append-only:
-    // absent ⇒ byte-identical to before. The reducer re-verifies it only when present (slice 1b).
+    // from bytes (not the operator's word) and the anchored root commits the cause. Below the
+    // PROOF_MANDATORY activation, absent ⇒ byte-identical to before (append-only). AT/AFTER it —
+    // signet and main are BORN STRICT at 0 — the reducer REFUSES a donate without proof + outpoint:
+    // the proof is no longer optional there, it is the mint's own cause riding in the journal.
     // seal present (ADR-1 extended) ⇒ the donation paid a SELF-ANCHOR output sealing (blockNumber, root);
     // the reducer re-derives that tweaked script from the configured pot internal key and re-proves the
     // proof against it. Only meaningful WITH a proof; additive/optional like everything above.
@@ -89,7 +91,8 @@ export class KrayNode {
   }
   /** A PROVEN L1 rune deposit credits L2 (the SPV proof gates this at ingress, like a donation;
    *  the reducer enforces credited-once + per-rune solvency via the RuneBook). When `proof` rides
-   *  (ADR-1 extended), a cold replay re-proves the deposit from bytes and the root commits the cause. */
+   *  (ADR-1 extended), a cold replay re-proves the deposit from bytes and the root commits the cause.
+   *  At/after PROOF_MANDATORY (signet/main born strict) the reducer refuses a deposit without it. */
   runeDeposit(runeId: string, outpoint: string, to: string, amount: bigint, at = 0, proof?: KrayEvent['proof'], pool = false): KrayEvent {
     return this.store.append({ kind: 'rune-deposit', at, runeId, outpoint, to, amount: amount.toString(), ...(proof ? { proof } : {}), ...(pool ? { pool: true } : {}) })
   }

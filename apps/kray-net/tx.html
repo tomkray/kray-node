@@ -481,8 +481,12 @@
         +'<span class="who"><b>from</b>'+fromCell(t)+'</span>'
         +'<span class="arrow">→</span>'
         +'<span class="who"><b>to</b>'+toCell(t)+'</span>'
-        // a RUNE movement is the rune's own amount (not ₭); an Ӿ move is Ӿ (₭ only pays the gas); ₭ moves show as fungible fuel
-        +(t.amount?'<span class="who"><b>amount</b>'+((t.runeId&&!amtIsKray(t))?('<span class="amt">'+runeAmt(t.amount,amtDiv(t))+'</span> <span class="rlink dim2" data-rune="'+esc(t.runeId)+'">'+faceSrc(t.thumbnail,t.runeSymbol,16)+' '+esc(t.runeName||t.runeId)+'</span>'):(t.kind==='x-send'?'<span class="amt">Ӿ '+Number(t.amount).toLocaleString()+'</span>':kray(t.amount)))+'</span>':'')
+        // a RUNE movement is the rune's own amount (not ₭); an Ӿ move is Ӿ (₭ only pays the gas); ₭ moves show as fungible fuel.
+        // A lodge moves nothing itself (its amount is 0 by law — the exit already locked the runes), so the strip
+        // shows the RESOLVED exit value, never a lying 0 ('0' is truthy in JS, so the plain t.amount gate let it through).
+        +(t.kind==='rune-lodge'
+          ? (t.exitAmount!=null?'<span class="who"><b>amount</b><span class="amt">'+runeAmt(t.exitAmount,t.runeDiv)+'</span> <span class="dim2">· locked on the signed exit</span></span>':'')
+          : (t.amount?'<span class="who"><b>amount</b>'+((t.runeId&&!amtIsKray(t))?('<span class="amt">'+runeAmt(t.amount,amtDiv(t))+'</span> <span class="rlink dim2" data-rune="'+esc(t.runeId)+'">'+faceSrc(t.thumbnail,t.runeSymbol,16)+' '+esc(t.runeName||t.runeId)+'</span>'):(t.kind==='x-send'?'<span class="amt">Ӿ '+Number(t.amount).toLocaleString()+'</span>':kray(t.amount)))+'</span>':''))
         // WHICH STARS MOVED, when whole stars move (a Send-a-star). Plain ₭ moves
         // as a fungible amount, not as numbered stars; this row only has meaning
         // for a star transfer, and shows exactly which stars travelled.

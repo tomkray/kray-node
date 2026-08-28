@@ -42,8 +42,11 @@ async function act(w: { sk: Uint8Array; pk: string; addr: string }, action: stri
 
 async function main() {
   rmSync(DATA, { recursive: true, force: true }); mkdirSync(DATA, { recursive: true })
-  // a real signet node (TRUSTED_DEV only funds the test wallets; the ACTIONS never depend on it)
-  const child = spawn('node', [SERVER], { env: { ...process.env, KRAY_PORT: String(PORT), KRAY_DATA: DATA, KRAY_NET: NET, KRAY_POT_ADDRESS: POT, KRAY_TRUSTED_DEV: '1', KRAY_SEAL_MS: '600' }, stdio: 'ignore' })
+  // a real signet node (TRUSTED_DEV only funds the test wallets; the ACTIONS never depend on it).
+  // KRAY_LAB_PROOF_MANDATORY_SEQ lifts born-strict on this DISPOSABLE bench (store.ts, the one
+  // named exception — signet needs TRUSTED_DEV too, main ignores it): the exam storms the tb1
+  // action surface, not the peg; proof-mandatory.test.ts pins the peg law itself.
+  const child = spawn('node', [SERVER], { env: { ...process.env, KRAY_PORT: String(PORT), KRAY_DATA: DATA, KRAY_NET: NET, KRAY_POT_ADDRESS: POT, KRAY_TRUSTED_DEV: '1', KRAY_LAB_PROOF_MANDATORY_SEQ: String(Number.MAX_SAFE_INTEGER), KRAY_SEAL_MS: '600' }, stdio: 'ignore' })
   const done = (code: number) => { try { child.kill('SIGKILL') } catch {} rmSync(DATA, { recursive: true, force: true }); process.exit(code) }
   try {
     for (let i = 0; i < 80; i++) { try { if ((await jget('/health')).ok) break } catch {} await sleep(100) }

@@ -214,7 +214,10 @@ async function main() {
     ok(Number(afterRace.bh.stars) === 1, 'the race did not freeze anything')
 
     const page = await fetch(BASE + '/blackhole').then((r) => r.text())
-    ok(/Stars freeze/.test(page) && /burns in the fire/.test(page), '/blackhole names both sinks')
+    // pinned on the SINK DEFINITIONS (substance), not headline cosmetics — the compact-rail
+    // chrome (70220f2) rephrased the headline and this pin went stale against a page that
+    // still told the truth. Both sinks must stay named and distinguished.
+    ok(/Fungible ₭ destroyed in the fire/.test(page) && /Star frozen in the black hole/.test(page), '/blackhole names both sinks')
 
     const beforeReboot = snap(afterRace)
 

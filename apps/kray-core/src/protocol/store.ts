@@ -30,16 +30,27 @@ import { GENESIS_HASH, sha256hex, canonical, type KrayEvent } from './kray-primi
  * private read-path twin — star history, call receipts). Lab pins are regtest-only env
  * (dead code on signet/main). A twin that skips this and uses `new KrayLedger(net)` will
  * HALT on a living lab journal the moment a law was pinned above default (A3).
+ *
+ * ONE named exception (twin rebirth, 2026-08-28): KRAY_LAB_PROOF_MANDATORY_SEQ may lift the
+ * born-strict proof-mandatory law on a DISPOSABLE bench — regtest always, signet only under
+ * KRAY_TRUSTED_DEV=1 (the signet-actions exam spawns such a bench to storm the tb1 action
+ * surface without a real SPV burn). On main the env is DEAD — nothing lifts the law there.
+ * A writer that lifted it would only fork itself out: every strict verifier refuses a
+ * proofless mint on replay, so the lie is caught loudly, never inherited.
  */
 export function labActivationPins(network: string) {
-  if (network !== 'regtest') return { x: undefined, burn: undefined, same: undefined, fire: undefined, tk: undefined }
   const n = (k: string) => (process.env[k] ? Number(process.env[k]) : undefined)
+  const proof = network === 'regtest' || (network === 'signet' && process.env.KRAY_TRUSTED_DEV === '1')
+    ? n('KRAY_LAB_PROOF_MANDATORY_SEQ')
+    : undefined   // main: the env is dead code — born strict is not liftable
+  if (network !== 'regtest') return { x: undefined, burn: undefined, same: undefined, fire: undefined, tk: undefined, proof }
   return {
     x: n('KRAY_LAB_X_SEQ'),
     burn: n('KRAY_LAB_BURN_LAW_SEQ'),
     same: n('KRAY_LAB_SAME_INSTANT_SEQ'),
     fire: n('KRAY_LAB_FIREBORN_SEQ'),
     tk: n('KRAY_LAB_TK_FOLD_SEQ'),
+    proof,
   }
 }
 
@@ -52,7 +63,7 @@ export function openKrayLedger(
   potInternalKeyHex?: string,
 ) {
   const p = labActivationPins(network)
-  return new KrayLedger(potTarget, network, potScriptHex, backingGate, atlasBytes, undefined, p.x, p.burn, undefined, undefined, p.same, p.fire, p.tk, undefined, potInternalKeyHex)
+  return new KrayLedger(potTarget, network, potScriptHex, backingGate, atlasBytes, undefined, p.x, p.burn, undefined, undefined, p.same, p.fire, p.tk, undefined, potInternalKeyHex, p.proof)
 }
 
 export class LedgerStore {

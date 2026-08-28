@@ -38,6 +38,7 @@ import {
 import { tkFoldSendMessage, parseLaneAmount } from '../kray-core/src/protocol/tk-fold.ts'   // THE LANE DOOR: the fold's own signing domain
 import { orderWindow, keyFromSignedMessage } from '../kray-core/src/protocol/window-order.ts'   // THE SAME-INSTANT GATE: the objective order
 import { signedBytesOfEvent } from '../kray-core/src/protocol/signed-message.ts'   // the MIRROR the reducer's referee re-proves on every apply
+import { verifyCensorshipAnchored } from '../kray-core/src/protocol/censorship-evidence.ts'   // ADR-3 3d — evidence door, no journal write
 import { verifyBeat, BEAT_MIN_ZEROS } from '../kray-core/src/economics/beat-pow.ts'
 import { BEAT_PAY_ZEROS_CAP, readPresenceTip } from '../kray-core/src/economics/presence-window.ts'
 import { verifyCustody, custodyFromHex, custodyChallenges, hitCount, CUSTODY_CHALLENGES } from '../kray-core/src/economics/custody.ts'
@@ -348,10 +349,21 @@ function envFlag(name, defaultOn) {
 const CONSENSUS_BURN_PROOF = envFlag('KRAY_CONSENSUS_BURN_PROOF', true)
 // ADR-1 extended · SELF-ANCHOR proofs in consensus — when on, a self-anchoring donation journals its
 // SPV proof + the sealed (anchorBlock, anchorRoot), and the reducer RE-DERIVES the tweaked script
-// from the pot internal key and re-proves the burn on every replay. DEFAULT OFF: a replayer running
-// OLDER code would verify such a proof against the FIXED pot script and HALT — flip this on ONLY
-// after every writer/guardian/follower runs a commit that understands the seal fields (same-commit law).
-const CONSENSUS_SELF_ANCHOR_PROOF = envFlag('KRAY_CONSENSUS_SELF_ANCHOR_PROOF', false)
+// from the pot internal key and re-proves the burn on every replay. DEFAULT ON since the twin
+// rebirth (2026-08-28): signet and main restart at seq 0 on THIS commit, so the old worry — a
+// replayer on OLDER code verifying the seal proof against the FIXED pot script and HALTing — is
+// void (the same-commit law is satisfied by the rebirth itself). It also became LOAD-BEARING:
+// the reducer is born strict (PROOF_MANDATORY_SEQ 0 on signet/main), so a self-anchor donation
+// whose proof did NOT ride would be refused in consensus — the flag ON is what lets the keyless
+// burn mint at all. Force 0 only on a bench replaying a pre-seal journal.
+const CONSENSUS_SELF_ANCHOR_PROOF = envFlag('KRAY_CONSENSUS_SELF_ANCHOR_PROOF', true)
+// PROOF MANDATORY, MIRRORED AT THE DOOR (twin rebirth) — on signet/main the REDUCER refuses any
+// L1-peg event that does not embed its SPV proof (PROOF_MANDATORY_SEQ = 0, ledger.ts). Journaling
+// a doomed event helps nobody: when a flag forced =0 means the proof cannot ride, the door refuses
+// FIRST with a named reason (the donor's txid stays redeemable on a correctly configured node —
+// credited-once by outpoint, never lost). regtest, and a TRUSTED_DEV signet bench that lifted
+// KRAY_LAB_PROOF_MANDATORY_SEQ (store.ts, the one named exception), keep the old door.
+const PROOF_MANDATORY_LIVE = NET !== 'regtest' && !(TRUSTED_DEV && NET === 'signet' && process.env.KRAY_LAB_PROOF_MANDATORY_SEQ)
 // ADR-1 extended to the RUNE peg · when on, a proven rune deposit/settle journals its SPV proof
 // (+ the vault params and ord-attested input runes) so the reducer re-verifies the peg on every
 // replay. Same polarity as the burn proof.
@@ -1517,13 +1529,28 @@ function proofOgMeta(bn, root, sealed, absBase) {
   const img = `${absBase}/proof/${bn}/card.svg`
   return `<meta property="og:title" content="${svgEsc(title)}">\n<meta property="og:description" content="${svgEsc(desc)}">\n<meta property="og:image" content="${svgEsc(img)}">\n<meta property="og:url" content="${svgEsc(absBase)}/proof/${bn}">\n<meta name="twitter:card" content="summary_large_image">\n<meta name="twitter:image" content="${svgEsc(img)}">`
 }
+// oversize sentinel — readBody resolves this (never null) when the guillotine fired, so the
+// router can answer 413 instead of the generic 400, and no handler ever hangs on a dead socket.
+const BODY_TOO_LARGE = Symbol('body-too-large')
+const BODY_MAX = 32 * 1024 * 1024
 function readBody(req) {
   return new Promise((resolve) => {
-    let b = ''
     // 32 MiB: a 10 MB star arrives as base64 JSON (~13.3 MB) — the cap must clear the
     // protocol's own ceiling with headroom, and still guillotine anything larger mid-flight.
-    req.on('data', (c) => { b += c; if (b.length > 32 * 1024 * 1024) req.destroy() })
-    req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}) } catch { resolve(null) } })
+    // Refuse an announced oversize before reading a byte (cheap), and — the audited hang —
+    // ALWAYS settle on close/error too: after req.destroy() the 'end' event never fires,
+    // so a promise listening only to data/end would leave the handler pending forever.
+    // NOTE: never destroy here — the router answers 413 FIRST, then drops the socket
+    // (destroying before the response leaves the client with a bare connection reset).
+    const announced = Number(req.headers['content-length'] || 0)
+    if (announced > BODY_MAX) return resolve(BODY_TOO_LARGE)
+    let b = ''
+    let settled = false
+    const settle = (v) => { if (!settled) { settled = true; resolve(v) } }
+    req.on('data', (c) => { b += c; if (b.length > BODY_MAX) { b = ''; settle(BODY_TOO_LARGE) } })
+    req.on('end', () => { try { settle(b ? JSON.parse(b) : {}) } catch { settle(null) } })
+    req.on('close', () => settle(null))
+    req.on('error', () => settle(null))
   })
 }
 
@@ -1584,6 +1611,51 @@ function headView() {
   // legacy shape stays BYTE-IDENTICAL (the 8 keys below); ADR-4 4a appends `finality` = { crane, anchor };
   // `v` (semver of the node software) is appended so any house can verify the same-commit law with a curl.
   return { height: o.seq, seq: o.seq, head: o.head, cascadeRoot: o.cascadeRoot, network: o.network, supply: o.supply, pot: o.pot, starCount: o.starCount, finality: nodeFinality(o), v: NODE_VERSION }
+}
+// ADR-3 3d — the live rules a stranger's claim is judged by. Deadline is read from the SIGNED
+// bytes (`|deadline=D`), never an unsigned envelope field. Signature is this node's own verifier.
+// Fail-closed: a missing identity or a throw is "not valid", never a crash into CENSORED.
+function liveCensorshipRules() {
+  return {
+    keyOf: (act) => {
+      const bytes = signedBytesOfEvent(act, NET)
+      if (!bytes) throw new Error('the act has no signed identity')
+      return keyFromSignedMessage(bytes)
+    },
+    isValid: (act) => {
+      try {
+        const from = String(act?.from || '')
+        const bytes = signedBytesOfEvent(act, NET)
+        if (!from || !bytes || !act?.signature || !act?.publicKey) return false
+        return verifySignature(from, bytes, String(act.signature), String(act.publicKey), String(act.scheme || 'kraywallet'), toBtcNet(NET))
+      } catch { return false }
+    },
+    deadlineOf: (act) => {
+      try {
+        const bytes = signedBytesOfEvent(act, NET)
+        if (!bytes) return null
+        const m = /\|deadline=(\d+)$/.exec(bytes)
+        if (!m) return null
+        const d = Number(m[1])
+        return Number.isInteger(d) && d > 0 ? d : null
+      } catch { return null }
+    },
+  }
+}
+function censorshipOpeningView() {
+  const parts = node.ledger.cascadeParts()
+  return {
+    wired: 'verify-only',
+    journal: false,
+    automation: false,
+    note: 'POST a claim to /api/kraynet/censorship/verify. This node runs verifyCensorshipAnchored and returns evidence. It does not write the journal and does not open succession.',
+    inclusionActive: parts.inclusionRoot != null,
+    seq: node.seq,
+    cascadeRoot: node.cascadeRoot(),
+    cascadeParts: parts,
+    net: NET,
+    minConfirmations: DONATION_MIN_CONF,
+  }
 }
 function profileView(addr) {
   const starNos = node.starsOf(addr)
@@ -2130,6 +2202,11 @@ async function proveAndSettleRuneExit(from, runeIdStr, txid, opts = {}) {
     }
     const inputRunes = totalIn > 0n ? [{ id: runeIdStr, amount: totalIn.toString() }] : []
     attachSettleProof = { rawTx: proof.rawTx, txoutproof: proof.txoutproof, headers: proof.headers, inputRunes }
+  }
+  // born strict: a settle must journal its own proof — refuse before a doomed append (the L1
+  // payout already happened and stays provable; the same txid settles on a configured node)
+  if (PROOF_MANDATORY_LIVE && !attachSettleProof) {
+    return { error: 'this network is born strict — a rune settle must journal its own SPV proof, but KRAY_CONSENSUS_RUNE_PROOF is off on this node. The L1 payout stands; settle the same txid on a correctly configured node', status: 503 }
   }
   // a LOAF settle keys on its own delivery outpoint (txid:vout) so the next member of the same
   // tx can still burn its own lock; a solo settle stays byte-identical to every historic one.
@@ -5692,6 +5769,7 @@ const server = createServer(async (req, res) => {
       // pay (the pot), how deep it must bury (confirmations), how the donor is committed (an
       // OP_RETURN carrying the KRAY address, ascii), and how much is mintable now (the deficit).
       // Read-only. `configured:false` ⇒ this node only does the dev mint (regtest), no proofs yet.
+      if (p === '/api/kraynet/censorship') return ok(res, censorshipOpeningView())
       if (p === '/api/kraynet/donation/info') {
         const pot = node.pot()
         return ok(res, {
@@ -5719,6 +5797,7 @@ const server = createServer(async (req, res) => {
           contractExam: true,                             // POST /contract-exam dry-runs IR (no journal, no ₭) before a seal
           starSpeak: true,                                // GET/POST /speak — BIP-340 hold proof, no journal, no ₭ (A2 intact)
           starSpeakConsume: 'lock',                       // nonce consume is the lock's job; on-cascade latch is once_ at 1 ₭
+          censorshipVerify: true,                         // GET/POST /censorship — verifyCensorshipAnchored, evidence only, no journal
           contractCallV2: true,                           // door signs clock; beacon/interval re-derived from the last Bitcoin seal
           runeLawPotClosed: true,                         // rune-send to KRAY_CONTRACT_ is refused (IR pays only ₭)
           bytesPerKrayBurn: node.ledger.bytesPerKray,     // THE ERA'S RATE (retargets every 1008 seals) — pages price BEFORE signing
@@ -6304,6 +6383,7 @@ const server = createServer(async (req, res) => {
     // writes
     if (req.method === 'POST') {
       const b = await readBody(req)
+      if (b === BODY_TOO_LARGE) { err(res, 413, 'body too large'); return req.destroy() }
       if (b === null) return err(res, 400, 'invalid JSON body')
       // KRAY_PUBLIC_L1_WRITES=1 is the operator's EXPLICIT opt-in to serve the L1 wallet writes
       // (build/finalize/broadcast) on a public TEST-net node (signet lab — friends send from the
@@ -6456,6 +6536,23 @@ const server = createServer(async (req, res) => {
           speakId: speakId(verdict.message),
           note: 'the lock stores speakId — it does not pay the network. Replay the journal to re-derive ownerOf. A paid latch is once_ (1 ₭).',
         })
+      }
+      if (p === '/api/kraynet/censorship/verify') {
+        // ADR-3 3d — evidence only. Same verifier the exams pin. Never appends. Never opens succession.
+        // A claim is kilobytes (proofs + parts) — a megabyte body is not a claim, it is a hose.
+        try { if (JSON.stringify(b).length > 2 * 1024 * 1024) return err(res, 413, 'a censorship claim is kilobytes — this is not one') } catch { return err(res, 400, 'invalid claim body') }
+        const before = node.cascadeRoot()
+        let verdict
+        try {
+          verdict = verifyCensorshipAnchored(b, liveCensorshipRules(), { net: NET, minConfirmations: DONATION_MIN_CONF })
+        } catch (e) {
+          verdict = { censored: false, reason: 'malformed claim — ' + (e instanceof Error ? e.message : String(e)) }
+        }
+        if (node.cascadeRoot() !== before) {
+          console.error('censorship/verify mutated the cascade — refusing to serve a dirty book')
+          return err(res, 500, 'verify must not write — this node froze the response')
+        }
+        return ok(res, { ...verdict, journal: false, automation: false, cascadeRoot: before })
       }
       if (p === '/api/kraynet/contract-exam') {
         // DRY RUN — same validate + runCall as the reducer. No signature, no journal, no ₭.
@@ -6875,6 +6972,12 @@ const server = createServer(async (req, res) => {
           const isPlainPot = expectScriptHex === POT_SCRIPT_HEX
           const attachSelfAnchor = !!(CONSENSUS_SELF_ANCHOR_PROOF && sealed && !isPlainPot)
           const attachProof = (CONSENSUS_BURN_PROOF && (isPlainPot || attachSelfAnchor)) ? proof : undefined
+          // born strict: the reducer would refuse a proofless mint anyway — refuse HERE, named,
+          // before journaling a doomed event. The burn is not lost: the outpoint was never
+          // credited, so the same {txid} redeems the mint on a node whose proof flags are on.
+          if (PROOF_MANDATORY_LIVE && !attachProof) {
+            return err(res, 503, 'this network is born strict — a mint must journal its own SPV proof, but this node\'s proof flags are off (KRAY_CONSENSUS_BURN_PROOF / KRAY_CONSENSUS_SELF_ANCHOR_PROOF). Your burn is safe: the outpoint was never credited; redeem the same {txid} on a correctly configured node')
+          }
           const e = node.donate(v.donor, v.sats, 0, v.outpoint, attachProof, (attachProof && attachSelfAnchor) ? sealed : undefined)
           // a self-anchoring donation that sealed a REAL cascade root is a keyless anchor — RECORD it in the
           // self-anchor log (Slice 1). The seal already rides the output on Bitcoin; this makes it a proven,
@@ -6949,6 +7052,10 @@ const server = createServer(async (req, res) => {
             if (who.address === pool.address) return err(res, 400, 'a pot deposit cannot credit the pot itself — send from your own Taproot wallet')
             const potParams = { guardians: pool.params.guardians, threshold: pool.params.threshold, depositor: pool.params.depositor, timelock: pool.params.timelock }
             const attachRuneProof = await runeProofBag(potParams, { parentTxs, pool: true })
+            // born strict: a rune credit must journal its own proof — refuse before a doomed append
+            if (PROOF_MANDATORY_LIVE && !attachRuneProof) {
+              return err(res, 503, 'this network is born strict — a rune deposit must journal its own SPV proof, but KRAY_CONSENSUS_RUNE_PROOF is off on this node. Your runes are safe in the pot: the outpoint was never credited; redeem the same {runeId, txid} on a correctly configured node')
+            }
             const ev = node.runeDeposit(b.runeId, depOutpoint, who.address, amount, 0, attachRuneProof, true)
             watchVaultOutpoint({ outpoint: depOutpoint, runeId: b.runeId, vault: pool.address, amount: amount.toString(), depositor: '', kind: 'consolidation', at: Date.now() })
             return ok(res, { ok: true, seq: ev.seq, credited: who.address, amount: amount.toString(), outpoint: depOutpoint, vault: pool.address, pool: true, reserve: node.ledger.runes.reserveOf(rid).toString(), solvent: node.ledger.runesSolvent(), cascadeRoot: node.cascadeRoot() })

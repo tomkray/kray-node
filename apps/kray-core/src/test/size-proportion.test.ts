@@ -42,10 +42,12 @@ function walletMain(tag: string) {
   return { addr: btc.p2tr(_hexToBytes(publicKeyHex), undefined, NETWORKS.main).address! }
 }
 function mainEra(proportionSeq?: number) {
+  // the size law is under exam, not the peg — lift proof-mandatory (born strict on the real
+  // main) for the bare funding donates; proof-mandatory.test.ts pins that law.
   return new KrayLedger(
     undefined, 'main', undefined, false, undefined,
     undefined, undefined, undefined, undefined, undefined,
-    undefined, undefined, undefined, proportionSeq,
+    undefined, undefined, undefined, proportionSeq, undefined, Number.MAX_SAFE_INTEGER,
   )
 }
 

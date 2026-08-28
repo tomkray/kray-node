@@ -76,6 +76,19 @@ const INCLUSION_ACTIVATION_SEQ: Record<string, number> = {
   main: 0,
 }
 
+/** PROOF-MANDATORY ACTIVATION (audit 2026-08-28, ratified with the twin rebirth) — at/after this seq the
+ *  REDUCER refuses an L1-peg event (donate / rune-deposit / rune-settle) that does not embed its own SPV
+ *  proof. Below it, an absent proof is byte-identical to the old law (the door gates — the honest limit
+ *  AXIOMS.md used to name). Signet and mainnet are reborn at 0 events, so both are BORN STRICT: the journal
+ *  can never contain a proofless mint. Regtest stays MAX — the lab's dev-mint (KRAY_TRUSTED_DEV) is a bench
+ *  tool, never a chain anyone follows. Verification polarity is unchanged: a PRESENT proof is re-proven
+ *  wherever the node holds the pot script/key, and present-but-false HALTs. */
+const PROOF_MANDATORY_SEQ: Record<string, number> = {
+  regtest: Number.MAX_SAFE_INTEGER,
+  signet: 0,   // reborn 2026-08-28 — born strict
+  main: 0,     // born strict at genesis
+}
+
 /**
  * Ӿ TRANSFER ACTIVATION (slice 2 — the transferable book joins the anchored root). DORMANT on every network
  * until the Creator ratifies a real FUTURE seq: below it, `x-send` is refused (HALT) and the Ӿ root folds
@@ -345,7 +358,7 @@ export class KrayLedger {
    *  be re-derived from these bytes. Historical events fall back to the bitmap. */
   readonly atlasBytes?: (hash: string) => Uint8Array | null
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -363,6 +376,7 @@ export class KrayLedger {
     this.xFeelessActivationSeq = xFeelessActivationSeq ?? (X_FEELESS_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.tkFoldActivationSeq = tkFoldActivationSeq ?? (TK_FOLD_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.sizeProportionSeq = sizeProportionSeq ?? (SIZE_PROPORTION_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.proofMandatorySeq = proofMandatorySeq ?? (PROOF_MANDATORY_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     // main pin 0 is the law itself (not a signaling): start at 10_000. Donate never
     // reads the rate — an empty-of-stars journal keeps its cascade.
     if (this.sizeProportionSeq === 0) {
@@ -416,6 +430,7 @@ export class KrayLedger {
   private readonly xFeelessActivationSeq: number    // THE FIREBORN LAW: below it, x-send fee is the eternal 1 ₭ and the tank folds nowhere (A3)
   private readonly tkFoldActivationSeq: number      // THE TK-FOLD (Gate 2): below it, the lane kinds are refused and the lane root folds nowhere (A3)
   private readonly sizeProportionSeq: number        // 1 ₭/10 KB + 10 MB ceiling: below it, genesis 1 ₭/MB + 21 MB (A3)
+  private readonly proofMandatorySeq: number        // PROOF MANDATORY: at/after it, an L1-peg event must EMBED its SPV proof (A3 below)
   /** THE TK-FOLD LANE (Gate 2) — the compressed lane's whole consensus state: balances entered via
    *  `lane-enter`, rearranged ONLY by proven `fold-seal` breaths, exited via `lane-exit`. Its root
    *  (laneRoot, the same commitment the fold proof binds) folds into the cascade at/after activation. */
@@ -809,6 +824,11 @@ export class KrayLedger {
         if (sats > this.mintCap) throw new Error(`ledger: a single donation mints at most ${this.mintCap} ₭ — split a larger amount across mints (each is its own Bitcoin transaction and anchor)`)
         // a PROVEN donation carries the L1 outpoint it paid at — minted once, ever (like a rune deposit).
         // A donation without an outpoint is the dev/regtest mint (the server gates which is allowed).
+        // PROOF MANDATORY (born strict on signet/main): at/after activation the journal itself must carry
+        // the cause — a mint the reducer cannot re-prove from bytes is refused, not door-trusted.
+        if (e.seq >= this.proofMandatorySeq && (!e.proof || !e.outpoint)) {
+          throw new Error('ledger: at/after proof-mandatory activation a donation must embed its L1 SPV proof and outpoint — the door alone is no longer the gate')
+        }
         if (e.outpoint && this.creditedDonations.has(e.outpoint)) throw new Error(`ledger: donation outpoint ${e.outpoint} was already credited — a donation mints once, ever`)
         if (!this.pot.isOpen()) throw new Error('ledger: the anchoring pot is full — donation refused (it would mint nothing)')
         this.requireFungibleRecipient(e.to!, e.seq)    // the donor is credited ₭ on THIS network — and never the hole (the burn law)
@@ -1558,6 +1578,11 @@ export class KrayLedger {
         // a PROVEN L1 deposit credits L2 runes. The SPV proof is verified at ingress (server,
         // as in v1); the reducer enforces credited-once + solvency via the RuneBook.
         if (!e.runeId || !e.outpoint || !e.to || !e.amount) throw new Error('ledger: rune-deposit needs runeId + outpoint + to + amount')
+        // PROOF MANDATORY (the same born-strict law as donate): at/after activation the reducer refuses a
+        // rune credit whose L1 burial is not journaled in the event itself.
+        if (e.seq >= this.proofMandatorySeq && !e.proof) {
+          throw new Error('ledger: at/after proof-mandatory activation a rune deposit must embed its L1 SPV proof — the door alone is no longer the gate')
+        }
         if (this.runes.wasCredited(e.outpoint)) throw new Error(`ledger: outpoint ${e.outpoint} was already credited — a deposit mints once, ever`)
         // ── ADR-1 · THE PEG, RE-PROVEN IN CONSENSUS (runes) ─────────────────────────────────────
         // If the event carries its L1 SPV proof, re-prove the deposit FROM BYTES on every apply and
@@ -1716,6 +1741,10 @@ export class KrayLedger {
         // byte-identical for every settle journaled before the loaf existed (append-only law).
         if (!e.runeId || !e.from || !e.amount || !e.l1Txid) throw new Error('ledger: rune-settle needs runeId + from + amount + l1Txid')
         if (!/^[0-9a-f]{64}$/.test(e.l1Txid)) throw new Error('ledger: the L1 txid must be 32-byte hex')
+        // PROOF MANDATORY (audit 2026-08-28): at/after activation a settle must carry its own SPV proof.
+        if (e.seq >= this.proofMandatorySeq && !e.proof) {
+          throw new Error('ledger: at/after proof-mandatory activation a rune settle must embed its L1 SPV proof — the door alone is no longer the gate')
+        }
         let settleDelivery: string | undefined
         if (e.outpoint != null) {
           const om = /^([0-9a-f]{64}):(\d+)$/.exec(String(e.outpoint))

@@ -2,7 +2,9 @@
  * Official zip — public network recipes ship; operator houses never do.
  *   node apps/kray-net/node-pack.test.mjs
  */
-import { shouldPackPath } from './node-pack.mjs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { shouldPackPath, packNodeTree } from './node-pack.mjs'
 
 let pass = 0, fail = 0
 const ok = (c, m) => { if (c) { pass++; console.log('  ✓ ' + m) } else { fail++; console.log('  ✗ FAIL — ' + m) } }
@@ -44,6 +46,12 @@ ok(!shouldPackPath('networks/signet/vault-keys.env'), 'a secret filename is excl
 ok(shouldPackPath('scripts/guardian/guardian.mjs'), 'Door 1 guardian ships')
 ok(shouldPackPath('scripts/guardian/swarm.mjs'), 'guardian mining swarm ships (not the exam swarm)')
 ok(shouldPackPath('scripts/operator/pot-signer.mjs'), 'pot-signer (custody) ships')
+ok(shouldPackPath('scripts/operator'), 'the operator DIRECTORY is walkable — or pot-signer never reaches the zip')
+ok(shouldPackPath('scripts/pot-signer.mjs'), 'the stable-door pot-signer shim ships')
+ok(!shouldPackPath('apps/kray-net/.kray-api.json'), 'writer gateway key .kray-api.json is excluded beside server.mjs')
+ok(!shouldPackPath('.kray-api.json'), 'writer gateway key .kray-api.json is excluded at the root')
+ok(!shouldPackPath('apps/kray-net/guardian.box'), 'any sealed .box is excluded, wherever it sits')
+ok(!shouldPackPath('scripts/owner.box'), 'owner.box stays out even outside the operator houses')
 ok(shouldPackPath('scripts/oss-guard.sh'), 'oss-guard ships')
 ok(!shouldPackPath('scripts/exam/swarm-exam.mjs'), 'workshop swarm-exam is excluded')
 ok(!shouldPackPath('scripts/exam/gauntlet.mjs'), 'workshop gauntlet is excluded')
@@ -75,6 +83,36 @@ ok(!shouldPackPath('WORKSHOP.md'), 'workshop operator map is excluded')
 ok(shouldPackPath('AGENTS.md'), 'house-detection AGENTS.md ships')
 ok(!shouldPackPath('apps/kray-net/HARNESS.md'), 'lab harness doc is excluded')
 ok(!shouldPackPath('archive/kray-network-official/README.md'), 'official worktree extract is excluded')
+
+// ── THE REAL ZIP, not just the path oracle — a false-green here was the audit's exact catch:
+//    shouldPackPath said pot-signer ships while the walk pruned scripts/operator whole. Read the
+//    zip's central directory (names stored as plain utf8) — exact membership, no content noise.
+{
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
+  process.env.KRAY_PACK_HEAD_TTL_MS = '0'
+  const pack = packNodeTree(repoRoot)
+  const names = new Set()
+  const SIG = 0x02014b50
+  let i = 0
+  while ((i = pack.zip.indexOf('PK\x01\x02', i)) !== -1) {
+    if (pack.zip.readUInt32LE(i) === SIG) {
+      const nameLen = pack.zip.readUInt16LE(i + 28)
+      names.add(pack.zip.toString('utf8', i + 46, i + 46 + nameLen))
+      i += 46 + nameLen
+    } else i += 1
+  }
+  ok(names.size === pack.files, `REAL ZIP: central directory parsed — ${names.size} entries match the pack count`)
+  const endsWith = (suffix) => [...names].some((n) => n.endsWith(suffix))
+  ok(names.has('scripts/operator/pot-signer.mjs'), 'REAL ZIP: pot-signer.mjs is actually inside — the shim entrypoint is not broken')
+  ok(names.has('scripts/pot-signer.mjs'), 'REAL ZIP: the stable-door shim is inside')
+  ok(names.has('apps/kray-net/server.mjs'), 'REAL ZIP: the node itself is inside (sanity)')
+  ok(!endsWith('.kray-api.json'), 'REAL ZIP: no gateway key anywhere in the archive')
+  ok(!endsWith('vault-keys.env'), 'REAL ZIP: no vault keys anywhere in the archive')
+  ok(!endsWith('.box'), 'REAL ZIP: no sealed key box anywhere in the archive')
+  ok(!names.has('scripts/operator/sync-vitrine.sh'), 'REAL ZIP: bakery scripts stayed out even though the directory is walkable')
+  ok(!names.has('scripts/operator/update-guardians.sh'), 'REAL ZIP: guardian-fleet rsync stayed out')
+  ok(![...names].some((n) => /kraynet-journal-|\/data-(signet|main|lab)\//.test(n)), 'REAL ZIP: no journal file, no chain data dir (journal-chunks.ts the module is code, not data)')
+}
 
 console.log(`\n╚═ ${pass} passed${fail ? `, ${fail} FAILED` : ''} — the zip stays clean. ⛓₭\n`)
 process.exit(fail ? 1 : 0)

@@ -11,9 +11,8 @@
 <style>
   /* page-local only — the system lives in /kray.css. The proof runs in YOUR browser. */
   .bp-wrap{max-width:860px;margin:0 auto;padding:var(--s6) var(--s4) var(--s9)}
-  .bp-hero{margin:var(--s6) 0 var(--s5)}
-  .bp-hero h1{font-size:28px;letter-spacing:-.02em;margin:0 0 var(--s2)}
-  .bp-hero .sub{color:var(--ink-3);font-size:14px;line-height:1.6;max-width:62ch}
+  .bp-hero{margin:var(--s4) 0 var(--s3)}
+  .bp-hero h1{font-size:22px;letter-spacing:-.02em;margin:0}
   .bp-card{border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:var(--s5);margin-bottom:var(--s4)}
   .bp-k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:var(--s2)}
   .bp-hex{font-family:var(--mono);font-size:12px;word-break:break-all;color:var(--ink-2);line-height:1.7}
@@ -44,14 +43,16 @@
   <div class="crumb"><a href="/">← KRAY.NETWORK</a> / bitcoin proof</div>
   <div class="bp-hero">
     <h1>₿ Bitcoin Proof</h1>
-    <div class="sub">You mint ₭ <b>only by donating Bitcoin</b> — so every ₭ is <b>proven Bitcoin</b>, destroyed
-      forever at an address that belongs to <b>nobody</b>. You don't have to trust us: this page recomputes the
-      whole chain <b>in your own browser</b>, from Bitcoin's generator point upward. Not one number was chosen by a human.</div>
   </div>
 
   <div class="bp-card" id="nums-card">
     <div class="bp-k">NUMS identity — no inputs, no server. SHA-256 of Bitcoin's generator, in your browser, now</div>
     <div id="nums-out"><div class="x">hashing G…</div></div>
+  </div>
+
+  <div class="bp-card" id="peg-card">
+    <div class="bp-k">The peg — this node's live books (A1). Your browser still recomputes the burn below.</div>
+    <div id="peg-out"><div class="x">loading supply…</div></div>
   </div>
 
   <div class="bp-card">
@@ -113,10 +114,28 @@
   }
 
   // prefill from THIS node's live burn contract (falls back to manual — the proof never needs the server)
-  fetch('/api/kraynet/donation/info').then(function(r){ return r.json() }).then(function(d){
+  Promise.all([
+    fetch('/api/kraynet/donation/info').then(function(r){ return r.json() }),
+    fetch('/api/kraynet/head').then(function(r){ return r.json() }),
+  ]).then(function(pair){
+    var d = pair[0], h = pair[1]
     var sa = d && d.selfAnchor
     if (sa && sa.root != null) { $('blk').value = sa.blockNumber; $('root').value = sa.root; if (sa.burnAddress) $('cmp').placeholder = 'node claims: ' + sa.burnAddress + ' — paste any address to compare' }
     if (d && (d.net === 'main' || d.net === 'signet' || d.net === 'regtest')) $('net').value = d.net
+    var s = h && h.supply
+    var mode = sa
+      ? (sa.keyIsNums
+        ? '<span class="bp-ok">NUMS burn</span> — sats at this address are destroyed forever (no private key exists).'
+        : '<span class="bp-bad">reserve</span> — the pot key is not NUMS; these sats are sweepable, not a burn.')
+      : 'this node has no self-anchor yet — donate still mints ₭, but this page cannot name a burn address.'
+    var esc = function(x){ return String(x == null ? '—' : x).replace(/[<>]/g, '') }
+    $('peg-out').innerHTML =
+      '<div class="bp-hex">emitted ₭&nbsp;&nbsp;&nbsp;&nbsp; = <b>' + esc(s && s.emitted) + '</b></div>' +
+      '<div class="bp-hex">burned ₭&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = <b>' + esc(s && s.burned) + '</b></div>' +
+      '<div class="bp-hex">circulating&nbsp; = <b>' + esc(s && s.circulating) + '</b> (A1: emitted − burned)</div>' +
+      '<div class="x" style="margin-top:10px">' + mode + (sa && sa.burnAddress
+        ? '<br>node claims burn address: <span class="bp-hex">' + esc(sa.burnAddress) + '</span>'
+        : '') + '</div>'
   }).catch(function(){ /* manual mode — the chain needs no server */ })
 
   $('run').addEventListener('click', async function(){

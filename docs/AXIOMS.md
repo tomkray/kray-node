@@ -42,11 +42,15 @@ system's immutability follows:
   the root). Signet burn-in (2026-08-17) flipped the polarity: the three flags
   (`KRAY_CONSENSUS_BURN_PROOF`, `KRAY_CONSENSUS_RUNE_PROOF`, `KRAY_BACKING_GATE`)
   default ON on every network, including main; force `=0` only to replay a
-  proofless or hostage past. Two honest limits remain, stated not hidden: an
-  event without a proof still takes the door as the gate (append-only
-  compatibility), and a rune proof's `inputRunes` is ord's attestation journaled
-  at the door — the allocation math is re-derived from bytes, the input state
-  awaits the embedded-ancestry slice (see `CONSENSUS-CONSTITUTION.md` and
+  proofless or hostage past. The twin rebirth (2026-08-28) closed the first
+  honest limit: at/after the PROOF-MANDATORY activation (`PROOF_MANDATORY_SEQ`,
+  ledger.ts — signet and main are BORN STRICT at 0) the reducer itself refuses a
+  donate / rune-deposit / rune-settle that does not embed its SPV proof, so the
+  journal can never contain a mint whose sacrifice is not in it. Regtest keeps
+  the bench dev-mint (activation MAX). One honest limit remains, stated not
+  hidden: a rune proof's `inputRunes` is ord's attestation journaled at the
+  door — the allocation math is re-derived from bytes, the input state awaits
+  the embedded-ancestry slice (see `CONSENSUS-CONSTITUTION.md` and
   `ATEMPORALITY-AUDIT.md`). The law states the destination; this bullet states,
   honestly, exactly how far the code has walked toward it.
 - **Proofs from bytes, never from trust.** SPV re-derivation, BIP-34 coinbase

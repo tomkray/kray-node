@@ -51,7 +51,10 @@ function main() {
     'the mainnet empty-ledger root is the SAME pinned genesis root — the two universes are born identical')
 
   // a small pot (target 25,000) so the window borders are near
-  const L = new KrayLedger(25_000n, 'signet')
+  // the window law is under exam, not the peg — lift proof-mandatory (born strict on the real
+  // signet) for the bare funding donates; proof-mandatory.test.ts pins that law.
+  const bench = () => new KrayLedger(25_000n, 'signet', undefined, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, Number.MAX_SAFE_INTEGER)
+  const L = bench()
   const donor = 'tb1pxd5snpedtrkqgmngclr4jk76g2xaf3aacawe37gqjkpvw6jcwyls09rm5u'
 
   // ── fill the pot to target: minting CLOSES ──
@@ -94,7 +97,7 @@ function main() {
   ok(L.pot.deficit() === WINDOW_PER_SEAL_SATS, 'a second, different confirmed seal reopens another mint-cap')
 
   // ── a seal on an EMPTY pot is consumed but reopens nothing (defined no-op, never throws) ──
-  const E = new KrayLedger(25_000n, 'signet')
+  const E = bench()
   E.applyLive(ev({ kind: 'seal', l1Txid: TX('9'), l1Root: E.cascadeRoot(), l1BlockNumber: 0 }))
   ok(E.pot.deficit() === 25_000n && E.pot.satsHeld === 0n, 'a seal on an empty pot changes nothing (already fully open) — defined no-op')
   rejects(() => E.applyLive(ev({ kind: 'seal', l1Txid: TX('9'), l1Root: E.cascadeRoot(), l1BlockNumber: 0 })), /already reopened/i,
@@ -102,13 +105,13 @@ function main() {
 
   // ── the consumed-seal set is part of the root: different seals ⇒ different histories. Fresh ledgers with
   //    IDENTICAL journals except for the seal txid — same seq, same everything — must diverge on the txid alone.
-  const g25 = new KrayLedger(25_000n, 'signet').cascadeRoot()   // the shared genesis root of the 25k fixture shape
+  const g25 = bench().cascadeRoot()   // the shared genesis root of the 25k fixture shape
   const seal3 = { seq: 1, prevHash: '', hash: '', at: 0, kind: 'seal', l1Height: 850_000, l1Root: g25, l1BlockNumber: 0, l1Txid: TX('3') } as KrayEvent
   const seal4 = { seq: 1, prevHash: '', hash: '', at: 0, kind: 'seal', l1Height: 850_000, l1Root: g25, l1BlockNumber: 0, l1Txid: TX('4') } as KrayEvent
-  const A = new KrayLedger(25_000n, 'signet'); A.applyLive(seal3)
-  const B = new KrayLedger(25_000n, 'signet'); B.applyLive(seal4)
+  const A = bench(); A.applyLive(seal3)
+  const B = bench(); B.applyLive(seal4)
   ok(A.cascadeRoot() !== B.cascadeRoot(), 'two histories that consumed DIFFERENT seals can never share a cascade root (txid alone diverges it)')
-  const A2 = new KrayLedger(25_000n, 'signet'); A2.applyLive(seal3)
+  const A2 = bench(); A2.applyLive(seal3)
   ok(A.cascadeRoot() === A2.cascadeRoot(), 'a replay of the same journal reproduces the root byte-for-byte (pure function)')
 
   console.log(`\n╚═ ${pass} passed${fail ? `, ${fail} FAILED` : ''} — the mint window beats with Bitcoin: one buried seal, one cap, once ever. Nobody's spend involved. ⛓₭\n`)

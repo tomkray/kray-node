@@ -201,8 +201,9 @@ async function main() {
     const [docsSt, docsHtml] = await jtext('/docs')
     ok(docsSt === 200 && /paid-binding/.test(docsHtml) && /HEIGHT CEILING/.test(docsHtml)
       && /400 codec refuse/.test(docsHtml) && /404 missing/.test(docsHtml)
-      && /two objects, never mixed/i.test(docsHtml) && /not the HTTP receipt shape/.test(docsHtml),
-      'GET /docs names the door, the ceiling, the three statuses, and splits the name from the merkle walk')
+      && /two objects, never mixed/i.test(docsHtml) && /not the HTTP receipt shape/.test(docsHtml)
+      && /censorship\/verify/.test(docsHtml) && /Evidence only/.test(docsHtml),
+      'GET /docs names the door, the ceiling, the three statuses, the merkle walk, and the censorship evidence door')
     const [txPageSt, txPage] = await jtext('/tx/' + good.hash)
     ok(txPageSt === 200 && /THE PAID BINDING/.test(txPage) && /THE HEIGHT CEILING/.test(txPage)
       && /not a covering Bitcoin name/.test(txPage) && /paidBinding\.verify/.test(txPage)
@@ -211,6 +212,21 @@ async function main() {
 
     // THE LANE DOOR — signature wall + Nano-class dust wall. No journal write.
     // This itest never entered the lane, so the book cannot cover a send (TK-fold is dormant here).
+    // ADR-3 3d — the evidence door. Read-only. Garbage fails closed. The journal does not move.
+    const cen = await jget('/api/kraynet/censorship')
+    ok(cen.wired === 'verify-only' && cen.journal === false && cen.automation === false && cen.cascadeRoot === head1.cascadeRoot,
+      'GET /censorship is the live opening — verify-only, no write, no automation')
+    ok(cen.cascadeParts && cen.seq === head1.seq, 'GET /censorship publishes cascadeParts + seq of THIS node')
+    const info = await jget('/api/kraynet/donation/info')
+    ok(info.censorshipVerify === true, 'donation/info names the censorship verify door')
+    const seqBeforeVerify = (await jget('/api/kraynet/head')).seq
+    const junk = await jpost('/api/kraynet/censorship/verify', { act: { from: ADDR } })
+    ok(junk.censored === false && typeof junk.reason === 'string' && junk.journal === false && junk.automation === false,
+      'POST /censorship/verify on garbage is NOT CENSORED with a named reason — fail-closed, no journal flag')
+    const seqAfterVerify = (await jget('/api/kraynet/head')).seq
+    ok(seqAfterVerify === seqBeforeVerify && junk.cascadeRoot === head1.cascadeRoot,
+      'a verify call does not write — seq and cascade root stay put')
+
     const emptyPrep = await jpost('/api/kraynet/lane-prepare', { from: ADDR, to: ADDRB, amount: '1' })
     ok(emptyPrep.error && /insufficient lane/.test(emptyPrep.error), 'lane-prepare refuses when the lane book cannot cover the send — dust cannot occupy the pool')
     const laneMsg = tkFoldSendMessage(NET, ADDR, ADDRB, 1n, 0)

@@ -5,7 +5,7 @@
  */
 import { createHash } from 'node:crypto'
 import { deflateRawSync } from 'node:zlib'
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { execFileSync } from 'node:child_process'
 
@@ -44,6 +44,8 @@ const SKIP_FILE = new Set([
   'workshop.md',
   '.oss-guard-local',
   'operator-ship.md', 'krayos-mind.md', 'origin-local.env.example',
+  // writer-disk gateway key (RPC + ord) — lives beside server.mjs on a writer; never in the zip
+  '.kray-api.json',
 ])
 
 export function shouldPackPath(rel) {
@@ -53,7 +55,11 @@ export function shouldPackPath(rel) {
   // operator handoff (house names, deploy rite) — disk only
   if (parts[0] === 'docs' && base.startsWith('handoff-')) return false
   // bakery on disk (rsync leftover) — never zip. pot-signer.mjs is the one public app.
-  if (parts.includes('operator') && base !== 'pot-signer.mjs') return false
+  // The directory itself ('operator') must stay walkable, or the walk prunes it whole
+  // and pot-signer.mjs never reaches the zip (the shim entrypoint would ship broken).
+  if (parts.includes('operator') && base !== 'pot-signer.mjs' && base !== 'operator') return false
+  // sealed key boxes (owner.box, guardian boxes) — never in the zip, wherever they sit
+  if (base.endsWith('.box')) return false
   if (SKIP_FILE.has(base) || base.endsWith('.log') || base.endsWith('.redb')) return false
   if (base.endsWith('.bak') || base.includes('.bak-') || base.includes('.bak.')) return false
   if (parts[0] && SKIP_ROOT.has(parts[0])) return false
@@ -74,7 +80,10 @@ function walk(dir, root, out) {
     const rel = relative(root, full).replace(/\\/g, '/')
     if (skipRel(rel)) continue
     let st
-    try { st = statSync(full) } catch { continue }
+    // lstat, never stat: a symlink on the writer disk must not smuggle a target
+    // from outside the tree (or a skipped house) into the public zip.
+    try { st = lstatSync(full) } catch { continue }
+    if (st.isSymbolicLink()) continue
     if (st.isDirectory()) { walk(full, root, out); continue }
     if (!st.isFile() || st.size > 8 * 1024 * 1024) continue
     out.push({ name: rel, data: readFileSync(full) })

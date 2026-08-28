@@ -43,7 +43,10 @@ function main() {
   ok(new KrayLedger(undefined, NET).cascadeRoot() === '9d3b2de322cad91a420243c87fa3b6fce0d6bd90f1b2a1fce216b47e750030ac',
     'a ledger with no migration hashes to the exact genesis root — append-only, nothing orphaned')
 
-  const L = new KrayLedger(undefined, NET)
+  // this exam is about the quantum escape hatch, not the peg — lift proof-mandatory (born strict
+  // on the real signet) for the bare funding donate; proof-mandatory.test.ts pins that law.
+  const bench = () => new KrayLedger(undefined, NET, undefined, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, Number.MAX_SAFE_INTEGER)
+  const L = bench()
   const alice = ecc('qm|alice'), rescue = ecc('qm|alice-rescue'), attacker = ecc('qm|attacker')
 
   // Alice has ₭ (seed her from a dev donation) and, ahead of time, registers SHA-256(her Lamport key)
@@ -87,7 +90,7 @@ function main() {
     /no quantum-commit registered/i, 'an account that never registered a commit cannot be migrated — nothing to match against')
 
   // ── determinism: a fresh replay reproduces the byte-exact root ──
-  const L2 = new KrayLedger(undefined, NET)
+  const L2 = bench()
   L2.applyLive({ seq: 1, prevHash: '', hash: '', at: 0, kind: 'donate', to: alice.addr, amount: '9000', outpoint: 'a'.repeat(64) + ':0' } as KrayEvent)
   L2.applyLive(commitEv(2, alice, commit, 0))
   L2.applyLive(migrateEv(20, alice.addr, rescue.addr, 0, lamportPublicKeyHex(lam.publicKey), rescueSig))
