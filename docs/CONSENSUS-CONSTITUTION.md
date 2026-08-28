@@ -65,9 +65,9 @@ mint *gate* (a donation still burns to mint). No guardian path mints ₭ or forg
 ### IX — Capacity is bounded in consensus, forever. **[ENFORCED]**
 The live size-proportion law caps a new inscription and the per-seal content budget at
 `MAX_INSCRIPTION_PROPORTION` (10,000,000 bytes = 10 MB). Fire is
-`max(1, ceil(size / 10_000))` ₭ (`BYTES_PER_KRAY_PROPORTION`). Main is born in this law (pin 0).
-Signet journals before seq 274 replay the genesis 21 MB / 1 ₭-per-MB path byte-identical (A3);
-after the pin, new work uses the live law. The byte price still retargets every 1008 seals
+`max(1, ceil(size / 10_000))` ₭ (`BYTES_PER_KRAY_PROPORTION`). Main and Signet are born
+in this law (pin 0) — both books were reborn empty at the v1.0.0 genesis. The old Signet
+pin 274 guarded a 57-star journal that no longer exists. The byte price still retargets every 1008 seals
 (`retargetBytesPerKray`), integer-deterministic, journal-derived.
 
 ### X — The peg is re-proven in consensus when the event carries its proof. **[ENFORCED (machinery) · NAMED PATH (ancestry + absent-proof past)]**

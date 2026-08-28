@@ -131,6 +131,56 @@
     return '₭ / ' + KRAY.pairCall(aName);
   };
   KRAY.esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+  /* ── ACT HUES — /chain constellation + block receipts. One color per kind so
+     DeFi, market, runes, Ӿ and ₭ read as different doors. Family is the
+     neighborhood; the kind is the exact street. ── */
+  KRAY.ACT_FAMILY = {
+    'rune-deposit': 'rune', 'rune-send': 'rune', 'rune-exit': 'rune', 'rune-cancel': 'rune',
+    'rune-lodge': 'rune', 'rune-settle': 'rune', 'rune-rehome': 'rune',
+    'amm-add': 'defi', 'amm-remove': 'defi', 'amm-swap': 'defi',
+    'amm-rr-add': 'defi', 'amm-rr-remove': 'defi', 'amm-rr-swap': 'defi',
+    'transfer': 'money', 'reward': 'money', 'donate': 'money', 'burn': 'money',
+    'x-send': 'fenyx', 'lane-enter': 'fenyx', 'lane-exit': 'fenyx', 'fold-seal': 'fenyx',
+    'contract': 'law', 'contract-call': 'law',
+    'quantum-commit': 'quantum', 'quantum-migrate': 'quantum',
+    'transfer-star': 'starmove',
+    'star-list': 'market', 'star-delist': 'market', 'star-buy': 'market',
+    'star-offer': 'market', 'star-offer-cancel': 'market', 'star-offer-accept': 'market',
+  };
+  KRAY.ACT_HUE = {
+    'amm-add': 0x2dd4bf, 'amm-remove': 0x0f766e, 'amm-swap': 0x5eead4,
+    'amm-rr-add': 0x34d399, 'amm-rr-remove': 0x047857, 'amm-rr-swap': 0xa3e635,
+    'create-pool': 0xfbbf24,
+    'star-list': 0xff6ea8, 'star-delist': 0xa78a96, 'star-buy': 0xff2d8a,
+    'star-offer': 0xc4b5fd, 'star-offer-cancel': 0x7c6f8a, 'star-offer-accept': 0xa78bfa,
+    'rune-deposit': 0xa78bfa, 'rune-send': 0x8b5cf6, 'rune-exit': 0x6d28d9,
+    'rune-cancel': 0x4c1d95, 'rune-lodge': 0xc4b5fd, 'rune-settle': 0x5b21b6, 'rune-rehome': 0x818cf8,
+    'transfer': 0x54e0a0, 'donate': 0x86efac, 'reward': 0x4ade80, 'burn': 0xf59e0b,
+    'x-send': 0xff3b3b, 'lane-enter': 0xff6b4a, 'lane-exit': 0xff8a7a, 'fold-seal': 0xff5050,
+    'contract': 0x5b8def, 'contract-call': 0x93c5fd,
+    'quantum-commit': 0xd946ef, 'quantum-migrate': 0xe879f9,
+    'transfer-star': 0xe8cd93, 'fire': 0xf5776b,
+  };
+  KRAY.actHue = function (kind, opts) {
+    opts = opts || {};
+    if (opts.family === 'fire') return KRAY.ACT_HUE.fire;
+    if (opts.createPool) return KRAY.ACT_HUE['create-pool'];
+    if (kind && KRAY.ACT_HUE[kind] != null) return KRAY.ACT_HUE[kind];
+    var fam = opts.family || (kind && KRAY.ACT_FAMILY[kind]);
+    if (fam === 'defi') return 0x2dd4bf;
+    if (fam === 'market') return 0xff6ea8;
+    if (fam === 'rune') return 0x8b5cf6;
+    if (fam === 'money') return 0x54e0a0;
+    if (fam === 'fenyx') return 0xff3b3b;
+    if (fam === 'law') return 0x5b8def;
+    if (fam === 'quantum') return 0xd946ef;
+    if (fam === 'starmove') return 0xe8cd93;
+    return 0x8b5cf6;
+  };
+  KRAY.actCss = function (kind, opts) {
+    return '#' + ('000000' + KRAY.actHue(kind, opts).toString(16)).slice(-6);
+  };
   /* Sink stamps — BURNED 🔥 / FREEZE ❄. A status layer, never the ₭ money symbol (A0).
      Word + emoji live inside one tag so the fire and the ice cannot be mistaken for a token. */
   KRAY.sink = function (kind, word) {
@@ -154,6 +204,36 @@
     catch (_) { return String(v); }
   };
   KRAY.age = function (ms) { if (!ms) return ''; var s = Math.max(0, (Date.now() - Number(ms)) / 1000); if (s < 60) return Math.floor(s) + 's'; if (s < 3600) return Math.floor(s / 60) + 'm'; if (s < 86400) return Math.floor(s / 3600) + 'h'; return Math.floor(s / 86400) + 'd'; };
+  /* mempool.space clock: exact UTC second the act was validated, plus a spoken relative. */
+  KRAY.clock = function (ms) {
+    var n = Number(ms), d = new Date(n);
+    if (!n || isNaN(d.getTime())) return '';
+    function p(x) { return String(x).padStart(2, '0'); }
+    return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' '
+      + p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds()) + ' UTC';
+  };
+  KRAY.ago = function (ms) {
+    var n = Number(ms);
+    if (!n || isNaN(n)) return '';
+    var s = Math.max(0, Math.floor((Date.now() - n) / 1000));
+    if (s < 5) return 'just now';
+    if (s < 60) return s + (s === 1 ? ' second ago' : ' seconds ago');
+    var m = Math.floor(s / 60);
+    if (m < 60) return m + (m === 1 ? ' minute ago' : ' minutes ago');
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
+    var d = Math.floor(h / 24);
+    if (d < 30) return d + (d === 1 ? ' day ago' : ' days ago');
+    var mo = Math.floor(d / 30);
+    if (mo < 12) return mo + (mo === 1 ? ' month ago' : ' months ago');
+    var y = Math.floor(d / 365);
+    return y + (y === 1 ? ' year ago' : ' years ago');
+  };
+  KRAY.whenExact = function (ms) {
+    var clock = KRAY.clock(ms), ago = KRAY.ago(ms);
+    if (!clock) return '';
+    return ago ? (clock + ' · ' + ago) : clock;
+  };
   KRAY.addr = function () { return window.__krayAddr || null; };
   /* THE SIGNING GATE — EVERY signed act opens the KrayWallet confirmation popup so the
      person approves the exact message in the extension. The mathematical proof (BIP-340)
@@ -485,6 +565,32 @@
     if (spec.id === 'video') { face.play = true; return face; }
     return face;
   };
+  /* Market / history plate — the sealed bytes fill the square. Image and audio cover as
+     <img>; video as a still; everything else through /render so text, markup and HTML
+     actually appear inside the container (never an empty glyph when the atlas holds bytes). */
+  KRAY.faceHtml = function (t) {
+    t = t || {};
+    var media = t.media || t.url || (t.contentHash ? '/content/' + t.contentHash : '');
+    var ct = String(t.contentType || t.ctype || '');
+    var star = t.star != null ? t.star : t.no;
+    var cat = KRAY.categoryOf(ct);
+    var mark = star != null ? '★ ' + star : (KRAY.shelfGlyph(cat) || '◇');
+    var empty = '<span class="glyph">' + KRAY.esc(String(mark)) + '</span>';
+    if (!media) return empty;
+    var hash = (String(media).match(/\/(?:content|cover|render)\/([0-9a-f]{64})/) || [])[1];
+    var layer;
+    if (cat === 'image' || cat === 'vector') {
+      layer = '<img loading="lazy" alt="" src="' + KRAY.esc(media) + '" onerror="this.remove()">';
+    } else if (cat === 'audio' && hash) {
+      layer = '<img loading="lazy" alt="" src="/cover/' + hash + '" onerror="this.remove()">';
+    } else if (cat === 'video') {
+      layer = '<video muted playsinline preload="metadata" src="' + KRAY.esc(media) + '"></video>';
+    } else {
+      var render = hash ? '/render/' + hash : String(media).replace('/content/', '/render/');
+      layer = '<iframe loading="lazy" src="' + KRAY.esc(render) + '#toolbar=0&navpanes=0&scrollbar=0" sandbox="allow-scripts allow-same-origin" tabindex="-1" title=""></iframe>';
+    }
+    return empty + layer;
+  };
   /* Circular face on a star chip (#32). The sealed bytes when an <img> can show them;
      otherwise the number stands alone. Never a frame emoji. Presentation only. */
   KRAY.starChipArt = function (t, px) {
@@ -765,7 +871,7 @@
       '<div class="g12">' +
         '<div class="foot-brand c4"><div class="b">₭ KRAY.NETWORK</div><div class="t">The book: sacrifice → ₭ → stars. Replay proves it. Sealed to Bitcoin. DeFi is an app on this ledger — not the node.</div></div>' +
         '<div class="col foot-col"><h5>Explore</h5><a href="/">Explorer</a><a href="/blocks">Chain</a><a href="/network">Network</a><a href="/land">Land</a><a href="/city">City</a><a href="/library">Library</a><a href="/mind">Mind</a><a href="/dashboard">Dashboard</a></div>' +
-        '<div class="col foot-col"><h5>Apps</h5><a href="/market">Marketplace</a><a href="/defi">DeFi</a><a href="/rune">Runes</a><a href="/send">Send</a></div>' +
+        '<div class="col foot-col"><h5>Apps</h5><a href="/market">Marketplace</a><a href="/collections">Collections</a><a href="/defi">DeFi</a><a href="/rune">Runes</a><a href="/send">Send</a></div>' +
         '<div class="col foot-col prove"><h5>Prove</h5><a href="/proof">Proof</a><a href="/verify">Verify</a><a href="/anchor">The anchor</a><a href="/burn">Bitcoin Proof</a><a href="/docs">Docs</a><a href="/docs#atlas">Site atlas</a></div>' +
       '</div>' +
       '<div class="bar"><span>circulating ₭ = emitted − burned · one cascade root sealed to Bitcoin</span><span>KRAY OS v2 · Blueprint</span></div>' +

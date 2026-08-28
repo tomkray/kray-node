@@ -95,7 +95,7 @@ function main() {
   ok(starBurnOf(1, 0) === 1n, 'hostile rate 0 fails closed to the 1 ₭ floor')
   ok(SIZE_PROPORTION_ACTIVATION_SEQ.main === 0, 'main is born in the era (pin 0)')
   ok(SIZE_PROPORTION_ACTIVATION_SEQ.regtest === Number.MAX_SAFE_INTEGER, 'regtest goldens stay on the genesis rate')
-  ok(SIZE_PROPORTION_ACTIVATION_SEQ.signet > 0 && SIZE_PROPORTION_ACTIVATION_SEQ.signet < Number.MAX_SAFE_INTEGER, 'signet is gated (A3) — not a silent rewrite of 57 stars')
+  ok(SIZE_PROPORTION_ACTIVATION_SEQ.signet === 0, 'signet reborn empty — same era as main (pin 0)')
 
   console.log('\nSP-02 — baptism is still 1 ₭, no atlas')
   const N = era(0)

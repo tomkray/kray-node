@@ -28,7 +28,7 @@ import { finalityView } from '../kray-core/src/protocol/finality.ts'   // ADR-4 
 import { WINDOW_PER_SEAL_SATS } from '../kray-core/src/protocol/pot.ts'
 import { BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, RETARGET_WINDOW_SEALS, SIZE_PROPORTION_ACTIVATION_SEQ, starBurnOf, retargetBytesPerKray, donationProofMinConf } from '../kray-core/src/protocol/kray-primitives.ts'
 import {
-  transferMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, xSendMessage, laneEnterMessage, laneExitMessage, foldSealMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
+  transferMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, xSendMessage, laneEnterMessage, laneExitMessage, foldSealMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, INSCRIBE_META_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
@@ -42,7 +42,7 @@ import { verifyBeat, BEAT_MIN_ZEROS } from '../kray-core/src/economics/beat-pow.
 import { BEAT_PAY_ZEROS_CAP, readPresenceTip } from '../kray-core/src/economics/presence-window.ts'
 import { verifyCustody, custodyFromHex, custodyChallenges, hitCount, CUSTODY_CHALLENGES } from '../kray-core/src/economics/custody.ts'
 import { settleFromBeats } from '../kray-core/src/economics/settlement.ts'
-import { sha256hex, TREASURY, BLACK_HOLE } from '../kray-core/src/protocol/kray-primitives.ts'
+import { sha256hex, TREASURY, BLACK_HOLE, STAR_OFFER } from '../kray-core/src/protocol/kray-primitives.ts'
 import { readName, categoryOf, CATEGORIES } from '../kray-core/src/protocol/library.ts'
 import { id3TagTotalLength, readApic, READ_MIMES } from './id3-cover.js'
 import { bodyHashOf } from './body-hash.js'
@@ -2383,7 +2383,7 @@ async function settleFeePoolOnSeal(txid) {
  *  fees credited (transfer, transfer-star, rune-send, rune-exit, contract-call · ledger.ts:237,254,352,382,453)
  *  minus rewards and earlier settlements (ledger.ts:318,485). Returns null (never throws) if the event
  *  is not a settlement or the fold cannot reproduce it — the page then simply shows the raw record. */
-const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy'])
+const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept'])
 /** One forward pass over the journal, folding the treasury and handing every settlement's re-derived
  *  table to `onTable(event, lines, poolBefore, paid)` — return false from the callback to stop early. */
 function foldSettlementTables(onTable) {
@@ -3360,6 +3360,7 @@ function historyOfStar(nStr) {                           // every event that eve
   const face = node.star(BigInt(nStr))
   const pot = face && face.contract ? String(face.contract) : null
   const out = []
+  let lastMarket = null                                  // live offer on THIS star — so a second list is a relist
   for (const e of events) {                              // events[] is stored in seq order — oldest first
     const evStar = seqToStarNo.get(e.seq) ?? (e.star != null ? String(e.star) : null)
     const onPot = pot && e.kind === 'contract-call' && String(e.contract || '') === pot
@@ -3367,9 +3368,39 @@ function historyOfStar(nStr) {                           // every event that eve
     const blk = blockOfSeq(e.seq)
     const rec = e.kind === 'contract-call' ? callReceipts.get(e.hash) : null
     const paid = rec ? rec.payments.filter((p) => BigInt(p.amount) > 0n) : []
+    let tag = e.kind
+    let via = 'act'
+    if (e.kind === 'star-list') {
+      via = 'market'
+      tag = lastMarket === 'star-list' ? 'relist' : 'list'
+      lastMarket = 'star-list'
+    } else if (e.kind === 'star-delist') {
+      via = 'market'; tag = 'cancel'; lastMarket = null
+    } else if (e.kind === 'star-buy') {
+      via = 'market'; tag = 'sale'; lastMarket = null
+    } else if (e.kind === 'star-offer') {
+      via = 'market'; tag = 'offer'
+    } else if (e.kind === 'star-offer-cancel') {
+      via = 'market'; tag = 'offer-cancel'
+    } else if (e.kind === 'star-offer-accept') {
+      via = 'market'; tag = 'offer-accept'; lastMarket = null
+    } else if (e.kind === 'transfer-star') {
+      via = String(e.to || '') === 'KRAY_BLACK_HOLE' ? 'fire' : 'send'
+      tag = via === 'fire' ? 'freeze' : 'send'
+      lastMarket = null
+    } else if (e.kind === 'inscribe' || e.kind === 'origin' || e.kind === 'name') {
+      via = 'birth'
+      tag = e.kind === 'inscribe' ? 'write' : e.kind
+    } else if (e.kind === 'contract' || e.kind === 'contract-call') {
+      via = 'law'
+    }
     out.push({
-      kind: e.kind, from: e.from ?? null, to: e.to ?? null, hash: e.hash,
-      blockNumber: blk ? blk.number : null, burn: seqToBurn.get(e.seq) ?? null,
+      kind: e.kind, tag, via, from: e.from ?? null, to: e.to ?? null, hash: e.hash,
+      amount: e.amount != null ? String(e.amount) : null,
+      at: e.at ?? null,
+      blockNumber: blk ? blk.number : null,
+      blockAt: blk && blk.at != null ? blk.at : null,
+      burn: seqToBurn.get(e.seq) ?? null,
       ...(e.kind === 'contract-call' ? { rule: e.rule ?? null, contract: e.contract ?? null } : {}),
       ...(rec ? { take: rec.take, payments: rec.payments, interval: rec.interval, beacon: rec.beacon, paid } : {}),
     })
@@ -3385,6 +3416,7 @@ function starView(nBig) {
     return {
       star: String(nBig), no: String(nBig), dark: true, rarity: 'dark', written: false,
       inscriptions: [], children: [], family: { childCount: 0, children: [], ancestors: [], immediate: [] },
+      listing: null, offers: [],
       traits: [], collection: null, owner: null, name: null, contract: null, law: null,
       baptism: null, nameReading: null, birth: null, history: [],
     }
@@ -3455,6 +3487,7 @@ function starView(nBig) {
   // Buy / Cancel / Relist chrome from the same proven source (the reducer's listing book).
   const _mkt = node.ledger.market.get(nBig)
   const listing = _mkt ? { seller: _mkt.seller, price: _mkt.price.toString() } : null
+  const offers = node.ledger.offers.onStar(nBig).map((o) => ({ bidder: o.bidder, price: o.price.toString() }))
 
   const history = historyOfStar(nStr)
   const inscEv = history.find((h) => h.kind === 'inscribe' || h.kind === 'origin')
@@ -3479,7 +3512,266 @@ function starView(nBig) {
     family: { childCount: children.length, children, ancestors, immediate },
     history,
     listing,   // { seller, price } when the star is for sale on the native market, else null
+    offers,    // live escrowed bids [{ bidder, price }] — pot-locked, highest first
     lastDelivery: [...history].reverse().find((h) => h.kind === 'contract-call' && (h.rule === 'settle' || h.rule === 'draw') && Array.isArray(h.paid) && h.paid.length) || null,
+  }
+}
+
+// ══ LINEAGE COLLECTIONS — a named parent star is the collection; its children are the items.
+//    Derived from the journal (childrenOf + the listing book + star-list/star-buy seqs).
+//    No new event kind. The collection story is the parent's sealed body / meta.description.
+function isImageType(ct) {
+  return String(ct || '').toLowerCase().startsWith('image/')
+}
+function parseStarMeta(s) {
+  if (!s || !s.meta) return null
+  try { const m = JSON.parse(s.meta); return m && typeof m === 'object' ? m : null } catch { return null }
+}
+function collectionFace(s) {
+  const media = s.contentHash ? '/content/' + s.contentHash : null
+  const meta = parseStarMeta(s)
+  const bannerHash = meta && typeof meta.banner === 'string' ? String(meta.banner).toLowerCase() : ''
+  const banner = /^[0-9a-f]{64}$/.test(bannerHash)
+    ? '/content/' + bannerHash
+    : (media && isImageType(s.contentType) ? media : null)
+  let about = null
+  if (meta && typeof meta.description === 'string' && meta.description.trim()) about = meta.description.trim().slice(0, 4000)
+  else if (meta && typeof meta.about === 'string' && meta.about.trim()) about = meta.about.trim().slice(0, 4000)
+  return { media, banner, about, contentType: s.contentType || null }
+}
+function marketMarks() {
+  const listedAt = new Map()
+  const volumeByStar = new Map()
+  const salesByStar = new Map()
+  for (const e of events) {
+    if (e.star == null) continue
+    const k = String(e.star)
+    if (e.kind === 'star-list') listedAt.set(k, e.seq)
+    if (e.kind === 'star-buy' || e.kind === 'star-offer-accept') {
+      try { volumeByStar.set(k, (volumeByStar.get(k) || 0n) + BigInt(e.amount || '0')) } catch { /* refuse a hostile amount silently — volume is display */ }
+      salesByStar.set(k, (salesByStar.get(k) || 0) + 1)
+    }
+  }
+  return { listedAt, volumeByStar, salesByStar }
+}
+function starMarketFace(starNo) {
+  try {
+    const s = node.star(BigInt(starNo))
+    if (!s) return { star: String(starNo), name: null, media: null, contentType: null, collection: null, rarity: null }
+    return {
+      star: String(s.no),
+      name: s.name ?? null,
+      media: s.contentHash ? '/content/' + s.contentHash : null,
+      contentType: s.contentType ?? null,
+      collection: s.collection ?? null,
+      rarity: s.rarity ?? null,
+    }
+  } catch { return { star: String(starNo), name: null, media: null, contentType: null, collection: null, rarity: null } }
+}
+/** Read-only pulse — last sold / just listed / highest ask / hottest collection. Journal + live book. */
+function marketPulse() {
+  const { listedAt, volumeByStar, salesByStar } = marketMarks()
+  const live = node.ledger.market.all()
+  const sold = []
+  const tape = []
+  const lastList = new Map()
+  let sales = 0
+  let volume = 0n
+  let acts = 0
+  for (const e of events) {
+    if (e.kind !== 'star-list' && e.kind !== 'star-delist' && e.kind !== 'star-buy'
+      && e.kind !== 'star-offer' && e.kind !== 'star-offer-cancel' && e.kind !== 'star-offer-accept') continue
+    acts += 1
+    const star = e.star != null ? String(e.star) : null
+    let tag = e.kind === 'star-buy' || e.kind === 'star-offer-accept' ? 'sale'
+      : (e.kind === 'star-delist' ? 'cancel'
+        : (e.kind === 'star-offer' ? 'offer'
+          : (e.kind === 'star-offer-cancel' ? 'offer-cancel' : 'list')))
+    if (e.kind === 'star-list' && star && lastList.get(star) === 'star-list') tag = 'relist'
+    if (star) lastList.set(star, e.kind === 'star-list' ? 'star-list' : null)
+    const face = star ? starMarketFace(star) : {}
+    const blk = blockOfSeq(e.seq)
+    const row = {
+      kind: e.kind, tag, via: 'market',
+      star, name: face.name ?? null, media: face.media ?? null, contentType: face.contentType ?? null,
+      collection: face.collection ?? null,
+      amount: e.amount != null ? String(e.amount) : null,
+      from: e.from ?? null, to: e.to ?? null, hash: e.hash,
+      seq: e.seq, at: e.at ?? null, block: blk ? blk.number : null,
+    }
+    tape.push(row)
+    if (e.kind === 'star-buy' || e.kind === 'star-offer-accept') {
+      sales += 1
+      try { volume += BigInt(e.amount || '0') } catch { /* display only */ }
+      sold.push(row)
+    }
+  }
+  const listedLive = live.map((l) => {
+    const face = starMarketFace(l.star)
+    return {
+      ...face,
+      seller: l.seller,
+      price: String(l.price),
+      listedSeq: listedAt.get(String(l.star)) ?? null,
+    }
+  })
+  const justListed = listedLive.slice().sort((a, b) => Number(b.listedSeq || 0) - Number(a.listedSeq || 0)).slice(0, 12)
+  const expensive = listedLive.slice().sort((a, b) => {
+    try { const d = BigInt(b.price) - BigInt(a.price); return d > 0n ? 1 : d < 0n ? -1 : 0 } catch { return 0 }
+  }).slice(0, 8)
+  const cols = collectionsIndex().map((c) => ({ ...c })).sort((a, b) => {
+    try {
+      const d = BigInt(b.volume || '0') - BigInt(a.volume || '0')
+      if (d !== 0n) return d > 0n ? 1 : -1
+    } catch { /* fall through */ }
+    return (b.sales || 0) - (a.sales || 0) || (b.listed - a.listed)
+  })
+  return {
+    stats: {
+      listed: live.length,
+      sales,
+      volume: volume.toString(),
+      acts,
+      feePerAct: '1',
+      fees: String(acts),
+    },
+    sold: sold.slice(-12).reverse(),
+    listed: justListed,
+    expensive,
+    bids: node.ledger.offers.all()
+      .map((o) => ({ ...starMarketFace(o.star), bidder: o.bidder, price: o.price }))
+      .sort((a, b) => {
+        try { const d = BigInt(b.price) - BigInt(a.price); return d > 0n ? 1 : d < 0n ? -1 : 0 } catch { return 0 }
+      })
+      .slice(0, 12),
+    hotCollections: cols.slice(0, 6),
+    tape: tape.slice(-48).reverse(),
+  }
+}
+function collectionItem(s, listedAt) {
+  const mkt = node.ledger.market.get(s.no)
+  const face = collectionFace(s)
+  return {
+    star: String(s.no),
+    name: s.name ?? null,
+    owner: s.owner,
+    rarity: s.rarity,
+    contentType: face.contentType,
+    media: face.media,
+    listing: mkt ? { seller: mkt.seller, price: mkt.price.toString() } : null,
+    listedSeq: listedAt.get(String(s.no)) ?? null,
+    createdSeq: s.seq,
+  }
+}
+function collectionsIndex() {
+  const { volumeByStar, salesByStar } = marketMarks()
+  const out = []
+  const R = node.ledger.stars
+  for (let i = 0n; i < R.createdSeq; i++) {
+    const s = node.star(i)
+    if (!s || !s.name) continue
+    const kids = s.children || []
+    if (!kids.length) continue
+    let listed = 0
+    let floor = null
+    let volume = 0n
+    let sales = 0
+    const owners = new Set()
+    for (const c of kids) {
+      const cs = node.star(c)
+      if (cs && cs.owner) owners.add(cs.owner)
+      const offer = node.ledger.market.get(c)
+      if (offer) {
+        listed++
+        if (floor == null || offer.price < floor) floor = offer.price
+      }
+      volume += volumeByStar.get(String(c)) || 0n
+      sales += salesByStar.get(String(c)) || 0
+    }
+    const face = collectionFace(s)
+    out.push({
+      name: s.name,
+      star: String(s.no),
+      owner: s.owner,
+      media: face.media,
+      banner: face.banner,
+      contentType: face.contentType,
+      childCount: kids.length,
+      listed,
+      owners: owners.size,
+      floor: floor != null ? floor.toString() : null,
+      volume: volume.toString(),
+      sales,
+    })
+  }
+  out.sort((a, b) => (b.listed - a.listed) || (b.childCount - a.childCount) || (Number(a.star) - Number(b.star)))
+  return out
+}
+function resolveCollectionStar(raw) {
+  const key = String(raw || '').trim()
+  if (!key) return null
+  if (/^(0|[1-9]\d*)$/.test(key)) {
+    const s = node.star(BigInt(key))
+    return s ? s.no : null
+  }
+  const insId = key.toLowerCase()
+  if (/^[0-9a-f]{64}i\d+$/.test(insId)) {
+    const ins = node.ledger.stars.inscription(insId)
+    if (!ins || ins.cursed || ins.star == null) return null
+    return typeof ins.star === 'bigint' ? ins.star : BigInt(ins.star)
+  }
+  return node.ledger.stars.starOfName(key)
+}
+function collectionView(rawKey) {
+  const no = resolveCollectionStar(rawKey)
+  if (no == null) return null
+  const s = node.star(no)
+  if (!s) return null
+  const { listedAt, volumeByStar } = marketMarks()
+  const kids = s.children || []
+  const items = []
+  const owners = new Set()
+  let listed = 0
+  let floor = null
+  let volume = 0n
+  for (const c of kids) {
+    const cs = node.star(c)
+    if (!cs) continue
+    if (cs.owner) owners.add(cs.owner)
+    const item = collectionItem(cs, listedAt)
+    items.push(item)
+    if (item.listing) {
+      listed++
+      const p = BigInt(item.listing.price)
+      if (floor == null || p < floor) floor = p
+    }
+    volume += volumeByStar.get(String(c)) || 0n
+  }
+  const face = collectionFace(s)
+  let about = face.about
+  if (!about && s.contentHash && /^text\//i.test(s.contentType || '')) {
+    try {
+      const pth = join(CONTENT_DIR, s.contentHash)
+      if (existsSync(pth)) about = readFileSync(pth, 'utf8').slice(0, 4000)
+    } catch { /* missing atlas is not a missing collection */ }
+  }
+  return {
+    name: s.name,
+    star: String(s.no),
+    owner: s.owner,
+    rarity: s.rarity,
+    contentType: face.contentType,
+    media: face.media,
+    banner: face.banner,
+    about,
+    items,
+    stats: {
+      items: items.length,
+      listed,
+      owners: owners.size,
+      floor: floor != null ? floor.toString() : null,
+      volume: volume.toString(),
+    },
   }
 }
 
@@ -3651,6 +3943,9 @@ function units(raw, name) {
 function assertNotAmmPot(to, verb) {
   if (isAmmPotAddress(String(to || ''))) {
     throw new Error(`an AMM pot is not a payment address — ${verb} refused; reserves move only by signed amm-add/swap`)
+  }
+  if (String(to || '') === STAR_OFFER) {
+    throw new Error(`the star-offer pot is not a payment address — ${verb} refused; ₭ enters only by signed star-offer`)
   }
 }
 function assertNotContractPot(to, verb) {
@@ -3878,6 +4173,9 @@ function prepareMessage(action, b, nonceOverride) {
     case 'star-list': return { message: starListMessage(NET, from, BigInt(b.star), BigInt(b.price), nonce), nonce, star: String(b.star) }
     case 'star-delist': return { message: starDelistMessage(NET, from, BigInt(b.star), nonce), nonce, star: String(b.star) }
     case 'star-buy': assertNotAmmPot(b.seller, 'buy star'); return { message: starBuyMessage(NET, from, BigInt(b.star), BigInt(b.price), String(b.seller), nonce), nonce, star: String(b.star) }
+    case 'star-offer': return { message: starOfferMessage(NET, from, BigInt(b.star), BigInt(b.price), nonce), nonce, star: String(b.star) }
+    case 'star-offer-cancel': return { message: starOfferCancelMessage(NET, from, BigInt(b.star), nonce), nonce, star: String(b.star) }
+    case 'star-offer-accept': assertNotAmmPot(b.bidder, 'accept offer'); return { message: starOfferAcceptMessage(NET, from, BigInt(b.star), BigInt(b.price), String(b.bidder), nonce), nonce, star: String(b.star) }
     case 'inscribe': {
       const f = inscribeFields(b)
       const meta = readInscriptionMeta(b)
@@ -4018,6 +4316,9 @@ function buildSubmitEvent(action, b, atOverride) {
     case 'star-list': action_ = { ...base, kind: 'star-list', star: String(b.star), amount: String(b.price), fee: '1' }; break
     case 'star-delist': action_ = { ...base, kind: 'star-delist', star: String(b.star), fee: '1' }; break
     case 'star-buy': assertNotAmmPot(b.seller, 'buy star'); action_ = { ...base, kind: 'star-buy', to: b.seller, star: String(b.star), amount: String(b.price), fee: '1' }; break
+    case 'star-offer': action_ = { ...base, kind: 'star-offer', star: String(b.star), amount: String(b.price), fee: '1' }; break
+    case 'star-offer-cancel': action_ = { ...base, kind: 'star-offer-cancel', star: String(b.star), fee: '1' }; break
+    case 'star-offer-accept': assertNotAmmPot(b.bidder, 'accept offer'); action_ = { ...base, kind: 'star-offer-accept', to: b.bidder, star: String(b.star), amount: String(b.price), fee: '1' }; break
     case 'inscribe': {
       const f = inscribeFields(b)
       stageContent(f)
@@ -4415,12 +4716,15 @@ const server = createServer(async (req, res) => {
           '/docs': 'docs.html', '/inscribe': 'inscribe.html', '/send': 'send.html', '/baptize': 'baptize.html',
           '/mine': 'mine.html', '/rune': 'rune.html', '/defi': 'defi.html', '/pool': 'pool.html',
           '/market': 'market.html', '/marketplace': 'market.html',
+          '/collections': 'market.html',
         }
         const PARAM = [
           // /star/<n> · /star/<name> · /star/<inscription id> — star.html resolves all three
           // client-side (a baptized name 302s to its number). The canon relic promises
           // /star/<name>, so the door must route it, not 404 it.
           [/^\/star\/[a-zA-Z0-9]+\/?$/, 'star.html'], [/^\/block\/\w+\/?$/, 'block.html'], [/^\/tx\/[0-9a-f]+/i, 'tx.html'],
+          // /collection/<name> — a named parent star is the collection; children are the items.
+          [/^\/collection\/[a-zA-Z0-9]+\/?$/, 'collection.html'],
           // /profile RE-RATIFIED (Creator, 2026-08-24): the node ships profile.html (the signet base,
           // asset paths adapted) and serves it — a lab node has no kray-web beside it, and a 404 on
           // /u/<addr> read as "bugged". Supersedes the 5573037 migration note; server.itest asserts this.
@@ -4840,6 +5144,7 @@ const server = createServer(async (req, res) => {
           // THE NATIVE STAR MARKET — list / delist / buy are user acts; the constellation
           // hangs a market-coloured node for each so a sale reads at a glance.
           'star-list': 'market', 'star-delist': 'market', 'star-buy': 'market',
+          'star-offer': 'market', 'star-offer-cancel': 'market', 'star-offer-accept': 'market',
         }
         const flow = []
         for (const e of events) {
@@ -4849,7 +5154,12 @@ const server = createServer(async (req, res) => {
           if (e.kind === 'transfer-star' && String(e.to || '') === 'KRAY_BLACK_HOLE') fam = 'fire'
           const blk = blockOfSeq(e.seq)
           // market acts carry price, not amount — surface it in the same field so the hover shows the ₭
-          flow.push({ seq: e.seq, kind: e.kind, family: fam, block: blk ? blk.number : null, amount: e.amount ?? e.price ?? null, to: e.to ?? null, at: e.at ?? null })
+          flow.push({
+            seq: e.seq, kind: e.kind, family: fam, block: blk ? blk.number : null,
+            amount: e.amount ?? e.price ?? null, to: e.to ?? null, at: e.at ?? null,
+            runeId: e.runeId ?? null, otherRuneId: e.otherRuneId ?? null,
+            createPool: isCreatePool(e) || undefined,
+          })
         }
         return ok(res, { count: flow.length, flow: flow.slice(-300) })
       }
@@ -5140,8 +5450,14 @@ const server = createServer(async (req, res) => {
             owner: s?.owner ?? null,   // == seller while the offer is live; a mismatch means the offer is stale
           }
         })
-        return ok(res, { count: listings.length, listings })
+        return ok(res, { count: listings.length, listings, ...marketPulse() })
       }
+      // LINEAGE COLLECTIONS — a named parent with children. Read-only view of the journal + listing book.
+      if (p === '/api/kraynet/collections') return ok(res, { collections: collectionsIndex() })
+      { const cm = p.match(/^\/api\/kraynet\/collection\/(.+)$/); if (cm) {
+        const view = collectionView(decodeURIComponent(cm[1]))
+        return view ? ok(res, view) : err(res, 404, 'no such star')
+      } }
       // THE LANE, READABLE (TK-fold) — the proven lane state (the folder's breath `pre`) + the pending pool.
       if (p === '/api/kraynet/lane') {
         lanePrune()

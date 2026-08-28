@@ -482,6 +482,76 @@ details.brlink>summary:hover{color:var(--btc)}
 .ibatch-pick .btn small{font-size:10px;letter-spacing:.08em;color:var(--btc);text-transform:uppercase}
 .ibatch-pick .btn span{font-size:12px;letter-spacing:.04em;color:var(--ink-3);font-weight:500;text-transform:none}
 
+/* FACE — sealed bytes fill the plate.
+   In-flow ::before strut keeps the square when children are absolute (flex/grid
+   cannot collapse a plate that has padding-top). .fixed = explicit box, no strut. */
+.facefill{position:relative;overflow:hidden;background:var(--surface-2);display:block;width:100%}
+.facefill::before{content:"";display:block;padding-top:100%}
+.facefill.fixed{flex:0 0 auto}
+.facefill.fixed::before{content:none;display:none;padding:0}
+.facefill>img,.facefill>iframe,.facefill>video{
+  position:absolute;inset:0;width:100%;height:100%;border:0;object-fit:cover;pointer-events:none;display:block;background:var(--void);z-index:1}
+.facefill>.glyph,.facefill>.ph{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;color:var(--ink-4);letter-spacing:.04em;z-index:0}
+
+/* MARKET CARD — square face · name · path · price · 48px acts. One mouth. */
+.mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:var(--s5)}
+.mk-block{margin:0 0 var(--s7)}
+.mk-block>h2{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);font-weight:600;margin:0 0 var(--s4)}
+.mk-empty{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:var(--s7) var(--s5);text-align:center;color:var(--ink-4);font-family:var(--mono);font-size:13px;line-height:1.55}
+.cardm{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);overflow:hidden;display:flex;flex-direction:column;min-width:0}
+.cardm:hover{border-color:var(--line-2)}
+.cardm .art{flex:0 0 auto;border-bottom:1px solid var(--line)}
+.cardm .body{padding:var(--s4);display:flex;flex-direction:column;gap:var(--s2);min-width:0}
+.cardm .nm{font-weight:600;font-size:16px;letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit;text-decoration:none}
+.cardm .nm:hover{color:var(--ink)}
+.cardm .no{font-family:var(--mono);font-size:11px;color:var(--ink-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cardm .who{display:flex;flex-direction:column;gap:2px;font-family:var(--mono);font-size:11px;color:var(--ink-3);min-width:0}
+.cardm .who em{font-style:normal;color:var(--ink-4);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-right:6px}
+.cardm .who a,.cardm .who span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit}
+.cardm .who a:hover{color:var(--ink)}
+.cardm .px{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;font-size:22px;letter-spacing:-.03em;margin-top:var(--s2)}
+.cardm .px.quiet{color:var(--ink-4);font-weight:500;font-size:13px}
+.cardm .acts{display:flex;gap:var(--s2);margin-top:var(--s3)}
+.cardm .acts .btn{flex:1;min-height:48px;font-size:13px;justify-content:center}
+.cardm .mine-tag,.mine-tag{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--signal);border:1px solid var(--btc-line);border-radius:var(--r1);padding:2px 6px;align-self:flex-start}
+
+/* ── LEDGER TAPE — thumb · action · name · from→to · price. One book, hairline rows. */
+.hist{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);overflow:hidden}
+.hrow{display:grid;grid-template-columns:64px 84px minmax(100px,1.1fr) minmax(132px,1.3fr) minmax(104px,auto);
+  gap:var(--s4);align-items:center;padding:var(--s3) var(--s4);border-bottom:1px solid var(--line);
+  text-decoration:none;color:inherit;min-height:80px}
+.hrow:last-child{border-bottom:0}
+.hrow:hover{background:var(--surface-2);text-decoration:none}
+.hrow .hsq{width:64px;height:64px;border-radius:var(--r1);border:1px solid var(--line);flex:0 0 auto}
+.hrow .htag{display:inline-flex;align-items:center;justify-content:center;min-width:72px;padding:var(--s1) var(--s2);border-radius:var(--r1);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;color:#0a0b0e}
+.hrow .hnm{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hrow .hnm b{font-size:14px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hrow .hnm .meta{font-family:var(--mono);font-size:11px;color:var(--ink-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hrow .hsq.facefill{width:var(--s8);height:var(--s8)}
+.hrow .hwho{display:flex;flex-direction:column;gap:2px;font-family:var(--mono);font-size:11px;color:var(--ink-3);min-width:0;line-height:1.4}
+.hrow .hwho em{font-style:normal;color:var(--ink-4);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-right:6px}
+.hrow .hwho i{font-style:normal;color:var(--ink-4);letter-spacing:.16em;font-size:10px}
+.hrow .hwho a,.hrow .hwho span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:inherit}
+.hrow .hwho a:hover{color:var(--ink)}
+.hrow .hw{font-family:var(--mono);font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.45}
+.hrow .hw b{color:var(--ink);font-weight:600}
+.hrow .hb{font-family:var(--mono);font-size:11px;color:var(--ink-4);white-space:nowrap;text-align:right;line-height:1.35}
+.hrow .hb .ht{display:block;color:var(--ink);font-variant-numeric:tabular-nums;font-size:16px;font-weight:600;letter-spacing:-.02em}
+.hrow .hb .hr{display:block;font-size:10px;color:var(--ink-3)}
+.hrow .hb .hk{display:block;font-size:10px;color:var(--ink-4)}
+.hleg{display:flex;flex-wrap:wrap;gap:var(--s3);margin:0 0 var(--s3);font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+.hleg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+@media(max-width:768px){
+  .hrow{grid-template-columns:64px minmax(0,1fr) auto;gap:var(--s3);min-height:0;padding:var(--s3)}
+  .hrow .hsq{grid-row:1 / span 4}
+  .hrow .htag{grid-column:2;justify-self:start}
+  .hrow .hnm,.hrow .hw,.hrow .hwho{grid-column:2}
+  .hrow .hb{grid-column:3;grid-row:1 / span 4;align-self:center}
+}
+
 /* ── SQUEEZE LAW — phone / app width: same 8pt, no blown columns ── */
 @media(max-width:639px){
   .list,.rgrid,.fallback{grid-template-columns:minmax(0,1fr)}

@@ -34,6 +34,7 @@ export interface CascadeParts {
   fireRoot?: string         // THE FIREBORN LAW tank book — present iff at/after the feeless activation seq (A3)
   laneRoot?: string         // THE TK-FOLD lane book (Gate 2) — present iff at/after the fold activation seq (appended LAST, A3)
   marketCommitment?: string // THE STAR MARKET order book — present iff a listing exists (by presence, the AMM pattern; A3)
+  offerCommitment?: string  // ESCROWED STAR OFFERS — present iff a live bid exists (A3 grow-only, after market)
 }
 
 /** Re-derive the cascade root from its parts — byte-identical to `ledger.cascadeRoot()`, which IS this. */
@@ -58,5 +59,6 @@ export function cascadeRootFromParts(p: CascadeParts): string {
   if (p.fireRoot !== undefined) h.update(`fire:${p.fireRoot}\n`, 'utf8')      // FIREBORN tank (A3): undefined below activation ⇒ byte-identical
   if (p.laneRoot !== undefined) h.update(`lane:${p.laneRoot}\n`, 'utf8')      // TK-FOLD lane — appended LAST (A3): undefined below activation ⇒ byte-identical
   if (p.marketCommitment !== undefined) h.update(`market:${p.marketCommitment}\n`, 'utf8')   // STAR MARKET (A3): undefined when no listing exists ⇒ byte-identical to a pre-market history
+  if (p.offerCommitment !== undefined) h.update(`offers:${p.offerCommitment}\n`, 'utf8')     // STAR OFFERS (A3): undefined when the book is empty ⇒ byte-identical genesis
   return h.digest('hex')
 }

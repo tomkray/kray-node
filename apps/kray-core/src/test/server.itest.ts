@@ -128,6 +128,20 @@ async function main() {
     ok(typeof profApi.balance === 'string' && profApi.stars && Array.isArray(profApi.stars.list), 'GET /api/kraynet/profile/<addr> serves the profile DATA the web house renders')
     const starApi = await jget('/api/kraynet/star/0')
     ok(starApi && String(starApi.no ?? starApi.star ?? '') === '0', 'GET /api/kraynet/star/0 serves the star DATA the web house renders')
+    ok(starApi.listing === null || (starApi.listing && starApi.listing.price != null), 'star view carries the live listing (null when unlisted)')
+    {
+      const [colDoor, colHtml] = await jtext('/collection/foo')
+      ok(colDoor === 200 && /<html/i.test(colHtml), 'GET /collection/<name> serves the collection page (HTML)')
+      ok((await jtext('/collections'))[0] === 200, 'GET /collections serves the market door')
+      const cols = await jget('/api/kraynet/collections')
+      ok(Array.isArray(cols.collections), 'GET /api/kraynet/collections returns an array (empty here — no named parent with children yet)')
+      const byNo = await jget('/api/kraynet/collection/0')
+      ok(byNo && String(byNo.star) === '0', 'GET /api/kraynet/collection/0 resolves the star by number')
+      ok((await jtext('/collection/0'))[0] === 200, 'GET /collection/<number> serves the collection page')
+      const missCol = await fetch(BASE + '/api/kraynet/collection/nocollectionhere999')
+      const missJ = await missCol.json()
+      ok(missCol.status === 404 && /no such star/.test(String(missJ.error || '')), 'GET /api/kraynet/collection/<missing> is HTTP 404')
+    }
     const [holeStatus, holeHtml] = await jtext('/blackhole')
     ok(holeStatus === 200 && /FREEZE/.test(holeHtml) && /BURNED/.test(holeHtml) && /The fire is every/.test(holeHtml),
       'GET /blackhole names the two sinks — stars freeze, ₭ burns')

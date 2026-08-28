@@ -16,6 +16,8 @@ const SKIP_DIR = new Set([
   'exam', 'lab',
   // operator run-layer (cloudflared, launchd, writer wrappers) — gitignored AND unzipped
   'bin',
+  // writer-disk deploy kit — never the public door or the /validate zip
+  'origin-vitrine',
   // private scroll — keep on disk, never the public door or /validate zip
   'manifesto',
   // external tenant bridges — other houses, not the public node
@@ -41,6 +43,7 @@ const SKIP_FILE = new Set([
   'sync-vitrine.sh', 'open-pot-tunnel.sh', 'point-vitrine-hot.sh',
   'workshop.md',
   '.oss-guard-local',
+  'operator-ship.md', 'krayos-mind.md', 'origin-local.env.example',
 ])
 
 export function shouldPackPath(rel) {
@@ -49,6 +52,8 @@ export function shouldPackPath(rel) {
   const base = (parts[parts.length - 1] || '').toLowerCase()
   // operator handoff (house names, deploy rite) — disk only
   if (parts[0] === 'docs' && base.startsWith('handoff-')) return false
+  // bakery on disk (rsync leftover) — never zip. pot-signer.mjs is the one public app.
+  if (parts.includes('operator') && base !== 'pot-signer.mjs') return false
   if (SKIP_FILE.has(base) || base.endsWith('.log') || base.endsWith('.redb')) return false
   if (base.endsWith('.bak') || base.includes('.bak-') || base.includes('.bak.')) return false
   if (parts[0] && SKIP_ROOT.has(parts[0])) return false

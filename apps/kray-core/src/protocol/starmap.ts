@@ -127,6 +127,10 @@ export class StarRegistry {
         // a star the seller actually holds moves (a stale buy never reaches here — the ledger refuses it first).
         this.moveStarTo(e)
         break
+      case 'star-offer-accept':
+        // Owner (e.from) accepted bidder (e.to) — same move as transfer-star. Ledger already paid from the pot.
+        this.moveStar(e)
+        break
       case 'contract':
         // v2 only: e.star set. The pot address is derived here the same way the ledger does.
         // Transfer of the star does NOT move the pot (moveStar never touches this pointer).

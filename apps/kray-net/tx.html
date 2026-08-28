@@ -22,6 +22,10 @@
 .headline{font-size:clamp(21px,3.4vw,29px);font-weight:500;letter-spacing:-.02em;line-height:1.2;margin:var(--s3) 0 var(--s2);text-wrap:pretty}
 .headline .amt{color:var(--ink);font-weight:600}
 .txhash{font-family:var(--mono);font-size:12.5px;color:var(--ink-3);word-break:break-all;line-height:1.6}
+.whenbox{margin-top:var(--s4);display:flex;flex-wrap:wrap;gap:var(--s5) var(--s7)}
+.whenbox .wk{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);margin-bottom:4px}
+.whenbox .wt{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.whenbox .wa{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:2px}
 .note{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:var(--s3);line-height:1.55}
 .lawprev{margin-top:var(--s4);font-family:var(--mono);font-size:11px;line-height:1.5;color:var(--ink-3);white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;padding:var(--s3);border:1px solid var(--line-2);border-radius:var(--r2);background:var(--void)}
 
@@ -204,6 +208,32 @@
     return btcOrigin(id, t.potExplorer);
   }
   function when(t){ try{ return new Date(t).toLocaleString(); }catch(_){ return String(t); } }
+  function stamp(ms){
+    if(ms==null || ms==='') return null;
+    var clock=(window.KRAY&&KRAY.clock)?KRAY.clock(ms):when(ms);
+    var ago=(window.KRAY&&KRAY.ago)?KRAY.ago(ms):'';
+    var local='';
+    try{ local=new Date(Number(ms)).toLocaleString(); }catch(_){}
+    return { clock:clock, ago:ago, local:local };
+  }
+  function whenCard(t){
+    var validated=stamp(t.at);
+    var sealed=t.block&&t.block.at!=null?stamp(t.block.at):null;
+    if(!validated && !sealed) return '';
+    var h='<div class="whenbox">';
+    if(validated){
+      h+='<div title="'+esc(validated.local)+'"><div class="wk">validated</div><div class="wt">'+esc(validated.clock)+'</div>'
+        +(validated.ago?'<div class="wa">'+esc(validated.ago)+'</div>':'')+'</div>';
+    }
+    if(sealed){
+      h+='<div title="'+esc(sealed.local)+'"><div class="wk">sealed · block #'+Number(t.block.number).toLocaleString()+'</div><div class="wt">'+esc(sealed.clock)+'</div>'
+        +(sealed.ago?'<div class="wa">'+esc(sealed.ago)+'</div>':'')+'</div>';
+    } else if(t.block){
+      h+='<div><div class="wk">sealed</div><div class="wt">block #'+Number(t.block.number).toLocaleString()+'</div></div>';
+    }
+    h+='</div>';
+    return h;
+  }
 
   // the right glyph for the kind — a technical mark, never a claim
   function glyphFor(t){
@@ -438,6 +468,7 @@
       +'</div>'
       +'<div class="headline">'+headline(t)+'</div>'
       +'<div class="txhash mono">'+esc(t.hash)+'</div>'
+      +whenCard(t)
     +'</div>'
     +markCard(t)
     +ammCard(t);
@@ -601,7 +632,15 @@
       +'<dt>hash</dt><dd>'+esc(t.hash)+'</dd>'
       +'<dt>previous hash</dt><dd>'+esc(t.prevHash)+'</dd>'
       +(t.nonce!=null?'<dt>nonce</dt><dd>'+esc(String(t.nonce))+'</dd>':'')
-      +'<dt>recorded</dt><dd>'+when(t.at)+'</dd>'
+      +(function(){
+        var s=stamp(t.at);
+        if(!s) return '';
+        return '<dt>validated</dt><dd><b>'+esc(s.clock)+'</b>'+(s.ago?' · '+esc(s.ago):'')+'<br><span class="dim2">local '+esc(s.local)+' — the door clock when this act applied</span></dd>';
+      })()
+      +(t.block && t.block.at!=null?(function(){
+        var s=stamp(t.block.at);
+        return s?'<dt>sealed</dt><dd>'+esc(s.clock)+(s.ago?' · '+esc(s.ago):'')+'</dd>':'';
+      })():'')
       +(t.block?'<dt>block hash</dt><dd>'+esc(t.block.hash)+'</dd>':'')
       +(t.paidBinding && t.paidBinding.refused
         ? '<dt>certificate</dt><dd>refused — '+esc(t.paidBinding.reason||'codec')+'</dd>'

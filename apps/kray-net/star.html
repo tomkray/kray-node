@@ -7,7 +7,7 @@
 <link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
-<link rel="stylesheet" href="/kray.css">
+<link rel="stylesheet" href="/kray.css?v=mk4">
 <style>
 /* ============================================================================
    KRAY.NETWORK — Star · page-local only. The system lives in /kray.css.
@@ -65,6 +65,22 @@
 .rg-mythic{color:#f7931a}.rg-legendary{color:#c98bff}.rg-epic{color:#6bb6ff}.rg-rare{color:#4ec98a}.rg-uncommon{color:#d7dae2}.rg-common{color:#818995}.rg-dark{color:#4a5058}
 .owner{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:var(--s4);word-break:break-all}
 .owner b{color:var(--ink-2);font-weight:500}
+
+/* live market offer — the loudest action on a listed star */
+.offer{margin-top:var(--s5);padding:var(--s5);border:1px solid var(--line-2);border-radius:var(--r3);background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:var(--s5);flex-wrap:wrap}
+.offer.live{border-color:var(--line-2);box-shadow:var(--shadow)}
+.offer .ok{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-4);margin-bottom:var(--s2)}
+.offer .opx{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:clamp(28px,4vw,36px);font-weight:700;letter-spacing:-.03em;line-height:1}
+.offer .osub{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:var(--s2)}
+.offer .oacts{display:flex;gap:var(--s2);flex-wrap:wrap;flex:1 1 220px;justify-content:flex-end}
+.offer .oacts .btn{min-height:48px;padding:var(--s3) var(--s5);font-size:13px}
+.offer .oacts .btn.primary{flex:1 1 200px;justify-content:center}
+.bids{width:100%;margin-top:var(--s4);display:flex;flex-direction:column;gap:var(--s2)}
+.bidrow{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding:var(--s3) var(--s4);border:1px solid var(--line-2);border-radius:var(--r2);min-height:48px}
+.bidrow .bp{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700}
+.bidrow .bb{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+.toast{position:fixed;left:50%;bottom:var(--s5);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:var(--s3) var(--s4);border-radius:var(--r2);font-size:13px;max-width:90vw;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+.toast.on{opacity:1}
 
 /* the cover — whatever is inside the star, rendered at scale */
 .art{width:200px;height:200px;border-radius:var(--r3);border:1px solid var(--line-2);background:var(--panel);
@@ -175,15 +191,7 @@
 .work .wk{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-4)}
 .work:hover .pbox{border-color:var(--ink-3)}
 
-/* ── history ─────────────────────────────────────────────────────────────── */
-.hist{display:flex;flex-direction:column;gap:var(--s2)}
-.hrow{display:grid;grid-template-columns:104px 1fr auto;gap:var(--s3);align-items:center;border:1px solid var(--line);
-  border-radius:var(--r1);padding:var(--s2) var(--s3);background:var(--panel);text-decoration:none}
-.hrow:hover{border-color:var(--line-2);text-decoration:none}
-.hrow .hk{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
-.hrow .hw{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.hrow .hb{font-family:var(--mono);font-size:11px;color:var(--ink-4);white-space:nowrap}
-@media(max-width:640px){.hrow{grid-template-columns:1fr auto}.hrow .hk{grid-column:1/-1}}
+/* History rows live in /kray.css (.hist / .hrow) — one ledger tape, every door. */
 
 /* ── THE BAPTISM IN THE PLACE OF HONOUR — a star known by its name ────────── */
 .nmhero{display:inline-flex;flex-direction:column;gap:2px;border:1px solid var(--line-2);background:var(--surface-2);
@@ -287,8 +295,9 @@
     <a class="pgb" id="pg-next2"><span></span> →</a>
   </nav>
 </div>
+<div class="toast" id="toast"></div>
 
-<script src="/kray.js" defer></script>
+<script src="/kray.js?v=mk4" defer></script>
 <script src="/contract-exam.js" defer></script>
 <script>
 (function(){
@@ -1086,6 +1095,137 @@
     setTimeout(check, 1200);
   }
 
+  function toast(msg){
+    var t=document.getElementById('toast');
+    if(!t) return;
+    t.textContent=msg;
+    t.classList.add('on');
+    clearTimeout(t._t);
+    t._t=setTimeout(function(){ t.classList.remove('on'); }, 3200);
+  }
+  function askPrice(label, current){
+    var v=prompt(label, current!=null?String(current).replace(/[^0-9]/g,''):'');
+    if(v==null) return null;
+    var price=String(v).replace(/[^0-9]/g,'');
+    if(!price || Number(price)<=0){ toast('Enter a positive whole number of ₭.'); return null; }
+    return price;
+  }
+  function mountMarketBar(s){
+    var host=document.getElementById('offerbar');
+    if(!host || s.dark || s.owner==='KRAY_BLACK_HOLE') return;
+    function me(){ return window.__krayAddr || null; }
+    function paint(){
+      var listing=s.listing||null;
+      var bids=s.offers||[];
+      var addr=me();
+      var mine=!!addr && s.owner===addr;
+      var html='';
+      if(listing){
+        var px=kray(listing.price);
+        if(mine){
+          html+='<div class="offer live"><div><div class="ok">your listing</div><div class="opx">'+esc(px)+'</div>'
+            +'<div class="osub">signed · atomic · 1 ₭ fee</div></div>'
+            +'<div class="oacts">'
+            +'<button type="button" class="btn" data-relist="1">Relist</button>'
+            +'<button type="button" class="btn" data-cancel="1">Cancel listing</button>'
+            +'</div></div>';
+        } else {
+          html+='<div class="offer live"><div><div class="ok">buy now</div><div class="opx">'+esc(px)+'</div>'
+            +'<div class="osub">seller '+esc(String(listing.seller).slice(0,8))+'… · fee 1 ₭ · no custodian</div></div>'
+            +'<div class="oacts"><button type="button" class="btn primary" data-buy="1">Buy now · '+esc(px)+'</button></div></div>';
+        }
+      } else if(mine){
+        html+='<div class="offer"><div><div class="ok">market</div><div class="osub">This star is not listed. You hold it — set an ask.</div></div>'
+          +'<div class="oacts"><button type="button" class="btn" data-list="1">List for sale</button></div></div>';
+      }
+      if(addr && !mine){
+        html+='<div class="offer"><div><div class="ok">offer</div><div class="osub">Lock ₭ in the protocol pot. Cancel returns it. Accept is atomic. Fee 1 ₭.</div></div>'
+          +'<div class="oacts"><button type="button" class="btn" data-bid="1">Make offer</button></div></div>';
+      }
+      if(bids.length){
+        html+='<div class="bids">';
+        bids.forEach(function(o){
+          var mineBid=!!addr && o.bidder===addr;
+          html+='<div class="bidrow"><div><span class="bp">'+esc(kray(o.price))+'</span>'
+            +'<div class="bb">'+(mineBid?'your locked bid':'from '+esc(String(o.bidder).slice(0,10))+'…')+'</div></div><div>';
+          if(mine) html+='<button type="button" class="btn primary" data-accept="1" data-bidder="'+esc(o.bidder)+'" data-price="'+esc(o.price)+'">Accept</button>';
+          if(mineBid) html+='<button type="button" class="btn" data-unbid="1">Cancel offer</button>';
+          html+='</div></div>';
+        });
+        html+='</div>';
+      }
+      host.innerHTML=html;
+    }
+    async function refresh(){
+      try{
+        var fresh=await fetch('/api/kraynet/star/'+encodeURIComponent(String(s.star))).then(function(r){ return r.json(); });
+        if(fresh && !fresh.error){ s.listing=fresh.listing||null; s.offers=fresh.offers||[]; }
+      }catch(_){ /* keep the last proven listing */ }
+      paint();
+    }
+    host.addEventListener('click', function(ev){
+      var t=ev.target.closest('[data-buy],[data-cancel],[data-relist],[data-list],[data-bid],[data-unbid],[data-accept]');
+      if(!t) return;
+      if(t.dataset.buy){
+        if(!me()){ toast('Connect your KrayWallet in the header first.'); return; }
+        t.disabled=true; var old=t.textContent; t.textContent='Signing…';
+        window.KRAY.act('star-buy', { star:String(s.star), price:String(s.listing.price), seller:s.listing.seller })
+          .then(function(){ toast('Bought ★ '+s.star+' — the star is yours.'); location.reload(); })
+          .catch(function(e){ toast((e&&e.message)||'refused'); t.disabled=false; t.textContent=old; });
+        return;
+      }
+      if(t.dataset.cancel){
+        t.disabled=true; var oldc=t.textContent; t.textContent='Signing…';
+        window.KRAY.act('star-delist', { star:String(s.star) })
+          .then(function(){ toast('Listing cancelled.'); return refresh(); })
+          .catch(function(e){ toast((e&&e.message)||'refused'); t.disabled=false; t.textContent=oldc; });
+        return;
+      }
+      if(t.dataset.relist){
+        var next=askPrice('New price in ₭ for star #'+s.star+' (current '+kray(s.listing.price)+'):', s.listing.price);
+        if(!next) return;
+        window.KRAY.act('star-list', { star:String(s.star), price:next })
+          .then(function(){ toast('Re-listed at '+kray(next)+'.'); return refresh(); })
+          .catch(function(e){ toast((e&&e.message)||'refused'); });
+        return;
+      }
+      if(t.dataset.list){
+        var p=askPrice('Price in ₭ for star #'+s.star+':', '');
+        if(!p) return;
+        window.KRAY.act('star-list', { star:String(s.star), price:p })
+          .then(function(){ toast('Listed at '+kray(p)+'.'); return refresh(); })
+          .catch(function(e){ toast((e&&e.message)||'refused'); });
+        return;
+      }
+      if(t.dataset.bid){
+        if(!me()){ toast('Connect your KrayWallet in the header first.'); return; }
+        var bid=askPrice('Offer in ₭ for star #'+s.star+' (locks in the pot + 1 ₭ fee):', '');
+        if(!bid) return;
+        t.disabled=true; var oldb=t.textContent; t.textContent='Signing…';
+        window.KRAY.act('star-offer', { star:String(s.star), price:bid })
+          .then(function(){ toast('Offer locked — '+kray(bid)+' in the pot.'); return refresh(); })
+          .catch(function(e){ toast((e&&e.message)||'refused'); t.disabled=false; t.textContent=oldb; });
+        return;
+      }
+      if(t.dataset.unbid){
+        t.disabled=true; var oldu=t.textContent; t.textContent='Signing…';
+        window.KRAY.act('star-offer-cancel', { star:String(s.star) })
+          .then(function(){ toast('Offer cancelled — ₭ returned.'); return refresh(); })
+          .catch(function(e){ toast((e&&e.message)||'refused'); t.disabled=false; t.textContent=oldu; });
+        return;
+      }
+      if(t.dataset.accept){
+        t.disabled=true; var olda=t.textContent; t.textContent='Signing…';
+        window.KRAY.act('star-offer-accept', { star:String(s.star), price:String(t.dataset.price), bidder:t.dataset.bidder })
+          .then(function(){ toast('Accepted — the star moved atomically.'); location.reload(); })
+          .catch(function(e){ toast((e&&e.message)||'refused'); t.disabled=false; t.textContent=olda; });
+      }
+    });
+    paint();
+    window.addEventListener('kray-connected', function(e){ if(e.detail&&e.detail.address) window.__krayAddr=e.detail.address; paint(); });
+    window.addEventListener('kray-disconnected', function(){ window.__krayAddr=null; paint(); });
+  }
+
   function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
   function sink(kind, word){
     if(window.KRAY && typeof KRAY.sink==='function') return KRAY.sink(kind, word);
@@ -1406,6 +1546,18 @@
       +(s.written?'<span class="chip">relic · never spent as gas</span>':'<span class="chip">plain · moves as money</span>')
       +(s.contract?'<span class="chip">law · living</span>':'')
       +(s.family.childCount?'<span class="chip">'+s.family.childCount+' child'+(s.family.childCount===1?'':'ren')+'</span>':'')
+      +(s.name && s.family.childCount?'<a class="chip" href="/collection/'+esc(s.name)+'" title="Lineage collection — the children of this named star">collection · '+esc(s.name)+'</a>':'')
+      +(function(){
+        var h='', seen={};
+        function addIn(a){
+          if(!a || a.l1 || !a.name || seen[a.name]) return;
+          seen[a.name]=1;
+          h+='<a class="chip" href="/collection/'+esc(a.name)+'" title="Child of the named star '+esc(a.name)+'">in '+esc(a.name)+'</a>';
+        }
+        (s.family.immediate||[]).forEach(addIn);
+        if(s.family.ancestors && s.family.ancestors[0]) addIn(s.family.ancestors[0]);
+        return h;
+      })()
       +(function(){
         var n=0;
         ;(s.family.ancestors||[]).concat(s.family.immediate||[]).forEach(function(a){
@@ -1440,6 +1592,7 @@
           +'<i id="fmhow">It can never move again — not by anyone, ever. Retired from circulation, it stays visible forever. '
           +'<a href="/blackhole">see the register ↗</a></i></span></div>'
         : '<div class="owner">held by <b>'+addr(s.owner)+'</b></div>')
+      +'<div id="offerbar"></div>'
       +'</div></div>';
 
     // what is written on it
@@ -1591,15 +1744,35 @@
       +'<dt>status</dt><dd>'+(s.written?'<b>written</b> — a relic, protocol-protected: it can only travel by an explicit star send, never as money':'plain — it moves as ordinary ₭')+'</dd>'
       +'</dl></div>';
 
-    // everything that ever touched it
+    // everything that ever touched it — market sale vs ordinary send, each tagged
     if(s.history.length){
-      h+='<div class="card tick"><h2>History</h2><div class="sub">The raffle’s own book — oldest first. A ticket line is ₭ that went into the pot. Click any row for the proof act.</div><div class="hist">'
+      var hue=function(kind,opts){ return (window.KRAY&&KRAY.actCss)?KRAY.actCss(kind,opts||{}):'#8b5cf6'; };
+      h+='<div class="card tick"><h2>History</h2>'
+        +'<div class="sub">Provenance of this star — oldest first. A tag names the door: ordinary send, or a market list / sale / cancel. Click any row for the signed act.</div>'
+        +'<div class="hleg">'
+        +'<span><i style="background:'+hue('star-list')+'"></i>listed</span>'
+        +'<span><i style="background:'+hue('star-list')+'"></i>relisted</span>'
+        +'<span><i style="background:'+hue('star-buy')+'"></i>sold</span>'
+        +'<span><i style="background:'+hue('star-offer')+'"></i>offer</span>'
+        +'<span><i style="background:'+hue('star-offer-accept')+'"></i>accepted</span>'
+        +'<span><i style="background:'+hue('star-delist')+'"></i>cancelled</span>'
+        +'<span><i style="background:'+hue('transfer-star')+'"></i>sent</span>'
+        +'<span><i style="background:'+hue('transfer-star',{family:'fire'})+'"></i>frozen</span>'
+        +'</div><div class="hist">'
         +s.history.map(function(e){
-          var tag=e.kind, what='';
-          if(e.kind==='inscribe'){ tag='write'; what='content chiselled'+(e.burn?' · burned '+kray(e.burn):''); }
+          var tag=e.tag||e.kind, via=e.via||'', what='', hueKind=e.kind, hueOpts={};
+          if(tag==='list'){ what='listed'; hueKind='star-list'; }
+          else if(tag==='relist'){ what='relisted'; hueKind='star-list'; }
+          else if(tag==='sale'){ what='sold'; hueKind='star-buy'; }
+          else if(tag==='offer'){ what='offer locked'; hueKind='star-offer'; }
+          else if(tag==='offer-cancel'){ what='offer cancelled'; hueKind='star-offer-cancel'; }
+          else if(tag==='offer-accept'){ what='offer accepted'; hueKind='star-offer-accept'; }
+          else if(tag==='cancel'){ what='listing cancelled'; hueKind='star-delist'; }
+          else if(tag==='send'){ what='sent'; hueKind='transfer-star'; }
+          else if(tag==='freeze'){ what='frozen'; hueKind='transfer-star'; hueOpts={family:'fire'}; }
+          else if(e.kind==='inscribe'){ tag='write'; what='content chiselled'+(e.burn?' · burned '+kray(e.burn):''); }
           else if(e.kind==='name'){ tag='name'; what='baptised'+(e.burn?' · burned '+kray(e.burn):''); }
           else if(e.kind==='origin'){ tag='origin'; what='born from L1'+(e.burn?' · burned '+kray(e.burn):''); }
-          else if(e.kind==='transfer-star'){ tag='send'; what=e.from?e.from.slice(0,10)+'… → '+String(e.to).slice(0,10)+'…':'travelled'; }
           else if(e.kind==='contract'){ tag='law'; what='raffle sealed on this face'+(e.burn?' · burned '+kray(e.burn):''); }
           else if(e.kind==='contract-call' && e.rule==='enter'){
             tag='ticket';
@@ -1616,9 +1789,25 @@
           } else if(e.kind==='contract-call'){
             tag=e.rule||'call';
             what='law · '+esc(e.rule||'call');
-          } else { what=e.kind; }
-          return '<a class="hrow" href="/tx/'+e.hash+'"><span class="hk">'+esc(tag)+'</span>'
-            +'<span class="hw">'+esc(what)+'</span><span class="hb">block #'+Number(e.blockNumber).toLocaleString()+'</span></a>';
+          } else if(!what){ what=esc(e.kind); }
+          var viaLab=via==='market'?'market':(via==='send'?'send':(via==='fire'?'fire':''));
+          var whenMs=e.at!=null?e.at:(e.blockAt!=null?e.blockAt:null);
+          var clock=(whenMs!=null && window.KRAY&&KRAY.clock)?KRAY.clock(whenMs):'';
+          var ago=(whenMs!=null && window.KRAY&&KRAY.ago)?KRAY.ago(whenMs):'';
+          var local='';
+          try{ if(whenMs!=null) local=new Date(Number(whenMs)).toLocaleString(); }catch(_){}
+          var plate=(window.KRAY&&KRAY.faceHtml)?KRAY.faceHtml({contentHash:s.contentHash,contentType:s.contentType,star:s.star}):'<span class="glyph">★ '+esc(s.star)+'</span>';
+          var shortA=function(lab,a){ return a?'<span title="'+esc(a)+'"><em>'+esc(lab)+'</em>'+esc(a.slice(0,10))+'…'+esc(a.slice(-6))+'</span>':''; };
+          var who=(e.from||e.to)?shortA('from',e.from)+shortA('to',e.to):'';
+          return '<a class="hrow" href="/tx/'+e.hash+'"><span class="hsq facefill fixed">'+plate+'</span>'
+            +'<span class="htag" style="background:'+hue(hueKind,hueOpts)+'">'+esc(tag)+'</span>'
+            +'<span class="hnm"><b>'+esc(s.name||('★ '+s.star))+'</b><span class="meta">'+what+(viaLab?' · '+viaLab:'')+'</span></span>'
+            +'<span class="hwho">'+(who||'—')+'</span>'
+            +'<span class="hb" title="'+esc(local||'validated on the journal')+'">'
+            +(e.amount!=null?'<span class="ht">'+esc(kray(e.amount))+'</span>':'')
+            +(clock?'<span class="hr">'+esc(clock)+(ago?' · '+esc(ago):'')+'</span>':'')
+            +(e.blockNumber!=null?'<span class="hk">block #'+Number(e.blockNumber).toLocaleString()+'</span>':'<span class="hk">pending seal</span>')
+            +'</span></a>';
         }).join('')+'</div></div>';
     }
 
@@ -1631,6 +1820,7 @@
     // its place in the city, drawn from the node's own parcel list
     if(s.written) mountLand(s.star);
     mountOwnerBar(s);
+    mountMarketBar(s);
     mountSpeak(s);
     mountLaw(s);
     tellFreezeKind(s);

@@ -22,7 +22,7 @@ import { NAME_MAX_BYTES } from './star-lore.ts'
 import { AnchoringPot, DEFAULT_POT_TARGET_SATS, MINT_CAP_SATS, WINDOW_PER_SEAL_SATS } from './pot.ts'
 import {
   isSupportedScheme, toBtcNet, verifySignature, isAddressOnNetwork,
-  transferMessage, xSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
+  transferMessage, xSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, BODY_HASH_RE, ORIGIN_COHORT_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
@@ -39,13 +39,14 @@ import { hitCount, custodyFromHex, verifyCustody, type AtlasOracle } from '../ec
 import { assertPresenceClaims, assertPresenceEra, foldClaimsByAddress, readPresenceTip } from '../economics/presence-window.ts'
 import { validateContract, canonicalCode, runCall, contractAddress, isContractPotAddress, type ContractCode } from './contract.ts'
 import { isMintPaper } from './star-forms.ts'
-import { sha256hex, MIN_FEE, TREASURY, BLACK_HOLE, MAX_INSCRIPTION_BYTES, MAX_INSCRIPTION_PROPORTION, starBurnOf, BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, SEAL_CONTENT_BUDGET, RETARGET_WINDOW_SEALS, retargetBytesPerKray, donationProofMinConf, SIZE_PROPORTION_ACTIVATION_SEQ, STAR_RE, type KrayEvent, type SettlementRow } from './kray-primitives.ts'
+import { sha256hex, MIN_FEE, TREASURY, BLACK_HOLE, STAR_OFFER, MAX_INSCRIPTION_BYTES, MAX_INSCRIPTION_PROPORTION, starBurnOf, BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, SEAL_CONTENT_BUDGET, RETARGET_WINDOW_SEALS, retargetBytesPerKray, donationProofMinConf, SIZE_PROPORTION_ACTIVATION_SEQ, STAR_RE, type KrayEvent, type SettlementRow } from './kray-primitives.ts'
 import { verifyDonationProof } from '../anchor/spv.ts'   // ADR-1: pure/offline SPV re-verify (no network) — safe in the reducer
 import { selfAnchorScriptHex } from './self-anchor.ts'   // ADR-1 extended: re-derive a self-anchor burn script from (pot key, sealed payload) — pure, offline
 import { KrayAnchor } from '../anchor/anchor.ts'         // KrayAnchor.payload — the one canonical anchor payload codec (static, offline)
 import { verifyRuneDepositProof, verifyRuneSettleProof } from './rune-bridge.ts'   // ADR-1 extended to the rune peg — same purity, same law
 import { AmmBook, ammPoolAddress, ammRrPoolAddress, isAmmPotAddress, quoteAdd, quoteFirstMint, quoteOut, quoteRemove, rrPairKey } from './amm.ts'
 import { StarMarket } from './star-market.ts'   // native, atomic, trustless star order book — folds by presence (A3), never touches Σ
+import { StarOffers } from './star-offers.ts'   // escrowed bids — pot ₭ == book, or HALT
 import { inclusionRoot as buildInclusionRoot, IncrementalInclusionTree } from './inclusion-tree.ts'   // ADR-3 3a (Slice A): the cumulative included-act SMT
 import { IncrementalNonceMap } from './nonce-map.ts'   // ADR-3 eligibility opening: the committed account→(nonce,height) map
 import { keyFromSignedMessage, orderWindow } from './window-order.ts'   // ADR-3 3c: the leaf key = SHA-256 of the SIGNED message ONLY (no envelope, no clock); orderWindow = THE SAME-INSTANT LAW's arithmetic
@@ -237,6 +238,7 @@ export class KrayLedger {
   readonly runes = new RuneBook()      // the rune L2 — reused as-is, never duplicated
   readonly amm = new AmmBook()         // LP shares only; reserves sit on KRAY_AMM_* in the two books
   readonly market = new StarMarket()   // star listings (seller, price); folds by presence, never holds value
+  readonly offers = new StarOffers()   // escrowed bids; pot ₭ lives at STAR_OFFER
   private readonly contracts = new Map<string, { code: ContractCode; creator: string; state: Record<string, bigint>; star?: string; roster?: string[] }>()
   readonly pot: AnchoringPot
   readonly network: string
@@ -590,6 +592,9 @@ export class KrayLedger {
     // would skew the spot without a signed swap. Reserves move only by amm-add/swap.
     if (isAmmPotAddress(addr)) {
       throw new Error(`ledger: cannot credit an AMM pot (${addr}) — reserves move only by signed amm-add/swap`)
+    }
+    if (addr === STAR_OFFER) {
+      throw new Error('ledger: cannot credit the star-offer pot — ₭ enters only by signed star-offer')
     }
     if (addr.startsWith('KRAY_')) return
     // a post-quantum ML-DSA account (`kq1` + SHA-256(key)) is a hash-committed identity, not a Bitcoin address;
@@ -1102,6 +1107,78 @@ export class KrayLedger {
         this.credit(TREASURY, fee)
         this.stars.applyLive(e)             // move the star seller → buyer (star-buy case in the registry)
         this.market.remove(star)            // the offer is consumed, once
+        break
+      }
+      case 'star-offer': {
+        // ESCROWED BID — price ₭ leaves the bidder into the keyless pot. Spendable drops now.
+        // One live offer per (star, bidder). Not on your own star. Fee 1 ₭ to TREASURY.
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        this.checkNonce(e)
+        const star = BigInt(e.star!)
+        if (typeof e.amount !== 'string' || !/^[0-9]+$/.test(e.amount)) throw new Error('ledger: a star offer price must be a whole number of ₭')
+        const price = BigInt(e.amount)
+        if (price <= 0n) throw new Error('ledger: a star offer needs a positive price')
+        const owner = this.stars.ownerOf(star)
+        if (!owner) throw new Error('ledger: no such star — nothing to offer on')
+        if (owner === e.from) throw new Error('ledger: you already hold that star — list it, do not bid on yourself')
+        if (owner === BLACK_HOLE) throw new Error('ledger: that star is frozen — an offer cannot buy it')
+        if (this.offers.get(star, e.from!)) throw new Error('ledger: you already have a live offer on that star — cancel it first')
+        if (this.balanceOf(e.from!) < price + fee) throw new Error(`ledger: insufficient balance for price + fee (have ${this.balanceOf(e.from!)}, need ${price + fee})`)
+        this.requireSig(e, starOfferMessage(this.network, e.from!, star, price, e.nonce!))
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - price - fee)
+        this.credit(STAR_OFFER, price)
+        this.credit(TREASURY, fee)
+        this.offers.put(star, e.from!, price)
+        break
+      }
+      case 'star-offer-cancel': {
+        // Only the bidder unlocks. ₭ returns. Another 1 ₭ fee from remaining spendable.
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        this.checkNonce(e)
+        const star = BigInt(e.star!)
+        const live = this.offers.get(star, e.from!)
+        if (!live) throw new Error('ledger: no live offer from you on that star')
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        if (this.balanceOf(STAR_OFFER) < live.price) throw new Error('ledger: offer pot is short of the book — HALT')
+        this.requireSig(e, starOfferCancelMessage(this.network, e.from!, star, e.nonce!))
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.balances.set(STAR_OFFER, this.balanceOf(STAR_OFFER) - live.price)
+        this.credit(e.from!, live.price)
+        this.offers.remove(star, e.from!)
+        break
+      }
+      case 'star-offer-accept': {
+        // Owner signs EXACT (star, price, bidder). Pot pays owner; star moves owner → bidder. Listing cleared.
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        this.checkNonce(e)
+        const star = BigInt(e.star!)
+        if (typeof e.amount !== 'string' || !/^[0-9]+$/.test(e.amount)) throw new Error('ledger: the signed accept price must be a whole number of ₭')
+        const price = BigInt(e.amount)
+        const owner = e.from!, bidder = e.to!
+        if (!bidder) throw new Error('ledger: accept names the bidder')
+        if (owner === bidder) throw new Error('ledger: you cannot accept your own offer')
+        const live = this.offers.get(star, bidder)
+        if (!live) throw new Error('ledger: no live offer from that bidder on that star')
+        if (live.price !== price) throw new Error(`ledger: the offer price (${live.price}) ≠ the signed accept (${price}) — refused (no phantom price)`)
+        if (this.stars.ownerOf(star) !== owner) throw new Error('ledger: cannot accept an offer on a star you do not hold')
+        this.requireRecipientNetwork(bidder)
+        if (this.balanceOf(owner) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(owner)}, need ${fee})`)
+        if (this.balanceOf(STAR_OFFER) < price) throw new Error('ledger: offer pot is short of the book — HALT')
+        this.requireSig(e, starOfferAcceptMessage(this.network, owner, star, price, bidder, e.nonce!))
+        this.commitNonce(e)
+        this.balances.set(owner, this.balanceOf(owner) - fee)
+        this.credit(TREASURY, fee)
+        this.balances.set(STAR_OFFER, this.balanceOf(STAR_OFFER) - price)
+        this.credit(owner, price)
+        this.stars.applyLive(e)
+        this.offers.remove(star, bidder)
+        this.market.remove(star)
         break
       }
       case 'x-send': {
@@ -2331,6 +2408,7 @@ export class KrayLedger {
     for (const t of this.fireTank.values()) ft += t
     return sum === this.emitted - this.burned && xs === this.burned && xb + laneSum === this.burned && this.xTotal === this.burned
       && ft + this.fireSpent === this.burned * FIREBORN_SENDS_PER_KRAY
+      && this.balanceOf(STAR_OFFER) === this.offers.lockedTotal()
   }
 
   /** BOOKKEEPING CONSISTENCY (not the peg itself): emitted ≤ the pot's recorded donated total, and
@@ -2452,6 +2530,7 @@ export class KrayLedger {
       // history — and an empty genesis — opens byte-identically. The market never holds value, so this
       // commits only WHO is offering WHICH star at WHAT price, re-derivable by any stranger from the journal.
       ...(!this.market.empty() ? { marketCommitment: this.market.commitment() } : {}),
+      ...(!this.offers.empty() ? { offerCommitment: this.offers.commitment() } : {}),
     }
   }
 

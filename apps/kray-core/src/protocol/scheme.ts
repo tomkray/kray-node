@@ -357,6 +357,18 @@ export function starDelistMessage(network: string, from: string, star: bigint, n
 export function starBuyMessage(network: string, buyer: string, star: bigint, price: bigint, seller: string, nonce: number): string {
   return `kray-core.star-buy.v1|net=${network}|buyer=${buyer}|star=${star}|price=${price}|seller=${seller}|nonce=${nonce}`
 }
+/** ESCROWED OFFER — bidder locks `price` ₭ into the keyless offer pot. */
+export function starOfferMessage(network: string, from: string, star: bigint, price: bigint, nonce: number): string {
+  return `kray-core.star-offer.v1|net=${network}|from=${from}|star=${star}|price=${price}|nonce=${nonce}`
+}
+/** Bidder unlocks their own live offer — ₭ returns. */
+export function starOfferCancelMessage(network: string, from: string, star: bigint, nonce: number): string {
+  return `kray-core.star-offer-cancel.v1|net=${network}|from=${from}|star=${star}|nonce=${nonce}`
+}
+/** Owner accepts the EXACT offer (star, price, bidder) — atomic pay + star move. */
+export function starOfferAcceptMessage(network: string, owner: string, star: bigint, price: bigint, bidder: string, nonce: number): string {
+  return `kray-core.star-offer-accept.v1|net=${network}|owner=${owner}|star=${star}|price=${price}|bidder=${bidder}|nonce=${nonce}`
+}
 
 /**
  * THE SCRIPT AN ADDRESS PAYS TO — hex, derived from the address itself.

@@ -23,7 +23,7 @@
  *     inclusion SMT today, so it stays exempt from the run law — consistent, and named honestly.
  */
 import {
-  transferMessage, xSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
+  transferMessage, xSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6,
   runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage,
   ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2,
@@ -54,6 +54,9 @@ export function signedMessageOfEvent(e: KrayEvent, network: string): string | nu
     case 'star-list': return starListMessage(network, e.from!, BigInt(e.star!), BigInt(e.amount!), e.nonce!)
     case 'star-delist': return starDelistMessage(network, e.from!, BigInt(e.star!), e.nonce!)
     case 'star-buy': return starBuyMessage(network, e.from!, BigInt(e.star!), BigInt(e.amount!), e.to!, e.nonce!)
+    case 'star-offer': return starOfferMessage(network, e.from!, BigInt(e.star!), BigInt(e.amount!), e.nonce!)
+    case 'star-offer-cancel': return starOfferCancelMessage(network, e.from!, BigInt(e.star!), e.nonce!)
+    case 'star-offer-accept': return starOfferAcceptMessage(network, e.from!, BigInt(e.star!), BigInt(e.amount!), e.to!, e.nonce!)
     case 'x-send': return xSendMessage(network, e.from!, e.to!, BigInt(e.amount!), e.nonce!)
     case 'burn': return burnMessage(network, e.from!, BigInt(e.amount!), e.nonce!)
     // THE TK-FOLD (Gate 2) — the lane's journal kinds, verbatim twins of the reducer's cases

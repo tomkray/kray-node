@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Collection</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css?v=mk4">
+<style>
+  .col-id{display:flex;gap:var(--s5);align-items:flex-end;flex-wrap:wrap;margin:var(--s4) 0 var(--s5)}
+  .col-face{width:var(--s10);flex:0 0 auto;border-radius:var(--r2);border:1px solid var(--line);color:inherit;text-decoration:none}
+  .col-who{flex:1 1 220px;min-width:0;padding-bottom:var(--s1)}
+  .col-k{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-4);margin-bottom:var(--s2)}
+  .col-title{font-size:clamp(28px,4vw,40px);font-weight:600;letter-spacing:-.03em;line-height:1.1}
+  .col-own{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:var(--s3);word-break:break-all}
+  .col-own a{color:var(--ink-2)}
+  .col-stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:var(--s3);margin:0 0 var(--s6)}
+  .col-content{margin:0 0 var(--s6)}
+  .col-content a{display:inline-flex;align-items:center;font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:var(--s2) var(--s3);min-height:32px;border:1px solid var(--line-2);border-radius:var(--r1);color:var(--ink-3);background:var(--surface-2)}
+  .col-content a:hover{color:var(--ink);border-color:var(--ink-3)}
+  @media(max-width:768px){.col-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.col-face{width:96px}}
+  .col-bar{display:flex;gap:var(--s3);flex-wrap:wrap;align-items:center;margin:0 0 var(--s5)}
+  .col-bar .input{flex:1 1 220px;min-width:0}
+  .col-bar select.input{flex:0 1 200px}
+  .col-filters{display:flex;gap:var(--s2);flex-wrap:wrap}
+  .empty{color:var(--ink-4);font-family:var(--mono);font-size:13px;padding:var(--s7) 0;text-align:center}
+  .toast{position:fixed;left:50%;bottom:var(--s5);transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:var(--s3) var(--s4);border-radius:var(--r2);font-size:13px;max-width:90vw;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body data-page="collection">
+<div class="wrap">
+  <section class="hero" style="border-top:0;padding-bottom:var(--s4)">
+    <div class="eyebrow"><a href="/collections" style="color:var(--ink-3)">← collections</a> &nbsp;·&nbsp; LINEAGE · SIGNED · ATOMIC</div>
+    <div id="hero"></div>
+  </section>
+  <section style="border-top:0;padding-top:0">
+    <div class="col-bar" id="bar" hidden>
+      <input class="input" id="q" type="search" placeholder="Search name or number…" autocomplete="off">
+      <div class="col-filters" id="filters" role="group" aria-label="Listed">
+        <button type="button" class="tab on" data-filter="all">All</button>
+        <button type="button" class="tab" data-filter="listed">Listed</button>
+        <button type="button" class="tab" data-filter="unlisted">Unlisted</button>
+      </div>
+      <select class="input" id="sort" aria-label="Sort">
+        <option value="listed">Recently listed</option>
+        <option value="price_low">Price · low</option>
+        <option value="price_high">Price · high</option>
+        <option value="newest">Newest</option>
+        <option value="oldest">Oldest</option>
+        <option value="name">Name</option>
+      </select>
+    </div>
+    <div class="mk-grid" id="grid"></div>
+    <div class="empty" id="empty" hidden></div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/kray.js?v=mk4" defer></script>
+<script defer>
+(function () {
+  'use strict';
+  var view = null, me = window.__krayAddr || null, filter = 'all', sort = 'listed', q = '';
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); };
+  var num = function (v) { try { return BigInt(String(v).replace(/[^0-9]/g, '') || '0').toLocaleString(); } catch (_) { return String(v); } };
+  var short = function (a) { return a ? a.slice(0, 8) + '…' + a.slice(-4) : ''; };
+  function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('on'); }, 3200); }
+  function nameOf() {
+    var m = (location.pathname || '').replace(/\/$/, '').match(/^\/collection\/([a-zA-Z0-9]+)$/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  function face(it) { return (window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(it) : '<span class="glyph">★ ' + esc(it.star) + '</span>'; }
+  function addrLine(lab, a) {
+    if (!a) return '';
+    return '<span title="' + esc(a) + '"><em>' + esc(lab) + '</em><a href="/address/' + esc(a) + '">' + esc(short(a)) + '</a></span>';
+  }
+  function card(it) {
+    var listed = !!it.listing;
+    var mine = me && listed && it.listing.seller === me;
+    var acts = '';
+    if (listed && mine) {
+      acts = '<button type="button" class="btn" data-relist="' + esc(it.star) + '" data-price="' + esc(it.listing.price) + '">Relist</button>' +
+             '<button type="button" class="btn" data-cancel="' + esc(it.star) + '">Cancel</button>';
+    } else if (listed) {
+      acts = '<button type="button" class="btn primary" data-buy="' + esc(it.star) + '" data-price="' + esc(it.listing.price) + '" data-seller="' + esc(it.listing.seller) + '">Buy now · ' + num(it.listing.price) + ' ₭</button>';
+    } else {
+      acts = '<a class="btn" href="/star/' + esc(it.star) + '">Open</a>';
+    }
+    var who = listed && it.listing.seller ? addrLine('from', it.listing.seller) : addrLine('held', it.owner);
+    return '<article class="cardm">' +
+      '<a class="art facefill" href="/star/' + esc(it.star) + '">' + face(it) + '</a>' +
+      '<div class="body">' +
+        (listed ? '<span class="mine-tag">' + (mine ? 'your listing' : 'listed') + '</span>' : '') +
+        '<a class="nm" href="/star/' + esc(it.star) + '">' + esc(it.name || ('Star #' + it.star)) + '</a>' +
+        '<span class="no">★ ' + esc(it.star) + (it.rarity ? ' · ' + esc(it.rarity) : '') + '</span>' +
+        (who ? '<span class="who">' + who + '</span>' : '') +
+        (listed
+          ? '<span class="px">' + num(it.listing.price) + ' ₭</span>'
+          : '<span class="px quiet">unlisted</span>') +
+        '<div class="acts">' + acts + '</div>' +
+      '</div></article>';
+  }
+
+  function rows() {
+    var items = (view && view.items) || [];
+    var needle = q.trim().toLowerCase();
+    var out = items.filter(function (it) {
+      if (filter === 'listed' && !it.listing) return false;
+      if (filter === 'unlisted' && it.listing) return false;
+      if (!needle) return true;
+      var nm = String(it.name || '').toLowerCase();
+      return nm.indexOf(needle) >= 0 || String(it.star).indexOf(needle) >= 0;
+    });
+    var price = function (it) { return it.listing ? BigInt(it.listing.price) : null; };
+    out.sort(function (a, b) {
+      if (sort === 'price_low' || sort === 'price_high') {
+        var pa = price(a), pb = price(b);
+        if (pa == null && pb == null) return Number(a.star) - Number(b.star);
+        if (pa == null) return 1;
+        if (pb == null) return -1;
+        var d = pa === pb ? 0n : (pa < pb ? -1n : 1n);
+        return Number(sort === 'price_high' ? -d : d);
+      }
+      if (sort === 'newest') return Number(b.createdSeq || 0) - Number(a.createdSeq || 0);
+      if (sort === 'oldest') return Number(a.createdSeq || 0) - Number(b.createdSeq || 0);
+      if (sort === 'listed') return Number(b.listedSeq || 0) - Number(a.listedSeq || 0);
+      var na = String(a.name || ('#' + a.star)).toLowerCase();
+      var nb = String(b.name || ('#' + b.star)).toLowerCase();
+      return na < nb ? -1 : na > nb ? 1 : 0;
+    });
+    return out;
+  }
+
+  function paintHero() {
+    var s = view.stats || {};
+    var render = view.media ? String(view.media).replace('/content/', '/render/') : null;
+    var plate = '<a class="col-face facefill" href="/star/' + esc(view.star) + '">' + face(view) + '</a>';
+    $('hero').innerHTML =
+      '<div class="col-id">' +
+        plate +
+        '<div class="col-who">' +
+          '<div class="col-k">collection</div>' +
+          '<div class="col-title">' + esc(view.name || ('#' + view.star)) + '</div>' +
+          '<div class="col-own">parent ★ ' + esc(view.star) +
+            (view.owner ? ' · held by <a href="/address/' + esc(view.owner) + '">' + esc(short(view.owner)) + '</a>' : '') +
+            ' · <a href="/star/' + esc(view.star) + '">open the parent ↗</a></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="col-stats">' +
+        '<div class="stat"><div class="v">' + num(s.items || 0) + '</div><div class="k">items</div></div>' +
+        '<div class="stat"><div class="v">' + num(s.listed || 0) + '</div><div class="k">listed</div></div>' +
+        '<div class="stat"><div class="v">' + (s.floor ? num(s.floor) + ' ₭' : '—') + '</div><div class="k">floor</div></div>' +
+        '<div class="stat"><div class="v">' + num(s.owners || 0) + '</div><div class="k">owners</div></div>' +
+        '<div class="stat"><div class="v">' + num(s.volume || 0) + ' ₭</div><div class="k">volume</div></div>' +
+      '</div>' +
+      (render ? '<div class="col-content"><a href="' + esc(render) + '">Content</a></div>' : '');
+    document.title = 'KRAY.NETWORK · ' + (view.name || ('#' + view.star));
+    var key = nameOf();
+    if (view.name && key && !/^\d+$/.test(key) && !/^[0-9a-f]{64}i\d+$/i.test(key) && view.name !== key.toLowerCase()) {
+      try { history.replaceState(null, '', '/collection/' + view.name); } catch (_) {}
+    }
+  }
+
+  function draw() {
+    me = window.__krayAddr || me;
+    if (!view) return;
+    var list = rows();
+    var g = $('grid'), e = $('empty');
+    $('bar').hidden = false;
+    if (!list.length) {
+      g.innerHTML = '';
+      e.hidden = false;
+      e.textContent = (view.items || []).length
+        ? 'Nothing matches these filters.'
+        : 'This named star has no children yet. Inscribe a child and it appears here.';
+      return;
+    }
+    e.hidden = true;
+    g.innerHTML = list.map(card).join('');
+  }
+
+  async function load() {
+    var n = nameOf();
+    if (!n) {
+      $('empty').hidden = false;
+      $('empty').textContent = 'No collection name in the URL.';
+      return;
+    }
+    try {
+      var r = await fetch('/api/kraynet/collection/' + encodeURIComponent(n));
+      var j = await r.json();
+      if (!r.ok) {
+        $('hero').innerHTML = '<h1 style="margin:var(--s5) 0 var(--s3)">not found</h1><p class="empty" style="padding:0;text-align:left">' + esc(j.error || 'no star carries that name') + '</p>';
+        $('bar').hidden = true;
+        $('grid').innerHTML = '';
+        $('empty').hidden = true;
+        return;
+      }
+      view = j;
+      paintHero();
+      draw();
+    } catch (_) {
+      $('empty').hidden = false;
+      $('empty').textContent = 'The node did not answer.';
+    }
+  }
+
+  async function doBuy(star, price, seller, btn) {
+    if (!window.__krayAddr) { toast('Connect your KrayWallet in the header first.'); return; }
+    btn.disabled = true; var old = btn.textContent; btn.textContent = 'Signing…';
+    try {
+      await window.KRAY.act('star-buy', { star: String(star), price: String(price), seller: seller });
+      toast('Bought ★ ' + star + ' — the star is yours, proven on-chain.');
+      await load();
+    } catch (e) { toast((e && e.message) || 'refused'); btn.disabled = false; btn.textContent = old; }
+  }
+  async function doCancel(star, btn) {
+    btn.disabled = true; var old = btn.textContent; btn.textContent = 'Signing…';
+    try {
+      await window.KRAY.act('star-delist', { star: String(star) });
+      toast('Listing for ★ ' + star + ' cancelled.');
+      await load();
+    } catch (e) { toast((e && e.message) || 'refused'); btn.disabled = false; btn.textContent = old; }
+  }
+  async function doRelist(star, current) {
+    var v = prompt('New price in ₭ for star #' + star + ' (current ' + num(current) + '):', String(current).replace(/[^0-9]/g, ''));
+    if (v == null) return;
+    var price = String(v).replace(/[^0-9]/g, '');
+    if (!price || Number(price) <= 0) { toast('Enter a positive whole number of ₭.'); return; }
+    try {
+      await window.KRAY.act('star-list', { star: String(star), price: price });
+      toast('★ ' + star + ' re-listed at ' + num(price) + ' ₭.');
+      await load();
+    } catch (e) { toast((e && e.message) || 'refused'); }
+  }
+
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest('[data-buy],[data-cancel],[data-relist],[data-filter]');
+    if (!t) return;
+    if (t.dataset.filter) {
+      filter = t.dataset.filter;
+      document.querySelectorAll('#filters .tab').forEach(function (b) { b.classList.toggle('on', b === t); });
+      draw();
+      return;
+    }
+    if (t.dataset.buy != null) return doBuy(t.dataset.buy, t.dataset.price, t.dataset.seller, t);
+    if (t.dataset.cancel != null) return doCancel(t.dataset.cancel, t);
+    if (t.dataset.relist != null) return doRelist(t.dataset.relist, t.dataset.price);
+  });
+  $('q').addEventListener('input', function () { q = this.value; draw(); });
+  $('sort').addEventListener('change', function () { sort = this.value; draw(); });
+  window.addEventListener('kray-connected', function (e) { me = e.detail && e.detail.address; draw(); });
+  window.addEventListener('kray-disconnected', function () { me = null; draw(); });
+  window.addEventListener('DOMContentLoaded', function () { me = window.__krayAddr || null; load(); setInterval(load, 20000); });
+})();
+</script>
+</body>
+</html>

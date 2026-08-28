@@ -164,10 +164,11 @@
         +'</a>'
       : '<div class="tx-thumb">'+g(d.glyph,26)+'</div>';
     var tags=(d.tags||[]).map(function(tg){ return '<span class="tx-tag'+(tg.cls?' '+tg.cls:'')+'">'+esc(tg.v)+'</span>'; }).join('');
+    var kindHue = (window.KRAY && KRAY.actCss) ? KRAY.actCss(t.kind, { createPool: t.createPool, family: (t.kind==='transfer-star' && t.to==='KRAY_BLACK_HOLE') ? 'fire' : null }) : '';
     return '<div class="tx-card'+(d.btc?' btc':'')+(d.mark||t.createPool?' mark':'')+'">'
       +thumb
       +'<div class="tx-main">'
-        +'<div class="tx-top"><span class="tx-kind">'+(t.createPool?'Create pool':esc(t.kind))+'</span>'+tags+'</div>'
+        +'<div class="tx-top"><span class="tx-kind"'+(kindHue?' style="background:'+kindHue+';color:#0a0b0e"':'')+'>'+(t.createPool?'Create pool':esc(t.kind))+'</span>'+tags+'</div>'
         +'<div class="tx-line">'+d.line+'</div>'
         +'<a class="tx-id" href="/tx/'+esc(t.hash)+'"><span class="idlab">txid</span>'+esc(t.hash)+' ↗</a>'
       +'</div>'

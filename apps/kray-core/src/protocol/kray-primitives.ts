@@ -15,6 +15,8 @@ import { createHash } from 'node:crypto'
 import type { ContractCode } from './contract.ts'
 
 export const TREASURY = 'KRAY_TREASURY'
+/** Escrow pot for live star offers. No key can sign it. ₭ enters only by `star-offer` and leaves only by cancel or accept. */
+export const STAR_OFFER = 'KRAY_STAR_OFFER'
 /**
  * THE BLACK HOLE — where a citizen sends what should never move again.
  *
@@ -65,7 +67,7 @@ export function donationProofMinConf(net: string): number {
 // 'donate'/'anchor' are the proof-of-donation mint events (KRAYNET): a donation of
 // proven sats mints ₭ against the anchoring pot's deficit; an anchor spends pot sats
 // to fund a Bitcoin anchor. Every kind the reducer handles lives in this union.
-export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy'
+export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy' | 'star-offer' | 'star-offer-cancel' | 'star-offer-accept'
 
 /** A star's user-given name: 1..64 bytes UTF-8, byte-exact unique, forever. */
 export const NAME_MAX_BYTES = 64
@@ -299,15 +301,15 @@ export function starBurnOf(size: number | undefined, bytesPerKray: number = BYTE
 }
 
 /** Where the live law (1 ₭ / 10_000 bytes, 10 MB) begins.
- *  main: 0 — NOT a signaling. The journal is empty of stars; the law simply IS
- *  these numbers from the first act, as if they had always been the rule.
- *  signet: 274 — the ONLY activation (57 stars already paid 1 ₭/MB + 21 MB).
- *  Re-read the tip at deploy and bump if it has crossed. Below the pin, replay
- *  is byte-identical at the frozen genesis rate (A3).
+ *  main + signet: 0 — NOT a signaling. Both books were reborn empty at the
+ *  v1.0.0 genesis; the law simply IS these numbers from the first act.
+ *  The old Signet pin 274 guarded 57 stars that paid 1 ₭/MB. That journal
+ *  is gone. A leftover pin would make empty Signet wait 274 events for a
+ *  past that no longer exists (A3 has nothing left to freeze).
  *  regtest: MAX — lab goldens keep the genesis rate; swarms inject pin 0. */
 export const SIZE_PROPORTION_ACTIVATION_SEQ: Record<string, number> = {
   regtest: Number.MAX_SAFE_INTEGER,
-  signet: 274,
+  signet: 0,
   main: 0,
 }
 

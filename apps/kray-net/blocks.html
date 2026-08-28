@@ -32,10 +32,9 @@
 </head>
 <body data-page="blocks">
 <div class="wrap">
-  <section class="hero" style="border-top:0;padding-bottom:var(--s6)">
+  <section class="hero" style="border-top:0">
     <div class="eyebrow">FAST BLOCKS CLUSTER · BITCOIN SEALS THE MASTER NODE</div>
-    <h1 style="font-size:clamp(40px,7vw,84px)">The constellation</h1>
-    <p class="lede">Every fast block of a range belongs to one neuron — its <b class="btc-ink">master node</b>, the Bitcoin block that sealed it. Until then they cluster as the district still forming; when Bitcoin mints it, the master lights <b class="btc-ink">amber</b> and its blocks fall into orbit around it. Stars hang off the block that sealed them. Drag to orbit, hover to trace, click to open.</p>
+    <h1>The constellation</h1>
   </section>
 </div>
 <div class="wrap">
@@ -56,18 +55,26 @@
     <div id="fallback" class="fallback hidden"></div>
   </div>
   <div class="legend">
-    <span><i style="background:#f7931a"></i>Bitcoin seal · the anchor (neuron)</span>
-    <span><i style="background:#6b7488"></i>block · sealed by KRAY, awaiting Bitcoin</span>
-    <span><i style="background:#a8863f"></i>block · Bitcoin sees it · 0-conf</span>
-    <span><i style="background:#d8b878"></i>block · buried in Bitcoin · verified</span>
-    <span><i style="background:#8c99cc;border-radius:0;height:2px;width:14px;margin-bottom:4px"></i>hash-chain · block → next block</span>
+    <span><i style="background:#f7931a"></i>Bitcoin seal</span>
+    <span><i style="background:#6b7488"></i>block · awaiting ₿</span>
+    <span><i style="background:#d8b878"></i>block · verified</span>
     <span><i style="background:#e8cd93"></i>star / inscription</span>
-    <span><i style="background:#8b5cf6"></i>rune · bridge</span>
-    <span><i style="background:#2dd4bf"></i>DeFi · AMM</span>
-    <span><i style="background:#54e0a0"></i>₭ money</span>
-    <span><i style="background:#ff3b3b"></i>Ӿ x-send · the transferable light</span>
-    <span><i style="background:#5b8def"></i>contract · law</span>
-    <span><i style="background:#f5776b"></i>fire · black hole</span>
+    <span><i style="background:#2dd4bf"></i>DeFi add LP</span>
+    <span><i style="background:#0f766e"></i>DeFi remove</span>
+    <span><i style="background:#5eead4"></i>DeFi swap</span>
+    <span><i style="background:#34d399"></i>RR add</span>
+    <span><i style="background:#a3e635"></i>RR swap</span>
+    <span><i style="background:#fbbf24"></i>create pool</span>
+    <span><i style="background:#ff6ea8"></i>market list</span>
+    <span><i style="background:#a78a96"></i>market cancel</span>
+    <span><i style="background:#ff2d8a"></i>market buy</span>
+    <span><i style="background:#8b5cf6"></i>rune · L2</span>
+    <span><i style="background:#54e0a0"></i>₭ transfer</span>
+    <span><i style="background:#86efac"></i>donate</span>
+    <span><i style="background:#f59e0b"></i>burn → Ӿ</span>
+    <span><i style="background:#ff3b3b"></i>Ӿ x-send</span>
+    <span><i style="background:#5b8def"></i>law</span>
+    <span><i style="background:#f5776b"></i>fire · hole</span>
     <span style="margin-left:auto" id="totals">—</span>
   </div>
 </div>
@@ -84,11 +91,14 @@
   // RUNE ACTS — each its own hue so the river reads at a glance (violet family = the L2 bridge life)
   // EACH TXID FAMILY ITS OWN COLOUR — read the sky at a glance. The family is decided by the node (act-flow),
   // the hue mirrors the legend, and the per-kind label names the exact act on hover.
-  var FAM_COL={ rune:0x8b5cf6, defi:0x2dd4bf, money:0x54e0a0, law:0x5b8def, fire:0xf5776b, quantum:0xd946ef, starmove:0xe8cd93 };
-  var FAM_LB={ rune:'rune · L2 bridge', defi:'DeFi · AMM', money:'₭ money', law:'contract · law', fire:'fire · into the black hole', quantum:'quantum', starmove:'star moved' };
-  // Ӿ wears its own red — the transferable light stands apart from plain ₭ money at a glance
-  function actCol(rv){ return (rv&&(rv.kind==='x-send'||rv.kind==='lane-enter'||rv.kind==='lane-exit'||rv.kind==='fold-seal')) ? 0xff3b3b : (FAM_COL[rv.family]||0x8b5cf6); } // every Ӿ act wears the X-red
-  var KIND_LB={ 'rune-deposit':'bridged in', 'rune-send':'sent on L2', 'rune-exit':'exiting', 'rune-cancel':'cancelled', 'rune-lodge':'armed', 'rune-settle':'settled home', 'rune-rehome':'re-homed', 'amm-add':'add LP', 'amm-remove':'remove LP', 'amm-swap':'swap', 'amm-rr-add':'add LP', 'amm-rr-remove':'remove LP', 'amm-rr-swap':'swap', 'transfer':'₭ transfer', 'x-send':'Ӿ sent — the transferable light', 'reward':'network reward', 'donate':'donate → mint', 'contract':'law sealed', 'contract-call':'law called', 'quantum-commit':'quantum key', 'quantum-migrate':'quantum move', 'transfer-star':'star moved', 'lane-enter':'Ӿ entered the lane', 'lane-exit':'Ӿ left the lane', 'fold-seal':'fold-seal — one proven breath' };
+  var FAM_COL={ rune:0x8b5cf6, defi:0x2dd4bf, money:0x54e0a0, law:0x5b8def, fire:0xf5776b, quantum:0xd946ef, starmove:0xe8cd93, market:0xff6ea8, fenyx:0xff3b3b };
+  var FAM_LB={ rune:'rune · L2 bridge', defi:'DeFi · AMM', money:'₭ money', law:'contract · law', fire:'fire · into the black hole', quantum:'quantum', starmove:'star moved', market:'star market', fenyx:'Ӿ · Fenyx' };
+  function actCol(rv){
+    if (window.KRAY && KRAY.actHue) return KRAY.actHue(rv && rv.kind, { family: rv && rv.family, createPool: rv && rv.createPool });
+    if (rv && (rv.kind==='x-send'||rv.kind==='lane-enter'||rv.kind==='lane-exit'||rv.kind==='fold-seal')) return 0xff3b3b;
+    return FAM_COL[rv && rv.family] || 0x8b5cf6;
+  }
+  var KIND_LB={ 'rune-deposit':'bridged in', 'rune-send':'sent on L2', 'rune-exit':'exiting', 'rune-cancel':'cancelled', 'rune-lodge':'armed', 'rune-settle':'settled home', 'rune-rehome':'re-homed', 'amm-add':'add LP', 'amm-remove':'remove LP', 'amm-swap':'swap', 'amm-rr-add':'add LP', 'amm-rr-remove':'remove LP', 'amm-rr-swap':'swap', 'transfer':'₭ transfer', 'x-send':'Ӿ sent — the transferable light', 'reward':'network reward', 'donate':'donate → mint', 'contract':'law sealed', 'contract-call':'law called', 'quantum-commit':'quantum key', 'quantum-migrate':'quantum move', 'transfer-star':'star moved', 'lane-enter':'Ӿ entered the lane', 'lane-exit':'Ӿ left the lane', 'fold-seal':'fold-seal — one proven breath', 'star-list':'listed for sale', 'star-delist':'listing cancelled', 'star-buy':'star bought' };
   var el=function(id){return document.getElementById(id);}, tip=el('btip');
   var CAT={ image:0xcfd6e6, vector:0xbfe6d4, video:0xd8c6ee, audio:0xeed8b0, code:0xbcd2ee, markup:0xc8dae6,
     document:0xdad8c4, data:0xc6cae2, text:0xdadada, model:0xc8e0d2, font:0xe0d2c6, archive:0xcccccc,
