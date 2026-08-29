@@ -60,10 +60,9 @@
 </head>
 <body data-page="network">
 <div class="wrap">
-  <section class="hero" style="border-top:0;padding-bottom:var(--s5)">
+  <section class="hero" style="border-top:0">
     <div class="eyebrow">THE NETWORK · WHO IS PROVING IT, RIGHT NOW</div>
-    <h1 style="font-size:clamp(38px,6.6vw,80px)">The instrument</h1>
-    <p class="lede">Not a portrait of health — a <b class="btc-ink">proof browser</b>. Every light is a real, signed thing you can go check for yourself: the <b class="btc-ink">Bitcoin block</b> that anchors the whole history at the center, the <b>one writer</b> that orders it today, and the guardians earning the fee pool by <b>proving presence</b> — each sized by real work. Drag to orbit, hover to read, click to open the bytes behind it.</p>
+    <h1>The instrument</h1>
   </section>
   <!-- HONEST BORDER — louder than the picture, never hideable (Constitution XI, PROOF-COMPARISON) -->
   <div class="frontier">
@@ -120,6 +119,10 @@
   //    never a biggest-fish-first target ranking. Every node-returned string is escaped as TEXT. ──
   var scene, camera, renderer, root, raf, glowTex, fog;
   var nodes=[], edges=[], adj=[], baseLines, hiLines, sprites=[], hovered=-1;
+  // SCALE FIX (design unchanged): every beacon appears exactly as the original layout draws it. The only
+  // guards are invisible — physics samples above 250 nodes, and beyond SPRITE_CAP the overflow renders as
+  // ONE Points cloud with the SAME glow texture/color on the SAME ring, so the scene never kills the tab.
+  var beaconCloud=null, SPRITE_CAP=4000, WREST=9, wrMemo={};
   var S={}, O={}, P={validators:[]}, A={};          // status, overview, presence, analytics
   var lastGood=0, beaconMemo={};                     // rolling last-seen so presence never flickers to a dead 0
   var EXPLORER='https://mempool.space/signet/tx/';   // net-aware below
@@ -161,21 +164,41 @@
     var anc={type:'anchor',r:2.4,color:0xf7931a,x:0,y:0,z:0,vx:0,vy:0,vz:0,fixed:true};
     nodes.push(anc);var ai=0;
     anc.label=makeLabel('BITCOIN',0xf7931a,7);root.add(anc.label);
-    // THE WRITER — ONE node that writes & orders. Cool, flagged, deliberately NOT radiant, offset from center.
-    var wr={type:'writer',r:1.5,color:0x9aa2c4,x:9,y:1,z:0,vx:0,vy:0,vz:0};
-    var wi=nodes.length;nodes.push(wr);
-    wr.label=makeLabel('THE WRITER',0xaab0cc,6);root.add(wr.label);
-    edges.push({a:ai,b:wi,kind:'anchor'});           // the writer commits to Bitcoin
     // PRESENCE BEACONS — small honest lights orbiting the WRITER (they prove presence to it, earn its pool).
-    // Sized by BUCKETED work, SHUFFLED angle. They secure nothing and decide nothing.
+    // Sized by BUCKETED work, SHUFFLED angle. They secure nothing and decide nothing. (Original design.)
     var bs=beacons(), n=bs.length;
-    bs.forEach(function(b,i){
-      var tier=workTier(b.work), r=0.5+tier*0.16, ang=(i/Math.max(1,n))*6.283+i*0.7, rad=5+tier*0.8;
+    var lim=Math.min(n,SPRITE_CAP);
+    // ANTI-BLAST: same ring, but a big swarm spawns at survivable density. Cramming 1600 nodes into the
+    // small-N radius makes every repulsion kick max out in frame 1 — the cloud detonates and the camera
+    // chases the shrapnel. spread=1 (byte-identical layout) until ~40 beacons; beyond, the ring widens √n.
+    var spread=Math.max(1,Math.sqrt(n/40));
+    // THE WRITER — ONE node that writes & orders. Cool, flagged, deliberately NOT radiant, offset from center.
+    // (The Creator kept the classic distance at every scale — the green atom hugging the root is the look.)
+    WREST=9;
+    // the writer PERSISTS its settled position across rebuilds (wrMemo), same as every beacon — without
+    // this it snapped back to (9,1,0) on each poll while physics dragged it away, and the eye saw the
+    // core + label flicker between TWO spots ("two writers"); a screenshot always froze just one.
+    var wr={type:'writer',r:1.5,color:0x9aa2c4,ref:wrMemo,
+      x:wrMemo.px!=null?wrMemo.px:9, y:wrMemo.py!=null?wrMemo.py:1, z:wrMemo.pz!=null?wrMemo.pz:0, vx:0,vy:0,vz:0};
+    var wi=nodes.length;nodes.push(wr);
+    wr.label=makeLabel('THE WRITER',0xaab0cc,6);wr.label.userData.ktag='writer-label';root.add(wr.label);
+    edges.push({a:ai,b:wi,kind:'anchor'});           // the writer commits to Bitcoin
+    for(var bi=0;bi<lim;bi++){
+      var b=bs[bi], tier=workTier(b.work), r=0.5+tier*0.16, ang=(bi/Math.max(1,n))*6.283+bi*0.7, rad=(5+tier*0.8)*spread;
       var node={type:'beacon',ref:b,tier:tier,r:r,color:b.live?0x54e0a0:0x3f6f57,
-        x:wr.x+Math.cos(ang)*rad,y:wr.y+(Math.random()-0.5)*4,z:wr.z+Math.sin(ang)*rad,vx:0,vy:0,vz:0};
+        x:b.px!=null?b.px:wr.x+Math.cos(ang)*rad, y:b.py!=null?b.py:wr.y+(Math.random()-0.5)*4*spread, z:b.pz!=null?b.pz:wr.z+Math.sin(ang)*rad, vx:0,vy:0,vz:0};
       var idx=nodes.length;nodes.push(node);
       edges.push({a:wi,b:idx,kind:b.live?'beat':'faint'});
-    });
+    }
+    // overflow beyond SPRITE_CAP — same ring, same glow, one Points draw call (looks identical, never dies)
+    if(n>lim){
+      var extra=n-lim, ep=new Float32Array(extra*3);
+      for(var ei=0;ei<extra;ei++){ var i2=lim+ei, ang2=(i2/Math.max(1,n))*6.283+i2*0.7, rad2=(5+workTier(bs[i2].work)*0.8)*spread;
+        ep[ei*3]=wr.x+Math.cos(ang2)*rad2; ep[ei*3+1]=wr.y+(Math.random()-0.5)*4*spread; ep[ei*3+2]=wr.z+Math.sin(ang2)*rad2; }
+      var eg=new THREE.BufferGeometry(); eg.setAttribute('position',new THREE.BufferAttribute(ep,3));
+      beaconCloud=new THREE.Points(eg,new THREE.PointsMaterial({map:glowTex,color:0x54e0a0,size:2.2,sizeAttenuation:true,transparent:true,opacity:0.85,blending:THREE.AdditiveBlending,depthWrite:false}));
+      root.add(beaconCloud);
+    }
     adj=nodes.map(function(){return [];});
     edges.forEach(function(e){adj[e.a].push(e.b);adj[e.b].push(e.a);});
     nodes.forEach(function(nd,idx){
@@ -192,6 +215,10 @@
     root.add(baseLines);
     hiLines=new THREE.LineSegments(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false}));
     root.add(hiLines);
+    // LIVE SELF-AUDIT — if this scene ever truly holds two writers, scream in the console.
+    var wc=nodes.filter(function(x){return x.type==='writer';}).length;
+    var lc=root.children.filter(function(o){return o.userData&&o.userData.ktag==='writer-label';}).length;
+    if(wc!==1||lc!==1)console.error('[network] DUPLICATION BUG — writer nodes:',wc,'writer labels:',lc);
   }
   function updateLines(){
     if(!baseLines)return;var pa=baseLines.geometry.attributes.position,arr=pa.array;
@@ -224,7 +251,9 @@
       setupStream();}
   }
   function rebuild(){ if(!renderer){boot();return;} nodes.forEach(function(nd){if(nd.sprite)root.remove(nd.sprite);if(nd.label)root.remove(nd.label);});
-    if(baseLines)root.remove(baseLines);if(hiLines)root.remove(hiLines);buildGraph();fit(); }
+    if(baseLines)root.remove(baseLines);if(hiLines)root.remove(hiLines);
+    if(beaconCloud){root.remove(beaconCloud);beaconCloud=null;}
+    buildGraph();fit(); }
 
   function fmt(n){n=Number(n||0);return n.toLocaleString('en-US');}
   function paintHud(){
@@ -297,27 +326,41 @@
   var refreshT=null;
   function refresh(){clearTimeout(refreshT);refreshT=setTimeout(load,500);}
 
-  // ── physics: beacons repel, spring to the writer, drift home; the anchor is FIXED at the center ──
+  // ── physics: beacons repel, spring to the writer, drift home; the anchor is FIXED at the center.
+  //    Above 250 nodes the all-pairs O(N²) repulsion switches to a random SAMPLE per node per frame —
+  //    same look, bounded cost, so the tab survives any swarm size. ──
+  function repel(A2,B){
+    var dx=A2.x-B.x,dy=A2.y-B.y,dz=A2.z-B.z,d2=dx*dx+dy*dy+dz*dz+0.5,d=Math.sqrt(d2);
+    var f=40*(A2.r+B.r)*0.5/d2;if(f>3.2)f=3.2;A2.vx+=f*dx/d;A2.vy+=f*dy/d;A2.vz+=f*dz/d;
+  }
   function step(){
-    var N=nodes.length,REP=40,DAMP=0.85,G=0.008;
+    var N=nodes.length,DAMP=0.85,G=0.008,SAMP=N>250?20:0;
     for(var i=0;i<N;i++){var A2=nodes[i];if(A2.fixed)continue;
-      for(var j=0;j<N;j++){ if(j===i)continue; var B=nodes[j];
-        var dx=A2.x-B.x,dy=A2.y-B.y,dz=A2.z-B.z,d2=dx*dx+dy*dy+dz*dz+0.5,d=Math.sqrt(d2);
-        var f=REP*(A2.r+B.r)*0.5/d2;if(f>3.2)f=3.2;A2.vx+=f*dx/d;A2.vy+=f*dy/d;A2.vz+=f*dz/d;
-      }
+      if(SAMP){ for(var s2=0;s2<SAMP;s2++){ var j=(Math.random()*N)|0; if(j!==i) repel(A2,nodes[j]); } }
+      else { for(var j2=0;j2<N;j2++){ if(j2!==i) repel(A2,nodes[j2]); } }
     }
     edges.forEach(function(e){var A2=nodes[e.a],B=nodes[e.b];
-      var rest=e.kind==='anchor'?9:5.2,K=e.kind==='anchor'?0.05:0.06;
+      var rest=e.kind==='anchor'?WREST:5.2,K=e.kind==='anchor'?0.05:0.06;
       var dx=B.x-A2.x,dy=B.y-A2.y,dz=B.z-A2.z,d=Math.sqrt(dx*dx+dy*dy+dz*dz)+0.001,f=K*(d-rest),ux=dx/d,uy=dy/d,uz=dz/d;
       if(!A2.fixed){A2.vx+=f*ux;A2.vy+=f*uy;A2.vz+=f*uz;} if(!B.fixed){B.vx-=f*ux;B.vy-=f*uy;B.vz-=f*uz;}
     });
     for(var k=0;k<N;k++){var nd=nodes[k];if(nd.fixed){nd.x=0;nd.y=0;nd.z=0;continue;}
       nd.vx-=nd.x*G;nd.vy-=nd.y*G;nd.vz-=nd.z*G;nd.vx*=DAMP;nd.vy*=DAMP;nd.vz*=DAMP;
+      // SPEED CEILING — no frame may fling a node across the scene (the anti-explosion law of this sim);
+      // normal small-N drift never reaches it, so the classic look is untouched
+      var sp=nd.vx*nd.vx+nd.vy*nd.vy+nd.vz*nd.vz;
+      if(sp>1.96){var sc=1.4/Math.sqrt(sp);nd.vx*=sc;nd.vy*=sc;nd.vz*=sc;}
       nd.x+=nd.vx;nd.y+=nd.vy;nd.z+=nd.vz;if(nd.sprite)nd.sprite.position.set(nd.x,nd.y,nd.z);
+      // remember where this beacon settled — a rebuild re-seats it here instead of resetting the scene
+      if(nd.ref){nd.ref.px=nd.x;nd.ref.py=nd.y;nd.ref.pz=nd.z;}
     }
   }
   var yaw=0,pitch=0.4,tYaw=0,tPitch=0.4,drag=false,px=0,py=0,dist=1,tDist=0.7,MAXR=1,autspin=true;
-  function fit(){MAXR=Math.max(16,Math.sqrt(nodes.length)*9);dist=tDist*MAXR;}
+  // fit to the REAL scene bound (was √N×9 — a guess that flung the camera ~250 units from a ~15-unit
+  // cluster at swarm scale, shrinking everything to one pixel; same class of bug once fixed on /chain)
+  function sceneBound(){var m=14;for(var i2=0;i2<nodes.length;i2++){var nd=nodes[i2];
+    var d=Math.sqrt(nd.x*nd.x+nd.y*nd.y+nd.z*nd.z)+nd.r*3.4;if(d>m)m=d;}return m;}
+  function fit(){MAXR=Math.max(20,sceneBound()*2.15);dist=tDist*MAXR;}
   function bindInput(cont){
     var cv=renderer.domElement;
     cv.addEventListener('pointerdown',function(e){drag=true;autspin=false;px=e.clientX;py=e.clientY;});
@@ -388,6 +431,9 @@
     nodes.forEach(function(nd){if(nd.sprite){if(nd.type==='anchor'){var p=1+Math.sin(t*1.6)*0.06;nd.sprite.scale.set(nd.r*3.4*p,nd.r*3.4*p,1);}
       else if(nd.type==='beacon'&&nd.color===0x54e0a0){var q=1+Math.sin(t*3+nd.x)*0.12;nd.sprite.scale.set(nd.r*3.4*q,nd.r*3.4*q,1);}}});
     if(autspin&&!drag)tYaw+=0.0013;
+    // the physics keeps expanding a big swarm after rebuild — re-measure the bound ~1×/s so the camera
+    // follows the real cluster (dist already lerps, so this is a glide, never a jump)
+    if((t*60|0)%72===0)MAXR=Math.max(20,sceneBound()*2.15);
     yaw+=(tYaw-yaw)*0.08;pitch+=(tPitch-pitch)*0.08;dist+=(tDist*MAXR-dist)*0.08;
     var cy=dist*Math.sin(pitch),rr=dist*Math.cos(pitch);
     camera.position.set(Math.sin(yaw)*rr,cy,Math.cos(yaw)*rr);camera.lookAt(0,0,0);

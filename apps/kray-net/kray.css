@@ -446,8 +446,22 @@ details.brlink>summary:hover{color:var(--btc)}
 .kv-paper--lg iframe{pointer-events:auto}
 
 /* THE QUOTE CARD — a short post fills its container, centered, type scaled to length */
-.kv-txtprev--quote{display:flex;align-items:center;justify-content:center;text-align:center;font-weight:600;color:var(--ink);line-height:1.4;letter-spacing:-.01em;padding:10% 12%;text-wrap:balance}
+.kv-txtprev--quote{display:flex;align-items:center;justify-content:center;text-align:center;font-weight:600;color:var(--ink);line-height:1.35;letter-spacing:-.01em;padding:10% 12%;text-wrap:balance;word-break:normal;overflow-wrap:break-word;hyphens:none}
 .kv-txtprev--quote::first-line{color:inherit;font-weight:inherit}
+
+/* MINI LETTER / SNIPPET — the same portrait in a 54–96px square.
+   Centered, padded on the 8pt grid, no fade, no mid-word shatter.
+   Image / video / audio tiles never take this class. */
+.kv-hyd{display:block;width:100%;height:100%;min-height:inherit;overflow:hidden}
+.kv-hyd>.kv-paper{width:100%;height:100%}
+.facefill>.kv-hyd{position:absolute;inset:0;z-index:1}
+.kv-paper.kv-mini{text-align:center}
+.kv-paper.kv-mini::after{display:none}
+.kv-paper.kv-mini .kv-txtprev{padding:8px;word-break:normal;overflow-wrap:break-word}
+.kv-paper.kv-mini .kv-txtprev--quote{padding:8px}
+.kv-paper.kv-mini .kv-mdprev{padding:8px;text-align:left}
+.kv-chip--corner{position:absolute;top:4px;right:4px;margin:0;padding:2px 4px;font-size:7px;letter-spacing:.06em;opacity:.72;z-index:2;pointer-events:none}
+.kv-srcprev--fit{display:flex;align-items:center;justify-content:center;text-align:center;margin:0;flex:1;padding:8px;font:8px/1.35 var(--mono);color:var(--ink);white-space:pre-wrap;word-break:normal;overflow-wrap:break-word;overflow:hidden;tab-size:2}
 
 /* File-tab batch — folder drops, dynamic sort, one card per star */
 .ibatch{margin-top:var(--s4)}
@@ -494,6 +508,31 @@ details.brlink>summary:hover{color:var(--btc)}
 .facefill>.glyph,.facefill>.ph{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   font-family:var(--mono);font-size:11px;color:var(--ink-4);letter-spacing:.04em;z-index:0}
+.facefill>.kv-nameplate,.facefill>.kv-mark{position:absolute;inset:0;z-index:1}
+
+/* MARK — empty square fallback. ★ N only when there are no sealed bytes. */
+.kv-mark{display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+  font-family:var(--mono);font-size:clamp(18px,6vw,28px);font-weight:700;line-height:1;
+  letter-spacing:.04em;color:var(--btc);background:var(--surface-2);box-sizing:border-box}
+
+/* NAMEPLATE — baptised, no inscription. Same mark, name under it. */
+.kv-nameplate{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  width:100%;height:100%;padding:8px;text-align:center;background:var(--surface-2);box-sizing:border-box}
+.kv-nameplate i{font-style:normal;font-family:var(--mono);font-size:clamp(16px,5vw,26px);font-weight:700;
+  line-height:1;color:var(--btc);white-space:nowrap;letter-spacing:.04em}
+.kv-nameplate b{font-size:13px;font-weight:600;line-height:1.25;color:var(--ink);max-width:100%;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;word-break:break-word}
+.kv-nameplate em{font-style:normal;font-family:var(--mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4)}
+.skind-face{position:absolute;left:8px;bottom:8px;z-index:2;font-family:var(--mono);font-size:8px;
+  letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:var(--r1);
+  background:var(--void);color:var(--ink-2);border:1px solid var(--line);pointer-events:none}
+.skind{display:inline-flex;align-items:center;align-self:flex-start;font-family:var(--mono);font-size:10px;
+  letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:var(--r1);
+  border:1px solid var(--line);color:var(--ink-3)}
+.skind--named{color:var(--btc);border-color:var(--btc-line)}
+.skind--inscribed{color:var(--ink-2)}
+.skind--whole{color:var(--ink-4)}
+.skind--bare{color:var(--ink-4)}
 
 /* MARKET CARD — square face · name · path · price · 48px acts. One mouth. */
 .mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:var(--s5)}

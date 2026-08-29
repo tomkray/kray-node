@@ -7,7 +7,7 @@
 <link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
-<link rel="stylesheet" href="/kray.css?v=mk4">
+<link rel="stylesheet" href="/kray.css?v=txt5">
 <style>
   .col-id{display:flex;gap:var(--s5);align-items:flex-end;flex-wrap:wrap;margin:var(--s4) 0 var(--s5)}
   .col-face{width:var(--s10);flex:0 0 auto;border-radius:var(--r2);border:1px solid var(--line);color:inherit;text-decoration:none}
@@ -59,7 +59,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="/kray.js?v=mk4" defer></script>
+<script src="/kray.js?v=txt5" defer></script>
 <script defer>
 (function () {
   'use strict';
@@ -75,6 +75,7 @@
   }
 
   function face(it) { return (window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(it) : '<span class="glyph">★ ' + esc(it.star) + '</span>'; }
+  function kind(it) { return (window.KRAY && KRAY.kindChipHtml) ? KRAY.kindChipHtml(it) : ''; }
   function addrLine(lab, a) {
     if (!a) return '';
     return '<span title="' + esc(a) + '"><em>' + esc(lab) + '</em><a href="/address/' + esc(a) + '">' + esc(short(a)) + '</a></span>';
@@ -96,7 +97,8 @@
       '<a class="art facefill" href="/star/' + esc(it.star) + '">' + face(it) + '</a>' +
       '<div class="body">' +
         (listed ? '<span class="mine-tag">' + (mine ? 'your listing' : 'listed') + '</span>' : '') +
-        '<a class="nm" href="/star/' + esc(it.star) + '">' + esc(it.name || ('Star #' + it.star)) + '</a>' +
+        '<a class="nm" href="/star/' + esc(it.star) + '">' + esc((window.KRAY && KRAY.starTitle) ? KRAY.starTitle(it) : ('★ ' + it.star + (it.name ? ' · ' + it.name : ''))) + '</a>' +
+        kind(it) +
         '<span class="no">★ ' + esc(it.star) + (it.rarity ? ' · ' + esc(it.rarity) : '') + '</span>' +
         (who ? '<span class="who">' + who + '</span>' : '') +
         (listed
@@ -145,7 +147,7 @@
         plate +
         '<div class="col-who">' +
           '<div class="col-k">collection</div>' +
-          '<div class="col-title">' + esc(view.name || ('#' + view.star)) + '</div>' +
+          '<div class="col-title">' + esc((window.KRAY && KRAY.starTitle) ? KRAY.starTitle(view) : ('★ ' + view.star + (view.name ? ' · ' + view.name : ''))) + '</div>' +
           '<div class="col-own">parent ★ ' + esc(view.star) +
             (view.owner ? ' · held by <a href="/address/' + esc(view.owner) + '">' + esc(short(view.owner)) + '</a>' : '') +
             ' · <a href="/star/' + esc(view.star) + '">open the parent ↗</a></div>' +

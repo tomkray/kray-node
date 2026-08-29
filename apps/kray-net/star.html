@@ -7,7 +7,7 @@
 <link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
-<link rel="stylesheet" href="/kray.css?v=mk4">
+<link rel="stylesheet" href="/kray.css?v=txt5">
 <style>
 /* ============================================================================
    KRAY.NETWORK — Star · page-local only. The system lives in /kray.css.
@@ -25,9 +25,10 @@
 .starhead .idn{flex:1 1 280px;min-width:0}
 /* ── THE STAR HERO — the number is the loudest thing on the page ──────────── */
 .shero{display:flex;flex-direction:column;gap:2px}
+.shero-line{display:flex;align-items:center;gap:clamp(12px,3vw,24px);flex-wrap:wrap;min-width:0}
 .snum-k{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-3);font-weight:500}
 .snum-big{font-family:var(--mono);font-size:clamp(38px,7.5vw,72px);font-weight:700;color:var(--ink);
-  letter-spacing:-.03em;line-height:.96;word-break:break-all;font-variant-numeric:tabular-nums}
+  letter-spacing:-.03em;line-height:.96;word-break:break-all;font-variant-numeric:tabular-nums;flex:0 1 auto}
 .snum{font-family:var(--mono);font-size:clamp(24px,4.5vw,32px);font-weight:600;color:var(--ink);
   letter-spacing:-.01em;line-height:1.2;word-break:break-all;font-variant-numeric:tabular-nums}
 .snum.sub{font-size:clamp(20px,3vw,26px);color:var(--ink-2);margin-top:var(--s1);font-weight:600}
@@ -85,6 +86,7 @@
 /* the cover — whatever is inside the star, rendered at scale */
 .art{width:200px;height:200px;border-radius:var(--r3);border:1px solid var(--line-2);background:var(--panel);
   flex:0 0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+.art .kv-nameplate{border-radius:inherit}
 .art img{width:100%;height:100%;object-fit:contain}
 .art .none{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);text-align:center;padding:var(--s4);letter-spacing:.08em;line-height:1.6}
 
@@ -193,14 +195,21 @@
 
 /* History rows live in /kray.css (.hist / .hrow) — one ledger tape, every door. */
 
-/* ── THE BAPTISM IN THE PLACE OF HONOUR — a star known by its name ────────── */
+/* ── THE BAPTISM — same line as ★ N. The box stays: label + name + law (?). */
 .nmhero{display:inline-flex;flex-direction:column;gap:2px;border:1px solid var(--line-2);background:var(--surface-2);
-  border-radius:var(--r3);padding:var(--s2) var(--s4);position:relative;cursor:help;max-width:100%}
+  border-radius:var(--r3);padding:var(--s2) 36px var(--s2) var(--s4);position:relative;max-width:100%;min-width:0}
 .nmhero .nmk{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
 .nmhero .nmk svg{width:12px;height:12px;flex:0 0 auto}
-.nmhero .nmv{font-size:27px;line-height:1.25;color:var(--ink);font-weight:600;word-break:break-word}
-.nmhero .nmi{position:absolute;top:8px;right:10px;font-family:var(--mono);font-size:9px;width:15px;height:15px;
-  border:1px solid var(--line-2);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--ink-3)}
+.nmhero .nmv{font-size:clamp(20px,3.2vw,27px);line-height:1.25;color:var(--ink);font-weight:600;word-break:break-word}
+.nmhero .nmi{position:absolute;top:8px;right:10px;font-family:var(--mono);font-size:9px;width:16px;height:16px;
+  border:1px solid var(--line-2);border-radius:50%;display:flex;align-items:center;justify-content:center;
+  color:var(--ink-3);cursor:help;z-index:2}
+.nmhero .nmi::after{content:attr(data-tip);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-80%);
+  width:min(260px,70vw);padding:8px 12px;border-radius:var(--r2);border:1px solid var(--line-2);
+  background:var(--void);color:var(--ink-2);font-family:var(--sans,inherit);font-size:12px;font-weight:400;
+  letter-spacing:0;line-height:1.45;text-transform:none;white-space:normal;text-align:left;
+  opacity:0;pointer-events:none;transition:opacity .12s;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:5}
+.nmhero .nmi:hover::after,.nmhero .nmi:focus::after{opacity:1}
 
 /* ── THE LAND MINI-MAP — this lot, inside the district Bitcoin minted ─────── */
 .lmap{position:relative;width:100%;max-width:min(100%,460px);aspect-ratio:1/1;min-height:220px;border:1px solid var(--line);
@@ -297,7 +306,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="/kray.js?v=mk4" defer></script>
+<script src="/kray.js?v=txt5" defer></script>
 <script src="/contract-exam.js" defer></script>
 <script>
 (function(){
@@ -1247,7 +1256,7 @@
     return '<dt>metadata · '+kind+'</dt><dd>'+inner
       +'<div style="color:var(--ink-4);margin-top:6px;font-size:12px">sealed with the relic — describes, does not execute</div></dd>';
   }
-  function sn(v){ return '#'+Number(v).toLocaleString(); }
+  function sn(v){ return (window.KRAY&&KRAY.starMark)?KRAY.starMark(v):('★ '+Number(v).toLocaleString()); }
   function burnAmt(size, listed){
     if(listed!=null && listed!=='') return String(listed);
     // the ERA'S rate, not a frozen constant — KRAY.burnOf reads the live retarget (seeded in kray.js)
@@ -1416,7 +1425,7 @@
     [['pg-prev','pg-prev2',prev],['pg-next','pg-next2',next]].forEach(function(g){
       [g[0],g[1]].forEach(function(id){
         var el=document.getElementById(id); if(!el) return;
-        if(g[2]){ el.href='/star/'+g[2]; el.removeAttribute('aria-disabled'); el.querySelector('span').textContent='#'+Number(g[2]).toLocaleString(); }
+        if(g[2]){ el.href='/star/'+g[2]; el.removeAttribute('aria-disabled'); el.querySelector('span').textContent=(window.KRAY&&KRAY.starMark)?KRAY.starMark(g[2]):('★ '+Number(g[2]).toLocaleString()); }
         else { el.removeAttribute('href'); el.setAttribute('aria-disabled','true'); el.querySelector('span').textContent = id.indexOf('prev')>=0 ? 'the first star' : 'the last star'; }
       });
     });
@@ -1455,19 +1464,24 @@
     var ins=s.inscriptions[0]||null;
     var art = ins && ins.held
       ? '<div class="pbox" id="hero-prev"></div>'
-      : '<div class="none">'+(ins? 'held by another node<br>'+esc(ins.contentType) : (s.dark?'not yet created<br>no star at this number':'no inscription<br>not yet written'))+'</div>';
+      : (ins
+        ? '<div class="none">held by another node<br>'+esc(ins.contentType)+'</div>'
+        : (s.dark
+          ? '<div class="none">not yet created<br>no star at this number</div>'
+          : (s.name && window.KRAY && KRAY.nameplateHtml
+            ? '<div class="pbox">'+KRAY.nameplateHtml(s)+'</div>'
+            : '<div class="none">no inscription<br>not yet written</div>')));
 
-    // THE BAPTISM IN THE PLACE OF HONOUR. A baptised star is known by its NAME,
-    // not its number — so the name leads and the number becomes the subtitle.
-    // A name is one plain word, unique in the whole universe forever.
-    var rd = s.nameReading || null;
+    // Baptism is honour. The number stays giant — it IS the birth order
+    // (inscription number when written). Name sits beside it, never instead of it.
+    var rd = s.nameReading || s.name || null;
     var nameHero = '';
-    if(rd){
-      var tip = 'The name of this star, unique in the whole universe forever. “'+s.name+'”, “'+String(s.name).toUpperCase()+'” and every keyboard variation are ONE name, and this writer was first.';
-      nameHero = '<div class="nmhero" title="'+esc(tip)+'">'
+    if(rd && s.name){
+      var tip = 'Baptised for eternity. “'+s.name+'” is unique in the whole universe — one name, forever, never renameable. This writer was first.';
+      nameHero = '<div class="nmhero">'
         +'<span class="nmk"><svg width="12" height="12"><use href="#g-name"/></svg>star name</span>'
         +'<span class="nmv">'+esc(s.name)+'</span>'
-        +'<span class="nmi" aria-hidden="true">?</span></div>';
+        +'<span class="nmi" tabindex="0" role="note" aria-label="'+esc(tip)+'" data-tip="'+esc(tip)+'">?</span></div>';
     }
 
     // ── THE CODEX — the star's rarity, low-number club and sacred houses, as glyphs ──
@@ -1537,9 +1551,10 @@
       : '';
 
     var h='<div class="starhead"><div class="art">'+art+'</div><div class="idn">'
-      +(rd? nameHero+'<div class="snum sub">'+sn(s.star)+'</div>'
-          : '<div class="shero"><span class="snum-k">Star</span><div class="snum-big">'+sn(s.star)+'</div></div>')
-      +'<div class="hbadges">'+rbadge+insbadge+szbadge+bornbadge+'</div>'
+      +'<div class="shero"><span class="snum-k">Star</span>'
+      +'<div class="shero-line"><div class="snum-big">'+sn(s.star)+'</div>'+(nameHero||'')+'</div></div>'
+      +'<div class="hbadges">'+rbadge+insbadge+szbadge+bornbadge
+      +((window.KRAY&&KRAY.kindChipHtml)?KRAY.kindChipHtml(s):'')+'</div>'
       +'<div class="tags">'
       +codexTags
       +(ins&&ins.category?'<span class="chip">'+esc(SHELF[ins.category]||'◇')+' '+esc(ins.category)+'</span>':'')
@@ -1571,7 +1586,7 @@
         var ps=s.parents||(s.parent!=null?[s.parent]:[]), os=s.origins||[];
         if(!ps.length && !os.length) return '';
         var h='';
-        ps.forEach(function(p){ h+='<a class="chip" href="/star/'+esc(String(p))+'" title="parent star #'+esc(String(p))+' — the signed lineage">✦ #'+Number(p).toLocaleString()+'</a>'; });
+        ps.forEach(function(p){ h+='<a class="chip" href="/star/'+esc(String(p))+'" title="parent ★ '+esc(String(p))+' — the signed lineage">✦ '+Number(p).toLocaleString()+'</a>'; });
         os.forEach(function(o){
           var href=(window.KRAY&&KRAY.ordinalsInscriptionUrl)?KRAY.ordinalsInscriptionUrl(o):null;
           h+= href
@@ -1713,8 +1728,8 @@
               : spec ? spec.glyph+' '+spec.label.toLowerCase()
               : (c.contentType||'work');
             return '<a class="work" href="/star/'+c.star+'">'+box
-              +'<div class="wn">'+(c.name?esc(c.name):('#'+Number(c.star).toLocaleString()))+'</div>'
-              +'<div class="wk">'+esc(kind)+' · #'+Number(c.star).toLocaleString()+'</div></a>';
+              +'<div class="wn">'+esc((window.KRAY&&KRAY.starTitle)?KRAY.starTitle(c):(c.name?('★ '+Number(c.star).toLocaleString()+' · '+c.name):('★ '+Number(c.star).toLocaleString())))+'</div>'
+              +'<div class="wk">'+esc(kind)+'</div></a>';
           }).join('')
           +'</div>';
       }
@@ -1726,8 +1741,8 @@
               ? '<div class="pbox" data-purl="'+c.url+'" data-pct="'+esc(c.contentType||'')+'"></div>'
               : '<div class="pbox"></div>';
             return '<a class="work" href="/star/'+c.star+'">'+box
-              +'<div class="wn">'+(c.name?esc(c.name):('#'+Number(c.star).toLocaleString()))+'</div>'
-              +'<div class="wk">L1 sister · #'+Number(c.star).toLocaleString()+(String(c.star)===String(s.star)?' · you':'')+'</div></a>';
+              +'<div class="wn">'+esc((window.KRAY&&KRAY.starTitle)?KRAY.starTitle(c):(c.name?('★ '+Number(c.star).toLocaleString()+' · '+c.name):('★ '+Number(c.star).toLocaleString())))+'</div>'
+              +'<div class="wk">L1 sister'+(String(c.star)===String(s.star)?' · you':'')+'</div></a>';
           }).join('')
           +'</div>';
       }
@@ -1796,7 +1811,7 @@
           var ago=(whenMs!=null && window.KRAY&&KRAY.ago)?KRAY.ago(whenMs):'';
           var local='';
           try{ if(whenMs!=null) local=new Date(Number(whenMs)).toLocaleString(); }catch(_){}
-          var plate=(window.KRAY&&KRAY.faceHtml)?KRAY.faceHtml({contentHash:s.contentHash,contentType:s.contentType,star:s.star}):'<span class="glyph">★ '+esc(s.star)+'</span>';
+          var plate=(window.KRAY&&KRAY.faceHtml)?KRAY.faceHtml({contentHash:s.contentHash,contentType:s.contentType,star:s.star,name:s.name}):'<span class="glyph">★ '+esc(s.star)+'</span>';
           var shortA=function(lab,a){ return a?'<span title="'+esc(a)+'"><em>'+esc(lab)+'</em>'+esc(a.slice(0,10))+'…'+esc(a.slice(-6))+'</span>':''; };
           var who=(e.from||e.to)?shortA('from',e.from)+shortA('to',e.to):'';
           return '<a class="hrow" href="/tx/'+e.hash+'"><span class="hsq facefill fixed">'+plate+'</span>'

@@ -565,18 +565,79 @@
     if (spec.id === 'video') { face.play = true; return face; }
     return face;
   };
+  /* The star's number, written as itself — ★ 23, never #23.
+     That number IS the inscription number when the star is written:
+     birth order, how old it is. Baptism never hides it. */
+  KRAY.starMark = function (n) {
+    var v = Number(n);
+    return '★ ' + (Number.isFinite(v) ? v.toLocaleString() : String(n == null ? '' : n));
+  };
+  /* Title on a card: ★ N always, name beside it when baptised. Plain text. */
+  KRAY.starTitle = function (t) {
+    t = t || {};
+    var star = t.star != null ? t.star : t.no;
+    var name = String(t.name || (t.baptism && t.baptism.name) || '').trim();
+    var mark = KRAY.starMark(star);
+    return name ? mark + ' · ' + name : mark;
+  };
+  /* What the star actually holds — name, content, both, or neither.
+     Buy/sell reads this: a baptism is not an inscription. */
+  KRAY.starKindOf = function (t) {
+    t = t || {};
+    var name = String(t.name || (t.baptism && t.baptism.name) || '').trim();
+    var hasContent = !!(t.contentHash || t.media || t.url
+      || (t.inscription && (t.inscription.url || t.inscription.contentHash)));
+    if (name && !hasContent) return 'named';
+    if (!name && hasContent) return 'inscribed';
+    if (name && hasContent) return 'whole';
+    return 'bare';
+  };
+  KRAY.kindLabel = function (kind) {
+    return ({
+      named: 'name only · no content',
+      inscribed: 'unnamed · has content',
+      whole: 'named · has content',
+      bare: 'star only'
+    })[kind] || '';
+  };
+  KRAY.kindChipHtml = function (t) {
+    var kind = KRAY.starKindOf(t);
+    var lab = KRAY.kindLabel(kind);
+    if (!lab) return '';
+    return '<span class="skind skind--' + kind + '" title="' + KRAY.esc(lab) + '">' + KRAY.esc(lab) + '</span>';
+  };
+  /* ★ N centered — only when the square has no sealed bytes. */
+  KRAY.starMarkPlate = function (t) {
+    t = t || {};
+    var star = t.star != null ? t.star : t.no;
+    var mark = KRAY.starMark(star);
+    return '<span class="kv-mark">' + KRAY.esc(mark) + '</span>';
+  };
+  KRAY.nameplateHtml = function (t) {
+    t = t || {};
+    var name = String(t.name || (t.baptism && t.baptism.name) || '').trim();
+    var star = t.star != null ? t.star : t.no;
+    var mark = KRAY.starMark(star);
+    return '<span class="kv-nameplate" title="baptised — this star has a name and no inscription">'
+      + '<i>' + KRAY.esc(mark) + '</i>'
+      + (name ? '<b>' + KRAY.esc(name) + '</b>' : '')
+      + '<em>name only</em></span>';
+  };
   /* Market / history plate — the sealed bytes fill the square. Image and audio cover as
-     <img>; video as a still; everything else through /render so text, markup and HTML
-     actually appear inside the container (never an empty glyph when the atlas holds bytes). */
+     <img>; video as a still; text / code through the letter template. A baptised star
+     with no bytes gets the nameplate — never an empty square. ★ N is the empty
+     fallback only; it never sits behind inscribed content. */
   KRAY.faceHtml = function (t) {
     t = t || {};
+    var kind = KRAY.starKindOf(t);
+    if (kind === 'named') return KRAY.nameplateHtml(t);
     var media = t.media || t.url || (t.contentHash ? '/content/' + t.contentHash : '');
     var ct = String(t.contentType || t.ctype || '');
-    var star = t.star != null ? t.star : t.no;
     var cat = KRAY.categoryOf(ct);
-    var mark = star != null ? '★ ' + star : (KRAY.shelfGlyph(cat) || '◇');
-    var empty = '<span class="glyph">' + KRAY.esc(String(mark)) + '</span>';
-    if (!media) return empty;
+    var badge = kind === 'inscribed'
+      ? '<span class="skind-face" title="has an inscription — no baptism">unnamed</span>'
+      : '';
+    if (!media) return KRAY.starMarkPlate(t);
     var hash = (String(media).match(/\/(?:content|cover|render)\/([0-9a-f]{64})/) || [])[1];
     var layer;
     if (cat === 'image' || cat === 'vector') {
@@ -586,10 +647,18 @@
     } else if (cat === 'video') {
       layer = '<video muted playsinline preload="metadata" src="' + KRAY.esc(media) + '"></video>';
     } else {
-      var render = hash ? '/render/' + hash : String(media).replace('/content/', '/render/');
-      layer = '<iframe loading="lazy" src="' + KRAY.esc(render) + '#toolbar=0&navpanes=0&scrollbar=0" sandbox="allow-scripts allow-same-origin" tabindex="-1" title=""></iframe>';
+      var pkind = KRAY.previewKindOf(ct);
+      // text / code / markdown sit in the LETTER+SNIPPET template (hydratePortraits),
+      // never a raw /render iframe — that dumps wrapping source into a 60px square.
+      // pdf keeps the frozen first-page iframe. Image / video / audio already returned.
+      if (pkind && pkind !== 'pdf' && hash) {
+        layer = '<div class="kv-hyd" data-kvurl="/content/' + hash + '" data-kvct="' + KRAY.esc(ct) + '"></div>';
+      } else {
+        var render = hash ? '/render/' + hash : String(media).replace('/content/', '/render/');
+        layer = '<iframe loading="lazy" src="' + KRAY.esc(render) + '#toolbar=0&navpanes=0&scrollbar=0" sandbox="allow-scripts allow-same-origin" tabindex="-1" title=""></iframe>';
+      }
     }
-    return empty + layer;
+    return layer + badge;
   };
   /* Circular face on a star chip (#32). The sealed bytes when an <img> can show them;
      otherwise the number stands alone. Never a frame emoji. Presentation only. */
@@ -606,7 +675,7 @@
   KRAY.starChipInner = function (t) {
     t = t || {};
     var n = Number(t.star);
-    var lab = '#' + (Number.isFinite(n) ? n.toLocaleString() : KRAY.esc(String(t.star || '')));
+    var lab = Number.isFinite(n) ? KRAY.starMark(n) : KRAY.esc(String(t.star || ''));
     return KRAY.starChipArt(t) + '<span>' + lab + '</span>';
   };
   KRAY.starChipButton = function (attrs, t) {
@@ -663,35 +732,98 @@
       pw.appendChild(fr); box.appendChild(pw); return;
     }
     if (kind === 'md' || kind === 'src' || kind === 'txt') {
-      var wrap = document.createElement('div'); wrap.className = 'kv-paper' + (opts.mini ? '' : ' kv-paper--lg'); box.appendChild(wrap);
+      var wrap = document.createElement('div'); wrap.className = 'kv-paper' + (opts.mini ? ' kv-mini' : ' kv-paper--lg'); box.appendChild(wrap);
       var cap = opts.mini ? 4000 : 400000;
       fetch(url).then(function (r) { if (!r.ok) throw new Error('gone'); return r.text(); }).then(function (t) {
         t = t.length > cap ? t.slice(0, cap) + (opts.mini ? '' : '\n…') : t;
         if (kind === 'md') { wrap.innerHTML = '<div class="kv-mdprev">' + KRAY.mdToSafeHtml(t) + '</div>'; return; }
         if (kind === 'txt') {
-          // the LETTER — a written post always arrives beautifully set. A SHORT post is a
-          // QUOTE CARD: centered on both axes, type scaled to its length (a two-word verse
-          // fills the tile; a paragraph settles down) — like the genesis posts looked.
+          // the LETTER — a written post always arrives beautifully set. Mini tiles
+          // always use the QUOTE CARD and then FIT the type to the real box so a
+          // 60px library square never mid-word-breaks ("reli c"). Full-size short
+          // posts still scale by length (the genesis verse look).
           var body = t.trim(), short = body.length > 0 && body.length <= 140 && body.split('\n').length <= 4;
-          var d = document.createElement('div'); d.className = 'kv-txtprev' + (short ? ' kv-txtprev--quote' : '');
-          d.textContent = t;
-          if (short) {
-            var L = body.length;
-            d.style.fontSize = (opts.mini ? Math.max(9, Math.min(16, Math.round(19 - L / 9)))
-                                          : Math.max(17, Math.min(34, Math.round(38 - L / 4)))) + 'px';
+          var d = document.createElement('div');
+          d.className = 'kv-txtprev' + (opts.mini || short ? ' kv-txtprev--quote' : '');
+          d.textContent = opts.mini ? (body || t) : t;
+          if (short && !opts.mini) {
+            d.style.fontSize = Math.max(17, Math.min(34, Math.round(38 - body.length / 4))) + 'px';
           }
-          wrap.appendChild(d); return;
+          wrap.appendChild(d);
+          if (opts.mini) kvFitPortrait(d);
+          return;
+        }
+        if (opts.mini) {
+          // SNIPPET CARD — a 60px square cannot host editor chrome. First lines,
+          // centered, fitted, language as a corner whisper. Source is shown, never run.
+          var chip = document.createElement('span'); chip.className = 'kv-chip kv-chip--corner';
+          chip.textContent = kvCodeLabel(ct);
+          var pre = document.createElement('pre'); pre.className = 'kv-srcprev kv-srcprev--fit';
+          pre.textContent = kvSnippetLines(t, 180);
+          wrap.appendChild(chip); wrap.appendChild(pre);
+          kvFitPortrait(pre);
+          return;
         }
         // the CODE page — editor chrome + source, shown, never run
         var head = document.createElement('div'); head.className = 'kv-codehead';
         head.innerHTML = '<i>' + KRAY.esc(kvCodeLabel(ct)) + '</i><span>source · never executed</span>';
-        var pre = document.createElement('pre'); pre.className = 'kv-srcprev';
-        pre.textContent = t;                                    // textContent: never markup
-        wrap.appendChild(head); wrap.appendChild(pre);
+        var src = document.createElement('pre'); src.className = 'kv-srcprev';
+        src.textContent = t;                                    // textContent: never markup
+        wrap.appendChild(head); wrap.appendChild(src);
       }).catch(function () { wrap.innerHTML = '<span class="kv-chip">bytes held elsewhere</span>'; });
       return;
     }
     box.innerHTML = '<span class="kv-chip">' + KRAY.esc(String(ct || 'unknown')) + '</span>';
+  };
+
+  /* Fit letter/snippet type to the LIVE box. Binary search font-size until the
+     bytes sit inside without overflow — a 54px map lot and a 240px market plate
+     share one template. Presentation only; the sealed bytes are unchanged. */
+  function kvFits(el) {
+    return el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1;
+  }
+  function kvFitNow(el) {
+    var w = el.clientWidth, h = el.clientHeight;
+    if (w < 8 || h < 8) return;
+    var min = 7, max = Math.max(min, Math.min(22, Math.floor(Math.min(w, h) / 3.2)));
+    var lo = min, hi = max, best = min;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      el.style.fontSize = mid + 'px';
+      if (kvFits(el)) { best = mid; lo = mid + 1; } else hi = mid - 1;
+    }
+    el.style.fontSize = best + 'px';
+  }
+  function kvFitPortrait(el) {
+    if (!el) return;
+    var run = function () { kvFitNow(el); };
+    if (el.clientWidth) { requestAnimationFrame(run); return; }
+    if (typeof ResizeObserver === 'undefined') { setTimeout(run, 60); return; }
+    var ro = new ResizeObserver(function () {
+      if (el.clientWidth) { ro.disconnect(); run(); }
+    });
+    ro.observe(el);
+  }
+  function kvSnippetLines(t, maxChars) {
+    var lines = String(t || '').replace(/\t/g, '  ').split(/\r?\n/);
+    var out = [], n = 0;
+    for (var i = 0; i < lines.length && out.length < 6; i++) {
+      var line = lines[i];
+      if (!line.trim() && !out.length) continue;
+      out.push(line);
+      n += line.length;
+      if (n >= maxChars) break;
+    }
+    return out.join('\n');
+  }
+  /* Paint every .kv-hyd portrait that a list just inserted. Pages may still call
+     frozenPreview themselves — data-loaded makes this a no-op on those. */
+  KRAY.hydratePortraits = function (root) {
+    var scope = root && root.querySelectorAll ? root : document;
+    scope.querySelectorAll('.kv-hyd[data-kvurl]:not([data-loaded])').forEach(function (el) {
+      el.setAttribute('data-loaded', '1');
+      KRAY.frozenPreview(el, el.getAttribute('data-kvurl'), el.getAttribute('data-kvct'), { mini: true });
+    });
   };
 
   /* ── the era's byte price — THIS node is the only mouth. Never invent a second rate.
@@ -905,6 +1037,15 @@
     var tb = document.getElementById('kray-theme'); if (tb) tb.addEventListener('click', toggleTheme);
     var cb = document.getElementById('kray-connect'); if (cb) cb.addEventListener('click', doConnect);
     if (present()) restoreWallet(); else { paintWallet(null); window.addEventListener('krayWalletReady', restoreWallet); setTimeout(restoreWallet, 1200); }
+    KRAY.hydratePortraits();
+    if (typeof MutationObserver !== 'undefined') {
+      var mo = new MutationObserver(function (recs) {
+        for (var i = 0; i < recs.length; i++) {
+          if (recs[i].addedNodes && recs[i].addedNodes.length) { KRAY.hydratePortraits(); return; }
+        }
+      });
+      mo.observe(document.documentElement, { childList: true, subtree: true });
+    }
   }
 
   if (document.readyState !== 'loading') init();

@@ -12,9 +12,8 @@
 <style>
   /* page-local only — the design system lives in /kray.css */
   .ex-wrap{max-width:1100px;margin:0 auto;padding:var(--s6) var(--s4) var(--s9)}
-  .ex-hero{margin:var(--s6) 0 var(--s5)}
-  .ex-hero h1{font-size:clamp(26px,4vw,40px);letter-spacing:-.02em;margin:0 0 var(--s2)}
-  .ex-hero .sub{color:var(--ink-3);font-size:14px;line-height:1.65;max-width:70ch}
+  .ex-hero{margin:var(--s4) 0 var(--s3)}
+  .ex-hero h1{font-size:22px;letter-spacing:-.02em;margin:0}
   .ex-stats{display:flex;flex-wrap:wrap;gap:var(--s3) var(--s6);margin:var(--s5) 0}
   .ex-stat .k{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
   .ex-stat .v{font-family:var(--mono);font-size:16px;margin-top:2px}
@@ -29,6 +28,7 @@
   .ex-card2{display:flex;gap:var(--s4);border:1px solid var(--line);border-radius:var(--r2);background:var(--panel);padding:var(--s3);align-items:center}
   .ex-card2 .rthumb{width:96px;height:96px;flex:none;border-radius:var(--r1);overflow:hidden;background:#0000;display:flex;align-items:center;justify-content:center;border:1px solid var(--line)}
   .ex-card2 .rthumb img{width:100%;height:100%;object-fit:cover}
+  .ex-card2 .rthumb .kv-hyd{width:100%;height:100%}
   .ex-card2 .rthumb .glyph{font-family:var(--mono);font-size:34px;color:var(--ink-3)}
   .ex-card2 .rmeta{min-width:0;font-size:13px;line-height:1.7}
   .ex-card2 .rtitle{font-size:16px;margin-bottom:4px}
@@ -55,6 +55,7 @@
   .ex-card:hover{border-color:var(--btc);transform:translateY(-2px)}
   .ex-card .thumb{display:block;aspect-ratio:1;overflow:hidden}
   .ex-card .thumb img{width:100%;height:100%;object-fit:cover;display:block;background:#0000}
+  .ex-card .thumb .kv-hyd{width:100%;height:100%}
   .ex-card .thumb.noimg{display:flex;align-items:center;justify-content:center}
   .ex-card .thumb.noimg .glyph{font-family:var(--mono);font-size:30px;color:var(--ink-3)}
   .ex-card .meta{display:block;padding:8px 10px;font-size:12px;line-height:1.35;border-top:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -68,7 +69,6 @@
 <div class="ex-wrap">
   <header class="ex-hero">
     <h1>The book</h1>
-    <p class="sub">This node is <b>KRAY.NETWORK</b> — the ledger, not a product. <b>Donate</b> burns real sats and ₭ is born. <b>Inscribe</b> spends ₭ and a star stays in the atlas. <b>Validate</b> is work; Glow is honor. One cascade root is sealed to Bitcoin. Anyone who clones <i>kray-node</i> and follows this head re-derives the same bytes. DeFi and the rune bridge are <b>apps on this book</b>.</p>
     <div class="ex-stats" id="stats"></div>
   </header>
 
@@ -123,6 +123,8 @@
     function thumbFor(url, category, ct) {
       var img = (category === 'image' || category === 'vector' || isImageType(ct))
       if (img && url) return { html: '<img loading="lazy" src="' + esc(url) + '" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.outerHTML=\'<span class=&quot;glyph&quot;>' + (GLYPH[category] || '◇') + '</span>\'">', img: true }
+      var letter = url && (/^text\//i.test(ct) || /json|javascript|xml|markdown|csv|yaml|html|x-python|x-java/i.test(ct))
+      if (letter) return { html: '<div class="kv-hyd" data-kvurl="' + esc(url) + '" data-kvct="' + esc(ct || '') + '"></div>', img: true }
       return { html: '<span class="glyph">' + (GLYPH[category] || '◇') + '</span>', img: false }
     }
 
@@ -133,7 +135,7 @@
       var href = hash ? '/render/' + esc(hash) : '#'
       return '<a class="ex-card" href="' + href + '" target="_blank" rel="noopener" title="' + esc(hash) + '" data-cat="' + esc(w.category || 'file') + '">' +
         '<span class="thumb' + (t.img ? '' : ' noimg') + '">' + t.html + '</span>' +
-        '<span class="meta"><b>#' + esc(w.star) + '</b>' + label + '</span>' +
+        '<span class="meta"><b>' + esc((window.KRAY && KRAY.starMark) ? KRAY.starMark(w.star) : ('★ ' + w.star)) + '</b> ' + label + '</span>' +
         '</a>'
     }
 
@@ -144,7 +146,7 @@
       return '<div class="ex-card2">' +
         '<div class="rthumb' + (t.img ? '' : ' noimg') + '">' + t.html + '</div>' +
         '<div class="rmeta">' +
-          '<div class="rtitle">Star #' + esc(s.no) + (s.name ? ' · ' + esc(s.name) : '') + '</div>' +
+          '<div class="rtitle">' + esc((window.KRAY && KRAY.starMark) ? KRAY.starMark(s.no) : ('★ ' + s.no)) + (s.name ? ' · ' + esc(s.name) : '') + '</div>' +
           '<div class="rrow"><span>owner</span> <code>' + esc(String(s.owner || '—')).slice(0, 22) + (String(s.owner || '').length > 22 ? '…' : '') + '</code></div>' +
           (s.contentType ? '<div class="rrow"><span>type</span> <code>' + esc(s.contentType) + '</code></div>' : '') +
           (hash ? '<div class="rrow"><span>hash</span> <code>' + hash.slice(0, 24) + '…</code></div>' : '') +

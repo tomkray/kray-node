@@ -7,12 +7,12 @@
 <link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
-<link rel="stylesheet" href="/kray.css">
+<link rel="stylesheet" href="/kray.css?v=txt5">
 <style>
   /* page-local only — the design system lives in /kray.css. These are the
      library-specific bits: the hero stamp line, the census sublabel, the browse
      rail / shelves layout, and the entry cards with their cover-art thumbnails. */
-  .hero .stamp{display:flex;gap:var(--s5);flex-wrap:wrap;align-items:center;margin-top:var(--s7);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+  .hero .stamp{display:flex;gap:var(--s5);flex-wrap:wrap;align-items:center;margin-top:var(--s3);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
   .hero .stamp b{color:var(--ink)}
   .hero .stamp a{color:var(--ink-3)}
   .hero .stamp a:hover{color:var(--ink)}
@@ -45,8 +45,12 @@
   /* FIX 1 — the thumbnail shows the REAL content: raster + SVG in <img> (safe),
      video in <video>, text fetched into a mono preview, glyph only as last resort */
   .entry .art img,.entry .art video{width:100%;height:100%;object-fit:cover}
-  .entry .art .kv-hyd{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
-  .entry .art .txt{width:100%;height:100%;padding:5px 6px;font-family:var(--mono);font-size:7.5px;line-height:1.28;color:var(--ink-2);overflow:hidden;text-align:left;word-break:break-word;white-space:pre-wrap}
+  .entry .art .kv-hyd{width:100%;height:100%;display:block}
+  .entry .art .kv-nameplate{width:100%;height:100%;padding:4px}
+  .entry .art .kv-nameplate i,.entry .art .kv-mark{font-size:11px}
+  .entry .art .kv-nameplate b{font-size:8px;-webkit-line-clamp:2}
+  .entry .art .kv-nameplate em{font-size:6px}
+  .entry .skind{margin-top:4px}
   .entry .art .gl{font-family:var(--mono);font-size:20px;color:var(--ink-4)}
   .entry .m{display:block;flex:1;min-width:0}
   .entry .nm{display:block;font-size:15.5px;font-weight:500;color:var(--ink);line-height:1.35;word-break:break-word}
@@ -73,9 +77,6 @@
   <section class="hero" style="border-top:0">
     <div class="eyebrow">EVERY NAME HUMANITY HAS WRITTEN · BAPTISM IS THE ONLY REGISTRY</div>
     <h1>The library</h1>
-    <p class="lede">Every name written into this universe — one plain word, unique forever. A name is claimed by
-      <b>baptising a star</b>, and the baptism is the only registry there is — the first writer owns it, no owner can
-      rename, and every keyboard variation of the same name is the same name.</p>
     <div class="cta row">
       <a class="btn primary" href="/baptize"><svg width="15" height="15"><use href="#g-name"/></svg> Baptize a name</a>
       <a class="btn" href="/inscribe"><svg width="15" height="15"><use href="#g-inscribe"/></svg> Inscribe a star</a>
@@ -104,7 +105,7 @@
   <div class="law" id="law"></div>
 </div></section>
 
-<script src="/kray.js" defer></script>
+<script src="/kray.js?v=txt5" defer></script>
 <script>
 (function(){
   'use strict';
@@ -245,22 +246,28 @@
     var tip = law
       ? ((w.name?'“'+w.name+'” · ':'')+'living law sealed on this star')
       : ((w.name?'“'+w.name+'” · ':'')+w.contentType+' · '+w.size+' bytes');
+    var chip = (window.KRAY && KRAY.kindChipHtml) ? KRAY.kindChipHtml(w) : '';
     return '<a class="entry card-link" href="'+esc(href)+'" title="'+esc(tip)+'">'
       +'<span class="art">'+art+'</span>'
-      +'<span class="m"><span class="nm">'+esc(w.name || ('#'+Number(w.star).toLocaleString()))+'</span>'
+      +'<span class="m"><span class="nm">'+esc((window.KRAY&&KRAY.starTitle)?KRAY.starTitle(w):('★ '+num(w.star)+(w.name?' · '+w.name:'')))+'</span>'
+      +chip
       +'<span class="kd">'+(law?'law · sealed contract':esc(w.category))+(w.number!=null?' · inscription #'+num(w.number):'')+'</span>'
-      +'<span class="st2">✦ star #'+num(w.star)+'</span>'
+      +'<span class="st2">✦ '+num(w.star)+'</span>'
       +'<span class="st">'+(law?(w.contract?esc(String(w.contract).slice(0,18))+'…':'living law'):esc(w.contentType)+' · '+num(w.size)+' bytes')
         +' · '+esc(w.rarity)+'</span></span></a>';
   }
   function nameCard(e){
     var tip='The name of this star, unique in the whole universe forever — one plain word, and this writer was first.';
-    var art = e.inscription ? cellArt(e.inscription.contentType, e.inscription.url, e.inscription.category) : '<span class="gl">✦</span>';
+    var art = e.inscription
+      ? cellArt(e.inscription.contentType, e.inscription.url, e.inscription.category)
+      : ((window.KRAY && KRAY.nameplateHtml) ? KRAY.nameplateHtml(e) : '<span class="gl">✦</span>');
+    var chip = (window.KRAY && KRAY.kindChipHtml) ? KRAY.kindChipHtml(e) : '';
     return '<a class="entry card-link" href="/star/'+esc(e.star)+'" title="'+esc(tip)+'">'
       +'<span class="art">'+art+'</span>'
-      +'<span class="m"><span class="nm">'+esc(e.name)+'</span>'
+      +'<span class="m"><span class="nm">'+esc((window.KRAY&&KRAY.starTitle)?KRAY.starTitle(e):('★ '+num(e.star)+(e.name?' · '+e.name:'')))+'</span>'
+      +chip
       +'<span class="kd">star name</span>'
-      +'<span class="st">star #'+num(e.star)+' · '+esc(e.rarity)
+      +'<span class="st">✦ '+num(e.star)+' · '+esc(e.rarity)
         +(e.inscription?' · '+esc(e.inscription.category)+' '+num(e.inscription.size)+' B':'')+'</span></span></a>';
   }
   function matchWork(w){

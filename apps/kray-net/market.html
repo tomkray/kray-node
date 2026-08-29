@@ -7,7 +7,7 @@
 <link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
-<link rel="stylesheet" href="/kray.css?v=mk4">
+<link rel="stylesheet" href="/kray.css?v=txt5">
 <style>
   /* Marketplace — page-local only. Cards + tape live in /kray.css. */
   .proofbar{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s4)}
@@ -81,7 +81,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="/kray.js?v=mk4" defer></script>
+<script src="/kray.js?v=txt5" defer></script>
 <script defer>
 (function () {
   'use strict';
@@ -99,6 +99,7 @@
 
   function hue(kind, opts) { return (window.KRAY && KRAY.actCss) ? KRAY.actCss(kind, opts || {}) : '#ff6ea8'; }
   function face(t) { return (window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(t) : '<span class="glyph">★ ' + esc(t && t.star != null ? t.star : '') + '</span>'; }
+  function kind(t) { return (window.KRAY && KRAY.kindChipHtml) ? KRAY.kindChipHtml(t) : ''; }
   function addrLine(lab, a, link) {
     if (!a) return '';
     var body = link
@@ -201,7 +202,8 @@
       '<a class="art facefill" href="/star/' + esc(l.star) + '">' + face(l) + '</a>' +
       '<div class="body">' +
         (mine ? '<span class="mine-tag">your listing</span>' : '<span class="mine-tag">listed</span>') +
-        '<a class="nm" href="/star/' + esc(l.star) + '">' + esc(l.name || ('Star #' + l.star)) + '</a>' +
+        '<a class="nm" href="/star/' + esc(l.star) + '">' + esc((window.KRAY && KRAY.starTitle) ? KRAY.starTitle(l) : ('★ ' + l.star + (l.name ? ' · ' + l.name : ''))) + '</a>' +
+        kind(l) +
         '<span class="no">★ ' + esc(l.star) + (l.rarity ? ' · ' + esc(l.rarity) : '') + (l.collection ? ' · ' + esc(l.collection) : '') + '</span>' +
         '<span class="who">' + pathOf(l, true) + '</span>' +
         '<span class="px">' + num(l.price) + ' ₭</span>' +
@@ -213,7 +215,8 @@
       '<a class="art facefill" href="/star/' + esc(r.star) + '">' + face(r) + '</a>' +
       '<div class="body">' +
         '<span class="mine-tag">sold</span>' +
-        '<a class="nm" href="/star/' + esc(r.star) + '">' + esc(r.name || ('Star #' + r.star)) + '</a>' +
+        '<a class="nm" href="/star/' + esc(r.star) + '">' + esc((window.KRAY && KRAY.starTitle) ? KRAY.starTitle(r) : ('★ ' + r.star + (r.name ? ' · ' + r.name : ''))) + '</a>' +
+        kind(r) +
         '<span class="no">★ ' + esc(r.star) + (r.collection ? ' · ' + esc(r.collection) : '') + '</span>' +
         '<span class="who">' + pathOf(r, true) + '</span>' +
         '<span class="px">' + (r.amount != null ? num(r.amount) + ' ₭' : '—') + '</span>' +
