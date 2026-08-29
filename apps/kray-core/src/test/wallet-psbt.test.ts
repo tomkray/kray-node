@@ -8,7 +8,7 @@
  */
 import { createHash } from 'node:crypto'
 import * as btc from '@scure/btc-signer'
-import { buildRuneSendPsbt, buildBtcSendPsbt, taprootKeypathVsize, feeSatsAtRate, SEQUENCE_RBF } from '../protocol/wallet-psbt.ts'
+import { buildRuneSendPsbt, buildBtcSendPsbt, buildInscriptionSendPsbt, taprootKeypathVsize, feeSatsAtRate, SEQUENCE_RBF } from '../protocol/wallet-psbt.ts'
 import { decipher, allocate } from '../protocol/runestone.ts'
 import { NETWORKS, _hexToBytes, _generateKeyPair } from '../protocol/scheme.ts'
 
@@ -86,6 +86,24 @@ function main() {
     return tx.inputsLength > 0
   }
   ok(rbfOk(b1.psbtHex) && rbfOk(b5.psbtHex), 'wallet sends opt into BIP125 RBF (sequence 0xfffffffd) — a stuck fee can be replaced')
+
+  // ── 6 · an inscription send: postage preserved, input 0 is the inscribed outpoint ──
+  const scriptOf = (a: string) => btc.OutScript.encode(btc.Address(bnet).decode(a))
+  const inscriptionUtxo = { txid: '33'.repeat(32), vout: 0, sats: 600n, script: scriptOf(from) }
+  const pureFee = [{ txid: '44'.repeat(32), vout: 2, sats: 20000n, script: scriptOf(from) }]
+  const b6 = buildInscriptionSendPsbt({ net: NET, from, to, inscriptionUtxo, feeUtxos: pureFee, feeSats: 500n, dust: 330n })
+  const tx6 = btc.Transaction.fromPSBT(_hexToBytes(b6.psbtHex))
+  const in0 = tx6.getInput(0)
+  ok(Buffer.from(in0.txid!).toString('hex') === '33'.repeat(32) && in0.index === 0, 'input 0 IS the inscribed outpoint — the sat rides 0 → 0')
+  const out0 = tx6.getOutput(0)
+  ok(out0.amount === 600n && Buffer.from(out0.script!).toString('hex') === Buffer.from(scriptOf(to)).toString('hex'),
+    'output 0 pays the recipient the EXACT postage (600) — never crushed, never taxed')
+  ok(tx6.outputsLength === 2 && b6.change === String(20000n - 500n), 'fee comes ONLY from the pure input; change 19500 back to sender')
+  ok(rbfOk(b6.psbtHex), 'the inscription send opts into RBF too')
+  // ── 6b · fee cannot raid the postage: no pure input rich enough → REFUSED ──
+  let noFee = false
+  try { buildInscriptionSendPsbt({ net: NET, from, to, inscriptionUtxo, feeUtxos: [], feeSats: 500n, dust: 330n }) } catch { noFee = true }
+  ok(noFee, 'with no pure fee input the send is REFUSED — the postage is never the purse')
 
   ok(taprootKeypathVsize(3, 4) === 10 + 3 * 58 + 4 * 43, '3-in/4-out rune send vsize is ~356, not the old 160 guess')
   ok(feeSatsAtRate(4, 3, 4) === BigInt(4 * (10 + 3 * 58 + 4 * 43)), 'High 4 sat/vB on that shape pays 4×vsize — not 640 from 4×160')

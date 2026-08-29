@@ -56,7 +56,7 @@ import { AnchorPool, DEFAULT_REWARD } from '../kray-core/src/economics/anchor-po
 import { verifyRuneMovement } from '../kray-core/src/protocol/rune-bridge.ts'
 import { buildDonationPsbt, buildSelfAnchorDonationPsbt } from '../kray-core/src/protocol/donate-psbt.ts'
 import { selfAnchorScriptHex, addressFromOutputKey, BURN_INTERNAL_KEY } from '../kray-core/src/protocol/self-anchor.ts'
-import { buildBtcSendPsbt, buildRuneSendPsbt, feeSatsAtRate } from '../kray-core/src/protocol/wallet-psbt.ts'
+import { buildBtcSendPsbt, buildInscriptionSendPsbt, buildRuneSendPsbt, feeSatsAtRate } from '../kray-core/src/protocol/wallet-psbt.ts'
 import { decipher, runeName, spacedRuneName } from '../kray-core/src/protocol/runestone.ts'
 import { parseRuneKey, canonicalRuneKey } from '../kray-core/src/economics/rune-book.ts'
 import { rrPairKey, isAmmPotAddress, ammPoolAddress, ammRrPoolAddress, parseAmmPotAddress } from '../kray-core/src/protocol/amm.ts'
@@ -105,6 +105,7 @@ const PUBLIC_L1_OFF = new Set([
   '/api/psbt/broadcast',
   '/api/kraywallet/finalize-psbt',
   '/api/kraywallet/build-send-psbt',
+  '/api/kraywallet/build-send-inscription-psbt',
   '/api/runes/build-send-psbt',
 ])
 const _postHitsIp = new Map()
@@ -6859,6 +6860,44 @@ const server = createServer(async (req, res) => {
           feeSats = feeFor(b, built.inputs, nOut)
           built = buildBtcSendPsbt({ net: NET, from, to, sats, utxos, feeSats, dust })
           return ok(res, { success: true, psbt: built.psbtB64, psbtHex: built.psbtHex, fee: built.fee, feeRate: feeRateOf(b), change: built.change, rbf: true })
+        } catch (e) { return ok(res, { success: false, error: e instanceof Error ? e.message : String(e) }) }
+      }
+      // ── SEND ONE INSCRIPTION — same body/answer contract as the kray-space builder, so the
+      // KrayWallet extension works against this node with zero client edits. Input 0 = the inscribed
+      // outpoint (postage preserved to the recipient), fee ONLY from ord-proven pure-BTC inputs
+      // (fail-closed: unverifiable → refused). The node never sees a key; the wallet signs locally. ──
+      if (p === '/api/kraywallet/build-send-inscription-psbt') {
+        if (!btcConfigured()) return err(res, 501, 'no bitcoind RPC configured')
+        const from = normalizeAddr(b.fromAddress, NET), to = normalizeAddr(b.recipientAddress, NET)
+        const iu = b.inscription && b.inscription.utxo
+        if (!from || !to || !iu || !iu.txid || iu.vout == null) return err(res, 400, 'build-send-inscription-psbt needs {fromAddress, recipientAddress, inscription:{id, utxo:{txid, vout}}}')
+        // inscriptions live on taproot — a keyed/script recipient would strand the sat for this wallet
+        if (!scriptOfAddress(to, toBtcNet(NET)).startsWith('5120')) {
+          return ok(res, { success: false, code: 'RECIPIENT_MUST_BE_TAPROOT', error: 'the recipient must be a Taproot address on this network' })
+        }
+        // the outpoint itself, from this node's bitcoind — value and script are chain truth, never client fields
+        const txo = await btcRpc('gettxout', [String(iu.txid), Number(iu.vout), true]).catch(() => null)
+        if (!txo || !txo.scriptPubKey || !txo.scriptPubKey.hex) return ok(res, { success: false, error: 'that inscription outpoint is unknown or already spent' })
+        const inscSats = BigInt(Math.round(Number(txo.value) * 1e8))
+        // MIXED-UTXO GATE (fail-closed, ord is the oracle): runes riding the same outpoint would burn
+        const o = await ordGet(`/output/${iu.txid}:${iu.vout}`)
+        if (!o) return ok(res, { success: false, code: 'MIXED_UTXO_CHECK_FAILED', error: 'cannot verify that outpoint right now (indexer unreachable) — try again shortly' })
+        if (o.runes && Object.keys(o.runes).length) return ok(res, { success: false, code: 'MIXED_UTXO_HAS_RUNES', error: 'this inscription UTXO also holds runes — separate the assets first; sending it now would burn them' })
+        if (!Array.isArray(o.inscriptions) || !o.inscriptions.length) return ok(res, { success: false, error: 'no inscription lives on that outpoint' })
+        if (b.inscription.id && !o.inscriptions.includes(String(b.inscription.id))) return ok(res, { success: false, error: 'that outpoint does not hold the inscription you named — refresh your inscriptions' })
+        // fee purse: the donate path's proven guard — pure BTC only, unverifiable UTXOs protected
+        const { cardinal, guarded } = await cardinalOnly((await scanUtxos(from)).filter((u) => !(u.txid === iu.txid && u.vout === Number(iu.vout))))
+        if (!cardinal.length) return ok(res, { success: false, error: guarded.some((g) => g.reason === 'unverified') ? 'cannot prove your fee UTXOs are asset-free right now (indexer unreachable) — try again shortly' : 'no rune/inscription-free BTC UTXOs to pay the fee at this address' })
+        const feeUtxos = cardinal.map((u) => ({ txid: u.txid, vout: u.vout, sats: BigInt(u.value), script: Buffer.from(u.scriptHex, 'hex') }))
+        const inscriptionUtxo = { txid: String(iu.txid), vout: Number(iu.vout), sats: inscSats, script: Buffer.from(txo.scriptPubKey.hex, 'hex') }
+        try {
+          const dust = dustFromEnv(process.env, 'p2tr')
+          let feeSats = feeFor(b, 2, 2)
+          let built = buildInscriptionSendPsbt({ net: NET, from, to, inscriptionUtxo, feeUtxos, feeSats, dust })
+          const nOut = BigInt(built.change) > 0n ? 2 : 1
+          feeSats = feeFor(b, built.inputs, nOut)
+          built = buildInscriptionSendPsbt({ net: NET, from, to, inscriptionUtxo, feeUtxos, feeSats, dust })
+          return ok(res, { success: true, psbt: built.psbtB64, psbtHex: built.psbtHex, fee: Number(built.fee), feeRate: feeRateOf(b), change: Number(built.change), inputCount: built.inputs, rareProtect: null, rbf: true })
         } catch (e) { return ok(res, { success: false, error: e instanceof Error ? e.message : String(e) }) }
       }
       if (p === '/api/runes/build-send-psbt') {

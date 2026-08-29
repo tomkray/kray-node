@@ -2,6 +2,10 @@
  * THE WALLET's SEND PSBTs — built by the node from the sender's OWN UTXOs (no custody), signed by the
  * wallet (taproot key path). Two builders:
  *   · buildBtcSendPsbt  — a plain BTC payment + change.
+ *   · buildInscriptionSendPsbt — moves ONE inscription outpoint: input 0 is the inscribed UTXO,
+ *     output 0 pays the recipient its EXACT postage (the inscribed sat rides 0→0 by ordinal
+ *     arithmetic), fee comes only from pure-BTC inputs the caller pre-filtered. The postage is
+ *     never crushed to dust and never taxed for fee — the sat's home keeps its value.
  *   · buildRuneSendPsbt — a Runes transfer whose runestone allocates EVERY input rune EXPLICITLY:
  *     `amount` → the recipient, the remainder → the sender. Nothing is left to ord's default output or
  *     a pointer, so a mis-built change output can never silently route the runes into a burn. Rune
@@ -12,6 +16,9 @@ import { NETWORKS, toBtcNet, _hexToBytes, _bytesToHex } from './scheme.ts'
 import { encodeVarint, TAG } from './runestone.ts'
 
 export interface Utxo { txid: string; vout: number; sats: bigint; xonly: string; runeAmount?: bigint }
+/** An input carried by its on-chain scriptPubKey (no internal key needed — the wallet's signer
+ *  matches its own key to the script, the same PSBT shape the kray-space builders emit). */
+export interface ScriptUtxo { txid: string; vout: number; sats: bigint; script: Uint8Array }
 
 /** BIP125 opt-in. Default nSequence is 0xffffffff (final) — that is why mempool showed RBF: no. */
 export const SEQUENCE_RBF = 0xfffffffd
@@ -56,6 +63,32 @@ export function buildBtcSendPsbt(params: {
   if (change >= dust) tx.addOutputAddress(from, change, bnet)
   const psbt = tx.toPSBT()
   return out({ psbtHex: _bytesToHex(psbt), psbtB64: Buffer.from(psbt).toString('base64'), fee: feeSats.toString(), change: (change >= dust ? change : 0n).toString(), inputs: picked.length })
+}
+
+/** One inscription outpoint → the recipient, postage preserved exactly; fee from pure inputs only. */
+export function buildInscriptionSendPsbt(params: {
+  net: string; from: string; to: string; inscriptionUtxo: ScriptUtxo; feeUtxos: ScriptUtxo[]; feeSats: bigint; dust: bigint
+}) {
+  const { net, from, to, inscriptionUtxo, feeUtxos, feeSats, dust } = params
+  if (inscriptionUtxo.sats <= 0n) throw new Error('the inscription outpoint has no value')
+  const bnet = NETWORKS[toBtcNet(net)]
+  const addScriptInput = (tx: btc.Transaction, u: ScriptUtxo) =>
+    tx.addInput({ txid: u.txid, index: u.vout, witnessUtxo: { script: u.script, amount: u.sats }, sequence: SEQUENCE_RBF })
+  // fee is paid ONLY by the pure inputs — the postage is the inscribed sat's home, never the purse
+  const picked: ScriptUtxo[] = []; let sum = 0n
+  for (const u of [...feeUtxos].sort((a, z) => (z.sats > a.sats ? 1 : -1))) {
+    if (sum >= feeSats + dust) break
+    picked.push(u); sum += u.sats
+  }
+  if (sum < feeSats) throw new Error(`insufficient pure BTC for the fee: have ${sum} sats, need ${feeSats}`)
+  const tx = new btc.Transaction({ allowUnknownOutputs: true })
+  addScriptInput(tx, inscriptionUtxo)                       // input 0 — the inscribed outpoint
+  for (const u of picked) addScriptInput(tx, u)             // inputs 1.. — the fee purse
+  tx.addOutputAddress(to, inscriptionUtxo.sats, bnet)       // output 0 — exact postage to the recipient
+  const change = sum - feeSats
+  if (change >= dust) tx.addOutputAddress(from, change, bnet)
+  const psbt = tx.toPSBT()
+  return out({ psbtHex: _bytesToHex(psbt), psbtB64: Buffer.from(psbt).toString('base64'), fee: feeSats.toString(), change: (change >= dust ? change : 0n).toString(), inputs: 1 + picked.length })
 }
 
 /** A Runes transfer: `amount` of the rune → `to`, the rune remainder → `from`, both by explicit edict. */

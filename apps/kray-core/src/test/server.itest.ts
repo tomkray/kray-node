@@ -143,6 +143,8 @@ async function main() {
       const missOrd = await fetch(BASE + '/api/kraynet/collection/ord/' + fakeL1)
       const missOrdJ = await missOrd.json()
       ok(missOrd.status === 404 && /no such collection/.test(String(missOrdJ.error || '')), 'GET /api/kraynet/collection/ord/<empty L1> is HTTP 404')
+      const inscSend = await jpost('/api/kraywallet/build-send-inscription-psbt', { fromAddress: ADDR, recipientAddress: ADDR, inscription: { id: 'x', utxo: { txid: '0'.repeat(64), vout: 0 } }, feeRate: 1 })
+      ok(/no bitcoind RPC/.test(String(inscSend.error || '')), 'POST /api/kraywallet/build-send-inscription-psbt exists (the wallet inscription send door) — refuses cleanly without bitcoind')
       const missCol = await fetch(BASE + '/api/kraynet/collection/nocollectionhere999')
       const missJ = await missCol.json()
       ok(missCol.status === 404 && /no such collection/.test(String(missJ.error || '')), 'GET /api/kraynet/collection/<missing> is HTTP 404')
