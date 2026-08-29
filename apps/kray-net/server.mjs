@@ -5181,6 +5181,23 @@ const server = createServer(async (req, res) => {
           return ok(res, { online: true, address: addr, ordinals })
         } catch (e) { return ok(res, { online: false, ordinals: [], note: String(e.message || e) }) }
       }
+      // THE BLESSING FINDER — where an L1 ordinal lives RIGHT NOW (its satpoint) and how deep
+      // that send is buried, so /inscribe fills the blessing field itself instead of making the
+      // user hunt a txid:vout:offset. Read-only; the real proof is still assembled + SPV-verified
+      // at inscribe time — this route is a lantern, never the gate.
+      if ((gm = /^\/api\/kraynet\/l1-satpoint\/([0-9a-f]{64}i\d+)$/i.exec(p))) {
+        const id = gm[1].toLowerCase()
+        const meta = await ordGet(`/inscription/${id}`)
+        if (!meta || !meta.satpoint) return ok(res, { online: !!meta, id, net: NET, satpoint: null, confirmations: 0, minConf: DONATION_MIN_CONF, blessed: false, address: null })
+        const [spTxid, spVout] = String(meta.satpoint).split(':')
+        let confirmations = 0
+        if (btcConfigured()) {
+          // gettxout answers only while the outpoint is UNSPENT — exactly the blessing's own rule
+          const txo = await btcRpc('gettxout', [spTxid, Number(spVout) || 0, true]).catch(() => null)
+          confirmations = txo ? Number(txo.confirmations) || 0 : 0
+        }
+        return ok(res, { online: true, id, net: NET, satpoint: String(meta.satpoint), address: meta.address ?? null, confirmations, minConf: DONATION_MIN_CONF, blessed: confirmations >= DONATION_MIN_CONF })
+      }
       // ord content, proxied through the node — the page gets thumbnails from ONE origin,
       // network-correct on every chain (each node proxies its own ord).
       if ((gm = /^\/l1content\/([0-9a-f]{64}i\d+)$/.exec(p))) {

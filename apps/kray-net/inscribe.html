@@ -241,8 +241,9 @@
           <div class="fanpick" id="i-ppick" style="display:flex;flex-wrap:wrap;gap:6px;margin:var(--s2) 0"></div>
           <div class="label" style="margin:var(--s3) 0 4px;color:var(--btc)">₿ Bitcoin L1 ordinal parents — origin · tap your ordinals or paste ids</div>
           <input class="input" id="i-oparent" placeholder="none — one or many: <txid>i0, <txid>i0" autocomplete="off">
-          <input class="input" id="i-osatpoint" placeholder="blessing satpoint — send the parent to yourself first: txid:vout:offset" autocomplete="off" style="margin-top:6px">
-          <div class="imeta" style="margin:4px 0 0;color:var(--ink-3)">One send-to-self. The whole folder becomes L1 children of that ordinal — each star gets its own SHA-256 bind from the blessing + its bytes. Signet needs 2 confirmations on that send before the bag assembles.</div>
+          <input class="input" id="i-osatpoint" placeholder="blessing satpoint — auto-filled when you pick a parent (txid:vout:offset)" autocomplete="off" style="margin-top:6px">
+          <div id="i-obless" style="margin:6px 0 0" hidden></div>
+          <div class="imeta" style="margin:4px 0 0;color:var(--ink-3)">One send-to-self. The whole folder becomes L1 children of that ordinal — each star gets its own SHA-256 bind from the blessing + its bytes. The satpoint fills itself; the bless button sends the parent to your own address when a hop is still missing.</div>
           <div class="fanpick" id="i-opick" style="display:flex;flex-wrap:wrap;gap:6px;margin:var(--s2) 0"></div>
           <!-- THE LIVE LINEAGE — the family forming before your eyes, exactly what the signature will seal -->
           <div class="imeta" id="i-lin-live" style="margin-top:var(--s3)"></div>
@@ -1199,6 +1200,118 @@
     }).catch(function(){ box.innerHTML='<span class="flab" style="align-self:center">could not read ordinals — paste a parent id above</span>'; });
   }
 
+  // ── THE BLESSING LANTERN — every L1 parent tells you, live, whether it can father ──
+  // Same-origin only: THIS node's ord/bitcoind answer for THIS chain (signet asks signet,
+  // main asks main — minConf and the explorer come from the node, never hardcoded).
+  // States per parent: ✓ blessed (origin-proof passed) · waiting burial (n/minConf) ·
+  // bless button (you hold it, a send-to-self completes the hop) · unavailable.
+  var blessState={};        // id → {satpoint,confirmations,minConf,blessed,address,online,net,verified,verifying,sentTx,err}
+  var blessAuto=true;       // the satpoint input stays ours until the user types in it
+  var blessSig='';          // id-set signature — refetch only when the lineage actually changes
+  var blessTimer=null;
+  var osat=$('i-osatpoint');
+  if(osat) osat.addEventListener('input',function(){ blessAuto=false; });
+  function blessIds(){ return lineageLists().os.filter(function(o){ return /^[0-9a-f]{64}i\d+$/.test(o); }); }
+  function mempoolBase(net){ return net==='main'?'https://mempool.space':net==='testnet'?'https://mempool.space/testnet4':net==='signet'?'https://mempool.space/signet':''; }
+  function paintBless(){
+    var box=$('i-obless'); if(!box) return;
+    var ids=blessIds();
+    if(!ids.length){ box.hidden=true; box.innerHTML=''; return; }
+    box.hidden=false;
+    box.innerHTML=ids.map(function(id){
+      var st=blessState[id]||{};
+      var tag='₿ '+esc(id.slice(0,8))+'…'+esc(id.slice(-2))+' — ';
+      if(st.err) return '<div class="imeta" style="color:var(--crit)">'+tag+esc(st.err)+'</div>';
+      if(!st.satpoint && st.checked) return '<div class="imeta" style="color:var(--ink-3)">'+tag+'unavailable — this node\u2019s ord does not know it'+(st.online===false?' yet (indexer offline)':'')+'</div>';
+      if(!st.satpoint) return '<div class="imeta" style="color:var(--ink-3)">'+tag+'looking where it lives…</div>';
+      if(st.address && me && st.address!==me) return '<div class="imeta" style="color:var(--crit)">'+tag+'unavailable — it is not at your connected address</div>';
+      var mem=mempoolBase(st.net||'signet');
+      var watch=st.sentTx&&mem?' · <a href="'+mem+'/tx/'+esc(st.sentTx)+'" target="_blank" rel="noopener">watch tx →</a>':'';
+      if(st.verified) return '<div class="imeta" style="color:var(--ok,#3fb950)">'+tag+'✓ blessed · '+st.confirmations+' conf'+(st.confirmations===1?'':'s')+' · satpoint filled — ready to father</div>';
+      if(st.sentTx && st.confirmations<st.minConf) return '<div class="imeta" style="color:var(--warn,#d29922)">'+tag+'blessing sent — buried '+st.confirmations+'/'+st.minConf+', waiting block'+(st.minConf-st.confirmations===1?'':'s')+watch+'</div>';
+      if(st.confirmations<st.minConf) return '<div class="imeta" style="color:var(--warn,#d29922)">'+tag+'buried '+st.confirmations+'/'+st.minConf+' — waiting block'+(st.minConf-st.confirmations===1?'':'s')+watch+'</div>';
+      if(st.verifying) return '<div class="imeta" style="color:var(--ink-3)">'+tag+'proving the blessing (SPV)…</div>';
+      // deep enough but the proof named a missing hop — one send-to-self completes it
+      return '<div class="imeta" style="color:var(--warn,#d29922)">'+tag+(st.why?esc(st.why)+' — ':'')+'<button type="button" class="chip" data-bless="'+esc(id)+'">Bless — send to yourself</button></div>';
+    }).join('');
+    box.querySelectorAll('[data-bless]').forEach(function(bt){ bt.addEventListener('click',function(){ sendBless(bt.getAttribute('data-bless'), bt); }); });
+  }
+  function fillSatpoints(){
+    if(!osat||!blessAuto) return;
+    var ids=blessIds();
+    if(!ids.length){ osat.value=''; return; }
+    var sps=ids.map(function(id){ return (blessState[id]||{}).satpoint||''; });
+    if(sps.every(Boolean)) osat.value=sps.join(', ');
+  }
+  async function verifyBless(id){
+    var st=blessState[id];
+    if(!st||!st.satpoint||!me||st.verified||st.verifying) return;
+    if(st.confirmations<st.minConf) return;          // shallow — the proof would only say tx-shallow
+    st.verifying=true; paintBless();
+    try{
+      var r=await (await fetch('/api/kraynet/origin-proof',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({from:me,parentId:id,satpoint:st.satpoint})})).json();
+      if(r && !r.error){ st.verified=true; st.why=''; }
+      else{
+        var w=String((r&&r.error)||'not proven');
+        if(/satpoint has moved/i.test(w)){ st.satpoint=null; st.checked=false; blessSig=''; }  // re-resolve where it lives now
+        st.why=w.replace(/^L1 origin is not proven[^—]*—\s*/,'');
+      }
+    }catch(_e){ st.why='could not reach the proof door — retrying'; }
+    st.verifying=false; paintBless(); fillSatpoints();
+  }
+  async function syncBlessings(force){
+    var ids=blessIds();
+    var sig=ids.join(',')+'|'+(me||'');
+    if(!force && sig===blessSig){ paintBless(); return; }
+    blessSig=sig;
+    if(!ids.length){ paintBless(); fillSatpoints(); return; }
+    await Promise.all(ids.map(async function(id){
+      try{
+        var d=await (await fetch('/api/kraynet/l1-satpoint/'+encodeURIComponent(id))).json();
+        var prev=blessState[id]||{};
+        blessState[id]={ satpoint:d.satpoint, confirmations:d.confirmations||0, minConf:d.minConf||2, address:d.address, online:d.online, net:d.net, checked:true,
+          verified:prev.verified&&prev.satpoint===d.satpoint, sentTx:prev.sentTx, why:prev.why };
+      }catch(_e){ blessState[id]={ checked:true, online:false }; }
+    }));
+    fillSatpoints(); paintBless();
+    ids.forEach(function(id){ verifyBless(id); });
+    var pending=ids.some(function(id){ var st=blessState[id]||{}; return st.satpoint&&!st.verified&&(!st.address||!me||st.address===me); });
+    clearTimeout(blessTimer);
+    if(pending) blessTimer=setTimeout(function(){ syncBlessings(true); },20000);
+  }
+  async function sendBless(id, bt){
+    var st=blessState[id];
+    if(!st||!st.satpoint||!me) return;
+    if(bt){ bt.disabled=true; bt.textContent='building…'; }
+    try{
+      if(!window.krayWallet||!window.krayWallet.signPsbt) throw new Error('KrayWallet not found — install the extension');
+      var sp=st.satpoint.split(':');
+      var fees=await fetch('/api/wallet/fees').then(function(r){return r.json();}).catch(function(){return null;});
+      var feeRate=(fees&&(fees.fees?fees.fees.medium:fees.halfHourFee))||1;
+      var built=await (await fetch('/api/kraywallet/build-send-inscription-psbt',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({fromAddress:me,recipientAddress:me,inscription:{id:id,utxo:{txid:sp[0],vout:Number(sp[1])||0}},feeRate:feeRate})})).json();
+      if(!built||!built.success||!built.psbt) throw new Error((built&&built.error)||'could not build the blessing send');
+      var inputs=[]; for(var i=0;i<(built.inputCount||1);i++) inputs.push({index:i});
+      if(bt) bt.textContent='sign in KrayWallet…';
+      var sr=await window.krayWallet.signPsbt(built.psbt,{
+        toSignInputs:inputs, autoFinalized:false,
+        display:{ intent:'send', title:'Bless — send to yourself',
+          description:'Send this L1 ordinal to your own address. The confirmed hop lets it father KRAY stars. Postage preserved; nothing leaves your wallet.',
+          feeSats:built.fee, inputCount:built.inputCount, network:st.net||'signet', site:location.origin }
+      });
+      var signed=sr&&(sr.signedPsbt||sr.psbt);
+      if(!sr||sr.success===false||!signed) throw new Error((sr&&sr.error)||'signing refused');
+      var fin=await (await fetch('/api/kraywallet/finalize-psbt',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({psbt:signed})})).json();
+      if(!fin||!fin.success||!fin.txid) throw new Error((fin&&fin.error)||'broadcast failed');
+      st.sentTx=fin.txid; st.satpoint=fin.txid+':0:0'; st.confirmations=0; st.verified=false; st.why='';
+      blessAuto=true; fillSatpoints(); paintBless();
+      clearTimeout(blessTimer); blessTimer=setTimeout(function(){ syncBlessings(true); },15000);
+    }catch(e){
+      st.err=''; st.why=String((e&&e.message)||e);
+      if(bt){ bt.disabled=false; bt.textContent='Bless — send to yourself'; }
+      paintBless();
+    }
+  }
+
   // YOUR STARS — offered as parents with one tap (click again to remove). Same
   // toggle grammar as the ordinals picker; typing in the input stays in sync.
   function loadMyStars(){
@@ -1235,7 +1348,7 @@
   function paintLineage(){
     var lv=$('i-lin-live'); if(!lv) return;
     var L=lineageLists();
-    if(!L.ps.length && !L.os.length){ lv.innerHTML='no parents — this star is born a <b>root</b> (a lineage is optional)'; syncLineageChips(); return; }
+    if(!L.ps.length && !L.os.length){ lv.innerHTML='no parents — this star is born a <b>root</b> (a lineage is optional)'; syncLineageChips(); syncBlessings(); return; }
     var bits=[], bad=[];
     L.ps.forEach(function(p){ if(/^(0|[1-9]\d*)$/.test(p)) bits.push('<b>✦ #'+Number(p).toLocaleString()+'</b>'); else bad.push(p); });
     L.os.forEach(function(o){ if(/^[0-9a-f]{64}i\d+$/.test(o)) bits.push('<b style="color:var(--btc)">₿ '+esc(o.slice(0,8))+'…</b>'); else bad.push(o); });
@@ -1244,6 +1357,7 @@
       +(L.ps.length>8||L.os.length>8?' <span style="color:var(--crit)">· over the cap (8 stars + 8 ordinals)</span>':'')
       +(bad.length?' <span style="color:var(--crit)">· not understood: '+bad.map(esc).join(', ')+'</span>':'');
     syncLineageChips();
+    syncBlessings();   // the blessing lantern follows the lineage (sig-guarded — refetch only on change)
   }
 
   var pick=$('i-starpick');
@@ -1362,7 +1476,7 @@
     return body;
   }
 
-  window.addEventListener('kray-connected',function(ev){ me=ev.detail.address; lockFields(false); loadAccount(); loadMyStars(); loadWalletOrdinals(); if(tab==='law') loadLawFaces(); });
+  window.addEventListener('kray-connected',function(ev){ me=ev.detail.address; lockFields(false); loadAccount(); loadMyStars(); loadWalletOrdinals(); syncBlessings(); if(tab==='law') loadLawFaces(); });
   window.addEventListener('kray-disconnected',function(){
     me=null; paintStars([]); lockFields(true);
     acct.innerHTML='<span>Connect your KrayWallet above to write — your KRAY account <b>is</b> your taproot address.</span>';
