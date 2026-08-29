@@ -4,7 +4,7 @@
  * GET /docs/pack.json — the mouth fetches this. No user secret ever enters this file.
  */
 import { readdirSync, readFileSync, existsSync, statSync, realpathSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
@@ -35,7 +35,8 @@ function under(dir, abs) {
   try {
     const root = realpathSync(dir)
     const real = realpathSync(abs)
-    return real === root || real.startsWith(root + '/')
+    // native separator — a POSIX '/' here made every Windows path fail the gate (mainnet Mind pack was empty)
+    return real === root || real.startsWith(root + sep)
   } catch {
     return false
   }
