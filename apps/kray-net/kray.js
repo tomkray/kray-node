@@ -22,6 +22,7 @@
     '<symbol id="g-inscribe" viewBox="0 0 24 24"><path d="M4 20l3.5-1L18 8.5 15.5 6 5 16.5 4 20z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M14 7.5L16.5 10" stroke="currentColor" stroke-width="1.3"/></symbol>' +
     '<symbol id="g-music" viewBox="0 0 24 24"><path d="M9 18.5a2.4 2.4 0 1 1 0-4.8 2.4 2.4 0 0 1 0 4.8zM17 16.6a2.4 2.4 0 1 1 0-4.8 2.4 2.4 0 0 1 0 4.8z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M11.4 16.1V6.1l8-1.5v9.4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>' +
     '<symbol id="g-play" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 8.6v6.8l6.4-3.4z" fill="currentColor"/></symbol>' +
+    '<symbol id="g-pause" viewBox="0 0 24 24"><path d="M8 7h2.8v10H8zm5.2 0H16v10h-2.8z" fill="currentColor"/></symbol>' +
     /* ── SHELF marks — the protocol categories (library.ts). Pencil is the ACT.
        The generic WORK fallback is g-cat-file (◇), never g-inscribe. ── */
     '<symbol id="g-cat-image" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 16l4.2-4.2 3 3 3.4-4.6L20 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="9" cy="9.2" r="1.2" fill="currentColor"/></symbol>' +
@@ -683,8 +684,17 @@
     var cls = inner.indexOf('class="sface"') >= 0 ? 'chip has-face' : 'chip';
     return '<button type="button" class="' + cls + '" ' + attrs + '>' + inner + '</button>';
   };
-  /* One MP3 + APIC cover = one relic. The cover door reads only the ID3 prefix.
-     No cover → the honest audio chip. Never a second inscription. */
+  /* One MP3 + APIC cover = one relic. Lists stay frozen (cover only).
+     The cinema is the only mouth that plays — Spotify play geometry
+     (solid disc, black glyph, heavy lift) on the sleeve. One click, one
+     toggle. Native <audio controls> is a second mouth: discarded. */
+  var _musicLive = null;
+  function _silenceMusic(keep) {
+    if (_musicLive && _musicLive !== keep) {
+      try { _musicLive.pause(); } catch (_) { /* element may already be gone */ }
+    }
+    _musicLive = keep || null;
+  }
   KRAY.musicStage = function (box, url, ct, opts) {
     opts = opts || {};
     box.innerHTML = '';
@@ -702,20 +712,121 @@
       return;
     }
     box.classList.add('music');
+    var stage = document.createElement('div');
+    stage.className = 'music-cinema';
     if (cover) {
       var art = document.createElement('img');
       art.className = 'music-cover';
       art.alt = '';
+      art.draggable = false;
       art.loading = 'lazy';
       art.src = cover;
       art.onerror = function () { art.remove(); };
-      box.appendChild(art);
+      stage.appendChild(art);
     }
     var au = document.createElement('audio');
+    au.preload = 'auto';
+    au.setAttribute('playsinline', '');
+    au.setAttribute('controlslist', 'nodownload');
     au.src = url;
-    au.controls = true;
-    au.preload = 'metadata';
-    box.appendChild(au);
+    stage.appendChild(au);
+    var PLAY_D = 'M8 5.2v13.6L20 12z';
+    var PAUSE_D = 'M6.8 5h3.4v14H6.8zm7 0h3.4v14H13.8z';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'music-play';
+    btn.setAttribute('aria-label', 'Play');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="' + PLAY_D + '"></path></svg>';
+    stage.appendChild(btn);
+    var meter = document.createElement('div');
+    meter.className = 'music-meter';
+    meter.setAttribute('role', 'slider');
+    meter.setAttribute('aria-label', 'Seek');
+    meter.setAttribute('aria-valuemin', '0');
+    meter.setAttribute('aria-valuemax', '100');
+    meter.setAttribute('aria-valuenow', '0');
+    var fill = document.createElement('i');
+    meter.appendChild(fill);
+    stage.appendChild(meter);
+    box.appendChild(stage);
+
+    function setOn(on) {
+      on = !!on;
+      stage.classList.toggle('is-on', on);
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-label', on ? 'Pause' : 'Play');
+      var path = btn.querySelector('path');
+      if (path) path.setAttribute('d', on ? PAUSE_D : PLAY_D);
+    }
+    function seekAt(clientX) {
+      var r = meter.getBoundingClientRect();
+      var w = r.width || 1;
+      var ratio = (clientX - r.left) / w;
+      if (ratio < 0) ratio = 0;
+      if (ratio > 1) ratio = 1;
+      if (au.duration && isFinite(au.duration)) au.currentTime = ratio * au.duration;
+    }
+    function playNow() {
+      _silenceMusic(au);
+      var p = au.play();
+      if (p && typeof p.then === 'function') {
+        p.then(function () {
+          stage.classList.remove('is-dead');
+          btn.removeAttribute('title');
+          setOn(true);
+        }).catch(function () {
+          setOn(false);
+          if (_musicLive === au) _musicLive = null;
+          stage.classList.add('is-dead');
+          btn.title = 'This browser could not play these bytes';
+        });
+      } else {
+        setOn(!au.paused);
+      }
+    }
+    function toggle() {
+      if (au.paused) playNow();
+      else {
+        au.pause();
+        setOn(false);
+        if (_musicLive === au) _musicLive = null;
+      }
+    }
+    /* One mouth. The button is the control; the sleeve is the same act.
+       A second listener that also toggles would play-then-pause on one click. */
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      toggle();
+    });
+    stage.addEventListener('click', function (e) {
+      if (e.target.closest('.music-play') || e.target.closest('.music-meter')) return;
+      e.preventDefault();
+      toggle();
+    });
+    meter.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      seekAt(e.clientX);
+    });
+    au.addEventListener('timeupdate', function () {
+      var d = au.duration;
+      if (!d || !isFinite(d)) return;
+      var pct = (au.currentTime / d) * 100;
+      fill.style.width = pct + '%';
+      meter.setAttribute('aria-valuenow', String(Math.round(pct)));
+    });
+    au.addEventListener('play', function () { _silenceMusic(au); setOn(true); });
+    au.addEventListener('pause', function () {
+      if (_musicLive === au && au.paused) _musicLive = null;
+      setOn(false);
+    });
+    au.addEventListener('ended', function () {
+      setOn(false);
+      fill.style.width = '0';
+      meter.setAttribute('aria-valuenow', '0');
+      if (_musicLive === au) _musicLive = null;
+    });
   };
   KRAY.frozenPreview = function (box, url, ct, opts) {
     opts = opts || {};

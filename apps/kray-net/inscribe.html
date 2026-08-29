@@ -136,7 +136,7 @@
           </div>
           <div class="field">
             <label>Cover · 1:1 · PNG stays lossless</label>
-            <div class="drop" id="m-coverdrop"><b>Choose a cover</b><span>square PNG/JPEG seals as-is · not square: you choose the 1:1</span>
+            <div class="drop" id="m-coverdrop"><b>Choose a cover</b><span>square PNG/JPEG/GIF seals as-is · not square: you choose the 1:1</span>
               <button type="button" class="ibatch-x" id="m-coverx" hidden aria-label="remove cover">✕</button>
               <input type="file" id="m-cover" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
             </div>
@@ -697,7 +697,7 @@
     });
   }
   function coverKind(file){
-    return file.type||(/\.(png)$/i.test(file.name)?'image/png':/\.jpe?g$/i.test(file.name)?'image/jpeg':'');
+    return file.type||(/\.(png)$/i.test(file.name)?'image/png':/\.jpe?g$/i.test(file.name)?'image/jpeg':/\.(gif)$/i.test(file.name)?'image/gif':'');
   }
   function encodeCoverCrop(bmp, sx, sy, side){
     var out=Math.min(side, 2048);
@@ -777,14 +777,18 @@
     loadPic(f).then(function(bmp){
       var w=bmp.width||bmp.naturalWidth, h=bmp.height||bmp.naturalHeight;
       var kind=coverKind(f);
-      if((w===h) && (kind==='image/png' || kind==='image/jpeg')){
+      if((w===h) && (kind==='image/png' || kind==='image/jpeg' || kind==='image/gif')){
         return f.arrayBuffer().then(function(b){
           if(bmp.close) bmp.close();
-          musicCover={ bytes:new Uint8Array(b), mime:kind==='image/png'?'image/png':'image/jpeg', reused:true, accepted:true };
+          musicCover={ bytes:new Uint8Array(b), mime:kind, reused:true, accepted:true };
           markMusicDrop('m-coverdrop', f.name||'cover', 'square · sealed as-is');
           setMusicClear('m-coverx', true);
           remuxMusic();
         });
+      }
+      if(kind==='image/gif'){
+        if(bmp.close) bmp.close();
+        throw new Error('GIF cover must already be 1:1 — we do not re-encode animation');
       }
       var side=Math.min(w,h);
       musicCoverSrc={ file:f, bmp:bmp, w:w, h:h, sx:Math.floor((w-side)/2), sy:Math.floor((h-side)/2), side:side, name:f.name||'cover' };
@@ -997,7 +1001,7 @@
   function clearMusicCover(){
     hideCoverCrop();
     musicCover=null; musicOn=false; musicB64=null; musicBytes=0;
-    markMusicDrop('m-coverdrop','Choose a cover','square PNG/JPEG seals as-is · not square: you choose the 1:1');
+    markMusicDrop('m-coverdrop','Choose a cover','square PNG/JPEG/GIF seals as-is · not square: you choose the 1:1');
     setMusicClear('m-coverx', false);
     remuxMusic();
   }
@@ -1502,7 +1506,7 @@
       var mp=$('m-prev'), m3=$('m-mp3'), mc=$('m-cover');
       if(mp) mp.hidden=true; if(m3) m3.value=''; if(mc) mc.value='';
       markMusicDrop('m-mp3drop','Choose an MP3','encode at 320 CBR or V0 before you drop — we will not touch the bitrate');
-      markMusicDrop('m-coverdrop','Choose a cover','square PNG/JPEG seals as-is · not square: you choose the 1:1');
+      markMusicDrop('m-coverdrop','Choose a cover','square PNG/JPEG/GIF seals as-is · not square: you choose the 1:1');
       setMusicClear('m-mp3x', false); setMusicClear('m-coverx', false);
       refreshMeta(); loadAccount();
     }catch(e){ fail(e && e.message ? e.message : 'refused'); }

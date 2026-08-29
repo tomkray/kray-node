@@ -238,9 +238,9 @@ async function main() {
   const svgBytes = Buffer.from(svgArt(TRACKS[0], 0))
   let svgRefused = false
   try { musicRelic(songs[0].raw, svgBytes, 'image/svg+xml') } catch (e) {
-    svgRefused = /png or image\/jpeg/i.test(String(e.message))
+    svgRefused = /png.*jpeg/i.test(String(e.message))
   }
-  ok(svgRefused, 'SVG cannot ride APIC — filter refuses at mux (PNG/JPEG only)')
+  ok(svgRefused, 'SVG cannot ride APIC — filter refuses at mux (PNG/JPEG/GIF only)')
 
   const wallets = Array.from({ length: N }, (_, i) => id('w' + i))
   for (const w of wallets) {

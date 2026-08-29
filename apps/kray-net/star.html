@@ -7,7 +7,7 @@
 <link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
-<link rel="stylesheet" href="/kray.css?v=txt5">
+<link rel="stylesheet" href="/kray.css?v=txt9">
 <style>
 /* ============================================================================
    KRAY.NETWORK — Star · page-local only. The system lives in /kray.css.
@@ -88,6 +88,7 @@
   flex:0 0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
 .art .kv-nameplate{border-radius:inherit}
 .art img{width:100%;height:100%;object-fit:contain}
+.art .music-cinema{width:100%;height:100%}
 .art .none{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);text-align:center;padding:var(--s4);letter-spacing:.08em;line-height:1.6}
 
 /* ── card headings + the fact rows ───────────────────────────────────────── */
@@ -306,7 +307,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="/kray.js?v=txt5" defer></script>
+<script src="/kray.js?v=txt9" defer></script>
 <script src="/contract-exam.js" defer></script>
 <script>
 (function(){
@@ -1025,10 +1026,10 @@
     if(!btn) return;
     btn.addEventListener('click', function(){
       var aud=String((document.getElementById('speak-aud')||{}).value||'hold');
+      if(out){ out.hidden=false; out.style.color=''; }
       walletAddr().then(function(me){
-        if(!me){ if(out){ out.hidden=false; out.textContent='connect KrayWallet — the same key that holds the star'; } return; }
-        if(String(me)!==String(s.owner)){ if(out){ out.hidden=false; out.textContent='this wallet does not hold star #'+s.star; } return; }
-        if(out){ out.hidden=false; out.textContent='asking the node for the exact message…'; }
+        if(!me){ out.textContent='connect KrayWallet — the same key that holds the star'; return; }
+        out.textContent='sign in KrayWallet — BIP-340 · 0 ₭ · nothing is written…';
         var w=window.krayWallet;
         return fetch('/api/kraynet/speak?star='+encodeURIComponent(s.star)+'&audience='+encodeURIComponent(aud))
           .then(function(r){ return r.json(); })
@@ -1045,11 +1046,19 @@
           })
           .then(function(res){
             if(res.error) throw new Error(res.error);
-            out.textContent=JSON.stringify({
-              spoken:true, fee:'0', journal:false, star:res.star, owner:res.owner, audience:res.audience, message:res.message
-            },null,2);
+            out.style.color='var(--good)';
+            out.textContent='UNLOCKED — this key holds ★ '+res.star
+              +'\naudience  '+res.audience
+              +'\nspeakId   '+(res.speakId||'')
+              +'\nfee       0 ₭ · journal false'
+              +'\n\nA stranger re-derives this from the signature bytes + ownerOf(★ '+res.star+').';
           })
-          .catch(function(e){ out.textContent='✗ '+((e&&e.message)||'refused'); });
+          .catch(function(e){
+            var why=String((e&&e.message)||'refused');
+            out.style.color='var(--crit, #c44)';
+            out.textContent='LOCKED — the math refused.\n'+why
+              +'\n\nThis wallet is not the living owner of ★ '+s.star+', or the signature is not BIP-340 of that owner.';
+          });
       });
     });
   }
@@ -1842,7 +1851,11 @@
 
     // every container gets its real content
     if(ins && ins.held){
-      var hero=document.getElementById('hero-prev'); if(hero) renderPreview(hero, ins.url, ins.contentType, {mini:true});
+      var hero=document.getElementById('hero-prev');
+      if(hero){
+        var audioHero=String(ins.contentType||'').indexOf('audio/')===0;
+        renderPreview(hero, ins.url, ins.contentType, {mini:!audioHero});
+      }
       var full=document.getElementById('prev');     if(full) renderPreview(full, ins.url, ins.contentType, {});
     }
     document.querySelectorAll('.pbox[data-purl]').forEach(function(b){

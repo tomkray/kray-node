@@ -83,7 +83,7 @@ const parallel = Array.from({ length: N }, (_, i) => {
 ok(parallel.every((x) => sha(mpegBody(x.relic)) === sha(x.src) && sha(readApic(x.relic).bytes) === sha(x.art)),
   'parallel construction: every pair is MPEG-identical and APIC-exact')
 
-ok(refuses(() => musicRelic(mpeg320('x'), PNG, 'image/svg+xml'), /png or image\/jpeg/), 'SVG cover refused')
+ok(refuses(() => musicRelic(mpeg320('x'), PNG, 'image/svg+xml'), /png, image\/jpeg, or image\/gif/), 'SVG cover refused')
 ok(refuses(() => musicRelic(mpeg320('x'), new Uint8Array(0), 'image/png'), /empty/), 'empty cover refused')
 ok(refuses(() => musicRelic(Uint8Array.from([0x52, 0x49, 0x46, 0x46, ...mpeg320('w')]), PNG, 'image/png'), /MP3 only/), 'WAV/RIFF refused')
 ok(refuses(() => musicRelic(Uint8Array.from([0x66, 0x4c, 0x61, 0x43, ...mpeg320('f')]), PNG, 'image/png'), /MP3 only/), 'FLAC refused')

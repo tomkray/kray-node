@@ -23,6 +23,11 @@ const PNG_1x1 = Uint8Array.from([
   0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
 ])
 const JPEG_STUB = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9, 0x11, 0x22, 0x33])
+const GIF_1x1 = Uint8Array.from([
+  0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00,
+  0x21, 0xf9, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x00, 0x00, 0x00, 0x00,
+  0x01, 0x00, 0x01, 0x00, 0x00, 0x02, 0x02, 0x4c, 0x01, 0x00, 0x3b,
+])
 const MPEG = Uint8Array.from([0xff, 0xfb, 0x90, 0x00, ...Array.from({ length: 240 }, (_, i) => (i * 17) & 0xff)])
 
 function u32be(n) {
@@ -74,6 +79,10 @@ const again = writeApic(muxed, JPEG_STUB, 'image/jpeg')
 ok(same(mpegBody(again), MPEG), 'rewriting APIC still leaves MPEG identical')
 const gotJ = readApic(again)
 ok(!!gotJ && gotJ.mime === 'image/jpeg' && same(gotJ.bytes, JPEG_STUB), 'second write replaces the cover')
+const gifed = writeApic(MPEG, GIF_1x1, 'image/gif')
+ok(same(mpegBody(gifed), MPEG), 'GIF sleeve leaves MPEG frames byte-identical')
+const gotG = readApic(gifed)
+ok(!!gotG && gotG.mime === 'image/gif' && same(gotG.bytes, GIF_1x1), 'APIC GIF round-trips lossless')
 
 const tagged = cat(
   id3v23([
@@ -128,7 +137,7 @@ ok(id3TagTotalLength(huge) == null, 'impossible tag size is refused')
 
 ok(readApic(writeApic(MPEG, PNG_1x1, 'image/png')).bytes[0] === 0x89, 'prefix-only read still finds APIC (library tile path)')
 
-rejects(() => writeApic(MPEG, PNG_1x1, 'image/svg+xml'), /png or image\/jpeg/, 'SVG cover is refused')
+rejects(() => writeApic(MPEG, PNG_1x1, 'image/svg+xml'), /png, image\/jpeg, or image\/gif/, 'SVG cover is refused')
 rejects(() => writeApic(MPEG, new Uint8Array(0), 'image/png'), /empty/, 'empty cover is refused')
 rejects(() => writeApic(cat(ascii('fLaC'), MPEG), PNG_1x1, 'image/png'), /MP3 only/, 'FLAC is not muxed')
 rejects(() => writeApic(cat(ascii('ID3'), Uint8Array.of(0x03, 0x00, 0x00), syncsafe(4), new Uint8Array(4)), PNG_1x1, 'image/png'), /usable MP3/, 'tag-only file has no MPEG body')

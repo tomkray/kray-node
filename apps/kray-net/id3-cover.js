@@ -13,7 +13,7 @@
  */
 export const MAX_ID3_TAG = 8_000_000
 export const MAX_STAR_BYTES = 10_000_000
-export const WRITE_MIMES = Object.freeze(['image/png', 'image/jpeg'])
+export const WRITE_MIMES = Object.freeze(['image/png', 'image/jpeg', 'image/gif'])
 export const READ_MIMES = Object.freeze(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
 
 const WRITE_OK = new Set(WRITE_MIMES)
@@ -276,7 +276,7 @@ export function hasApic(file) {
 }
 
 function buildId3v23Apic(image, mime) {
-  if (!WRITE_OK.has(mime)) throw new Error('cover mime must be image/png or image/jpeg')
+  if (!WRITE_OK.has(mime)) throw new Error('cover mime must be image/png, image/jpeg, or image/gif')
   if (!image || !image.length) throw new Error('cover is empty')
   const mimeBytes = ascii(mime)
   const frameBody = concat([
