@@ -54,6 +54,7 @@ import { certificateDoor, certificateOrRefuse } from '../kray-core/src/anchor/pa
 import { verifyDonationProof, proveTxBuried, MIN_BLOCK_WORK, donorOpReturnScriptHex, parseHeader, parseTx, verifySealProof } from '../kray-core/src/anchor/spv.ts'
 import { AnchorPool, DEFAULT_REWARD } from '../kray-core/src/economics/anchor-pool.ts'
 import { verifyRuneMovement } from '../kray-core/src/protocol/rune-bridge.ts'
+import { parentCanHoldFocusedRune } from '../kray-core/src/protocol/rune-ancestry.ts'
 import { buildDonationPsbt, buildSelfAnchorDonationPsbt } from '../kray-core/src/protocol/donate-psbt.ts'
 import { selfAnchorScriptHex, addressFromOutputKey, BURN_INTERNAL_KEY } from '../kray-core/src/protocol/self-anchor.ts'
 import { buildBtcSendPsbt, buildInscriptionSendPsbt, buildRuneSendPsbt, feeSatsAtRate } from '../kray-core/src/protocol/wallet-psbt.ts'
@@ -769,39 +770,87 @@ async function spvProofFor(txid, minConf = DONATION_MIN_CONF) {
 // only make assembly fail — never a false credit. Depth-capped fail-closed: a rune whose history
 // cannot be walked is refused at the door with a named reason, not credited on faith.
 // how many proven txs a deposit's bundle may carry — operator policy (journal weight), never consensus:
-// the reducer verifies whatever rode in. A fresh chain's own runes prove in 2–3; an old wallet's fee
-// history can run long, so a bench (or a patient operator) may raise it.
-const RUNE_ANCESTRY_MAX_TX = Math.max(2, parseInt(process.env.KRAY_RUNE_ANCESTRY_MAX_TX || '25', 10) || 25)
+// the reducer verifies whatever rode in. The walk follows the RUNE: a parent buried
+// BEFORE the etch block cannot hold it (the id IS that height). A fee coin's faucet
+// history is pre-etch sats and is skipped. 256 is a ceiling on the post-etch path
+// (transfers of this rune), not on the satoshi DAG. The outpoint stays uncredited
+// until the walk fits; metal stays in the pot.
+const RUNE_ANCESTRY_MAX_TX = Math.max(2, parseInt(process.env.KRAY_RUNE_ANCESTRY_MAX_TX || '256', 10) || 256)
+async function txBlockHeight(txid) {
+  const info = await btcRpc('getrawtransaction', [txid, true])
+  if (!info || !info.blockhash) throw new Error(`transaction ${txid} is not buried — wait for a confirmation`)
+  if (Number.isInteger(info.height)) return info.height
+  const blk = await btcRpc('getblock', [info.blockhash, 1])
+  if (!Number.isInteger(blk?.height)) throw new Error(`transaction ${txid} has no block height — the node cannot walk it`)
+  return blk.height
+}
+async function attachEtchWitness(entry, txid, runeIdStr) {
+  const info = await btcRpc('getrawtransaction', [txid, true])
+  const blk = await btcRpc('getblock', [info.blockhash, 1])
+  entry.etchedId = runeIdStr
+  entry.coinbaseTx = await btcRpc('getrawtransaction', [blk.tx[0]])
+  entry.coinbaseProof = await btcRpc('gettxoutproof', [[blk.tx[0]], info.blockhash])
+}
+function runestoneOfRaw(rawHex) {
+  try {
+    const parsed = parseTx(rawHex)
+    return decipher(parsed.outputScripts.map((s) => Uint8Array.from(s)))
+  } catch { return null }
+}
+function runestoneMayCarryFocus(art) {
+  // A runestone (or cenotaph) can move or burn the focused rune even when no
+  // edict names it — leftover follows the pointer. A sats-only tx (no stone)
+  // is included shallow: one SPV proof, no recursion. A pass-through with no
+  // stone that secretly carried the focus fails the amount check, never over-credits.
+  if (!art) return false
+  return art.kind === 'runestone' || art.kind === 'cenotaph'
+}
 async function assembleRuneAncestry(depositTxid, runeIdStr, { maxTx = RUNE_ANCESTRY_MAX_TX } = {}) {
   const runeInfo = await ordGet(`/rune/${encodeURIComponent(runeIdStr)}`)
   const etchTxid = String(runeInfo?.entry?.etching ?? runeInfo?.etching ?? '').toLowerCase()
+  const rid = parseRuneKey(runeIdStr)
   const bundle = []
   const seen = new Set()
-  async function walk(txid) {
-    txid = String(txid).toLowerCase()
-    if (seen.has(txid)) return
-    seen.add(txid)
+  async function pushProof(txid) {
     if (bundle.length >= maxTx) {
       throw new Error(`the rune's ancestry needs more than ${maxTx} transactions to prove — consolidate the runes nearer the etch (or through an already-credited outpoint) and deposit again`)
     }
     const p = await spvProofFor(txid, DONATION_MIN_CONF)
-    const entry = { rawTx: p.rawTx, txoutproof: p.txoutproof, headers: p.headers }
-    if (etchTxid && txid === etchTxid) {
-      // the etch is a root FOR ITS OWN RUNE — carry the BIP-34 identity witness
-      const info = await btcRpc('getrawtransaction', [txid, true])
-      const blk = await btcRpc('getblock', [info.blockhash, 1])
-      entry.etchedId = runeIdStr
-      entry.coinbaseTx = await btcRpc('getrawtransaction', [blk.tx[0]])
-      entry.coinbaseProof = await btcRpc('gettxoutproof', [[blk.tx[0]], info.blockhash])
+    return { rawTx: p.rawTx, txoutproof: p.txoutproof, headers: p.headers }
+  }
+  async function includeShallow(txid) {
+    txid = String(txid).toLowerCase()
+    if (seen.has(txid)) return
+    seen.add(txid)
+    bundle.push(await pushProof(txid))
+  }
+  async function walk(txid) {
+    txid = String(txid).toLowerCase()
+    if (seen.has(txid)) return
+    seen.add(txid)
+    const entry = await pushProof(txid)
+    const info = await btcRpc('getrawtransaction', [txid, true])
+    const height = Number.isInteger(info?.height) ? info.height : (info?.blockhash ? (await btcRpc('getblock', [info.blockhash, 1])).height : null)
+    const art = runestoneOfRaw(entry.rawTx)
+    const etchesFocus = !!(art && art.kind === 'runestone' && art.etching && Number.isInteger(height) && BigInt(height) === rid.block)
+    if ((etchTxid && txid === etchTxid) || etchesFocus) {
+      await attachEtchWitness(entry, txid, runeIdStr)
       bundle.push(entry)
       return
     }
     bundle.push(entry)
-    const info = await btcRpc('getrawtransaction', [txid, true])
     for (const vin of (info.vin || [])) {
       if (!vin.txid) continue // coinbase
-      if (node.ledger.hasProvenRuneOutpoint(runeIdStr, `${vin.txid}:${vin.vout}`)) continue // journal truth — the walk stops
-      await walk(vin.txid)
+      if (node.ledger.hasProvenRuneOutpoint(runeIdStr, `${vin.txid}:${vin.vout}`)) continue
+      const parentHeight = await txBlockHeight(vin.txid)
+      if (!parentCanHoldFocusedRune(parentHeight, rid.block)) continue
+      const parentRaw = await btcRpc('getrawtransaction', [vin.txid]).catch(() => null)
+      const parentArt = parentRaw ? runestoneOfRaw(typeof parentRaw === 'string' ? parentRaw : parentRaw.hex) : null
+      if (runestoneMayCarryFocus(parentArt) || (etchTxid && String(vin.txid).toLowerCase() === etchTxid)) {
+        await walk(vin.txid)
+      } else {
+        await includeShallow(vin.txid)
+      }
     }
   }
   await walk(depositTxid)

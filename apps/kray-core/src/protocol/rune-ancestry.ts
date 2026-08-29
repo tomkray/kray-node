@@ -95,6 +95,17 @@ export interface AncestryVerdict {
 
 export const outpointKey = (txid: string, vout: number): string => `${txid}:${vout}`
 
+/**
+ * A RUNE CANNOT EXIST BEFORE ITS ETCH BLOCK. The id IS (block, index): any
+ * parent buried at a strictly smaller height cannot hold that rune, so the
+ * assembler must not walk it (a Signet fee coin's faucet history is hundreds
+ * of pre-etch sats and is not ancestry). Height is Bitcoin's, never a guess.
+ */
+export function parentCanHoldFocusedRune(parentHeight: number, etchBlock: bigint): boolean {
+  if (!Number.isInteger(parentHeight) || parentHeight < 0) return false
+  return BigInt(parentHeight) >= etchBlock
+}
+
 /** The canonical bytes of a bundle — so its hash names it, forever, and two
  *  nodes hash the identical proof to the identical value. */
 export function bundleHash(bundle: ProvenTx[]): string {
@@ -106,12 +117,12 @@ export function bundleHash(bundle: ProvenTx[]): string {
  * PROVE ONE OUTPOINT. Walks the bundle depth-first, verifying each transaction
  * against Bitcoin and re-deriving its outputs by the allocation law.
  *
- * Fail-closed everywhere: a missing transaction, an unproven one, one buried
- * less deep than required, a txid that does not match its own bytes, an input
- * whose balance nobody has proven, or a mint that would need global state — all
- * refuse, and say which outpoint stopped them. Nothing is ever assumed to be
- * zero: silently under-crediting a deposit robs the depositor as surely as
- * over-crediting robs the network.
+ * Fail-closed everywhere: an unproven transaction, one buried less deep than
+ * required, a txid that does not match its own bytes, or a mint that would need
+ * global state — all refuse, and say which outpoint stopped them. A focused
+ * walk treats an unbundled parent as empty of THIS rune (a fee coin is not
+ * ancestry). The bridge amount check refuses a claimed credit that needed that
+ * parent. An unfocused walk still refuses unknown inputs.
  */
 export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], opts: AncestryOptions): AncestryVerdict {
   const known = opts.known ?? new Map<string, RuneBalance[]>()
@@ -210,10 +221,17 @@ export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], op
       const cached = memo.get(key) ?? known.get(key)
       if (cached) { inputs.push(...cached); continue }
       if (!byTxid.has(inp.txid)) {
-        // THE ETCH IS A ROOT, for its own rune only: a rune cannot be in the
-        // inputs of the transaction that creates it. Any other unknown input is
-        // refused — assuming zero would quietly under-credit the depositor and
-        // hide a broken bundle.
+        // FOCUSED RUNE: an unbundled parent carries none of THIS rune. A fee
+        // coin's sat history is not ancestry — walking it made every real Signet
+        // wallet un-proveable (hundreds of faucet parents). Absence of the
+        // focused rune is the claim; verifyRuneDepositProof / settle refuse if
+        // the credited amount needed that parent (walk.amount !== claimed).
+        // Unfocused walks still refuse: assuming zero of every rune would hide
+        // a broken bundle.
+        if (opts.rune !== undefined) {
+          memo.set(key, [])
+          continue
+        }
         refusal = { ok: false, reason: 'input-unknown', at: key }
         return null
       }

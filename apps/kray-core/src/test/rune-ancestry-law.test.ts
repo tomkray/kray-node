@@ -11,7 +11,7 @@
  *   · strict: no bundle → refused before any verify
  *   · honest: etch premine → vault, proven from bytes, credited
  *   · forged: event claims more than the bundle proves → refused (present-but-false)
- *   · truncated: a link removed → refused (input-unknown), never assumed zero
+ *   · truncated: a link removed → walk proves 0, claimed credit refuses (amount check)
  *   · accumulated truth: a later deposit's walk stops at an outpoint this journal proved
  *   · attestation era: regtest default (MAX) keeps the old law byte-identical
  *   · replay: a cold second ledger re-derives the same credits from the journal alone
@@ -176,13 +176,13 @@ function main() {
     'FORGED: claiming 1,700 when the bytes prove 1,000 → refused (present-but-false HALTs)',
   )
 
-  // ── 4 · TRUNCATED: a link removed → refused, never assumed zero ────────────
+  // ── 4 · TRUNCATED: a link removed → the walk proves 0, the claimed credit refuses ──
   rejects(
     () => strictLedger().applyLive(depositEvent({
       proof: { rawTx: depRaw, txoutproof: dep.txoutproof, headers: dep.headers, vault: vaultParams, ancestry: [dep] },
     })),
-    /input-unknown/,
-    'TRUNCATED: the etch removed from the bundle → refused (input-unknown), never zero',
+    /ancestry proves 0 .* not the credited 1000/,
+    'TRUNCATED: the etch removed from the bundle → walk proves 0, claimed 1,000 refuses (amount check)',
   )
 
   // ── 5 · THE JOURNAL'S ACCUMULATED TRUTH: a second hop stops at a proven outpoint ──
@@ -199,8 +199,8 @@ function main() {
       seq: 1, outpoint: outpoint2,
       proof: { rawTx: dep2Raw, txoutproof: dep2.txoutproof, headers: dep2.headers, vault: vaultParams, ancestry: [dep2] },
     })),
-    /input-unknown/,
-    'ACCUMULATED TRUTH is journal-local: a fresh ledger that never proved deposit #1 refuses the short bundle',
+    /ancestry proves 0 .* not the credited 1000/,
+    'ACCUMULATED TRUTH is journal-local: a fresh ledger that never proved deposit #1 walks 0 and refuses the claimed 1,000',
   )
 
   // ── 6 · THE ATTESTATION ERA IS UNTOUCHED: regtest default keeps the old law ──
@@ -333,8 +333,8 @@ function main() {
     w.exit(400n)
     rejects(
       () => w.settle(txidOf(payout2Raw), '400', { rawTx: payout2Raw, txoutproof: payout2.txoutproof, headers: payout2.headers, ancestry: [payout2] }),
-      /input-unknown/,
-      'S6 JOURNAL-LOCAL: a ledger that never proved settle #1 refuses payout #2\'s short bundle — never assumed',
+      /ancestry proves 0 .* not the 400 locked/,
+      'S6 JOURNAL-LOCAL: a ledger that never proved settle #1 walks 0 and refuses the claimed 400',
     )
   }
 

@@ -11,7 +11,7 @@
  * transfer that splits it, and a deposit into a vault. Each link carries its own
  * Bitcoin inclusion proof, and each attack removes or corrupts exactly one thing.
  */
-import { proveDeposit, proveOutpoint, outpointKey, type ProvenTx } from '../protocol/rune-ancestry.ts'
+import { proveDeposit, proveOutpoint, outpointKey, parentCanHoldFocusedRune, type ProvenTx } from '../protocol/rune-ancestry.ts'
 import { TAG, FLAG, encodeVarint, runeValue, type RuneId } from '../protocol/runestone.ts'
 import { checkProofOfWork, sha256d, toDisplayHex } from '../anchor/spv.ts'
 
@@ -120,6 +120,9 @@ function main() {
   const bundle = [etch, split, dep]
   const opts = { minConfirmations: 2, net: 'regtest', rune: RUNE }
 
+  ok(parentCanHoldFocusedRune(900_000, 900_000n) && parentCanHoldFocusedRune(900_001, 900_000n), 'a parent at or after the etch block CAN hold the focused rune')
+  ok(!parentCanHoldFocusedRune(899_999, 900_000n) && !parentCanHoldFocusedRune(-1, 900_000n), 'a parent BEFORE the etch block — or a nonsense height — cannot hold it (fee coins are not ancestry)')
+
   // ── 1 · THE PREMINE IS PROVEN BY THE ETCH TRANSACTION ALONE ──────────────
   const v0 = proveOutpoint(txidOf(etchRaw), 0, [etch], opts)
   ok(v0.ok && v0.balances?.[0].amount === 1000n, `the premine is proven from the etch alone — 1,000 runes to its first output`)
@@ -143,9 +146,20 @@ function main() {
   const notTheVault = proveDeposit(txidOf(depRaw), Buffer.from(OTHER).toString('hex'), RUNE, bundle, opts)
   ok(!notTheVault.ok && notTheVault.reason === 'no-such-output', 'an output that does not pay the vault is not a deposit — matched by SCRIPT, never by an index the claimant picks')
 
-  // ── 4 · EVERY BROKEN BUNDLE IS REFUSED, AND NAMES ITSELF ─────────────────
+  // ── 4 · A TRUNCATED RUNE-PATH PROVES ZERO — THE BRIDGE AMOUNT CHECK CATCHES A CLAIM ──
   const missing = proveOutpoint(txidOf(depRaw), 0, [dep, split], opts) // the etch is gone
-  ok(!missing.ok && missing.reason === 'input-unknown', 'ATTACK: an ancestry with a link REMOVED → refused (input-unknown), never assumed to be zero')
+  ok(missing.ok && (missing.balances?.[0]?.amount ?? 0n) === 0n, 'a truncated rune-path proves ZERO of the focused rune — unbundled parents are empty of THIS rune')
+  const missingDep = proveDeposit(txidOf(depRaw), Buffer.from(VAULT).toString('hex'), RUNE, [dep, split], opts)
+  ok(missingDep.ok && missingDep.amount === 0n, '…so a deposit that needed the etch proves 0; the bridge refuses any claimed 600 (amount mismatch)')
+
+  // A fee coin sitting next to the rune UTXO is not ancestry — the walk still proves 600.
+  const depFeeRaw = rawTx(
+    [{ txid: txidOf(splitRaw), vout: 0 }, { txid: 'ab'.repeat(32), vout: 0 }],
+    [VAULT, OWNER],
+  )
+  const depFee: ProvenTx = { rawTx: depFeeRaw, ...bury(depFeeRaw, 31) }
+  const withFee = proveDeposit(txidOf(depFeeRaw), Buffer.from(VAULT).toString('hex'), RUNE, [etch, split, depFee], opts)
+  ok(withFee.ok && withFee.amount === 600n, 'a fee-coin input whose parent is NOT in the bundle does not poison the focused walk — 600 still proven')
 
   const shallow = proveOutpoint(txidOf(etchRaw), 0, [{ ...etch, headers: etch.headers.slice(0, 1) }], opts)
   ok(!shallow.ok && shallow.reason === 'tx-shallow', 'ATTACK: a transaction buried less deep than the law demands → refused')
@@ -189,6 +203,6 @@ function main() {
   const cbSpend = proveOutpoint(txidOf(cbSpendRaw), 0, [{ rawTx: cbSpendRaw, ...bury(cbSpendRaw, 8) }], opts)
   ok(cbSpend.ok && (cbSpend.balances?.length ?? 0) === 0, 'a coinbase-shaped input (null prevout) carries ZERO runes — the chain terminates from bytes, never refuses forever')
 
-  console.log(`\n✓ ${pass} checks passed — A DEPOSIT IS PROVEN FROM BYTES: every transaction real and buried, every runestone decoded by the specification, every allocation re-derived down the chain, and the vault's outputs matched by SCRIPT. Broken ancestries refuse and name themselves — a missing link, a shallow burial, a foreign merkle proof, a cenotaph's burn, and a mint whose cap no light verifier can know. Nothing is assumed to be zero, and nothing is ever invented. ₿₭`)
+  console.log(`\n✓ ${pass} checks passed — A DEPOSIT IS PROVEN FROM BYTES: every transaction real and buried, every runestone decoded by the specification, every allocation re-derived down the chain, and the vault's outputs matched by SCRIPT. A truncated rune-path proves 0 (the bridge amount check catches a claim); a fee coin is not ancestry. Shallow burial, a foreign merkle proof, a cenotaph's burn, and a mint whose cap no light verifier can know still refuse. Nothing of the focused rune is invented. ₿₭`)
 }
 main()
