@@ -199,10 +199,18 @@ and any real keys are gitignored and never shipped in this dossier.**
 
 An honest audit needs the target's own list of soft spots:
 
-- **`ord` as oracle.** Rune amounts and `origin` L1-ownership are read from `ord`, a trusted indexer. Full
-  SPV re-derivation of rune lineage (`rune-ancestry.ts`) and ordinal control (`proveInscription` /
-  `proveParentControl`) exists in the core and is **tested but unwired** — a deliberate phase decision. On
-  mainnet the trust is `ord` computing a deterministic function of Bitcoin; the hardening path is designed.
+- **`ord` as oracle — CLOSED in consensus (THE KEYSTONE, 2026-08-28/29).** At/after
+  `RUNE_ANCESTRY_MANDATORY_SEQ` (signet and main BORN STRICT at 0, ratified while both books held zero
+  transactions) a rune-DEPOSIT and a rune-SETTLE must embed the recursive ancestry bundle, and the
+  reducer re-derives the input rune state from bytes (`rune-ancestry.ts`) — the settle's walk stops at
+  the journal's own accumulated truth (deposits + earlier settles' consolidation change) and refuses a
+  short delivery or any burn of the focused rune. `inputRunes` is no longer consensus input there; `ord`
+  only hints the door's assembler, and a wrong hint can only fail assembly, never credit falsely. Pinned
+  by `rune-ancestry-law.test.ts` (both legs: strict, forged, truncated/short, burner, accumulated truth,
+  journal-local, cold replay). `origin` L1-ownership was ALREADY reducer-enforced (`verifyOriginProofs`
+  runs on every apply — a signed origins list without its SPV bag never applies); `ord` remains only a
+  DOOR-side live-UTXO eye (mempool sale check), named in `ordinal-ancestry.ts`. Honest residue: a mint
+  of the focused rune refuses `needs-index` (the cap is global state no light verifier can know).
 - **Bridged-rune custody is federated.** The L1 rune reserves sit in a shared bakery pot held by a guardian
   federation (threshold-signed, timelocked) — the one place the bridge is not trustless. The *ledger logic*
   (mint on an SPV-proven deposit into the pot, burn on an SPV-proven payout to the signed destination) trusts

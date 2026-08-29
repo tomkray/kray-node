@@ -15,10 +15,11 @@
  * no guessing — the same bytes `ord` reads, and the refusal a bridge needs so no rune is ever burned.
  */
 import { parseTx, proveTxBuried } from '../anchor/spv.ts'
-import { decipher, allocate, type RuneId } from './runestone.ts'
+import { decipher, allocate, type RuneBalance, type RuneId } from './runestone.ts'
 import { deriveVault } from './vault.ts'
 import { addressOf, scriptOfAddress, toBtcNet } from './scheme.ts'
 import { creditOfPotDeposit } from './pot-deposit.ts'
+import { proveDeposit, proveOutpoint, type ProvenTx } from './rune-ancestry.ts'
 
 export interface RuneMovementCheck {
   rawTx: string                                   // the deposit/payout transaction, exact bytes, hex
@@ -82,10 +83,13 @@ export function verifyRuneMovement(c: RuneMovementCheck): RuneMovementVerdict {
  * receives EXACTLY the claimed amount), and the binding of the credit to the vault's OWN depositor
  * key (re-derived from the journaled vault params — a credit to anyone else refuses).
  *
- * THE NAMED RESIDUE: `inputRunes` — what the deposit tx's inputs carried — is ord's attestation,
- * journaled at the door. The allocation MATH over those inputs is re-derived here; the input state
- * itself would need the recursive ancestry bundle (rune-ancestry.ts) embedded per event to be
- * byte-pure. That is the next keystone slice, stated rather than hidden.
+ * THE KEYSTONE (2026-08-28): a deposit proof may carry `ancestry` — the recursive bundle of
+ * SPV-proven parent transactions (rune-ancestry.ts) that re-derives the input state FROM BYTES,
+ * terminating at the rune's own etch (a premine is proven by the etch alone) or at an outpoint
+ * this journal already proved. When the bundle is present, `inputRunes` stops being ord's word:
+ * the verifier recomputes the deposited amount itself and refuses any disagreement. Signet and
+ * mainnet are BORN STRICT (the reducer requires the bundle from seq 0 — RUNE_ANCESTRY_MANDATORY);
+ * `inputRunes` remains as the attestation era's shape for regtest benches and the settle path.
  */
 export interface RuneConsensusProof {
   rawTx: string
@@ -97,21 +101,39 @@ export interface RuneConsensusProof {
   parentTxs?: string[]
   /** pot deposit: credit binds to the unique Taproot spender, not the vault depositor. */
   pool?: boolean
+  /** THE KEYSTONE: the SPV-proven ancestry bundle (deposit tx included) that re-derives the
+   *  input rune state from bytes — no indexer's word. Mandatory from seq 0 on signet/main.
+   *  `etchedId` rides as the canonical "block:tx" string (the journal is JSON — no bigint);
+   *  an etch entry must also carry the block's coinbase + proof (the BIP-34 identity witness). */
+  ancestry?: Array<{ rawTx: string; txoutproof: string; headers: string[]; etchedId?: string; coinbaseTx?: string; coinbaseProof?: string }>
 }
+
+/** The journaled (JSON-safe) bundle → the walker's shape. A malformed etchedId throws → refuse. */
+const parseAncestry = (list: NonNullable<RuneConsensusProof['ancestry']>): ProvenTx[] =>
+  list.map((t) => ({
+    rawTx: t.rawTx, txoutproof: t.txoutproof, headers: t.headers,
+    ...(t.etchedId ? { etchedId: parseRuneIdStr(t.etchedId) } : {}),
+    ...(t.coinbaseTx ? { coinbaseTx: t.coinbaseTx } : {}),
+    ...(t.coinbaseProof ? { coinbaseProof: t.coinbaseProof } : {}),
+  }))
 
 const parseRuneIdStr = (s: string): RuneId => { const [b, t] = String(s).split(':'); return { block: BigInt(b), tx: BigInt(t) } }
 const parseInputRunes = (list: Array<{ id: string; amount: string }>): Array<{ id: RuneId; amount: bigint }> =>
   list.map((r) => ({ id: parseRuneIdStr(r.id), amount: BigInt(r.amount) }))
 
 /** Re-prove a rune-deposit event's claims from its own journaled proof. Fail-closed: a proof that
- *  is present but does not verify refuses the event — on live apply AND on every cold replay. */
+ *  is present but does not verify refuses the event — on live apply AND on every cold replay.
+ *  `known` is the journal's own accumulated truth: outpoints whose balances of THIS rune earlier
+ *  proven deposits already re-derived (scoped per rune — the etch-root shortcut is only exact for
+ *  the focused rune, so one rune's memo must never answer for another). */
 export function verifyRuneDepositProof(
   proof: RuneConsensusProof,
   expect: { runeId: RuneId; outpoint: string; to: string; amount: bigint; net: string; minConfirmations: number; minWork?: bigint; pool?: boolean },
-): { ok: boolean; reason?: string } {
+  known?: Map<string, RuneBalance[]>,
+): { ok: boolean; reason?: string; provenVaultBalance?: bigint } {
   try {
     if (!proof.vault) return { ok: false, reason: 'a rune-deposit consensus proof must carry the vault params the credit binds to' }
-    if (!proof.inputRunes) return { ok: false, reason: 'a rune-deposit consensus proof must carry the input rune amounts the allocation was proven over' }
+    if (!proof.inputRunes && !proof.ancestry) return { ok: false, reason: 'a rune-deposit consensus proof must carry the input rune amounts (attestation) or the ancestry bundle (byte-pure)' }
     const buried = proveTxBuried(proof.rawTx, proof.txoutproof, proof.headers, { net: expect.net, minConfirmations: expect.minConfirmations, minWork: expect.minWork })
     if (!buried.ok) return { ok: false, reason: buried.reason }
     // the vault is RE-DERIVED from the journaled params — an address nobody can re-derive is refused
@@ -134,40 +156,108 @@ export function verifyRuneDepositProof(
       const owner = addressOf(proof.vault.depositor, toBtcNet(expect.net))
       if (owner !== expect.to) return { ok: false, reason: `the proof's vault binds depositor ${owner}, not the credited ${expect.to} — refused` }
     }
+    const vaultScriptHex = scriptOfAddress(vault.address, toBtcNet(expect.net))
     // the runestone allocation, re-derived by the same decoder ord uses (dust is door relay policy;
     // consensus proves structure + allocation — the output's existence and exact rune amount)
-    const move = verifyRuneMovement({
-      rawTx: proof.rawTx, runeId: expect.runeId, amount: expect.amount,
-      targetScriptHex: scriptOfAddress(vault.address, toBtcNet(expect.net)),
-      inputRunes: parseInputRunes(proof.inputRunes), dust: 1n,
-    })
-    if (!move.ok) return { ok: false, reason: move.reason }
-    const outpoint = `${buried.txid}:${move.outputIndex}`
+    let outputIndex: number | undefined
+    if (proof.inputRunes) {
+      const move = verifyRuneMovement({
+        rawTx: proof.rawTx, runeId: expect.runeId, amount: expect.amount,
+        targetScriptHex: vaultScriptHex,
+        inputRunes: parseInputRunes(proof.inputRunes), dust: 1n,
+      })
+      if (!move.ok) return { ok: false, reason: move.reason }
+      outputIndex = move.outputIndex
+    }
+    // THE KEYSTONE — the input state re-derived from bytes, no indexer's word. The bundle must
+    // contain the deposit tx and every parent back to the rune's etch or a journal-proven outpoint;
+    // the walk re-proves each link's burial and re-runs the allocation law, then must land EXACTLY
+    // the credited amount on the vault script. Present-but-false refuses (→ HALT in the reducer).
+    let provenVaultBalance: bigint | undefined
+    if (proof.ancestry) {
+      const walk = proveDeposit(buried.txid, vaultScriptHex, expect.runeId, parseAncestry(proof.ancestry), {
+        minConfirmations: expect.minConfirmations, net: expect.net, known, rune: expect.runeId,
+        // a bundle of N txs can never need a walk deeper than N — self-scaling, still bounded
+        // by the door's assembly cap; the walker's own cycle guard stays in force
+        maxDepth: proof.ancestry.length,
+      })
+      if (!walk.ok) return { ok: false, reason: `the ancestry bundle does not prove the deposit — ${walk.reason}${walk.at ? ' at ' + walk.at : ''}` }
+      if (walk.amount !== expect.amount) return { ok: false, reason: `the ancestry proves ${walk.amount} of the rune landed in the vault, not the credited ${expect.amount} — refused` }
+      if (outputIndex !== undefined && walk.vout !== outputIndex) return { ok: false, reason: 'the attestation and the ancestry disagree on the vault output — refused' }
+      outputIndex = walk.vout
+      provenVaultBalance = walk.amount
+    }
+    const outpoint = `${buried.txid}:${outputIndex}`
     if (outpoint !== expect.outpoint) return { ok: false, reason: `the proof buries outpoint ${outpoint}, not the claimed ${expect.outpoint} — refused` }
-    return { ok: true }
+    return { ok: true, provenVaultBalance }
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : String(e) }
   }
 }
 
 /** Re-prove a rune-settle event's claims: the journaled payout is buried, IS the claimed l1Txid,
- *  and delivers EXACTLY the locked amount to the exit's SIGNED L1 destination. */
+ *  and delivers EXACTLY the locked amount to the exit's SIGNED L1 destination.
+ *
+ *  THE KEYSTONE, SETTLE LEG (2026-08-29 — same ratification window, both books still empty):
+ *  when the proof carries `ancestry`, the payout's INPUT STATE is re-derived from bytes by the
+ *  same walker the deposit law uses — every input is a journal-proven outpoint (`known`: the
+ *  deposits and earlier settles this journal already re-derived) or is proven inside the bundle.
+ *  The walk re-runs the allocation law, must land EXACTLY the locked amount on the signed
+ *  destination, and refuses a payout that BURNS any of the focused rune. `provenOutputs` hands
+ *  the reducer the payout's whole focused output map, so the consolidation change becomes the
+ *  accumulated truth the NEXT settle's walk stops at. `inputRunes` (the attestation era) remains
+ *  for the regtest bench; when both ride, both must pass — a disagreement refuses. */
 export function verifyRuneSettleProof(
   proof: RuneConsensusProof,
-  expect: { runeId: RuneId; l1Txid: string; l1Address: string; amount: bigint; net: string; minConfirmations: number; minWork?: bigint },
-): { ok: boolean; reason?: string } {
+  expect: {
+    runeId: RuneId; l1Txid: string; l1Address: string; amount: bigint; net: string
+    minConfirmations: number; minWork?: bigint
+    /** the loaf's delivery output (from the event's `outpoint`) — absent on a solo settle */
+    deliveryVout?: number
+  },
+  known?: Map<string, RuneBalance[]>,
+): { ok: boolean; reason?: string; provenOutputs?: Array<{ vout: number; amount: bigint }> } {
   try {
-    if (!proof.inputRunes) return { ok: false, reason: 'a rune-settle consensus proof must carry the input rune amounts the allocation was proven over' }
+    if (!proof.inputRunes && !proof.ancestry) return { ok: false, reason: 'a rune-settle consensus proof must carry the input rune amounts (attestation) or the ancestry bundle (byte-pure)' }
     const buried = proveTxBuried(proof.rawTx, proof.txoutproof, proof.headers, { net: expect.net, minConfirmations: expect.minConfirmations, minWork: expect.minWork })
     if (!buried.ok) return { ok: false, reason: buried.reason }
     if (buried.txid !== expect.l1Txid.toLowerCase()) return { ok: false, reason: `the proof buries ${buried.txid}, not the claimed payout ${expect.l1Txid} — refused` }
-    const move = verifyRuneMovement({
-      rawTx: proof.rawTx, runeId: expect.runeId, amount: expect.amount,
-      targetScriptHex: scriptOfAddress(expect.l1Address, toBtcNet(expect.net)),
-      inputRunes: parseInputRunes(proof.inputRunes), dust: 1n,
-    })
-    if (!move.ok) return { ok: false, reason: move.reason }
-    return { ok: true }
+    const destScriptHex = scriptOfAddress(expect.l1Address, toBtcNet(expect.net)).toLowerCase()
+    if (proof.inputRunes) {
+      const move = verifyRuneMovement({
+        rawTx: proof.rawTx, runeId: expect.runeId, amount: expect.amount,
+        targetScriptHex: destScriptHex,
+        inputRunes: parseInputRunes(proof.inputRunes), dust: 1n,
+      })
+      if (!move.ok) return { ok: false, reason: move.reason }
+    }
+    let provenOutputs: Array<{ vout: number; amount: bigint }> | undefined
+    if (proof.ancestry) {
+      const bundle = parseAncestry(proof.ancestry)
+      const parsed = parseTx(proof.rawTx)
+      const scripts = parsed.outputScripts.map((b) => Buffer.from(b).toString('hex').toLowerCase())
+      // WHICH output the burn keys on — the loaf's journaled delivery outpoint, or (solo,
+      // historic law) the first output paying the signed destination. Matched by SCRIPT,
+      // never by an index the claimant chooses freely: a claimed vout must BE the destination.
+      let vout = expect.deliveryVout
+      if (vout === undefined) vout = scripts.findIndex((s) => s === destScriptHex)
+      if (vout < 0 || vout >= scripts.length) return { ok: false, reason: 'no output pays the SIGNED destination — refused' }
+      if (scripts[vout] !== destScriptHex) return { ok: false, reason: `delivery output ${vout} does not pay the SIGNED destination — refused` }
+      const walk = proveOutpoint(buried.txid, vout, bundle, {
+        minConfirmations: expect.minConfirmations, net: expect.net, known, rune: expect.runeId,
+        maxDepth: bundle.length,
+      })
+      if (!walk.ok) return { ok: false, reason: `the ancestry bundle does not prove the payout — ${walk.reason}${walk.at ? ' at ' + walk.at : ''}` }
+      const got = (walk.balances ?? []).filter((b) => sameId(b.id, expect.runeId)).reduce((t, b) => t + b.amount, 0n)
+      if (got !== expect.amount) return { ok: false, reason: `the ancestry proves ${got} of the rune reached the signed destination, not the ${expect.amount} locked — refused` }
+      if ((walk.burnedFocused ?? 0n) > 0n) return { ok: false, reason: `the payout BURNS ${walk.burnedFocused} of the rune — a settlement never burns, refused` }
+      provenOutputs = []
+      for (const [v, bals] of walk.outputs ?? []) {
+        const amt = bals.filter((b) => sameId(b.id, expect.runeId)).reduce((t, b) => t + b.amount, 0n)
+        if (amt > 0n) provenOutputs.push({ vout: v, amount: amt })
+      }
+    }
+    return { ok: true, provenOutputs }
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : String(e) }
   }

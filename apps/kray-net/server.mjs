@@ -368,6 +368,11 @@ const PROOF_MANDATORY_LIVE = NET !== 'regtest' && !(TRUSTED_DEV && NET === 'sign
 // (+ the vault params and ord-attested input runes) so the reducer re-verifies the peg on every
 // replay. Same polarity as the burn proof.
 const CONSENSUS_RUNE_PROOF = envFlag('KRAY_CONSENSUS_RUNE_PROOF', true)
+// THE KEYSTONE, MIRRORED AT THE DOOR — on signet/main the REDUCER refuses a rune-deposit whose
+// proof does not embed the recursive ancestry bundle (RUNE_ANCESTRY_MANDATORY_SEQ = 0, ledger.ts),
+// so the door assembles it (or refuses FIRST — journaling a doomed event helps nobody). regtest
+// keeps the bench; KRAY_RUNE_ANCESTRY=1 turns the assembler on there for the lab's strict exams.
+const RUNE_ANCESTRY_LIVE = NET !== 'regtest' || envFlag('KRAY_RUNE_ANCESTRY', false)
 if (TRUSTED_DEV && PUBLIC && NET !== 'regtest' && NET !== 'main') {
   console.warn(`⚠ KRAY_TRUSTED_DEV=1 on a PUBLIC ${NET} node — the proofless dev mint is FORCED OFF (only a real proof-of-donation mints here). Set it only on a throwaway regtest.`)
 }
@@ -754,6 +759,52 @@ async function spvProofFor(txid, minConf = DONATION_MIN_CONF) {
     )
   }
   return { rawTx, txoutproof, headers }
+}
+
+// THE KEYSTONE ASSEMBLER — build the ancestry bundle a born-strict rune-deposit must journal:
+// walk the deposit's inputs through OUR OWN bitcoind until the rune's etch (identity witnessed
+// by the block's coinbase, BIP-34) or an outpoint this journal already proved. ord only HINTS
+// where the etch is; every byte in the bundle is re-proven by the reducer, so a wrong hint can
+// only make assembly fail — never a false credit. Depth-capped fail-closed: a rune whose history
+// cannot be walked is refused at the door with a named reason, not credited on faith.
+// how many proven txs a deposit's bundle may carry — operator policy (journal weight), never consensus:
+// the reducer verifies whatever rode in. A fresh chain's own runes prove in 2–3; an old wallet's fee
+// history can run long, so a bench (or a patient operator) may raise it.
+const RUNE_ANCESTRY_MAX_TX = Math.max(2, parseInt(process.env.KRAY_RUNE_ANCESTRY_MAX_TX || '25', 10) || 25)
+async function assembleRuneAncestry(depositTxid, runeIdStr, { maxTx = RUNE_ANCESTRY_MAX_TX } = {}) {
+  const runeInfo = await ordGet(`/rune/${encodeURIComponent(runeIdStr)}`)
+  const etchTxid = String(runeInfo?.entry?.etching ?? runeInfo?.etching ?? '').toLowerCase()
+  const bundle = []
+  const seen = new Set()
+  async function walk(txid) {
+    txid = String(txid).toLowerCase()
+    if (seen.has(txid)) return
+    seen.add(txid)
+    if (bundle.length >= maxTx) {
+      throw new Error(`the rune's ancestry needs more than ${maxTx} transactions to prove — consolidate the runes nearer the etch (or through an already-credited outpoint) and deposit again`)
+    }
+    const p = await spvProofFor(txid, DONATION_MIN_CONF)
+    const entry = { rawTx: p.rawTx, txoutproof: p.txoutproof, headers: p.headers }
+    if (etchTxid && txid === etchTxid) {
+      // the etch is a root FOR ITS OWN RUNE — carry the BIP-34 identity witness
+      const info = await btcRpc('getrawtransaction', [txid, true])
+      const blk = await btcRpc('getblock', [info.blockhash, 1])
+      entry.etchedId = runeIdStr
+      entry.coinbaseTx = await btcRpc('getrawtransaction', [blk.tx[0]])
+      entry.coinbaseProof = await btcRpc('gettxoutproof', [[blk.tx[0]], info.blockhash])
+      bundle.push(entry)
+      return
+    }
+    bundle.push(entry)
+    const info = await btcRpc('getrawtransaction', [txid, true])
+    for (const vin of (info.vin || [])) {
+      if (!vin.txid) continue // coinbase
+      if (node.ledger.hasProvenRuneOutpoint(runeIdStr, `${vin.txid}:${vin.vout}`)) continue // journal truth — the walk stops
+      await walk(vin.txid)
+    }
+  }
+  await walk(depositTxid)
+  return bundle
 }
 
 // EXPLORER — decode a Bitcoin transaction's runestone (offline, via the kray-core decoder) so the
@@ -2202,6 +2253,18 @@ async function proveAndSettleRuneExit(from, runeIdStr, txid, opts = {}) {
     }
     const inputRunes = totalIn > 0n ? [{ id: runeIdStr, amount: totalIn.toString() }] : []
     attachSettleProof = { rawTx: proof.rawTx, txoutproof: proof.txoutproof, headers: proof.headers, inputRunes }
+    // THE KEYSTONE, SETTLE LEG — born strict: the reducer refuses a settle without its ancestry
+    // bundle on signet/main. The payout spends the pot's own coins, so the walk stops almost
+    // immediately at outpoints this journal already proved (deposits + earlier consolidation
+    // change) — the bundle is usually the payout tx alone. Refuse BEFORE a doomed append: the
+    // L1 payout already happened and stays provable; the same txid settles once assembly works.
+    if (RUNE_ANCESTRY_LIVE) {
+      try {
+        attachSettleProof.ancestry = await assembleRuneAncestry(buried.txid, runeIdStr)
+      } catch (e4) {
+        return { error: 'the payout\'s ancestry could not be proven from bytes — ' + (e4 instanceof Error ? e4.message : String(e4)), status: 400 }
+      }
+    }
   }
   // born strict: a settle must journal its own proof — refuse before a doomed append (the L1
   // payout already happened and stays provable; the same txid settles on a configured node)
@@ -7027,7 +7090,15 @@ const server = createServer(async (req, res) => {
               totalIn += await ordOutputRuneAmount(buried.txid, oi, rid).catch(() => 0n)
             }
             const inputRunes = totalIn > 0n ? [{ id: b.runeId, amount: totalIn.toString() }] : []
-            return { rawTx: proof.rawTx, txoutproof: proof.txoutproof, headers: proof.headers, vault: vaultParams, inputRunes, ...(extra || {}) }
+            const bag = { rawTx: proof.rawTx, txoutproof: proof.txoutproof, headers: proof.headers, vault: vaultParams, inputRunes, ...(extra || {}) }
+            // THE KEYSTONE — born strict: the reducer will refuse a deposit without its ancestry
+            // bundle, so assemble it here (bytes from our own bitcoind; ord only hints the etch).
+            // Assembly failure refuses the deposit at the door with the walker's named reason —
+            // the outpoint stays uncredited and redeemable once the ancestry can be walked.
+            if (RUNE_ANCESTRY_LIVE) {
+              bag.ancestry = await assembleRuneAncestry(buried.txid, b.runeId)
+            }
+            return bag
           }
 
           // ── POT FIRST — metal in the bakery names the path, not a client flag ──
@@ -7051,7 +7122,13 @@ const server = createServer(async (req, res) => {
             if (!who.ok) return err(res, 400, who.reason)
             if (who.address === pool.address) return err(res, 400, 'a pot deposit cannot credit the pot itself — send from your own Taproot wallet')
             const potParams = { guardians: pool.params.guardians, threshold: pool.params.threshold, depositor: pool.params.depositor, timelock: pool.params.timelock }
-            const attachRuneProof = await runeProofBag(potParams, { parentTxs, pool: true })
+            let attachRuneProof
+            try {
+              attachRuneProof = await runeProofBag(potParams, { parentTxs, pool: true })
+            } catch (e4) {
+              // the ancestry could not be walked — refuse BEFORE a doomed append; nothing was credited
+              return err(res, 400, 'the deposit\'s ancestry could not be proven from bytes — ' + (e4 instanceof Error ? e4.message : String(e4)))
+            }
             // born strict: a rune credit must journal its own proof — refuse before a doomed append
             if (PROOF_MANDATORY_LIVE && !attachRuneProof) {
               return err(res, 503, 'this network is born strict — a rune deposit must journal its own SPV proof, but KRAY_CONSENSUS_RUNE_PROOF is off on this node. Your runes are safe in the pot: the outpoint was never credited; redeem the same {runeId, txid} on a correctly configured node')

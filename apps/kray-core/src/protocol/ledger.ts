@@ -44,6 +44,7 @@ import { verifyDonationProof } from '../anchor/spv.ts'   // ADR-1: pure/offline 
 import { selfAnchorScriptHex } from './self-anchor.ts'   // ADR-1 extended: re-derive a self-anchor burn script from (pot key, sealed payload) — pure, offline
 import { KrayAnchor } from '../anchor/anchor.ts'         // KrayAnchor.payload — the one canonical anchor payload codec (static, offline)
 import { verifyRuneDepositProof, verifyRuneSettleProof } from './rune-bridge.ts'   // ADR-1 extended to the rune peg — same purity, same law
+import type { RuneBalance } from './runestone.ts'   // THE KEYSTONE: the journal's accumulated per-rune outpoint truth
 import { AmmBook, ammPoolAddress, ammRrPoolAddress, isAmmPotAddress, quoteAdd, quoteFirstMint, quoteOut, quoteRemove, rrPairKey } from './amm.ts'
 import { StarMarket } from './star-market.ts'   // native, atomic, trustless star order book — folds by presence (A3), never touches Σ
 import { StarOffers } from './star-offers.ts'   // escrowed bids — pot ₭ == book, or HALT
@@ -87,6 +88,21 @@ const PROOF_MANDATORY_SEQ: Record<string, number> = {
   regtest: Number.MAX_SAFE_INTEGER,
   signet: 0,   // reborn 2026-08-28 — born strict
   main: 0,     // born strict at genesis
+}
+
+/** RUNE-ANCESTRY MANDATORY (THE KEYSTONE, 2026-08-28/29 — ratified while both books held zero
+ *  transactions) — at/after this seq the REDUCER refuses a rune-deposit OR rune-settle whose
+ *  proof does not embed the recursive ancestry bundle, and re-derives the input rune state
+ *  FROM BYTES (rune-ancestry.ts): every parent buried under weighed work, the allocation law
+ *  re-run link by link, terminating at the rune's own etch (a premine needs no other witness)
+ *  or at an outpoint THIS journal already re-derived (deposits + earlier settles' consolidation
+ *  change — the accumulated truth). `inputRunes` stops being ord's word on these networks: the
+ *  journal can never contain a rune credit or burn whose input state is an attestation.
+ *  Regtest stays MAX — the bench keeps the dev path; tests inject 0. */
+const RUNE_ANCESTRY_MANDATORY_SEQ: Record<string, number> = {
+  regtest: Number.MAX_SAFE_INTEGER,
+  signet: 0,   // born strict — zero events at ratification
+  main: 0,     // born strict — zero events at ratification
 }
 
 /**
@@ -358,7 +374,7 @@ export class KrayLedger {
    *  be re-derived from these bytes. Historical events fall back to the bitmap. */
   readonly atlasBytes?: (hash: string) => Uint8Array | null
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -377,6 +393,7 @@ export class KrayLedger {
     this.tkFoldActivationSeq = tkFoldActivationSeq ?? (TK_FOLD_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.sizeProportionSeq = sizeProportionSeq ?? (SIZE_PROPORTION_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.proofMandatorySeq = proofMandatorySeq ?? (PROOF_MANDATORY_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.runeAncestrySeq = runeAncestrySeq ?? (RUNE_ANCESTRY_MANDATORY_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     // main pin 0 is the law itself (not a signaling): start at 10_000. Donate never
     // reads the rate — an empty-of-stars journal keeps its cascade.
     if (this.sizeProportionSeq === 0) {
@@ -431,6 +448,17 @@ export class KrayLedger {
   private readonly tkFoldActivationSeq: number      // THE TK-FOLD (Gate 2): below it, the lane kinds are refused and the lane root folds nowhere (A3)
   private readonly sizeProportionSeq: number        // 1 ₭/10 KB + 10 MB ceiling: below it, genesis 1 ₭/MB + 21 MB (A3)
   private readonly proofMandatorySeq: number        // PROOF MANDATORY: at/after it, an L1-peg event must EMBED its SPV proof (A3 below)
+  private readonly runeAncestrySeq: number          // THE KEYSTONE: at/after it, a rune-deposit AND a rune-settle must EMBED the ancestry bundle (byte-pure input state)
+  /** THE JOURNAL'S ACCUMULATED TRUTH — outpoint → balances of ONE rune, re-derived by earlier
+   *  proven deposits. Scoped per rune (the etch-root shortcut is exact only for the focused rune,
+   *  so one rune's memo must never answer for another). Re-built identically on every replay from
+   *  the journaled bundles alone — derived state, never folded, never trusted across networks. */
+  private readonly provenRuneOutpoints = new Map<string, Map<string, RuneBalance[]>>()
+  /** THE KEYSTONE, for the door's assembler — has this journal already proven this outpoint for
+   *  this rune? A yes lets a new deposit's bundle stop its walk there (the first walk pays). */
+  hasProvenRuneOutpoint(runeId: string, outpoint: string): boolean {
+    try { return this.provenRuneOutpoints.get(canonicalRuneKey(runeId))?.has(outpoint) ?? false } catch (_) { return false }
+  }
   /** THE TK-FOLD LANE (Gate 2) — the compressed lane's whole consensus state: balances entered via
    *  `lane-enter`, rearranged ONLY by proven `fold-seal` breaths, exited via `lane-exit`. Its root
    *  (laneRoot, the same commitment the fold proof binds) folds into the cascade at/after activation. */
@@ -1584,22 +1612,40 @@ export class KrayLedger {
           throw new Error('ledger: at/after proof-mandatory activation a rune deposit must embed its L1 SPV proof — the door alone is no longer the gate')
         }
         if (this.runes.wasCredited(e.outpoint)) throw new Error(`ledger: outpoint ${e.outpoint} was already credited — a deposit mints once, ever`)
+        // THE KEYSTONE (born strict on signet/main): at/after activation the input rune state
+        // must be re-derivable from bytes — the event embeds the recursive ancestry bundle.
+        if (e.seq >= this.runeAncestrySeq && !e.proof?.ancestry?.length) {
+          throw new Error('ledger: at/after rune-ancestry activation a rune deposit must embed its ancestry bundle — the input state is re-derived from bytes, never attested')
+        }
         // ── ADR-1 · THE PEG, RE-PROVEN IN CONSENSUS (runes) ─────────────────────────────────────
         // If the event carries its L1 SPV proof, re-prove the deposit FROM BYTES on every apply and
         // replay: buried under work, the exact claimed outpoint, the runestone allocation delivers
         // EXACTLY the claimed amount to the vault re-derived from the journaled params, and the
-        // credit binds to that vault's own depositor key. A proof that is PRESENT but does not
-        // verify HALTs — fail-closed. Absent proof is byte-identical to before (the door gates).
+        // credit binds to that vault's own depositor key. When the proof carries the ancestry
+        // bundle, the INPUT STATE itself is re-derived (rune-ancestry.ts) — terminating at the
+        // rune's etch or at an outpoint an earlier proven deposit in this journal already proved.
+        // A proof that is PRESENT but does not verify HALTs — fail-closed. Absent proof is
+        // byte-identical to before (the door gates).
+        let provenVaultBalance: bigint | undefined
         if (e.proof) {
+          const known = this.provenRuneOutpoints.get(canonicalRuneKey(e.runeId))
           const v = verifyRuneDepositProof(e.proof, {
             runeId: parseRuneKey(e.runeId), outpoint: e.outpoint, to: e.to, amount: BigInt(e.amount),
             net: this.network, minConfirmations: donationProofMinConf(toBtcNet(this.network)),
             pool: e.pool === true,
-          })
+          }, known)
           if (!v.ok) throw new Error(`ledger: the rune deposit's own SPV proof does not verify on replay — ${v.reason}`)
+          provenVaultBalance = v.provenVaultBalance
         }
         this.requireRecipientNetwork(e.to)
         // ── validated → mutate ──
+        // the journal accumulates proven truth: a later deposit's walk may stop at this outpoint
+        if (provenVaultBalance !== undefined) {
+          const runeKey = canonicalRuneKey(e.runeId)
+          const memo = this.provenRuneOutpoints.get(runeKey) ?? new Map<string, RuneBalance[]>()
+          memo.set(e.outpoint, [{ id: parseRuneKey(e.runeId), amount: provenVaultBalance }])
+          this.provenRuneOutpoints.set(runeKey, memo)
+        }
         // `pool: true` = the coins landed straight in the SHARED consolidation pot, so the
         // credit is pot-backed from birth (no rehome ever needed). Absent = personal vault,
         // exactly as every deposit before this field existed — byte-identical, gate-identical.
@@ -1757,17 +1803,36 @@ export class KrayLedger {
         if (!pex) throw new Error('ledger: rune-settle names no open exit')
         if (pex.amount !== BigInt(e.amount)) throw new Error(`ledger: the payout is ${e.amount} but the locked exit is ${pex.amount} — a settlement matches its lock exactly`)
         if (this.runes.wasSettled(settleDelivery || e.l1Txid)) throw new Error(`ledger: delivery ${settleDelivery || e.l1Txid} already settled an exit — one delivery, one burn`)
+        // THE KEYSTONE, SETTLE LEG (same activation as the deposit leg — one ratification, both books
+        // empty): at/after it the payout's input state must be re-derivable from bytes too.
+        if (e.seq >= this.runeAncestrySeq && !e.proof?.ancestry?.length) {
+          throw new Error('ledger: at/after rune-ancestry activation a rune settle must embed its ancestry bundle — the payout input state is re-derived from bytes, never attested')
+        }
         // ── ADR-1 · the payout re-proven from bytes when the event carries its proof: buried, IS the
         // claimed l1Txid, and delivers EXACTLY the locked amount to the exit's SIGNED destination.
-        // Present-but-invalid HALTs (fail-closed); absent is byte-identical (the door gates).
+        // With the ancestry bundle the INPUT STATE itself is re-derived — the walk stops at outpoints
+        // this journal already proved (deposits + earlier settles' consolidation change), and a payout
+        // that burns the focused rune refuses. Present-but-invalid HALTs; absent is byte-identical.
+        let settleOutputs: Array<{ vout: number; amount: bigint }> | undefined
         if (e.proof) {
+          const known = this.provenRuneOutpoints.get(canonicalRuneKey(e.runeId))
           const v = verifyRuneSettleProof(e.proof, {
             runeId: srid, l1Txid: e.l1Txid, l1Address: pex.l1Address, amount: pex.amount,
             net: this.network, minConfirmations: donationProofMinConf(toBtcNet(this.network)),
-          })
+            deliveryVout: settleDelivery ? Number(settleDelivery.split(':')[1]) : undefined,
+          }, known)
           if (!v.ok) throw new Error(`ledger: the rune settle's own SPV proof does not verify on replay — ${v.reason}`)
+          settleOutputs = v.provenOutputs
         }
         // ── validated → mutate ──
+        // the journal accumulates proven truth: the payout's consolidation change is now a known
+        // outpoint, so the NEXT settle's walk (or a loaf sibling's) stops right there.
+        if (settleOutputs !== undefined) {
+          const runeKey = canonicalRuneKey(e.runeId)
+          const memo = this.provenRuneOutpoints.get(runeKey) ?? new Map<string, RuneBalance[]>()
+          for (const o of settleOutputs) memo.set(`${e.l1Txid}:${o.vout}`, [{ id: srid, amount: o.amount }])
+          this.provenRuneOutpoints.set(runeKey, memo)
+        }
         this.runes.settleExit(srid, e.from, BigInt(e.amount), e.l1Txid, settleDelivery)
         break
       }

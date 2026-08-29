@@ -165,8 +165,9 @@ export interface KrayEvent {
   // the verifiers (spv.verifyDonationProof, rune-bridge.verifyRune*Proof) are pure/offline, the
   // reducer re-verifies it on every replay. OPTIONAL and append-only: an event without it hashes and
   // behaves exactly as before (retro-safe, byte-identical). Rune events extend the bag with the
-  // vault params the credit binds to and the ord-attested input rune amounts (the named residue —
-  // the allocation math is re-derived; the input state awaits the embedded-ancestry slice).
+  // vault params the credit binds to, the ord-attested input rune amounts (the attestation era),
+  // and — THE KEYSTONE — the recursive ancestry bundle that re-derives the input state from bytes,
+  // mandatory from seq 0 on signet/main (RUNE_ANCESTRY_MANDATORY_SEQ, born strict).
   proof?: {
     rawTx: string; txoutproof: string; headers: string[]
     vault?: { guardians: string[]; threshold: number; depositor: string; timelock: number }
@@ -176,6 +177,11 @@ export interface KrayEvent {
     parentTxs?: string[]
     /** pot deposit: credit binds to the unique spender, not the vault depositor. */
     pool?: boolean
+    /** THE KEYSTONE — SPV-proven parent txs (deposit included) back to the rune's etch or a
+     *  journal-proven outpoint; the reducer recomputes the deposited amount from these bytes.
+     *  `etchedId` is the canonical "block:tx" string (JSON-safe — the journal is JSON); an
+     *  etch entry also carries the block's coinbase + proof (the BIP-34 identity witness). */
+    ancestry?: Array<{ rawTx: string; txoutproof: string; headers: string[]; etchedId?: string; coinbaseTx?: string; coinbaseProof?: string }>
   }
   // ADR-1 extended (self-anchoring burn in consensus) — a donate that paid a SELF-ANCHOR output
   // (the pot's internal key tweaked by KrayAnchor.payload(anchorBlock, anchorRoot), BIP-341

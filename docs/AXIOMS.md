@@ -47,12 +47,23 @@ system's immutability follows:
   ledger.ts — signet and main are BORN STRICT at 0) the reducer itself refuses a
   donate / rune-deposit / rune-settle that does not embed its SPV proof, so the
   journal can never contain a mint whose sacrifice is not in it. Regtest keeps
-  the bench dev-mint (activation MAX). One honest limit remains, stated not
-  hidden: a rune proof's `inputRunes` is ord's attestation journaled at the
-  door — the allocation math is re-derived from bytes, the input state awaits
-  the embedded-ancestry slice (see `CONSENSUS-CONSTITUTION.md` and
-  `ATEMPORALITY-AUDIT.md`). The law states the destination; this bullet states,
-  honestly, exactly how far the code has walked toward it.
+  the bench dev-mint (activation MAX). THE KEYSTONE (2026-08-28, ratified while
+  both books held zero transactions) closed the second: at/after
+  `RUNE_ANCESTRY_MANDATORY_SEQ` (ledger.ts — signet and main BORN STRICT at 0) a
+  rune-deposit must embed its recursive ancestry bundle (rune-ancestry.ts), and
+  the reducer re-derives the INPUT STATE itself from bytes — every parent buried
+  under weighed work, the allocation law re-run link by link, terminating at the
+  rune's own etch (identity proven: BIP-37 position + BIP-34 coinbase height,
+  never a claim), at the null prevout (a coinbase creates sats, never runes), or
+  at an outpoint an earlier proven deposit in THIS journal already re-derived.
+  `inputRunes` stops being ord's word on those networks — on BOTH legs: the
+  SETTLE (same activation, same window) embeds the payout's ancestry too, and
+  the walk stops at the journal's own accumulated truth (deposits + earlier
+  settles' consolidation change), refusing a short delivery and any burn of
+  the focused rune. One honest limit remains, stated not hidden: a mint OF THE
+  FOCUSED RUNE still refuses `needs-index` (the cap is global state no light
+  verifier can know). The law states the destination; this bullet states,
+  honestly, exactly how far the code has walked.
 - **Proofs from bytes, never from trust.** SPV re-derivation, BIP-34 coinbase
   heights, BIP-37 merkle paths, taproot control blocks, runestones — all parsed
   from raw bytes and refused loudly on any mismatch. HALT beats a lie applied.

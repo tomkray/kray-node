@@ -31,7 +31,7 @@
  * without knowing it.
  */
 import { createHash } from 'node:crypto'
-import { MIN_BLOCK_WORK, checkProofOfWork, parseHeader, parseTx, verifyTxOutProof, type TxInput } from '../anchor/spv.ts'
+import { MIN_BLOCK_WORK, bip34Height, checkProofOfWork, parseHeader, parseTx, verifyTxOutProof, type TxInput } from '../anchor/spv.ts'
 import { allocate, decipher, type RuneBalance, type RuneId } from './runestone.ts'
 
 /** One transaction as a claimant presents it: the bytes plus Bitcoin's witness. */
@@ -42,9 +42,14 @@ export interface ProvenTx {
   /** the containing block header, then each header burying it */
   headers: string[]
   /** the rune etched BY THIS transaction, if any — its id is (block height, index
-   *  in block), which the claimant states and the caller cross-checks against
-   *  the rune registration it already sealed */
+   *  in block). THE CLAIM IS PROVEN, never taken: the index from this tx's own
+   *  BIP-37 position, the height from the block's coinbase (BIP-34, below). */
   etchedId?: RuneId
+  /** THE ETCH IDENTITY WITNESS — the block's coinbase and its merkle proof against
+   *  the SAME header, so the claimed etch height is Bitcoin's own statement (BIP-34)
+   *  and never a number someone reports. Required whenever `etchedId` is claimed. */
+  coinbaseTx?: string
+  coinbaseProof?: string
 }
 
 export interface AncestryOptions {
@@ -69,6 +74,7 @@ export interface AncestryOptions {
 export type AncestryRefusal =
   | 'tx-missing' | 'tx-unproven' | 'tx-shallow' | 'txid-mismatch'
   | 'input-unknown' | 'needs-index' | 'too-deep' | 'malformed' | 'no-such-output'
+  | 'etch-unproven' | 'etch-mismatch'
 
 export interface AncestryVerdict {
   ok: boolean
@@ -79,6 +85,12 @@ export interface AncestryVerdict {
   at?: string
   /** every transaction actually verified along the way */
   verified?: number
+  /** THE TARGET TX'S WHOLE OUTPUT MAP — the same walk proves every output, so a settle
+   *  can memoize its consolidation change as journal truth for the next payout's walk. */
+  outputs?: Map<number, RuneBalance[]>
+  /** what the TARGET tx burned of the focused rune (all runes when unfocused) — a payout
+   *  that burns is refused by the settle law, so the number must be visible, not implied. */
+  burnedFocused?: bigint
 }
 
 export const outpointKey = (txid: string, vout: number): string => `${txid}:${vout}`
@@ -140,6 +152,28 @@ export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], op
     } catch (_) { chained = false }
     if (!chained) return { ok: false, reason: 'tx-unproven', at: parsed.txidDisplay }
     if (tx.headers.length < opts.minConfirmations) return { ok: false, reason: 'tx-shallow', at: parsed.txidDisplay }
+    // ── THE ETCH IDENTITY — an etch root is a CLAIM of (block height, index in block),
+    // and a claim in a proof is a hole until it is bytes. Without this check a hostile
+    // etch of a worthless rune could state the TARGET rune's id and premine the vault
+    // out of thin air. Three facts, none reported: the runestone actually etches; the
+    // tx's own BIP-37 position IS the claimed index; the block's coinbase (proven at
+    // index 0 of the SAME header) carries the claimed height as its BIP-34 push. ──
+    if (tx.etchedId) {
+      const art = decipher(parsed.outputScripts.map((b) => Uint8Array.from(b)))
+      if (!art || art.kind !== 'runestone' || !art.etching) return { ok: false, reason: 'etch-mismatch', at: parsed.txidDisplay }
+      const pos = proof.positions[proof.provenTxids.indexOf(parsed.txidDisplay)]
+      if (pos === undefined || BigInt(pos) !== tx.etchedId.tx) return { ok: false, reason: 'etch-mismatch', at: parsed.txidDisplay }
+      if (!tx.coinbaseTx || !tx.coinbaseProof) return { ok: false, reason: 'etch-unproven', at: parsed.txidDisplay }
+      try {
+        const cb = parseTx(tx.coinbaseTx)
+        const cbProof = verifyTxOutProof(tx.coinbaseProof)
+        if (cbProof.header.hashDisplay !== proof.header.hashDisplay) return { ok: false, reason: 'etch-unproven', at: parsed.txidDisplay }
+        const cbIdx = cbProof.provenTxids.indexOf(cb.txidDisplay)
+        if (cbIdx < 0 || cbProof.positions[cbIdx] !== 0) return { ok: false, reason: 'etch-unproven', at: parsed.txidDisplay }
+        const h = bip34Height(tx.coinbaseTx)
+        if (h === null || BigInt(h) !== tx.etchedId.block) return { ok: false, reason: 'etch-mismatch', at: parsed.txidDisplay }
+      } catch (_) { return { ok: false, reason: 'etch-unproven', at: parsed.txidDisplay } }
+    }
     byTxid.set(parsed.txidDisplay, { tx, parsed })
     verified++
   }
@@ -148,6 +182,7 @@ export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], op
   const memo = new Map<string, RuneBalance[]>()
   const resolving = new Set<string>()
   let refusal: AncestryVerdict | null = null
+  let targetBurned: RuneBalance[] = []
 
   const resolveTx = (id: string, depth: number): Map<number, RuneBalance[]> | null => {
     if (depth > maxDepth) { refusal = { ok: false, reason: 'too-deep', at: id }; return null }
@@ -166,6 +201,11 @@ export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], op
     // the inputs' balances: already proven by the network, or proven right here
     const inputs: RuneBalance[] = []
     for (const inp of etchesTheFocus ? [] : (parsed.inputs as TxInput[])) {
+      // THE NULL PREVOUT IS A ROOT: a coinbase's input creates sats out of subsidy and can
+      // carry no runes — rune balances ride real outpoints only. Provable from the bytes
+      // themselves (the all-zero txid is spendable by nobody and allocated by nothing), so
+      // a chain that bottoms out in coinbases terminates instead of refusing forever.
+      if (/^0{64}$/.test(inp.txid)) continue
       const key = outpointKey(inp.txid, inp.vout)
       const cached = memo.get(key) ?? known.get(key)
       if (cached) { inputs.push(...cached); continue }
@@ -186,15 +226,23 @@ export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], op
     }
 
     const artifact = decipher(parsed.outputScripts.map((b) => Uint8Array.from(b)))
-    // a MINT needs the global mint count to be legal — a light verifier cannot
-    // know it, so the ancestry stops here and says exactly why
-    if (artifact !== null && artifact.mint !== undefined) { refusal = { ok: false, reason: 'needs-index', at: id }; return null }
+    // a MINT OF THE FOCUSED RUNE needs the global mint count to be legal — a light verifier
+    // cannot know it, so the ancestry stops here and says exactly why. A mint of a DIFFERENT
+    // rune adds nothing of the focused one (allocation pools are per rune id, independent),
+    // so the focused answer stays exact with mintAmount unknown — refusing there would make
+    // every wallet that ever minted anything unable to prove an unrelated deposit.
+    if (artifact !== null && artifact.mint !== undefined) {
+      const mintsTheFocus = opts.rune === undefined
+        || (artifact.mint.block === opts.rune.block && artifact.mint.tx === opts.rune.tx)
+      if (mintsTheFocus) { refusal = { ok: false, reason: 'needs-index', at: id }; return null }
+    }
 
     const alloc = allocate(artifact, {
       outputScripts: parsed.outputScripts.map((b) => Uint8Array.from(b)),
       inputs,
       etchedId: tx.etchedId,
     })
+    if (depth === 0) targetBurned = alloc.burned
     for (const [vout, bal] of alloc.outputs) memo.set(outpointKey(id, vout), bal)
     return alloc.outputs
   }
@@ -203,7 +251,10 @@ export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], op
   const outs = resolveTx(txid, 0)
   if (!outs) return refusal ?? { ok: false, reason: 'malformed' }
   if (vout >= (byTxid.get(txid)?.parsed.outputScripts.length ?? 0)) return { ok: false, reason: 'no-such-output', at: outpointKey(txid, vout) }
-  return { ok: true, balances: outs.get(vout) ?? [], verified }
+  const burnedFocused = targetBurned
+    .filter((b) => opts.rune === undefined || (b.id.block === opts.rune.block && b.id.tx === opts.rune.tx))
+    .reduce((t, b) => t + b.amount, 0n)
+  return { ok: true, balances: outs.get(vout) ?? [], verified, outputs: outs, burnedFocused }
 }
 
 /**
