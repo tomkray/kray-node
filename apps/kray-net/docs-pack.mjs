@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const DOCS = join(ROOT, 'docs')
 const CANON_DIR = join(ROOT, 'apps', 'kray-net', 'canon')
-const CANON = join(CANON_DIR, 'CANON.md')
 const SKELETON = [
   'indole', 'canon', 'foundation', 'divine', 'algorithm', 'kray',
   'bitcoin', 'fenyx', 'consensus', 'diretriz', 'consciousness', 'lightdoor',
@@ -53,7 +52,12 @@ export function docsFile(slug) {
   const want = slugOf(String(slug || ''))
   if (!SLUG_RE.test(want) || PACK_SKIP.test(want)) return null
   if (SKELETON.includes(want)) {
-    const abs = want === 'canon' ? CANON : join(CANON_DIR, want + '.md')
+    let abs = join(CANON_DIR, want + '.md')
+    if (!existsSync(abs) && existsSync(CANON_DIR)) {
+      const re = new RegExp('^\\d+[-_.]' + want + '\\.md$', 'i')
+      const hit = readdirSync(CANON_DIR).find((n) => re.test(n))
+      if (hit) abs = join(CANON_DIR, hit)
+    }
     if (existsSync(abs) && under(CANON_DIR, abs)) {
       return readNamed(abs, want, want, '/docs/' + want + '.md')
     }

@@ -3657,9 +3657,10 @@ function starView(nBig) {
   }
 }
 
-// ══ LINEAGE COLLECTIONS — a named parent star is the collection; its children are the items.
-//    Derived from the journal (childrenOf + the listing book + star-list/star-buy seqs).
-//    No new event kind. The collection story is the parent's sealed body / meta.description.
+// ══ LINEAGE COLLECTIONS — a parent with children is the collection.
+//    A named KRAY star OR a Bitcoin L1 ordinal (origin). The L1 is not a star
+//    on this book; it is still the father. The front must show it as a collection
+//    because the children are here. Derived from the journal. No new event kind.
 function isImageType(ct) {
   return String(ct || '').toLowerCase().startsWith('image/')
 }
@@ -3803,6 +3804,44 @@ function collectionItem(s, listedAt) {
     createdSeq: s.seq,
   }
 }
+function originIdsOf(s) {
+  if (!s) return []
+  if (s.origins && s.origins.length) return s.origins.map((o) => String(o.l1InscriptionId || o).toLowerCase()).filter(Boolean)
+  if (s.origin && s.origin.l1InscriptionId) return [String(s.origin.l1InscriptionId).toLowerCase()]
+  return []
+}
+function kidMarketRoll(kids, volumeByStar, salesByStar) {
+  let listed = 0
+  let floor = null
+  let volume = 0n
+  let sales = 0
+  const owners = new Set()
+  for (const c of kids) {
+    const cs = node.star(c)
+    if (cs && cs.owner) owners.add(cs.owner)
+    const offer = node.ledger.market.get(c)
+    if (offer) {
+      listed++
+      if (floor == null || offer.price < floor) floor = offer.price
+    }
+    volume += volumeByStar.get(String(c)) || 0n
+    if (salesByStar) sales += salesByStar.get(String(c)) || 0
+  }
+  return { listed, floor, volume, sales, owners }
+}
+function l1CollectionFace(kids) {
+  for (const c of kids) {
+    const cs = node.star(c)
+    if (!cs) continue
+    const face = collectionFace(cs)
+    if (face.banner || (face.media && isImageType(face.contentType))) return face
+  }
+  for (const c of kids) {
+    const cs = node.star(c)
+    if (cs) return collectionFace(cs)
+  }
+  return { media: null, banner: null, about: null, contentType: null }
+}
 function collectionsIndex() {
   const { volumeByStar, salesByStar } = marketMarks()
   const out = []
@@ -3812,39 +3851,55 @@ function collectionsIndex() {
     if (!s || !s.name) continue
     const kids = s.children || []
     if (!kids.length) continue
-    let listed = 0
-    let floor = null
-    let volume = 0n
-    let sales = 0
-    const owners = new Set()
-    for (const c of kids) {
-      const cs = node.star(c)
-      if (cs && cs.owner) owners.add(cs.owner)
-      const offer = node.ledger.market.get(c)
-      if (offer) {
-        listed++
-        if (floor == null || offer.price < floor) floor = offer.price
-      }
-      volume += volumeByStar.get(String(c)) || 0n
-      sales += salesByStar.get(String(c)) || 0
-    }
+    const roll = kidMarketRoll(kids, volumeByStar, salesByStar)
     const face = collectionFace(s)
     out.push({
       name: s.name,
+      href: s.name,
       star: String(s.no),
       owner: s.owner,
+      l1: false,
       media: face.media,
       banner: face.banner,
       contentType: face.contentType,
       childCount: kids.length,
-      listed,
-      owners: owners.size,
-      floor: floor != null ? floor.toString() : null,
-      volume: volume.toString(),
-      sales,
+      listed: roll.listed,
+      owners: roll.owners.size,
+      floor: roll.floor != null ? roll.floor.toString() : null,
+      volume: roll.volume.toString(),
+      sales: roll.sales,
     })
   }
-  out.sort((a, b) => (b.listed - a.listed) || (b.childCount - a.childCount) || (Number(a.star) - Number(b.star)))
+  const seenL1 = new Set()
+  for (let i = 0n; i < R.createdSeq; i++) {
+    const s = node.star(i)
+    for (const id of originIdsOf(s)) {
+      if (seenL1.has(id)) continue
+      const kids = R.childrenOfOrigin(id)
+      if (!kids.length) continue
+      seenL1.add(id)
+      const roll = kidMarketRoll(kids, volumeByStar, salesByStar)
+      const face = l1CollectionFace(kids)
+      out.push({
+        name: '₿ ' + id.slice(0, 8) + '…',
+        href: 'ord/' + id,
+        origin: id,
+        star: null,
+        owner: null,
+        l1: true,
+        media: face.media,
+        banner: face.banner,
+        contentType: face.contentType,
+        childCount: kids.length,
+        listed: roll.listed,
+        owners: roll.owners.size,
+        floor: roll.floor != null ? roll.floor.toString() : null,
+        volume: roll.volume.toString(),
+        sales: roll.sales,
+      })
+    }
+  }
+  out.sort((a, b) => (b.listed - a.listed) || (b.childCount - a.childCount) || (Number(a.star || 0) - Number(b.star || 0)))
   return out
 }
 function resolveCollectionStar(raw) {
@@ -3862,7 +3917,58 @@ function resolveCollectionStar(raw) {
   }
   return node.ledger.stars.starOfName(key)
 }
+function l1CollectionView(l1Id) {
+  const kids = node.ledger.stars.childrenOfOrigin(l1Id)
+  if (!kids.length) return null
+  const { listedAt, volumeByStar } = marketMarks()
+  const items = []
+  const owners = new Set()
+  let listed = 0
+  let floor = null
+  let volume = 0n
+  for (const c of kids) {
+    const cs = node.star(c)
+    if (!cs) continue
+    if (cs.owner) owners.add(cs.owner)
+    const item = collectionItem(cs, listedAt)
+    items.push(item)
+    if (item.listing) {
+      listed++
+      const p = BigInt(item.listing.price)
+      if (floor == null || p < floor) floor = p
+    }
+    volume += volumeByStar.get(String(c)) || 0n
+  }
+  const face = l1CollectionFace(kids)
+  return {
+    name: '₿ ' + l1Id.slice(0, 8) + '…',
+    href: 'ord/' + l1Id,
+    origin: l1Id,
+    l1: true,
+    star: null,
+    owner: null,
+    rarity: null,
+    contentType: face.contentType,
+    media: face.media,
+    banner: face.banner,
+    about: 'Bitcoin L1 ordinal — not a star on this book. Father of these stars by signed origin.',
+    items,
+    stats: {
+      items: items.length,
+      listed,
+      owners: owners.size,
+      floor: floor != null ? floor.toString() : null,
+      volume: volume.toString(),
+    },
+  }
+}
 function collectionView(rawKey) {
+  const key = String(rawKey || '').trim()
+  const named = key.match(/^ord\/([0-9a-f]{64}i\d+)$/i)
+  const l1 = (named ? named[1] : key).toLowerCase()
+  if (/^[0-9a-f]{64}i\d+$/.test(l1) && node.ledger.stars.childrenOfOrigin(l1).length) {
+    return l1CollectionView(l1)
+  }
   const no = resolveCollectionStar(rawKey)
   if (no == null) return null
   const s = node.star(no)
@@ -3897,6 +4003,8 @@ function collectionView(rawKey) {
   }
   return {
     name: s.name,
+    href: s.name,
+    l1: false,
     star: String(s.no),
     owner: s.owner,
     rarity: s.rarity,
@@ -4863,7 +4971,9 @@ const server = createServer(async (req, res) => {
           // client-side (a baptized name 302s to its number). The canon relic promises
           // /star/<name>, so the door must route it, not 404 it.
           [/^\/star\/[a-zA-Z0-9]+\/?$/, 'star.html'], [/^\/block\/\w+\/?$/, 'block.html'], [/^\/tx\/[0-9a-f]+/i, 'tx.html'],
-          // /collection/<name> — a named parent star is the collection; children are the items.
+          // /collection/ord/<l1 id> — Bitcoin father, not a star on this book.
+          // /collection/<name|number> — a named KRAY parent star.
+          [/^\/collection\/ord\/[0-9a-f]{64}i\d+\/?$/i, 'collection.html'],
           [/^\/collection\/[a-zA-Z0-9]+\/?$/, 'collection.html'],
           // /profile RE-RATIFIED (Creator, 2026-08-24): the node ships profile.html (the signet base,
           // asset paths adapted) and serves it — a lab node has no kray-web beside it, and a 404 on
@@ -5596,7 +5706,7 @@ const server = createServer(async (req, res) => {
       if (p === '/api/kraynet/collections') return ok(res, { collections: collectionsIndex() })
       { const cm = p.match(/^\/api\/kraynet\/collection\/(.+)$/); if (cm) {
         const view = collectionView(decodeURIComponent(cm[1]))
-        return view ? ok(res, view) : err(res, 404, 'no such star')
+        return view ? ok(res, view) : err(res, 404, 'no such collection')
       } }
       // THE LANE, READABLE (TK-fold) — the proven lane state (the folder's breath `pre`) + the pending pool.
       if (p === '/api/kraynet/lane') {

@@ -138,9 +138,14 @@ async function main() {
       const byNo = await jget('/api/kraynet/collection/0')
       ok(byNo && String(byNo.star) === '0', 'GET /api/kraynet/collection/0 resolves the star by number')
       ok((await jtext('/collection/0'))[0] === 200, 'GET /collection/<number> serves the collection page')
+      const fakeL1 = '0'.repeat(64) + 'i0'
+      ok((await jtext('/collection/ord/' + fakeL1))[0] === 200, 'GET /collection/ord/<l1 id> serves the collection page')
+      const missOrd = await fetch(BASE + '/api/kraynet/collection/ord/' + fakeL1)
+      const missOrdJ = await missOrd.json()
+      ok(missOrd.status === 404 && /no such collection/.test(String(missOrdJ.error || '')), 'GET /api/kraynet/collection/ord/<empty L1> is HTTP 404')
       const missCol = await fetch(BASE + '/api/kraynet/collection/nocollectionhere999')
       const missJ = await missCol.json()
-      ok(missCol.status === 404 && /no such star/.test(String(missJ.error || '')), 'GET /api/kraynet/collection/<missing> is HTTP 404')
+      ok(missCol.status === 404 && /no such collection/.test(String(missJ.error || '')), 'GET /api/kraynet/collection/<missing> is HTTP 404')
     }
     const [holeStatus, holeHtml] = await jtext('/blackhole')
     ok(holeStatus === 200 && /FREEZE/.test(holeHtml) && /BURNED/.test(holeHtml) && /The fire is every/.test(holeHtml),

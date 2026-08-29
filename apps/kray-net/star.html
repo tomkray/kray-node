@@ -1583,11 +1583,13 @@
         return h;
       })()
       +(function(){
-        var n=0;
+        var n=0, id=null;
         ;(s.family.ancestors||[]).concat(s.family.immediate||[]).forEach(function(a){
-          if(a && a.l1 && a.children && a.children.length>n) n=a.children.length;
+          if(a && a.l1 && a.id && a.children && a.children.length>n){ n=a.children.length; id=a.id; }
         });
-        return n>1?'<span class="chip">'+n+' L1 daughters of one ordinal</span>':'';
+        return (n && id)
+          ? '<a class="chip" href="/collection/ord/'+esc(id)+'" title="L1 ordinal collection — the children of this blessing">collection · ₿ '+esc(String(id).slice(0,8))+'… · '+n+'</a>'
+          : '';
       })()
       // MULTIPARENT lineage chips — every star parent walkable, every L1 origin named.
       // Scalar-only stars show nothing new here (the family tree already tells their line).

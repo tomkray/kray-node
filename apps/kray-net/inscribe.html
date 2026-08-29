@@ -303,7 +303,7 @@
   var $=function(id){return document.getElementById(id);};
   var panel=$('inspanel'); if(!panel) return;
   var acct=$('i-acct'), meta=$('i-meta'), out=$('i-out'), go=$('i-go'), golabel=$('i-golabel');
-  var tab = 'name', me=null, pub=null, busy=false, postType='text/plain', DOC_CAP=8192;
+  var tab = 'name', me=null, pub=null, busy=false, postType='text/plain', DOC_CAP=8192, nextBorn=null;
   var lawKind='code';
   var lawExamFp='';
   function short(a){return a.slice(0,8)+'…'+a.slice(-5);}
@@ -863,7 +863,8 @@
         origin: !!(($('i-oparent')||{}).value||'').trim(),
         faceFirst: !!( $('e-coll') && $('e-coll').checked ),
         skipped: lastSkip,
-        rate: eraRateI()
+        rate: eraRateI(),
+        nextStar: nextBorn
       };
     })());
     syncSoloFromQueue();
@@ -1256,13 +1257,15 @@
     try{
       var a=await (await fetch('/api/kraynet/account/'+me)).json();
       try{ balK=BigInt(String(a.balance==null?'0':a.balance).replace(/[^0-9]/g,'')||'0'); }catch(_){ balK=0n; }
+      var born=Number(a.freeStar); nextBorn=(Number.isFinite(born)&&born>=0)?born:null;
       acct.innerHTML='<span><b class="gold">'+short(me)+'</b></span>'
         +'<span>balance <b>'+kWhole(a.balance)+'</b> ₭</span>'
-        +'<span>born as <b>'+(a.freeStar ? '#'+Number(a.freeStar).toLocaleString() : '— get ₭ first')+'</b></span>'
+        +'<span>born as <b>'+(nextBorn!=null ? '#'+nextBorn.toLocaleString() : '— get ₭ first')+'</b></span>'
         +'<span>inscriptions <b>'+((a.inscriptions&&a.inscriptions.total)||0)+'</b></span>';
     }catch(_){ acct.innerHTML='<span>account read failed — node offline?</span>'; }
     paintTicket();
     paintGo();
+    if(tab==='media' && B) paintFileQueue();
   }
   function loadLawFaces(){
     var box=$('i-lawfaces'); if(!box||!me) return;

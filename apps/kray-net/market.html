@@ -136,7 +136,7 @@
       '<span class="px">' + (price != null ? num(price) + ' ₭' : '') + '</span></a>';
   }
   function sqCol(c) {
-    return '<a class="sq" href="/collection/' + esc(c.name) + '">' +
+    return '<a class="sq" href="/collection/' + esc(c.href || c.origin || c.name) + '">' +
       '<div class="art facefill">' + face(c) + '</div>' +
       '<span class="nm">' + esc(c.name) + '</span>' +
       '<span class="px">' + (c.floor ? 'floor ' + num(c.floor) + ' ₭' : (esc(String(c.childCount || 0)) + ' items')) + '</span></a>';
@@ -225,7 +225,7 @@
   }
 
   function colRankRow(c, i) {
-    return '<a class="rkrow" href="/collection/' + esc(c.name) + '">' +
+    return '<a class="rkrow" href="/collection/' + esc(c.href || c.origin || c.name) + '">' +
       '<span class="n">' + (i + 1) + '</span>' +
       '<span class="face facefill fixed">' + face(c) + '</span>' +
       '<span class="nm">' + esc(c.name) + '<small>' + esc(String(c.childCount)) + ' items · ' + esc(String(c.listed)) + ' listed</small></span>' +

@@ -69,9 +69,13 @@
   var num = function (v) { try { return BigInt(String(v).replace(/[^0-9]/g, '') || '0').toLocaleString(); } catch (_) { return String(v); } };
   var short = function (a) { return a ? a.slice(0, 8) + '…' + a.slice(-4) : ''; };
   function toast(msg) { var t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('on'); }, 3200); }
-  function nameOf() {
-    var m = (location.pathname || '').replace(/\/$/, '').match(/^\/collection\/([a-zA-Z0-9]+)$/);
-    return m ? decodeURIComponent(m[1]) : '';
+  function pathOf() {
+    var p = (location.pathname || '').replace(/\/$/, '');
+    var o = p.match(/^\/collection\/ord\/([0-9a-f]{64}i\d+)$/i);
+    if (o) return { kind: 'ord', id: o[1].toLowerCase() };
+    var m = p.match(/^\/collection\/([a-zA-Z0-9]+)$/);
+    if (m) return { kind: 'star', key: decodeURIComponent(m[1]) };
+    return null;
   }
 
   function face(it) { return (window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(it) : '<span class="glyph">★ ' + esc(it.star) + '</span>'; }
@@ -141,16 +145,29 @@
   function paintHero() {
     var s = view.stats || {};
     var render = view.media ? String(view.media).replace('/content/', '/render/') : null;
-    var plate = '<a class="col-face facefill" href="/star/' + esc(view.star) + '">' + face(view) + '</a>';
+    var l1 = !!view.l1 && view.origin;
+    var l1Url = (l1 && window.KRAY && KRAY.ordinalsInscriptionUrl) ? KRAY.ordinalsInscriptionUrl(view.origin) : null;
+    var plate = l1
+      ? (l1Url
+        ? '<a class="col-face facefill" href="' + esc(l1Url) + '" target="_blank" rel="noopener noreferrer">' + face(view) + '</a>'
+        : '<div class="col-face facefill">' + face(view) + '</div>')
+      : '<a class="col-face facefill" href="/star/' + esc(view.star) + '">' + face(view) + '</a>';
+    var title = l1
+      ? esc(view.name || ('₿ ' + String(view.origin).slice(0, 8) + '…'))
+      : esc((window.KRAY && KRAY.starTitle) ? KRAY.starTitle(view) : ('★ ' + view.star + (view.name ? ' · ' + view.name : '')));
+    var own = l1
+      ? 'Bitcoin L1 ordinal — not a star on this book · father of these stars'
+        + (l1Url ? ' · <a href="' + esc(l1Url) + '" target="_blank" rel="noopener noreferrer">open on ordinals ↗</a>' : '')
+      : 'parent ★ ' + esc(view.star)
+        + (view.owner ? ' · held by <a href="/address/' + esc(view.owner) + '">' + esc(short(view.owner)) + '</a>' : '')
+        + ' · <a href="/star/' + esc(view.star) + '">open the parent ↗</a>';
     $('hero').innerHTML =
       '<div class="col-id">' +
         plate +
         '<div class="col-who">' +
-          '<div class="col-k">collection</div>' +
-          '<div class="col-title">' + esc((window.KRAY && KRAY.starTitle) ? KRAY.starTitle(view) : ('★ ' + view.star + (view.name ? ' · ' + view.name : ''))) + '</div>' +
-          '<div class="col-own">parent ★ ' + esc(view.star) +
-            (view.owner ? ' · held by <a href="/address/' + esc(view.owner) + '">' + esc(short(view.owner)) + '</a>' : '') +
-            ' · <a href="/star/' + esc(view.star) + '">open the parent ↗</a></div>' +
+          '<div class="col-k">' + (l1 ? 'L1 collection' : 'collection') + '</div>' +
+          '<div class="col-title">' + title + '</div>' +
+          '<div class="col-own">' + own + '</div>' +
         '</div>' +
       '</div>' +
       '<div class="col-stats">' +
@@ -161,9 +178,11 @@
         '<div class="stat"><div class="v">' + num(s.volume || 0) + ' ₭</div><div class="k">volume</div></div>' +
       '</div>' +
       (render ? '<div class="col-content"><a href="' + esc(render) + '">Content</a></div>' : '');
-    document.title = 'KRAY.NETWORK · ' + (view.name || ('#' + view.star));
-    var key = nameOf();
-    if (view.name && key && !/^\d+$/.test(key) && !/^[0-9a-f]{64}i\d+$/i.test(key) && view.name !== key.toLowerCase()) {
+    document.title = 'KRAY.NETWORK · ' + (view.l1 ? (view.name || 'ordinal collection') : (view.name || ('#' + view.star)));
+    var loc = pathOf();
+    if (view.l1 && view.origin && (!loc || loc.kind !== 'ord' || loc.id !== String(view.origin).toLowerCase())) {
+      try { history.replaceState(null, '', '/collection/ord/' + view.origin); } catch (_) {}
+    } else if (!view.l1 && view.name && loc && loc.kind === 'star' && !/^\d+$/.test(loc.key) && view.name !== loc.key.toLowerCase()) {
       try { history.replaceState(null, '', '/collection/' + view.name); } catch (_) {}
     }
   }
@@ -179,7 +198,9 @@
       e.hidden = false;
       e.textContent = (view.items || []).length
         ? 'Nothing matches these filters.'
-        : 'This named star has no children yet. Inscribe a child and it appears here.';
+        : (view.l1
+          ? 'This ordinal has no KRAY children yet. An origin blessing puts them here.'
+          : 'This named star has no children yet. Inscribe a child and it appears here.');
       return;
     }
     e.hidden = true;
@@ -187,14 +208,17 @@
   }
 
   async function load() {
-    var n = nameOf();
-    if (!n) {
+    var loc = pathOf();
+    if (!loc) {
       $('empty').hidden = false;
       $('empty').textContent = 'No collection name in the URL.';
       return;
     }
     try {
-      var r = await fetch('/api/kraynet/collection/' + encodeURIComponent(n));
+      var api = loc.kind === 'ord'
+        ? '/api/kraynet/collection/ord/' + encodeURIComponent(loc.id)
+        : '/api/kraynet/collection/' + encodeURIComponent(loc.key);
+      var r = await fetch(api);
       var j = await r.json();
       if (!r.ok) {
         $('hero').innerHTML = '<h1 style="margin:var(--s5) 0 var(--s3)">not found</h1><p class="empty" style="padding:0;text-align:left">' + esc(j.error || 'no star carries that name') + '</p>';

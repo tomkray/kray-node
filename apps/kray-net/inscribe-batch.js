@@ -78,6 +78,33 @@
     return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
   }
 
+  // Drop order: 01-indole.md, 02-canon.md… — nat() reads the prefix.
+  // The baptism is still the word after the number (stemKey strips 01-).
+  var SKELETON = [
+    'indole', 'canon', 'foundation', 'divine', 'algorithm', 'kray',
+    'bitcoin', 'fenyx', 'consensus', 'diretriz', 'consciousness', 'lightdoor',
+  ]
+  // after the twelve — parent-safe (satoshi before donation before bornstrict)
+  var LATER = [
+    'satoshi', 'donation', 'nums', 'psbt', 'rune', 'bridge', 'glow',
+    'whitepaper', 'bornstrict', 'witness',
+  ]
+  var SPINE = SKELETON.concat(LATER)
+
+  function stemKey(path) {
+    var base = String(path || '').split('/').pop() || ''
+    return base.replace(/\.[^.]+$/, '').toLowerCase().replace(/^\d+[-_.]/, '')
+  }
+
+  function bySpine(a, b) {
+    var ia = SPINE.indexOf(stemKey(a))
+    var ib = SPINE.indexOf(stemKey(b))
+    var ra = ia < 0 ? SPINE.length : ia
+    var rb = ib < 0 ? SPINE.length : ib
+    if (ra !== rb) return ra - rb
+    return nat(a, b)
+  }
+
   function flatten(arrs) {
     return arrs.reduce(function (a, b) { return a.concat(b) }, [])
   }
@@ -168,7 +195,7 @@
       seen[key] = 1
       kept.push(f)
     })
-    kept.sort(function (a, b) { return nat(pathOf(a), pathOf(b)) })
+    kept.sort(function (a, b) { return bySpine(pathOf(a), pathOf(b)) })
     return { files: kept, skipped: skipped }
   }
 
@@ -369,7 +396,7 @@
       path[it.path] = 1
       out.push(it)
     })
-    out.sort(function (a, b) { return nat(a.path, b.path) })
+    out.sort(function (a, b) { return bySpine(a.path, b.path) })
     return { queue: out, skipped: skipped }
   }
 
@@ -440,11 +467,17 @@
     var parent = String(opts.parent || '').trim()
     var origin = !!opts.origin
     var faceFirst = !!opts.faceFirst && !parent && !origin && queue.length > 1
+    var nextN = (opts.nextStar != null && Number.isFinite(Number(opts.nextStar)) && Number(opts.nextStar) >= 0)
+      ? Math.trunc(Number(opts.nextStar)) : null
+    var spineHits = 0
+    ;(queue || []).forEach(function (it) { if (SKELETON.indexOf(stemKey(it.path)) >= 0) spineHits++ })
     var plan = parent
       ? 'children of star #' + esc(parent.replace(/[^0-9,]/g, ''))
       : (origin && queue.length > 1
         ? sum.n + ' L1 children of the same ordinal · one blessing · one SHA-256 cohort'
-        : (faceFirst ? 'first file is the face · the rest hang on it' : (origin ? 'one L1 child · one blessing' : 'each file is its own root star')))
+        : (faceFirst ? 'first file is the face · the rest hang on it' : (origin ? 'one L1 child · one blessing'
+          : (spineHits ? 'spine order — first card is the next number on the book (not the alphabet)'
+            : 'each file is its own root star · this tray order is the birth order'))))
     var costHint = atlasOn
       ? fire.toLocaleString() + ' fire + ' + atlas.toLocaleString() + ' atlas · to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's') + ' · look over the tray, then sign once'
       : 'to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's') + ' · look over the tray, then sign once'
@@ -457,7 +490,7 @@
       + ' · ' + Number(sum.bytes).toLocaleString() + ' bytes</p>'
       + (opts.skipped ? '<p class="ibatch-skip">' + esc(opts.skipped) + '</p>' : '')
       + '</div>'
-      + '<div class="ibatch-head"><b>Verify</b><span>✕ removes one · drop more anytime · we re-sort</span></div>'
+      + '<div class="ibatch-head"><b>Verify</b><span>✕ removes one · drop more anytime · this order is the number</span></div>'
     groups.forEach(function (g) {
       html += '<div class="ibatch-fold">' + esc(g.folder) + ' · ' + g.items.length + '</div><div class="ibatch-grid">'
       g.items.forEach(function (row) {
@@ -470,7 +503,8 @@
         html += '<div class="ibatch-card' + (faceFirst && row.i === 0 ? ' face' : '') + (it.blocked ? ' blocked' : '') + '" data-i="' + row.i + '">'
           + thumb
           + (it.blocked ? '<span class="ibatch-tag">OVER</span>' : (faceFirst && row.i === 0 ? '<span class="ibatch-tag face">FACE</span>' : (it.sidecar ? '<span class="ibatch-tag">JSON</span>' : '')))
-          + '<div class="ibatch-nm" title="' + esc(it.path) + (it.sidecar ? ' + ' + esc(it.sidecar) : '') + '">' + esc(it.name) + '</div>'
+          + '<div class="ibatch-nm" title="' + esc(it.path) + (it.sidecar ? ' + ' + esc(it.sidecar) : '') + '">'
+          + (nextN != null ? '#' + (nextN + row.i) + ' · ' : '') + esc(it.name) + '</div>'
           + '<div class="ibatch-sz">' + Number(it.size).toLocaleString() + ' B · ' + (function () {
             var piece = burnOf(it.size, opts.rate)
             return (atlasOn ? piece * 2 : piece).toLocaleString() + ' ₭'
@@ -562,7 +596,7 @@
     }
     for (var j = 0; j < plan.loose.length; j++) items.push(await readItem(plan.loose[j]))
     items = items.concat(blocked)
-    items.sort(function (a, b) { return nat(a.path, b.path) })
+    items.sort(function (a, b) { return bySpine(a.path, b.path) })
     return { items: items, skipped: org.skipped }
   }
 
@@ -759,6 +793,9 @@
 
   global.KrayInscribeBatch = {
     MAX: MAX,
+    SKELETON: SKELETON,
+    LATER: LATER,
+    SPINE: SPINE,
     WAVE_BYTES: WAVE_BYTES,
     CEIL: CEIL,
     filesFromTransfer: filesFromTransfer,

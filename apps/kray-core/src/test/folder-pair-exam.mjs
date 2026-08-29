@@ -92,5 +92,21 @@ ok(B.burnsOf([wav], 10000) === 15, '145740 B @ 10 KB/₭ = 15 fire')
 ok(film && film.blocked === 'over' && film.size === 12_000_000, '12 MB mp4 stays visible as OVER — not a silent skip')
 ok(staged.skipped.some((s) => /film\.mp4/.test(s.path)), 'over-ceiling is named on the skip note')
 
+ok(Array.isArray(B.SKELETON) && B.SKELETON[0] === 'indole' && B.SKELETON[1] === 'canon' && B.SKELETON.length === 12, 'spine is the twelve — filename is the name, list is the when')
+const numbered = [
+  f('05-algorithm.md', '4', 'canon'),
+  f('12-lightdoor.md', '11', 'canon'),
+  f('02-canon.md', '1', 'canon'),
+  f('01-indole.md', '0', 'canon'),
+  f('03-foundation.md', '2', 'canon'),
+  f('14-donation.md', 'd', 'later'),
+  f('13-satoshi.md', 's', 'later'),
+]
+const byName = B.organize(numbered).files.map((x) => x.name)
+ok(JSON.stringify(byName) === JSON.stringify([
+  '01-indole.md', '02-canon.md', '03-foundation.md', '05-algorithm.md',
+  '12-lightdoor.md', '13-satoshi.md', '14-donation.md',
+]), '01-indole then 02-canon — the filename number is the birth order')
+
 console.log(`\n╚═ ${pass} passed${fail ? `, ${fail} FAILED` : ''} — folder organizes itself ₭\n`)
 process.exit(fail ? 1 : 0)
