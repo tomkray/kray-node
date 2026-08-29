@@ -11,7 +11,7 @@
  * Three real contracts are exercised end to end: a vesting schedule, an escrow,
  * and a fair lottery drawn from the Bitcoin beacon.
  */
-import { MAX_NODES, canonicalCode, runCall, validateContract, type ContractCode, type CallContext } from '../protocol/contract.ts'
+import { MAX_CODE_BYTES, MAX_LIT_DIGITS, MAX_NODES, canonicalCode, runCall, validateContract, type ContractCode, type CallContext } from '../protocol/contract.ts'
 import { createHash } from 'node:crypto'
 
 let pass = 0
@@ -102,12 +102,28 @@ function main() {
   const bombContract: ContractCode = { vars: { x: '0' }, rules: [{ name: 'boom', when: { lit: '1' }, then: [{ set: { var: 'x', to: bomb } }] }] }
   const v = validateContract(bombContract)
   ok(!v.ok && /deeper/.test(v.reason ?? ''), 'ATTACK: an exponentially large expression → REFUSED AT VALIDATION (nesting bound), so it never even reaches a node')
-  // and one that passes validation but is wide: the node budget catches it
   const wide: import('../protocol/contract.ts').Expr = { op: 'add', args: new Array(600).fill({ lit: '1' }) }
   const wideContract: ContractCode = { vars: { x: '0' }, rules: [{ name: 'w', when: { lit: '1' }, then: [{ set: { var: 'x', to: wide } }] }] }
-  ok(validateContract(wideContract).ok, 'a wide-but-shallow expression is legal…')
-  const wr = runCall(wideContract, 'w', ctx(), { x: 0n })
-  ok(!wr.ok && /budget/.test(wr.reason ?? ''), `…and the ${MAX_NODES}-node budget stops it mid-flight — every call terminates, so no gas is needed`)
+  const wideV = validateContract(wideContract)
+  ok(!wideV.ok && /nodes/.test(wideV.reason ?? ''), `ATTACK: a ${600}-wide tree → REFUSED AT VALIDATION (node bound), so it never seals`)
+  const fatLit: ContractCode = { vars: { x: '0' }, rules: [{ name: 'f', when: { lit: '1' }, then: [{ set: { var: 'x', to: { lit: '1'.repeat(MAX_LIT_DIGITS + 1) } } }] }] }
+  const fatLitV = validateContract(fatLit)
+  ok(!fatLitV.ok && /digits/.test(fatLitV.reason ?? ''), `ATTACK: a ${MAX_LIT_DIGITS + 1}-digit literal → REFUSED AT VALIDATION, before a seal`)
+  const fatVar: ContractCode = { vars: { x: '1'.repeat(MAX_LIT_DIGITS + 1) }, rules: [{ name: 'f', when: { lit: '1' }, then: [{ set: { var: 'x', to: { lit: '1' } } }] }] }
+  const fatVarV = validateContract(fatVar)
+  ok(!fatVarV.ok && /digits/.test(fatVarV.reason ?? ''), 'ATTACK: a fat variable seed → REFUSED AT VALIDATION')
+  const bulky: import('../protocol/contract.ts').Expr = { op: 'add', args: new Array(500).fill({ lit: '1'.repeat(30) }) }
+  const bulkyContract: ContractCode = { vars: { x: '0' }, rules: [{ name: 'b', when: { lit: '1' }, then: [{ set: { var: 'x', to: bulky } }] }] }
+  const bulkyBytes = canonicalCode(bulkyContract).length
+  const bulkyV = validateContract(bulkyContract)
+  ok(bulkyBytes > MAX_CODE_BYTES && !bulkyV.ok && /bytes/.test(bulkyV.reason ?? ''),
+    `ATTACK: a ${bulkyBytes}-byte IR (under the node bound) → REFUSED AT VALIDATION (ceiling ${MAX_CODE_BYTES})`)
+  // two legal trees that share one call budget — validation passes; the meter still stops mid-flight
+  const chunk: import('../protocol/contract.ts').Expr = { op: 'add', args: new Array(300).fill({ lit: '1' }) }
+  const split: ContractCode = { vars: { x: '0' }, rules: [{ name: 'w', when: chunk, then: [{ set: { var: 'x', to: chunk } }] }] }
+  ok(validateContract(split).ok, 'two 300-node trees are each legal…')
+  const wr = runCall(split, 'w', ctx(), { x: 0n })
+  ok(!wr.ok && /budget/.test(wr.reason ?? ''), `…and the shared ${MAX_NODES}-node call budget stops them mid-flight — every call terminates, so no gas is needed`)
   const measured = runCall(vesting, 'release', ctx({ height: 550n }), state)
   ok(measured.nodes > 0 && measured.nodes < MAX_NODES, `cost is MEASURED, not estimated — the vesting call used ${measured.nodes} nodes`)
 
@@ -219,6 +235,6 @@ function main() {
   ok(ran > 1500, `${ran} random contracts executed (${applied} applied, ${refused} refused, ${overspend} of them for trying to overspend)`)
   ok(true, 'in every one: it terminated, it never paid more than it held, no payment was zero or negative, and a refusal left NOTHING behind')
 
-  console.log(`\n✓ ${pass} checks passed — PROGRAMMABILITY WITHOUT THE DANGER: contracts are TOTAL (no loops, a hard node budget, so every call terminates and no gas meter is needed), DETERMINISTIC (integers only, no clock, the Bitcoin beacon as the sole entropy — twenty runs, one answer), and INCAPABLE OF CREATING VALUE (a contract pays only from what it holds; overspending, negative payments and half-applied calls are all refused). Vesting, escrow and a beacon-drawn lottery all work; an exponential expression is refused at validation and a wide one is stopped by the budget. The worst a broken contract can do here is lose its own holdings. ₭`)
+  console.log(`\n✓ ${pass} checks passed — PROGRAMMABILITY WITHOUT THE DANGER: contracts are TOTAL (no loops, a hard node budget, so every call terminates and no gas meter is needed), DETERMINISTIC (integers only, no clock, the Bitcoin beacon as the sole entropy — twenty runs, one answer), and INCAPABLE OF CREATING VALUE (a contract pays only from what it holds; overspending, negative payments and half-applied calls are all refused). Vesting, escrow and a beacon-drawn lottery all work; an exponential expression, a fat literal, a wide tree and an oversized IR are refused at validation — the same spirit as the 10 MB star: what enters the book has size. The worst a broken contract can do here is lose its own holdings. ₭`)
 }
 main()

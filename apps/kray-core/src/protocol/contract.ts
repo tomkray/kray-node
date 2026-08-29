@@ -44,6 +44,16 @@ export const MAX_RULES = 32
 export const MAX_ACTIONS = 16
 /** How many named state variables a contract may hold. */
 export const MAX_VARS = 32
+/**
+ * THE IR BYTE CEILING — same spirit as the 10 MB star: what enters the book has size.
+ * Desk compilers (living-16, list-8, raffle-8) sit under 4 KB. 16 KB is the middle of
+ * 8–32. Born-strict: no sealed desk exceeds this, and a fat custom tree must not
+ * land. If a live book already held a larger law, freeze below that seq (A3) —
+ * do not tighten over history. Enforced in validateContract (door and reducer).
+ */
+export const MAX_CODE_BYTES = 16_384
+/** A literal / var integer may not hide a megabyte of digits in one leaf. 78 = 2^256. */
+export const MAX_LIT_DIGITS = 78
 
 /**
  * AN EXPRESSION. A finite tree of integers — that is the whole language.
@@ -116,6 +126,17 @@ export interface CallResult {
 
 const ADDR_RE = /^[a-z0-9]{8,90}$/i
 
+/** The canonical bytes of a contract — its identity, so the code cannot change
+ *  under a state that was built by different rules. Also the size we refuse. */
+export function canonicalCode(code: ContractCode): string {
+  const rules = code.rules.map((r) => ({ name: r.name, when: r.when, then: r.then }))
+  return JSON.stringify({ rules, vars: Object.fromEntries(Object.entries(code.vars ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))) })
+}
+
+function litDigits(s: string): number {
+  return s.startsWith('-') ? s.length - 1 : s.length
+}
+
 /**
  * VALIDATE A CONTRACT before it can ever be sealed. A contract that cannot be
  * checked must not enter the chain: after that it is history, and history is
@@ -130,6 +151,7 @@ export function validateContract(code: ContractCode): { ok: boolean; reason?: st
   for (const [k, v] of Object.entries(code.vars ?? {})) {
     if (!/^[a-z][a-z0-9_]{0,23}$/.test(k)) return { ok: false, reason: `bad variable name "${k}"` }
     if (!/^-?\d+$/.test(v)) return { ok: false, reason: `variable "${k}" must be a whole number` }
+    if (litDigits(v) > MAX_LIT_DIGITS) return { ok: false, reason: `variable "${k}" may have at most ${MAX_LIT_DIGITS} digits` }
   }
   for (const r of code.rules) {
     if (!r || !/^[a-z][a-z0-9_]{0,23}$/.test(r.name ?? '')) return { ok: false, reason: 'bad rule name' }
@@ -137,7 +159,7 @@ export function validateContract(code: ContractCode): { ok: boolean; reason?: st
     names.add(r.name)
     if (!Array.isArray(r.then) || r.then.length === 0) return { ok: false, reason: `rule "${r.name}" does nothing` }
     if (r.then.length > MAX_ACTIONS) return { ok: false, reason: `rule "${r.name}": at most ${MAX_ACTIONS} actions` }
-    const g = checkExpr(r.when, vars, 0)
+    const g = checkExpr(r.when, vars, 0, { nodes: MAX_NODES })
     if (!g.ok) return { ok: false, reason: `rule "${r.name}" guard: ${g.reason}` }
     for (const a of r.then) {
       if ('pay' in a) {
@@ -145,28 +167,30 @@ export function validateContract(code: ContractCode): { ok: boolean; reason?: st
         if (typeof to === 'object' && 'living' in to) {
           if (to.living !== 'owner' && to.living !== 'caller') return { ok: false, reason: 'living payment must name the owner or the caller' }
         } else if (typeof to === 'object' && 'seat' in to) {
-          const s = checkExpr(to.seat, vars, 0)
+          const s = checkExpr(to.seat, vars, 0, { nodes: MAX_NODES })
           if (!s.ok) return { ok: false, reason: `payment seat: ${s.reason}` }
         } else if (typeof to === 'object' && 'addr' in to) { if (!ADDR_RE.test(to.addr)) return { ok: false, reason: 'bad payment address' } }
-        else { const t = checkExpr(to as Expr, vars, 0); if (!t.ok) return { ok: false, reason: `payment target: ${t.reason}` } }
-        const amt = checkExpr(a.pay.amount, vars, 0)
+        else { const t = checkExpr(to as Expr, vars, 0, { nodes: MAX_NODES }); if (!t.ok) return { ok: false, reason: `payment target: ${t.reason}` } }
+        const amt = checkExpr(a.pay.amount, vars, 0, { nodes: MAX_NODES })
         if (!amt.ok) return { ok: false, reason: `payment amount: ${amt.reason}` }
       } else if ('take' in a) {
-        const amt = checkExpr(a.take.amount, vars, 0)
+        const amt = checkExpr(a.take.amount, vars, 0, { nodes: MAX_NODES })
         if (!amt.ok) return { ok: false, reason: `take amount: ${amt.reason}` }
       } else if ('bind' in a) {
-        const at = checkExpr(a.bind.at, vars, 0)
+        const at = checkExpr(a.bind.at, vars, 0, { nodes: MAX_NODES })
         if (!at.ok) return { ok: false, reason: `bind seat: ${at.reason}` }
       } else if ('set' in a) {
         if (!vars.has(a.set.var)) return { ok: false, reason: `rule "${r.name}" sets undeclared variable "${a.set.var}"` }
-        const e = checkExpr(a.set.to, vars, 0)
+        const e = checkExpr(a.set.to, vars, 0, { nodes: MAX_NODES })
         if (!e.ok) return { ok: false, reason: `set ${a.set.var}: ${e.reason}` }
       } else if ('require' in a) {
-        const e = checkExpr(a.require, vars, 0)
+        const e = checkExpr(a.require, vars, 0, { nodes: MAX_NODES })
         if (!e.ok) return { ok: false, reason: `require: ${e.reason}` }
       } else return { ok: false, reason: 'unknown action' }
     }
   }
+  const bytes = canonicalCode(code).length
+  if (bytes > MAX_CODE_BYTES) return { ok: false, reason: `contract code is ${bytes} bytes — at most ${MAX_CODE_BYTES}` }
   return { ok: true }
 }
 
@@ -176,10 +200,15 @@ const ARITY: Record<OpName, number | 'any'> = {
   and: 'any', or: 'any', not: 1, if: 3,
 }
 
-function checkExpr(e: Expr, vars: Set<string>, depth: number): { ok: boolean; reason?: string } {
+function checkExpr(e: Expr, vars: Set<string>, depth: number, budget: { nodes: number }): { ok: boolean; reason?: string } {
   if (depth > MAX_DEPTH) return { ok: false, reason: `nested deeper than ${MAX_DEPTH}` }
   if (!e || typeof e !== 'object') return { ok: false, reason: 'not an expression' }
-  if ('lit' in e) return /^-?\d+$/.test(e.lit) ? { ok: true } : { ok: false, reason: 'a literal must be a whole number' }
+  if (--budget.nodes < 0) return { ok: false, reason: `expression has more than ${MAX_NODES} nodes` }
+  if ('lit' in e) {
+    if (!/^-?\d+$/.test(e.lit)) return { ok: false, reason: 'a literal must be a whole number' }
+    if (litDigits(e.lit) > MAX_LIT_DIGITS) return { ok: false, reason: `a literal may have at most ${MAX_LIT_DIGITS} digits` }
+    return { ok: true }
+  }
   if ('var' in e) return vars.has(e.var) ? { ok: true } : { ok: false, reason: `unknown variable "${e.var}"` }
   if ('arg' in e) return /^[a-z][a-z0-9_]{0,23}$/.test(e.arg) ? { ok: true } : { ok: false, reason: 'bad argument name' }
   if ('ctx' in e) return ['caller', 'height', 'interval', 'at', 'beacon', 'balance', 'star', 'holder'].includes(e.ctx) ? { ok: true } : { ok: false, reason: `unknown context "${e.ctx}"` }
@@ -188,7 +217,7 @@ function checkExpr(e: Expr, vars: Set<string>, depth: number): { ok: boolean; re
     if (arity === undefined) return { ok: false, reason: `unknown operation "${e.op}"` }
     if (!Array.isArray(e.args) || e.args.length === 0) return { ok: false, reason: `"${e.op}" needs arguments` }
     if (arity !== 'any' && e.args.length !== arity) return { ok: false, reason: `"${e.op}" takes ${arity} arguments` }
-    for (const a of e.args) { const r = checkExpr(a, vars, depth + 1); if (!r.ok) return r }
+    for (const a of e.args) { const r = checkExpr(a, vars, depth + 1, budget); if (!r.ok) return r }
     return { ok: true }
   }
   return { ok: false, reason: 'not an expression' }
@@ -322,13 +351,6 @@ export function runCall(code: ContractCode, ruleName: string, ctx: CallContext, 
   const changed: Record<string, bigint> = {}
   for (const [k, v] of Object.entries(next)) if (state[k] !== v) changed[k] = v
   return { ok: true, vars: changed, payments, take, binds, nodes: MAX_NODES - budget.nodes }
-}
-
-/** The canonical bytes of a contract — its identity, so the code cannot change
- *  under a state that was built by different rules. */
-export function canonicalCode(code: ContractCode): string {
-  const rules = code.rules.map((r) => ({ name: r.name, when: r.when, then: r.then }))
-  return JSON.stringify({ rules, vars: Object.fromEntries(Object.entries(code.vars ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))) })
 }
 
 /** Derived pot address — no key encodes to it. Replay-identical from (code, creator, seq). */
