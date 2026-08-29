@@ -6856,7 +6856,8 @@ const server = createServer(async (req, res) => {
         if (fin.__err) return ok(res, { success: false, error: 'could not finalize — ' + fin.__err })
         if (!fin.complete || !fin.hex) return ok(res, { success: false, error: 'the PSBT is not fully signed yet' })
         const txid = await btcRpc('sendrawtransaction', [fin.hex]).catch((e) => ({ __err: e.message }))
-        if (txid && txid.__err) return ok(res, { success: true, hex: fin.hex, broadcast: false, broadcastError: txid.__err })
+        // signed ≠ sent — never claim success without a txid Bitcoin accepted
+        if (txid && txid.__err) return ok(res, { success: false, hex: fin.hex, broadcast: false, error: 'bitcoind refused the tx — ' + txid.__err })
         return ok(res, { success: true, txid, hex: fin.hex, broadcast: true })
       }
       if (p === '/api/kraywallet/build-send-psbt') {

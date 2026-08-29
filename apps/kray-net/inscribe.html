@@ -1279,10 +1279,25 @@
     clearTimeout(blessTimer);
     if(pending) blessTimer=setTimeout(function(){ syncBlessings(true); },20000);
   }
+  function isTxid(t){ return /^[0-9a-f]{64}$/i.test(String(t||'')); }
+  // Same two doors the extension send-ordinals uses: finalize (extract + try
+  // sendraw), then /psbt/broadcast if we have hex but no txid. Signed ≠ sent.
+  async function broadcastSigned(signed){
+    var fin=await (await fetch('/api/kraywallet/finalize-psbt',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({psbt:signed})})).json();
+    var txid=fin&&fin.txid, hex=fin&&fin.hex;
+    if(!isTxid(txid) && hex){
+      var bc=await (await fetch('/api/psbt/broadcast',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({hex:hex})})).json();
+      txid=bc&&bc.txid;
+      if(!isTxid(txid)) throw new Error((bc&&bc.error)||(fin&&fin.error)||'broadcast failed — signed is not sent');
+    }
+    if(!isTxid(txid)) throw new Error((fin&&fin.error)||'broadcast failed — signed is not sent');
+    return String(txid).toLowerCase();
+  }
   async function sendBless(id, bt){
     var st=blessState[id];
     if(!st||!st.satpoint||!me) return;
     if(bt){ bt.disabled=true; bt.textContent='building…'; }
+    if(out){ out.className='iout'; out.textContent='building the blessing send…'; }
     try{
       if(!window.krayWallet||!window.krayWallet.signPsbt) throw new Error('KrayWallet not found — install the extension');
       var sp=st.satpoint.split(':');
@@ -1292,6 +1307,7 @@
       if(!built||!built.success||!built.psbt) throw new Error((built&&built.error)||'could not build the blessing send');
       var inputs=[]; for(var i=0;i<(built.inputCount||1);i++) inputs.push({index:i});
       if(bt) bt.textContent='sign in KrayWallet…';
+      if(out) out.textContent='sign the blessing in KrayWallet — signing is not sending yet…';
       var sr=await window.krayWallet.signPsbt(built.psbt,{
         toSignInputs:inputs, autoFinalized:false,
         display:{ intent:'send', title:'Bless — send to yourself',
@@ -1300,15 +1316,25 @@
       });
       var signed=sr&&(sr.signedPsbt||sr.psbt);
       if(!sr||sr.success===false||!signed) throw new Error((sr&&sr.error)||'signing refused');
-      var fin=await (await fetch('/api/kraywallet/finalize-psbt',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({psbt:signed})})).json();
-      if(!fin||!fin.success||!fin.txid) throw new Error((fin&&fin.error)||'broadcast failed');
-      st.sentTx=fin.txid; st.satpoint=fin.txid+':0:0'; st.confirmations=0; st.verified=false; st.why='';
+      if(bt) bt.textContent='broadcasting…';
+      if(out) out.textContent='broadcasting the blessing…';
+      var txid=await broadcastSigned(signed);
+      st.sentTx=txid; st.satpoint=txid+':0:0'; st.confirmations=0; st.verified=false; st.why=''; st.err='';
       blessAuto=true; fillSatpoints(); paintBless();
+      var mem=mempoolBase(st.net||'signet');
+      var scan=(st.net==='main'||st.net==='mainnet')?'https://www.kray.space/krayscan?txid='+txid:'';
+      if(out){
+        out.className='iout ok';
+        out.innerHTML='✓ blessing sent · <code>'+esc(txid.slice(0,16))+'…</code>'
+          +(mem?' · <a href="'+mem+'/tx/'+esc(txid)+'" target="_blank" rel="noopener">mempool.space ↗</a>':'')
+          +(scan?' · <a href="'+esc(scan)+'" target="_blank" rel="noopener">KrayScan ↗</a>':'');
+      }
       clearTimeout(blessTimer); blessTimer=setTimeout(function(){ syncBlessings(true); },15000);
     }catch(e){
       st.err=''; st.why=String((e&&e.message)||e);
       if(bt){ bt.disabled=false; bt.textContent='Bless — send to yourself'; }
       paintBless();
+      if(out){ out.className='iout err'; out.textContent='✗ blessing not sent — '+st.why; }
     }
   }
 

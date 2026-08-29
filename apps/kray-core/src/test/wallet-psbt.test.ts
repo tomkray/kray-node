@@ -100,6 +100,14 @@ function main() {
     'output 0 pays the recipient the EXACT postage (600) — never crushed, never taxed')
   ok(tx6.outputsLength === 2 && b6.change === String(20000n - 500n), 'fee comes ONLY from the pure input; change 19500 back to sender')
   ok(rbfOk(b6.psbtHex), 'the inscription send opts into RBF too')
+  const sighashPinned = (hex: string) => {
+    const tx = btc.Transaction.fromPSBT(_hexToBytes(hex))
+    for (let i = 0; i < tx.inputsLength; i++) {
+      if (tx.getInput(i).sighashType !== btc.SigHash.ALL) return false
+    }
+    return tx.inputsLength > 0
+  }
+  ok(sighashPinned(b6.psbtHex), 'inscription inputs pin SIGHASH_ALL so the wallet 65-byte sig and bitcoind finalizepsbt agree')
   // ── 6b · fee cannot raid the postage: no pure input rich enough → REFUSED ──
   let noFee = false
   try { buildInscriptionSendPsbt({ net: NET, from, to, inscriptionUtxo, feeUtxos: [], feeSats: 500n, dust: 330n }) } catch { noFee = true }

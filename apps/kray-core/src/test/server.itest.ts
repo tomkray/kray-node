@@ -147,6 +147,11 @@ async function main() {
       ok(satp.blessed === false && typeof satp.minConf === 'number' && satp.net === NET, 'GET /api/kraynet/l1-satpoint/<id> answers (the blessing lantern) — unknown ordinal is not blessed, minConf and net come from the node')
       const inscSend = await jpost('/api/kraywallet/build-send-inscription-psbt', { fromAddress: ADDR, recipientAddress: ADDR, inscription: { id: 'x', utxo: { txid: '0'.repeat(64), vout: 0 } }, feeRate: 1 })
       ok(/no bitcoind RPC/.test(String(inscSend.error || '')), 'POST /api/kraywallet/build-send-inscription-psbt exists (the wallet inscription send door) — refuses cleanly without bitcoind')
+      const finDoor = await jpost('/api/kraywallet/finalize-psbt', { psbt: 'cHNidP8BA' })
+      ok(/no bitcoind RPC/.test(String(finDoor.error || '')), 'POST /api/kraywallet/finalize-psbt exists (sign is not send) — refuses cleanly without bitcoind')
+      const [insStatus, insHtml] = await jtext('/inscribe')
+      ok(insStatus === 200 && /signed is not sent/.test(insHtml) && /psbt\/broadcast/.test(insHtml),
+        'GET /inscribe bless send finalizes then broadcasts — never paints success on a signature alone')
       const missCol = await fetch(BASE + '/api/kraynet/collection/nocollectionhere999')
       const missJ = await missCol.json()
       ok(missCol.status === 404 && /no such collection/.test(String(missJ.error || '')), 'GET /api/kraynet/collection/<missing> is HTTP 404')

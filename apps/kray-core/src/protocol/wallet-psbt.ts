@@ -72,8 +72,12 @@ export function buildInscriptionSendPsbt(params: {
   const { net, from, to, inscriptionUtxo, feeUtxos, feeSats, dust } = params
   if (inscriptionUtxo.sats <= 0n) throw new Error('the inscription outpoint has no value')
   const bnet = NETWORKS[toBtcNet(net)]
+  // Pin SIGHASH_ALL on every input — the donate builder already proved this.
+  // The KrayWallet popup signs ALL (65-byte key-path). Without the field the
+  // PSBT is silent, bitcoind finalizepsbt sees a 65-byte sig it cannot
+  // reconcile, returns complete:false, and a "signed" bag never broadcasts.
   const addScriptInput = (tx: btc.Transaction, u: ScriptUtxo) =>
-    tx.addInput({ txid: u.txid, index: u.vout, witnessUtxo: { script: u.script, amount: u.sats }, sequence: SEQUENCE_RBF })
+    tx.addInput({ txid: u.txid, index: u.vout, witnessUtxo: { script: u.script, amount: u.sats }, sighashType: btc.SigHash.ALL, sequence: SEQUENCE_RBF })
   // fee is paid ONLY by the pure inputs — the postage is the inscribed sat's home, never the purse
   const picked: ScriptUtxo[] = []; let sum = 0n
   for (const u of [...feeUtxos].sort((a, z) => (z.sats > a.sats ? 1 : -1))) {
