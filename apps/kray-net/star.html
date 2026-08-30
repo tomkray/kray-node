@@ -137,6 +137,29 @@
 .raffnote{margin:var(--s3) 0 0;font-size:15px;line-height:1.55;color:var(--ink-2);max-width:40rem}
 .raffnote b{color:var(--ink)}
 
+
+/* ── Luz ✧ / KRC-77 — the holder book on this star ── */
+.luzstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3);margin:0 0 var(--s5)}
+.luzstats .stat .v.ok{color:var(--good)}
+.luzstats .stat .v.bad{color:var(--crit,#f5776b)}
+.luzbook{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);box-shadow:var(--shadow)}
+.luzbook table{width:100%}
+.luzbook th,.luzbook td{padding:var(--s3) var(--s4);font-family:var(--mono);font-size:12px;text-align:left}
+.luzbook th{color:var(--ink-3);font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--line)}
+.luzbook td{border-bottom:1px solid var(--line-2);color:var(--ink-2);min-height:44px}
+.luzbook tr:last-child td{border-bottom:0}
+.luzbook td.r,.luzbook th.r{text-align:right}
+.luzbook td.rk{color:var(--ink-4);white-space:nowrap}
+.luzbook tr.top1 td.rk{color:var(--ink);font-weight:600}
+.luzbook td.who a{color:var(--ink);word-break:break-all}
+.luzbook td.who small{display:block;color:var(--ink-4);font-size:10px}
+.luzbook td.bal{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.luzbook .shr{height:3px;border-radius:2px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line);margin-top:4px}
+.luzbook .shr i{display:block;height:100%;background:var(--ink-3)}
+.luzme td{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+@media(max-width:760px){.luzstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.luzstats{grid-template-columns:minmax(0,1fr)}.luzbook .hides{display:none}}
+
 /* ── actions ─────────────────────────────────────────────────────────────── */
 .actions{display:flex;gap:var(--s3);flex-wrap:wrap;margin-top:var(--s4)}
 .btn.danger{border-color:color-mix(in srgb,var(--crit) 55%,transparent);color:var(--crit)}
@@ -494,6 +517,14 @@
       + '<a href="/tx/'+esc(ev.hash)+'">the act that froze it ↗</a> · <a href="/blackhole">the register ↗</a>';
   }
 
+  function luzCardHtml(s){
+    var L=s.luz;
+    if(!L || L.unportioned) return '';
+    return '<div class="card tick" id="luz"><h2>✧ Luz · KRC-77</h2>'
+      +'<div class="sub">The token book on this star — supply, who holds how many, tripwire. Same fold every node replays. '
+      +'<a href="/market/luz">the light market →</a></div>'
+      +'<div id="luzbody">…</div></div>';
+  }
   function lawCardHtml(s){
     return '<div class="card tick" id="lawcard"><h2><svg width="15" height="15"><use href="#g-anchor"/></svg>The law</h2>'
       +'<div class="sub">Third canvas — name · relic · law. Templates fill the variables; the Code tab pastes the IR itself. '
@@ -563,6 +594,108 @@
     if(opts.hide) return '';
     return '<button type="button" class="btn'+(opts.primary?' primary':'')+'" data-lawcall="'+esc(rule)+'"'
       +(opts.off?' disabled':'')+' style="min-height:44px">'+label+'</button>';
+  }
+  function mountLuz(s){
+    var host=document.getElementById('luzbody');
+    if(!host) return;
+    function nfmt(v){ try{ return BigInt(v).toLocaleString(); }catch(_){ return String(v); } }
+    function shareOf(part, whole){
+      try{
+        var p=BigInt(part||0), w=BigInt(whole||0);
+        if(w===0n) return 0;
+        return Number((p*10000n)/w)/100;
+      }catch(_){ return 0; }
+    }
+    function who(me){
+      if(!(window.krayWallet && window.krayWallet._isKrayWallet)) return Promise.resolve(me||null);
+      return Promise.resolve(window.krayWallet.getAccounts()).then(function(a){
+        return Array.isArray(a)?a[0]:(a&&(a.address||(a.accounts&&a.accounts[0])));
+      }).catch(function(){ return me||null; });
+    }
+    function paint(book, me){
+      if(!book || book.unportioned){ host.innerHTML=''; return; }
+      if(book.infinite){
+        host.innerHTML='<p class="note">This paper is <b>infinite</b> — no genesis units. There is no holder rank until a later mint door exists.</p>';
+        return;
+      }
+      var supply=book.supply||'0', circ=book.circulating||'0';
+      var rows=book.holders||[];
+      var ok=String(circ)===String(supply);
+      var mine=0n;
+      if(me){
+        var hit=rows.filter(function(h){ return String(h.address)===String(me); })[0];
+        if(hit) try{ mine=BigInt(hit.amount); }catch(_){ mine=0n; }
+      }
+      var crown=(window.KRAY&&KRAY.starCrownHtml)
+        ? '<div class="starcrown">'+KRAY.starCrownHtml(s, book, {onStar:true})+'</div>'
+        : '';
+      var h=crown+'<div class="luzstats">'
+        +'<div class="stat"><div class="v">'+nfmt(supply)+'</div><div class="k">supply ✧</div></div>'
+        +'<div class="stat"><div class="v">'+nfmt(circ)+'</div><div class="k">circulating</div></div>'
+        +'<div class="stat"><div class="v">'+rows.length.toLocaleString()+'</div><div class="k">holders</div></div>'
+        +'<div class="stat"><div class="v '+(ok?'ok':'bad')+'">'+(ok?'holds':'broken')+'</div><div class="k">Σ = supply</div></div>'
+        +'</div>';
+      if(!rows.length){
+        h+='<p class="note">The book is empty — a capped seal should have credited the sealer. Replay would HALT if Σ drifted.</p>';
+      } else {
+        h+='<div class="luzbook"><table><thead><tr><th>#</th><th>address</th><th class="r">luz ✧</th><th class="r hides">share</th></tr></thead><tbody>';
+        rows.forEach(function(r,i){
+          var pct=shareOf(r.amount, supply);
+          var you=me && String(r.address)===String(me);
+          h+='<tr class="'+(i===0?'top1 ':'')+(you?'luzme':'')+'">'
+            +'<td class="rk">'+(i===0?'🥇':i===1?'🥈':i===2?'🥉':'')+(i+1)+'</td>'
+            +'<td class="who"><a href="/address/'+esc(r.address)+'">'+(you?'you · ':'')+esc(r.address.slice(0,14)+'…'+r.address.slice(-8))
+            +'<small>'+esc(r.address)+'</small></a></td>'
+            +'<td class="r bal">'+nfmt(r.amount)+' ✧</td>'
+            +'<td class="r hides">'+pct.toFixed(2)+'%<span class="shr"><i style="width:'+Math.max(1,Math.min(100,pct)).toFixed(1)+'%"></i></span></td>'
+            +'</tr>';
+        });
+        h+='</tbody></table></div>';
+      }
+      if(mine>0n){
+        h+='<div class="lawfields" style="margin-top:var(--s5)">'
+          +'<div class="lawknob"><label for="luz-to">Send luz ✧</label>'
+          +'<p class="hint">You hold <b>'+nfmt(mine)+'</b> ✧ on this star. Fee 1 ₭. Σ does not change.</p></div>'
+          +'<input class="input" id="luz-to" placeholder="to address (bc1p / bcrt1p…)" autocomplete="off">'
+          +'<input class="input" id="luz-amt" placeholder="amount" inputmode="numeric">'
+          +'<button type="button" class="btn primary" id="luz-send" style="min-height:44px">Send ✧</button>'
+          +'<div class="lawout" id="luz-out"></div></div>';
+      }
+      host.innerHTML=h;
+      var btn=document.getElementById('luz-send');
+      if(btn){
+        btn.addEventListener('click', function(){
+          var out=document.getElementById('luz-out');
+          var to=String((document.getElementById('luz-to')||{}).value||'').trim();
+          var amt=String((document.getElementById('luz-amt')||{}).value||'').replace(/[^0-9]/g,'');
+          if(!to || !amt){ if(out) out.textContent='name an address and a whole amount'; return; }
+          if(out) out.textContent='sign in KrayWallet — cut-send · 1 ₭…';
+          who(me).then(function(from){
+            if(!from) throw new Error('connect KrayWallet');
+            return signAndSubmit({ action:'cut-send', from: from, to: to, star: String(s.star), amount: amt });
+          }).then(function(){
+            if(out){ out.style.color='var(--good)'; out.textContent='sent — the book moved, Σ stayed'; }
+            load();
+          }).catch(function(e){
+            if(out){ out.style.color='var(--crit, #c44)'; out.textContent='✗ '+((e&&e.message)||'refused'); }
+          });
+        });
+      }
+    }
+    function load(){
+      fetch('/api/kraynet/star/'+encodeURIComponent(String(s.star))).then(function(r){ return r.json(); }).then(function(fresh){
+        who(null).then(function(me){ paint((fresh&&fresh.luz)||s.luz, me); });
+      }).catch(function(){ who(null).then(function(me){ paint(s.luz, me); }); });
+    }
+    load();
+    window.addEventListener('krayWalletReady', load);
+    setInterval(load, 4000);
+    if((location.hash||'')==='#luz'){
+      setTimeout(function(){
+        var card=document.getElementById('luz');
+        if(card) card.scrollIntoView({ behavior:'smooth', block:'start' });
+      }, 80);
+    }
   }
   function mountLaw(s){
     var host=document.getElementById('lawbody');
@@ -647,6 +780,10 @@
           if(mine && rules.indexOf('draw')>=0) h+='<button class="btn" data-lawcall="draw">draw — living owner delivers the full pot</button>';
           if(mine && rules.indexOf('skip')>=0) h+='<button class="btn" data-lawcall="skip">skip — 0–1 tickets, open the next window</button>';
         }
+        if(rules.indexOf('deposit')>=0){
+          h+='<input class="input" id="lawamt" placeholder="₭ to deposit" inputmode="numeric" style="min-height:44px;max-width:180px">';
+          h+='<button class="btn" data-lawcall="deposit" data-arg="amount">deposit — fund the pot</button>';
+        }
         if(rules.indexOf('claim')>=0) h+='<button class="btn" data-lawcall="claim">claim — this call pays you</button>';
         rules.forEach(function(r){
           if(/^claim_\d+$/.test(r)) h+='<button class="btn" data-lawcall="'+esc(r)+'">'+esc(r)+' — listed slot</button>';
@@ -697,7 +834,7 @@
       var desk='being';
       function tabs(){
         return '<div class="lawtabs">'
-          +[['being','Being'],['pass','Pass'],['times3','3-use'],['escrow','Escrow'],['tunnel','Tunnel'],['vest','Vest'],['scroll','Scroll'],['raffle','Raffle'],['mint','Mint'],['code','Code']].map(function(t){
+          +[['being','Being'],['pass','Pass'],['times3','3-use'],['escrow','Escrow'],['tunnel','Tunnel'],['vest','Vest'],['scroll','Scroll'],['raffle','Raffle'],['mint','Mint'],['cut','luz'],['code','Code']].map(function(t){
             return '<button class="btn lawtab'+(desk===t[0]?' on':'')+'" data-desk="'+t[0]+'">'+t[1]+'</button>';
           }).join('')+'</div>';
       }
@@ -750,6 +887,13 @@
             +'<input class="input" id="f-pay" placeholder="empty = living owner" autocomplete="off"></div>'
             +'<div class="lawknob"><label for="f-shelf">Art URL · secret · this node only</label><p class="hint">Run test compiles the paper without this. Seal needs a real https URL — the grey hint is not a value. {n} / {i} when max &gt; 1.</p>'
             +'<input class="input" id="f-shelf" placeholder="paste https://…" autocomplete="off"></div>'
+            +'</div>';
+        } else if(desk==='cut'){
+          body='<p class="note">The token law on this star (KRC-77). Sealed supply — a max, or infinite. Anyone may deposit ₭. No collect: the owner cannot drain the pot. Shares live on the book, not in this paper. Burns 1 ₭.</p>'
+            +'<div class="lawfields">'
+            +'<div class="lawknob"><label for="f-supply">Supply · max units</label><p class="hint">How many luz ✧ this star will ever have. 100000 is Radiola\'s default. Empty + infinite = no cap.</p>'
+            +'<input class="input" id="f-supply" placeholder="e.g. 100000" value="100000" inputmode="numeric"></div>'
+            +'<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px"><input type="checkbox" id="f-infinite"> infinite — no max, supply stays open</label>'
             +'</div>';
         } else if(desk==='raffle'){
           body='<p class="note">A looping pot on this face. People buy a seat. After the wait, Bitcoin\'s seal names the winner. You never pick who. No collect. Burns 1 ₭.</p>'
@@ -816,6 +960,7 @@
           if(desk==='vest') return { form:{ kind:'vest', beneficiary:String((document.getElementById('f-ben')||{}).value||'').trim(), total:String((document.getElementById('f-total')||{}).value||'').trim(), duration:String((document.getElementById('f-dur')||{}).value||'').trim() } };
           if(desk==='raffle') return { form:{ kind:'raffle', price:String((document.getElementById('f-price')||{}).value||'').trim(), period:String((document.getElementById('f-period')||{}).value||'').trim(), seats:String((document.getElementById('f-seats')||{}).value||'').trim() }, star:String(s.star) };
           if(desk==='mint') return { form:{ kind:'mint', price:String((document.getElementById('f-price')||{}).value||'').trim(), max:String((document.getElementById('f-max')||{}).value||'').trim(), payTo:String((document.getElementById('f-pay')||{}).value||'').trim(), shelf:String((document.getElementById('f-shelf')||{}).value||'').trim() }, star:String(s.star) };
+          if(desk==='cut') return { form:{ kind:'cut', supply:String((document.getElementById('f-supply')||{}).value||'').trim(), infinite:!!(document.getElementById('f-infinite')&&document.getElementById('f-infinite').checked) }, star:String(s.star) };
           return { form:{ kind:'scroll', each:String((document.getElementById('f-each')||{}).value||'').trim(), max:String((document.getElementById('f-max')||{}).value||'').trim(), gate:String((document.getElementById('f-gate')||{}).value||'open'), locked:!!(document.getElementById('f-locked')&&document.getElementById('f-locked').checked), allow:String((document.getElementById('f-allow')||{}).value||'').split(/[\s,]+/).filter(Boolean) }, star:String(s.star) };
         }
         var runBtn=document.getElementById('lawrun');
@@ -1003,6 +1148,9 @@
       if(payTo) form.payTo=payTo;
       var shelf=String((document.getElementById('f-shelf')||{}).value||'').trim();
       if(shelf) form.shelf=shelf;
+    } else if(kind==='cut'){
+      form.supply=String((document.getElementById('f-supply')||{}).value||'').trim();
+      form.infinite=!!(document.getElementById('f-infinite')&&document.getElementById('f-infinite').checked);
     }
     try{
       if(out) out.textContent='the node is compiling the IR you will sign…';
@@ -1563,6 +1711,7 @@
       +'<div class="shero"><span class="snum-k">Star</span>'
       +'<div class="shero-line"><div class="snum-big">'+sn(s.star)+'</div>'+(nameHero||'')+'</div></div>'
       +'<div class="hbadges">'+rbadge+insbadge+szbadge+bornbadge
+      +(s.luz&&!s.luz.unportioned?'<a class="insbadge" href="#luz" title="KRC-77 Luz — holder book on this star">KRC-77 · luz ✧</a>':'')
       +((window.KRAY&&KRAY.kindChipHtml)?KRAY.kindChipHtml(s):'')+'</div>'
       +'<div class="tags">'
       +codexTags
@@ -1665,6 +1814,7 @@
     h+='<div id="addmissing"></div>';
     h+='<div id="ownerbar"></div>';
     h+='<div class="card tick" id="speakcard"></div>';
+    h+=luzCardHtml(s);
     h+=lawCardHtml(s);
 
     // ── ITS LAND — the district Bitcoin minted, with this lot lit up ───────
@@ -1848,6 +1998,7 @@
     mountOwnerBar(s);
     mountMarketBar(s);
     mountSpeak(s);
+    mountLuz(s);
     mountLaw(s);
     tellFreezeKind(s);
 

@@ -47,6 +47,7 @@
 .kv dd .gold{color:var(--ink);font-weight:600}
 /* a rune name is a DOOR — anywhere it appears, clicking it opens that rune's page */
 .rlink{cursor:pointer}.rlink:hover{text-decoration:underline;text-underline-offset:3px}
+.llink{cursor:pointer;color:inherit;border-bottom:0}.llink:hover{text-decoration:underline;text-underline-offset:3px}
 
 /* the movement flow */
 .flow{display:flex;align-items:center;gap:var(--s3);flex-wrap:wrap;font-family:var(--mono);font-size:12.5px}
@@ -250,6 +251,7 @@
       case 'amm-add': case 'amm-remove': case 'amm-swap':
       case 'amm-rr-add': case 'amm-rr-remove': case 'amm-rr-swap': return 'g-glow';
       case 'contract': case 'contract-call': return 'g-anchor';
+      case 'cut-send': return 'g-star';
       default: return 'g-block';
     }
   }
@@ -262,7 +264,7 @@
     var gE = t.glowEarned ? ' — ❄ frozen forever · <b style="color:var(--gold,#e8b923)">✦ +1 glow</b> engraved on the freezer' : '';
     switch(t.kind){
       case 'transfer':      return '<span class="amt">'+kray(t.amount)+'</span> sent';
-      case 'x-send':        return '<span class="amt">Ӿ '+Number(t.amount).toLocaleString()+'</span> sent — the transferable light (born 1:1 from burned ₭ · ₭ pays the gas)';
+      case 'x-send':        return '<span class="amt">Ӿ '+Number(t.amount).toLocaleString()+'</span> sent — '+(String(t.fee||'0')==='0'?'feeless · tank':'1 ₭ gas');
       case 'burn':          return '<span class="amt">'+kray(t.amount)+'</span> BURNED in the fire — by signature, by choice'+xB;
       case 'burn-thaw':     return 'THE THAW — the pre-law ₭ frozen at the hole redeemed into a true burn; Ӿ born to the original senders. Once, ever';
       case 'transfer-star': return 'Star '+n+(t.starName||t.name?' “'+esc(t.starName||t.name)+'”':'')+(t.glowEarned?gE:' travelled — a relic, with its writings');
@@ -294,6 +296,7 @@
       case 'amm-rr-swap':  return 'Sold <span class="amt">'+runeAmt(t.amount, payDiv(t))+'</span> '+payNm(t)+' for '+recvNm(t);
       case 'contract':      return 'Law sealed'+(n?' on star '+n:'')+(burnOf(t)?' · burned '+kray(burnOf(t)):'')+' — the IR is the paper';
       case 'contract-call': return 'Law called'+(t.rule?' · '+esc(t.rule):'')+(t.paid&&t.paid.length?' · pot paid '+t.paid.map(function(p){ return kray(p.amount); }).join(' + '):'')+(n?' on star '+n:'');
+      case 'cut-send':      return '<span class="amt">'+luzAmt(t)+' ✧</span> '+luzNm(t)+' → sent — Luz of this star (KRC-77 · ₭ pays the gas)';
       default:              return esc(t.kind);
     }
   }
@@ -327,6 +330,22 @@
     if(!src) return fb;
     return '<img class="rface" src="'+esc(src)+'" width="'+sz+'" height="'+sz+'" alt="" loading="lazy" onerror="this.style.display=&quot;none&quot;;if(this.nextElementSibling)this.nextElementSibling.style.display=&quot;inline-grid&quot;">'+fb; }
   function runeFace(t){ return faceSrc(t.thumbnail, t.runeSymbol, 20); }
+  function isLuz(t){ return t && t.kind==='cut-send'; }
+  function luzAmt(t){
+    var raw=(t&&t.luz&&t.luz.amount!=null)?t.luz.amount: (t&&t.amount);
+    try{ return BigInt(String(raw||'0')).toLocaleString(); }catch(_){ return String(raw||'0'); }
+  }
+  function luzThumbSrc(t){
+    if(t&&t.luz&&t.luz.thumbnail) return t.luz.thumbnail;
+    if(t&&t.contentUrl && String(t.contentType||'').toLowerCase().indexOf('image/')===0) return t.contentUrl;
+    return null;
+  }
+  // face + Luz + the star number — one door to that book's desk (/rank/luz/N), never a rune link
+  function luzNm(t){
+    var star=String((t&&t.star)!=null?t.star:'');
+    var nm=faceSrc(luzThumbSrc(t),'✧',20)+' <b class="gold">Luz ✧</b>'+(star?' <span class="dim2">★ #'+esc(star)+'</span>':'');
+    return star?('<a class="llink" href="/rank/luz/'+encodeURIComponent(star)+'" title="open this Luz book — holders, tape, the star">'+nm+'</a>'):nm;
+  }
   function ammCard(t){
     if(t.kind!=='amm-add'&&t.kind!=='amm-remove'&&t.kind!=='amm-swap'&&t.kind!=='amm-rr-add'&&t.kind!=='amm-rr-remove'&&t.kind!=='amm-rr-swap') return '';
     var rows='';
@@ -442,7 +461,7 @@
     var h = '<div class="txhead">'
       +'<div class="shead">'
         +'<span class="n"><svg width="17" height="17" style="vertical-align:-3px"><use href="#'+glyphFor(t)+'"/></svg></span>'
-        +'<h2>'+(t.createPool?'Create pool':t.kind==='contract'?'Law sealed':t.kind==='contract-call'?'Law called':esc(t.kind))+'</h2>'
+        +'<h2>'+(t.createPool?'Create pool':t.kind==='contract'?'Law sealed':t.kind==='contract-call'?'Law called':t.kind==='cut-send'?'Send Luz':esc(t.kind))+'</h2>'
         +'<span class="sub">'+netlab+'</span>'
       +'</div>'
       +'<div class="row" style="gap:var(--s2);margin-bottom:var(--s3)">'
@@ -450,7 +469,7 @@
         // Create pool is the MARK (A5, like a star name). Add LP is the ordinary later act.
         +(function(){
           if((t.kind==='amm-add'||t.kind==='amm-rr-add') && t.createPool) return '<span class="chip mark">Create pool</span><span class="chip">UNIQUE</span>';
-          var tag={'rune-deposit':'↧ deposit','rune-send':'→ send','rune-exit':'↥ exit (withdraw)','rune-lodge':'⚓ lodge','rune-rehome':'↺ rehome','rune-settle':'⚖ exit settled','transfer':'→ send ₭','x-send':'Ӿ send','transfer-star':'★ send a star','inscribe':'✍ inscribe','name':'⚑ baptism','origin':'☄ origin','emit':'♻ donation mint','settlement':'⚖ settlement','amm-add':'⇄ add LP','amm-remove':'⇄ remove LP','amm-swap':'⇄ swap','amm-rr-add':'⇄ add LP','amm-rr-remove':'⇄ remove LP','amm-rr-swap':'⇄ swap','contract':'⚖ law sealed','contract-call':'⚖ law called'}[t.kind];
+          var tag={'rune-deposit':'↧ deposit','rune-send':'→ send','rune-exit':'↥ exit (withdraw)','rune-lodge':'⚓ lodge','rune-rehome':'↺ rehome','rune-settle':'⚖ exit settled','transfer':'→ send ₭','x-send':'Ӿ send','cut-send':'✧ send Luz','transfer-star':'★ send a star','inscribe':'✍ inscribe','name':'⚑ baptism','origin':'☄ origin','emit':'♻ donation mint','settlement':'⚖ settlement','amm-add':'⇄ add LP','amm-remove':'⇄ remove LP','amm-swap':'⇄ swap','amm-rr-add':'⇄ add LP','amm-rr-remove':'⇄ remove LP','amm-rr-swap':'⇄ swap','contract':'⚖ law sealed','contract-call':'⚖ law called'}[t.kind];
           return tag?'<span class="chip btc">'+tag+'</span>':'';
         })()
         +(t.kind==='rune-lodge' && (t.potTxid||t.outpoint)
@@ -486,14 +505,36 @@
         // shows the RESOLVED exit value, never a lying 0 ('0' is truthy in JS, so the plain t.amount gate let it through).
         +(t.kind==='rune-lodge'
           ? (t.exitAmount!=null?'<span class="who"><b>amount</b><span class="amt">'+runeAmt(t.exitAmount,t.runeDiv)+'</span> <span class="dim2">· locked on the signed exit</span></span>':'')
-          : (t.amount?'<span class="who"><b>amount</b>'+((t.runeId&&!amtIsKray(t))?('<span class="amt">'+runeAmt(t.amount,amtDiv(t))+'</span> <span class="rlink dim2" data-rune="'+esc(t.runeId)+'">'+faceSrc(t.thumbnail,t.runeSymbol,16)+' '+esc(t.runeName||t.runeId)+'</span>'):(t.kind==='x-send'?'<span class="amt">Ӿ '+Number(t.amount).toLocaleString()+'</span>':kray(t.amount)))+'</span>':''))
+          : (t.amount?'<span class="who"><b>amount</b>'+(isLuz(t)
+            ? ('<span class="amt">'+luzAmt(t)+' ✧</span> '+luzNm(t))
+            : ((t.runeId&&!amtIsKray(t))?('<span class="amt">'+runeAmt(t.amount,amtDiv(t))+'</span> <span class="rlink dim2" data-rune="'+esc(t.runeId)+'">'+faceSrc(t.thumbnail,t.runeSymbol,16)+' '+esc(t.runeName||t.runeId)+'</span>'):(t.kind==='x-send'?'<span class="amt">Ӿ '+Number(t.amount).toLocaleString()+'</span>':kray(t.amount))))+'</span>':''))
         // WHICH STARS MOVED, when whole stars move (a Send-a-star). Plain ₭ moves
         // as a fungible amount, not as numbered stars; this row only has meaning
         // for a star transfer, and shows exactly which stars travelled.
         +movedRows(t)
-        +(t.fee?'<span class="who"><b>fee</b>'+kray(t.fee)+'</span>':'')
+        +(t.kind==='x-send'
+          ? (String(t.fee||'0')==='0'
+            ? '<span class="who"><b>fee</b>feeless · tank</span>'
+            : '<span class="who"><b>fee</b>'+kray(t.fee||'1')+'</span>')
+          : (t.fee?'<span class="who"><b>fee</b>'+kray(t.fee)+'</span>':''))
         +(t.burn||burnOf(t)?'<span class="who"><b>burned</b>'+kray(burnOf(t))+'</span>':'')
         +'</div></div>';
+    }
+
+    // WHICH LUZ moved — the star's face, the sealed supply, the units that travelled. Not a rune.
+    if(isLuz(t) && t.star){
+      var luzSupply=(t.luz&&t.luz.supply!=null)?t.luz.supply:null;
+      h+='<div class="card"><div class="ph"><svg width="15" height="15"><use href="#g-star"/></svg> The Luz</div><dl class="kv">'
+        +'<dt>book</dt><dd>'+luzNm(t)+' <span class="dim2">· KRC-77</span></dd>'
+        +'<dt>star</dt><dd><b><a href="/star/'+esc(String(t.star))+'">#'+Number(t.star).toLocaleString()+'</a></b>'+((t.starName||t.name)?' · “'+esc(t.starName||t.name)+'”':'')+'</dd>'
+        +'<dt>amount</dt><dd class="g"><span class="amt">'+luzAmt(t)+' ✧</span> <span class="dim2">· Luz moved · the star stayed</span></dd>'
+        +(luzSupply!=null?'<dt>supply</dt><dd>'+esc((function(s){try{return BigInt(String(s)).toLocaleString();}catch(_){return String(s);}})(luzSupply))+' ✧ sealed</dd>':'')
+        +'<dt>fee</dt><dd>'+kray(t.fee||'1')+' <span class="dim2">· gas · not Luz</span></dd>'
+        +'</dl>'
+        +'<p class="note">Luz is the element of one star. It is not ₭ and not Ӿ. Σ holders = sealed supply, or the node HALTs.</p>'
+        +'<div class="actions"><a class="btn" href="/rank/luz/'+encodeURIComponent(String(t.star))+'">open the Luz book →</a>'
+        +'<a class="btn" href="/star/'+esc(String(t.star))+'">open the star →</a></div>'
+        +'</div>';
     }
 
     // WHICH RUNE moved — the id, the name, the L1 tx it rode, and its decoded runestone
@@ -693,7 +734,7 @@
   // even inside a row that is itself a link (no nested-anchor breakage)
   document.addEventListener('click',function(ev){
     var el=ev.target&&ev.target.closest?ev.target.closest('.rlink'):null; if(!el) return;
-    ev.preventDefault(); ev.stopPropagation(); location.href='/runes#'+(el.getAttribute('data-rune')||'');
+    ev.preventDefault(); ev.stopPropagation(); location.href='/rune#'+(el.getAttribute('data-rune')||'');
   },true);
 })();
 </script>

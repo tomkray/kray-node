@@ -97,6 +97,7 @@
     { p: 'inscribe', href: '/inscribe', label: 'Inscribe' },
     { p: 'validate', href: '/validate', label: 'Validate' },
     { p: 'rank', href: '/rank', label: 'Rank' },
+    { p: 'market', href: '/market', label: 'Market' },
     { p: 'blackhole', href: '/blackhole', label: 'Black hole' },
     { p: 'docs', href: '/docs', label: 'Docs' }
   ];
@@ -661,6 +662,49 @@
     }
     return layer + badge;
   };
+  /* Standard star header — 128 face · ★ N · name · id chips. Catalog click lands here. */
+  KRAY.starCrownHtml = function (s, book, opts) {
+    s = s || {};
+    book = book || s.luz || null;
+    opts = opts || {};
+    var ins = (s.inscriptions && s.inscriptions[0]) || null;
+    var tok = {
+      star: s.star,
+      name: s.name,
+      contentHash: s.contentHash || (ins && ins.contentHash),
+      contentType: s.contentType || (ins && ins.contentType),
+      url: s.contentHash ? ('/content/' + s.contentHash) : (ins && ins.url),
+      held: ins ? ins.held : !!s.contentHash
+    };
+    var face = KRAY.faceHtml(tok);
+    var ids = '<span class="chip">star #' + KRAY.esc(String(s.star)) + '</span>';
+    if (s.name) ids += '<span class="chip">' + KRAY.esc(s.name) + '</span>';
+    if (s.id) ids += '<span class="chip" title="inscription / birth id">' + KRAY.esc(s.id) + '</span>';
+    if (ins && ins.number != null) ids += '<span class="chip">inscription #' + KRAY.esc(String(ins.number)) + '</span>';
+    if (s.contentType) ids += '<span class="chip">' + KRAY.esc(s.contentType) + '</span>';
+    var unportioned = !book || book.unportioned;
+    var infinite = !!(book && book.infinite);
+    if (!unportioned) ids += '<span class="chip">KRC-77</span>';
+    var brow = infinite ? 'KRC-77 · INFINITE' : (unportioned ? 'STAR' : 'KRC-77 · HOLDER BOOK');
+    var sub = unportioned
+      ? 'This star has not sealed KRC-77. The light market has no book here.'
+      : (infinite
+        ? 'Infinite paper — no genesis units. There is no holder rank until a later mint door exists.'
+        : 'Who holds this light. Σ must equal the sealed supply. A stranger who replays the journal gets the same table.');
+    var n = KRAY.esc(String(s.star));
+    return '<span class="face facefill fixed starcrown-face">' + face + '</span>'
+      + '<div class="starcrown-m">'
+      + '<div class="eyebrow">' + brow + '</div>'
+      + '<h2>★ ' + n + (s.name ? ' · ' + KRAY.esc(s.name) : '') + (unportioned ? '' : ' ✧') + '</h2>'
+      + '<div class="starids">' + ids + '</div>'
+      + '<p class="sub">' + sub + '</p>'
+      + '<div class="actions" style="margin-top:var(--s4)">'
+      + (opts.onStar
+        ? '<a class="btn" href="/rank/luz/' + n + '">the holder rank →</a>'
+        : '<a class="btn" href="/star/' + n + '#luz">the star →</a>')
+      + '<a class="btn" href="/inscribe?star=' + n + '&tab=law">the paper →</a>'
+      + '</div></div>';
+  };
   /* Circular face on a star chip (#32). The sealed bytes when an <img> can show them;
      otherwise the number stands alone. Never a frame emoji. Presentation only. */
   KRAY.starChipArt = function (t, px) {
@@ -1113,8 +1157,8 @@
     return '<footer class="foot"><div class="wrap">' +
       '<div class="g12">' +
         '<div class="foot-brand c4"><div class="b">₭ KRAY.NETWORK</div><div class="t">The book: sacrifice → ₭ → stars. Replay proves it. Sealed to Bitcoin. DeFi is an app on this ledger — not the node.</div></div>' +
-        '<div class="col foot-col"><h5>Explore</h5><a href="/">Explorer</a><a href="/blocks">Chain</a><a href="/network">Network</a><a href="/land">Land</a><a href="/city">City</a><a href="/library">Library</a><a href="/mind">Mind</a><a href="/dashboard">Dashboard</a></div>' +
-        '<div class="col foot-col"><h5>Apps</h5><a href="/market">Marketplace</a><a href="/collections">Collections</a><a href="/defi">DeFi</a><a href="/rune">Runes</a><a href="/send">Send</a></div>' +
+        '<div class="col foot-col"><h5>Explore</h5><a href="/">Explorer</a><a href="/blocks">Chain</a><a href="/network">Network</a><a href="/land">Land</a><a href="/city">City</a><a href="/library">Library</a><a href="/mind">Mind</a><a href="/rank">Rank</a><a href="/dashboard">Dashboard</a></div>' +
+        '<div class="col foot-col"><h5>Apps</h5><a href="/market">Markets</a><a href="/market/star">Star market</a><a href="/market/luz">Light market</a><a href="/collections">Collections</a><a href="/defi">DeFi</a><a href="/rune">Runes</a><a href="/send">Send</a></div>' +
         '<div class="col foot-col prove"><h5>Prove</h5><a href="/proof">Proof</a><a href="/verify">Verify</a><a href="/anchor">The anchor</a><a href="/burn">Bitcoin Proof</a><a href="/docs">Docs</a><a href="/docs#atlas">Site atlas</a></div>' +
       '</div>' +
       '<div class="bar"><span>circulating ₭ = emitted − burned · one cascade root sealed to Bitcoin</span><span>KRAY OS v2 · Blueprint</span></div>' +

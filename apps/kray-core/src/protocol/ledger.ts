@@ -22,7 +22,7 @@ import { NAME_MAX_BYTES } from './star-lore.ts'
 import { AnchoringPot, DEFAULT_POT_TARGET_SATS, MINT_CAP_SATS, WINDOW_PER_SEAL_SATS } from './pot.ts'
 import {
   isSupportedScheme, toBtcNet, verifySignature, isAddressOnNetwork,
-  transferMessage, xSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
+  transferMessage, xSendMessage, cutSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, BODY_HASH_RE, ORIGIN_COHORT_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
@@ -38,7 +38,8 @@ import { settleFromBeats } from '../economics/settlement.ts'
 import { hitCount, custodyFromHex, verifyCustody, type AtlasOracle } from '../economics/custody.ts'
 import { assertPresenceClaims, assertPresenceEra, foldClaimsByAddress, readPresenceTip } from '../economics/presence-window.ts'
 import { validateContract, canonicalCode, runCall, contractAddress, isContractPotAddress, type ContractCode } from './contract.ts'
-import { isMintPaper } from './star-forms.ts'
+import { isMintPaper, isCutPaper } from './star-forms.ts'
+import { CutBook } from './cut-book.ts'
 import { sha256hex, MIN_FEE, TREASURY, BLACK_HOLE, STAR_OFFER, MAX_INSCRIPTION_BYTES, MAX_INSCRIPTION_PROPORTION, starBurnOf, BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, SEAL_CONTENT_BUDGET, RETARGET_WINDOW_SEALS, retargetBytesPerKray, donationProofMinConf, SIZE_PROPORTION_ACTIVATION_SEQ, STAR_RE, type KrayEvent, type SettlementRow } from './kray-primitives.ts'
 import { verifyDonationProof } from '../anchor/spv.ts'   // ADR-1: pure/offline SPV re-verify (no network) — safe in the reducer
 import { selfAnchorScriptHex } from './self-anchor.ts'   // ADR-1 extended: re-derive a self-anchor burn script from (pot key, sealed payload) — pure, offline
@@ -268,6 +269,7 @@ export class KrayLedger {
   readonly amm = new AmmBook()         // LP shares only; reserves sit on KRAY_AMM_* in the two books
   readonly market = new StarMarket()   // star listings (seller, price); folds by presence, never holds value
   readonly offers = new StarOffers()   // escrowed bids; pot ₭ lives at STAR_OFFER
+  readonly cuts = new CutBook()        // Luz ✧ per star — folds by presence (A3); IR cannot store the map
   private readonly contracts = new Map<string, { code: ContractCode; creator: string; state: Record<string, bigint>; star?: string; roster?: string[] }>()
   readonly pot: AnchoringPot
   readonly network: string
@@ -1268,6 +1270,35 @@ export class KrayLedger {
         }
         break
       }
+      case 'cut-send': {
+        // CADENT ✧ — move this star's element. Own domain (cutSendMessage). Fee is the
+        // eternal 1 ₭. The star may already be frozen: sealed terms keep running (§11.0c).
+        if (e.from && (e.from.startsWith('KRAY_') || isContractPotAddress(e.from))) {
+          throw new Error('ledger: a protocol pot cannot move Luz — only a holder signs')
+        }
+        if (typeof e.star !== 'string' || !STAR_RE.test(e.star)) throw new Error('ledger: a Luz send needs a star number')
+        const amt = parseLaneAmount(e.amount ?? '')
+        if (amt === undefined) throw new Error('ledger: a Luz amount must be canonical decimal within u128 (the canonical-decimal law — no hex, no pad, no twin-fork)')
+        const fee = BigInt(e.fee ?? '0')
+        if (amt <= 0n) throw new Error('ledger: a Luz amount must be positive')
+        if (e.from === e.to) throw new Error('ledger: a Luz send needs two different parties')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (Luz moves, ₭ pays the gas)')
+        this.checkNonce(e)
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient ₭ for the Luz fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        this.requireSig(e, cutSendMessage(this.network, e.from!, e.to!, BigInt(e.star), amt, e.nonce!))
+        this.requireFungibleRecipient(e.to!, e.seq)
+        if (e.to!.startsWith('KRAY_') || isContractPotAddress(e.to!) || isAmmPotAddress(e.to!)) {
+          throw new Error('ledger: Luz cannot enter a protocol pot')
+        }
+        const held = this.cuts.of(e.star, e.from!)
+        if (held < amt) throw new Error(`ledger: insufficient Luz (have ${held}, need ${amt})`)
+        // ── validated → mutate ──
+        this.commitNonce(e)
+        this.cuts.send(e.star, e.from!, e.to!, amt)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        break
+      }
       case 'lane-enter': {
         // THE TK-FOLD LANE ENTRY (Gate 2, DORMANT until the ratified activation seq) — a holder moves their
         // own spendable Ӿ INTO the compressed lane by signature over the entry's OWN domain. Conservation:
@@ -2138,6 +2169,11 @@ export class KrayLedger {
           this.balances.set(e.from, this.balanceOf(e.from) - 1n)
           this.burned += 1n
           this.mintX(e.from, 1n)          // BURN → Ӿ: sealing a law burns 1 ₭ → 1 Ӿ to the burner (1:1, conserved)
+          // Luz genesis: a capped paper credits the sealer. Infinite has no units yet.
+          if (isCutPaper(e.code) && String(e.code.vars?.capped) === '1') {
+            const supply = BigInt(e.code.vars?.supply ?? '0')
+            if (supply > 0n) this.cuts.genesis(String(onStar), e.from, supply)
+          }
         }
         break
       }
@@ -2503,6 +2539,7 @@ export class KrayLedger {
     return sum === this.emitted - this.burned && xs === this.burned && xb + laneSum === this.burned && this.xTotal === this.burned
       && ft + this.fireSpent === this.burned * FIREBORN_SENDS_PER_KRAY
       && this.balanceOf(STAR_OFFER) === this.offers.lockedTotal()
+      && this.cuts.conserves()
   }
 
   /** BOOKKEEPING CONSISTENCY (not the peg itself): emitted ≤ the pot's recorded donated total, and
@@ -2625,6 +2662,7 @@ export class KrayLedger {
       // commits only WHO is offering WHICH star at WHAT price, re-derivable by any stranger from the journal.
       ...(!this.market.empty() ? { marketCommitment: this.market.commitment() } : {}),
       ...(!this.offers.empty() ? { offerCommitment: this.offers.commitment() } : {}),
+      ...(!this.cuts.empty() ? { cutCommitment: this.cuts.commitment() } : {}),
     }
   }
 

@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="/kray.css">
 <style>
   /* rank — page-local only; the system lives in /kray.css */
-  .hero .stamp{display:flex;gap:var(--s5);flex-wrap:wrap;margin-top:var(--s7);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+  .hero .stamp{display:flex;gap:var(--s5);flex-wrap:wrap;margin-top:var(--s3);font-family:var(--mono);font-size:12px;color:var(--ink-3)}
   .hero .stamp b{color:var(--ink)}
   #rail{margin-bottom:var(--s5)}
   #rail .tab{display:inline-flex;align-items:center;gap:8px}
@@ -29,10 +29,17 @@
   .dtable tr.trow-click{cursor:pointer}
   .dtable td.who{max-width:1px;width:100%}
   .dtable td.who a{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+  .dtable td.who a.starwho{display:flex;align-items:center;gap:var(--s3);white-space:normal;overflow:visible;text-overflow:unset}
   .dtable td.who small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-4);font-size:10px;letter-spacing:.02em}
+  .sface-sq{width:64px;height:64px;border-radius:var(--r2);border:1px solid var(--line);background:var(--surface-2);flex:0 0 64px;overflow:hidden}
+  .rface{width:64px;height:64px;border-radius:var(--r2);object-fit:cover;flex:0 0 64px;background:var(--surface-2);border:1px solid var(--line)}
+  .rface.fb{display:grid;place-items:center;font-size:22px;color:var(--btc);background:var(--btc-soft);border-color:var(--btc-line)}
+  .starwho-m{min-width:0;flex:1}
+  .starwho-m b{display:block;color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dtable td.bal{color:var(--ink);font-weight:600}
   .dtable td.glow{color:var(--gold,#e8b923);font-weight:600}
   .dtable td.x{color:var(--ember,#ff6b6b);font-weight:600}
+  .dtable td.luz{color:var(--ink);font-weight:600}
   .vdot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--good);margin-right:6px;vertical-align:middle;box-shadow:0 0 6px var(--good)}
   .sim{color:var(--ink-4);font-size:9.5px;letter-spacing:.1em}
   .shr{height:3px;border-radius:2px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line);margin-top:4px}
@@ -40,9 +47,22 @@
   .shr.glow i{background:var(--gold,#e8b923)}
   .shr.x i{background:var(--ember,#ff6b6b)}
   .empty{padding:var(--s7) var(--s4);text-align:center;color:var(--ink-3);font-size:14px}
+  #tape[hidden]{display:none!important}
+  #tape{margin:var(--s5) 0 0}
+  .tx{display:flex;align-items:center;gap:var(--s3);padding:11px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+  .tx:last-child{border-bottom:0}
+  .tx:hover{background:var(--surface-2)}
+  .txtag{font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:var(--r-pill);border:1px solid var(--line-2);color:var(--ink-3);flex:0 0 auto;white-space:nowrap}
+  .txtag.in{color:var(--good);border-color:color-mix(in srgb,var(--good) 35%,transparent)}
+  .txtag.mid{color:var(--ink-2)}
+  .tx .txmeta{flex:1;min-width:0}
+  .tx .txl{font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tx .txs{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   #note{margin-top:var(--s5);padding:var(--s4) var(--s5);font-size:13px;color:var(--ink-3);line-height:1.55}
   #note b{color:var(--ink-2);font-weight:500}
   .srcline{font-family:var(--mono);font-size:12px;color:var(--ink-4);margin-top:var(--s5)}
+  #desk[hidden]{display:none!important}
+  #desk{margin:0 0 var(--s5)}
   @media(max-width:1023px){.bookstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
   @media(max-width:900px){.dtable .hidem{display:none}}
   @media(max-width:639px){.bookstats{grid-template-columns:minmax(0,1fr)}}
@@ -52,10 +72,9 @@
 <body data-page="rank">
 
 <div class="wrap">
-  <section class="hero" style="border-top:0;padding-top:var(--s8)">
+  <section class="hero" style="border-top:0">
     <div class="eyebrow" id="eyebrow">DERIVED FROM THE JOURNAL · SAME ORDER ON EVERY NODE</div>
     <h1 id="htitle">Rank</h1>
-    <p class="lede" id="lede"></p>
     <div class="stamp">
       <span>network <b id="netlab">—</b></span>
       <span>cascade <b id="caslab">—</b></span>
@@ -65,13 +84,17 @@
   </section>
 </div>
 
-<section style="padding-top:var(--s7)"><div class="wrap">
+<section><div class="wrap">
   <div class="shead"><span class="n">01</span>
     <h2 id="shead-t">The books</h2>
-    <span class="sub" id="shead-s">One standing. Three proven ledgers. The address is the tie-break — equal keys never shuffle.</span></div>
+    <span class="sub" id="shead-s">One standing, path drawers. ₭ · Ӿ · glow · Luz · L2 runes · stars · works. The address is the tie-break — equal keys never shuffle.</span></div>
   <div class="tabs" id="rail" role="tablist"></div>
+  <div id="desk" hidden>
+    <div class="starcrown" id="desk-crown"></div>
+  </div>
   <div class="bookstats" id="stats"></div>
   <div id="tbl"><div class="empty">loading…</div></div>
+  <div id="tape" hidden></div>
   <div class="card" id="note"></div>
   <div class="srcline">Read from <span class="mono">/api/kraynet/analytics</span> — a pure fold of the anchored journal. <span id="stamp"></span></div>
 </div></section>
@@ -91,31 +114,79 @@
   function num(v){ return Number(v||0).toLocaleString(); }
   function shortRoot(r){ r=String(r||''); return r? r.slice(0,12)+'…' : '—'; }
 
-  // One URL. Hash is the book. /rank/x was discarded — a second path is a second story.
+  // Path is the drawer. Hash is an old bookmark. /rank/luz/<n> is the holder desk of one light.
+  // L2 runes: /rank/rune lists them; a click opens the house that already exists (/rune#id).
   var BOOKS=[
-    {id:'kray',  label:'₭', hash:'kray',  title:'KRAY'},
-    {id:'x',     label:'Ӿ', hash:'nyx',   title:'Ӿ'},
-    {id:'glow',  label:'✦', hash:'glow',  title:'GLOW'},
-    {id:'stars', label:'stars', hash:'stars', title:'stars'},
-    {id:'works', label:'works', hash:'works', title:'works'}
+    {id:'kray',  label:'₭',      path:'/rank/kray',  title:'KRAY'},
+    {id:'x',     label:'Ӿ',      path:'/rank/nyx',   title:'Ӿ'},
+    {id:'glow',  label:'✦',      path:'/rank/glow',  title:'GLOW'},
+    {id:'luz',   label:'✧ Luz',  path:'/rank/luz',   title:'Luz'},
+    {id:'rune',  label:'runes',  path:'/rank/rune',  title:'Runes L2'},
+    {id:'stars', label:'stars',  path:'/rank/stars', title:'stars'},
+    {id:'works', label:'works',  path:'/rank/works', title:'works'}
   ];
   function bookFromHash(){
     var h=(location.hash||'').replace(/^#/,'').toLowerCase();
     if(h==='fenyx'||h==='nyx'||h==='fenix'||h==='phoinix'||h==='nix'||h==='x'||h==='Ӿ') return 'x';
     if(h==='glow'||h==='✦') return 'glow';
+    if(h==='luz'||h==='krc-77'||h==='krc77'||h==='cut'||h==='✧') return 'luz';
+    if(h==='rune'||h==='runes'||h==='l2') return 'rune';
     if(h==='stars'||h==='star') return 'stars';
     if(h==='works'||h==='names') return 'works';
+    if(h==='kray'||h==='₭') return 'kray';
     return 'kray';
   }
-  var cur=bookFromHash(), last=null;
+  function bookPath(id){
+    var b=BOOKS.filter(function(x){return x.id===id;})[0];
+    return (b&&b.path)||'/rank/kray';
+  }
+  function parseRank(){
+    var p=(location.pathname||'/rank').replace(/\/$/,'')||'/rank';
+    var m;
+    if((m=p.match(/^\/rank\/luz\/(\d+)$/))) return {book:'luz', luz:m[1]};
+    if((m=p.match(/^\/rank\/(kray|nyx|x|fenyx|glow|luz|rune|stars|works)$/))){
+      var id=m[1];
+      if(id==='nyx'||id==='x'||id==='fenyx') id='x';
+      return {book:id};
+    }
+    if(p==='/rank' && location.hash) return {book:bookFromHash()};
+    return {book:'kray'};
+  }
+  function luzStar(){ return parseRank().luz||''; }
+  function bookFromLoc(){ return parseRank().book; }
+  function migrateHash(){
+    var p=(location.pathname||'/rank').replace(/\/$/,'')||'/rank';
+    if(p!=='/rank') return;
+    var dest=bookPath(location.hash?bookFromHash():'kray');
+    if(dest!==p+location.hash){
+      try{ history.replaceState(null,'',dest); }catch(_){ /* stay on /rank — same page */ }
+    }
+  }
+  migrateHash();
+  var cur=bookFromLoc(), last=null, deskStar=null;
 
   function setBook(id){
     cur=id;
-    var b=BOOKS.filter(function(x){return x.id===id;})[0]||BOOKS[0];
-    if(location.hash.replace(/^#/,'')!==b.hash){
-      try{ history.replaceState(null,'','/rank#'+b.hash); }catch(_){ location.hash=b.hash; }
+    var dest=bookPath(id);
+    if(location.pathname!==dest){
+      try{ history.pushState({book:id},'',dest); }catch(_){ location.href=dest; return; }
     }
     if(last) render(last);
+  }
+
+  function shareOf(part, whole){
+    try{
+      var p=BigInt(part||0), w=BigInt(whole||0);
+      if(w===0n) return 0;
+      return Number((p*10000n)/w)/100;
+    }catch(_){ return 0; }
+  }
+  function hideDesk(){
+    var desk=document.getElementById('desk');
+    if(desk) desk.hidden=true;
+    var tape=document.getElementById('tape');
+    if(tape){ tape.hidden=true; tape.innerHTML=''; }
+    deskStar=null;
   }
 
   function sortKray(rows, key){
@@ -168,15 +239,17 @@
       title:'Rank · Ӿ',
       lede:'The same shape at every scale. A satoshi dies — night — <b>₭</b> is born. ₭ dies in fire — night again — <b>Ӿ</b> is born, 1:1, the light that remains. That night holds the road already paid (the tank): the bird does not pay twice. <b>Fenyx</b> is not a second money — it is the hybrid that names both parents: the phoenix that rises, and Nyx the goddess. The Y is hers. The glyph is already <b>Ӿ</b>. A stranger re-derives every cell from the bytes. GLOW is the other light. The two never mix. The law is Fireborn.',
       head:'The Ӿ standing',
-      sub:'Ordered by spendable Ӿ. Fenyx is the hybrid behind the name. Minted is lifetime fire. Lane is Ӿ inside the fold. Tank is remaining feeless sends.',
+      sub:'Ordered by spendable Ӿ. The tape below is the journal proof — each row is a hash in the cascade. Minted is lifetime fire. Lane is Ӿ inside the fold. Tank is remaining feeless sends.',
       note:function(d){
         var x=(d.lights&&d.lights.x)||{}, c=(d.lights&&d.lights.conservation)||{};
+        var n=Number(x.tapeCount||0);
         return '<b>Nyx — the Fireborn law on the page.</b> The hybrid is <b>Fenyx</b> (φοῖνιξ + Νύξ). One burn mints money <b>and</b> bandwidth: Ӿ 1:1, plus '
           +num(x.sendsPerKray||1000)+' feeless x-sends for life (the tank). The signed x-send domain carries <b>no fee</b> — the reducer prescribes 0 or 1 ₭. '
           +'<b>Conservation:</b> minted Ӿ = '+full(c.xMinted||x.total||0)+' · burned ₭ = '+full(c.burned||0)
           +' · spendable + lane = '+full(c.xSpendable||0)+' + '+full(c.xLane||0)
           +'. Tripwire '+(c.ok?'<b>holds</b> — this node\'s replay matches the math.':'<b>failed</b> — this node would HALT a write; do not trust a drifted book.')
-          +' Name: <b>Nyx</b>. Hybrid: <b>Fenyx</b>. Glyph: <b>Ӿ</b>. Mechanic: THE FIREBORN LAW.';
+          +' The tape is '+num(n)+' journal act'+(n===1?'':'s')+' (x-send, burn, lane, fold-seal). Fee 0 still writes a hash. Lane hops inside a fold-seal do not invent extra txids — the seal is the line. '
+          +'Name: <b>Nyx</b>. Hybrid: <b>Fenyx</b>. Glyph: <b>Ӿ</b>. Mechanic: THE FIREBORN LAW.';
       }
     },
     glow:{
@@ -212,6 +285,34 @@
         var lib=d.library||{};
         return '<b>What this list is.</b> '+num(lib.works||0)+' living works and '+num(lib.names||0)+' names on this journal. Cursed marks are excluded. The library is the shelf; this is the authors\' standing.';
       }
+    },
+    luz:{
+      eye:'KRC-77 · LUZ ✧ · ONE BOOK PER STAR',
+      title:'Rank · Luz ✧',
+      lede:'Stars that sealed <b>KRC-77</b>. Each row is a living token book — supply, holders, tripwire. Click a star to open <b>/rank/luz/N</b> — the crown and the holder standing of that light. Luz never mixes with ₭ or Ӿ.',
+      head:'Stars with Luz',
+      sub:'Ordered by how many addresses hold. Click a row — header and holder rank of that star.',
+      note:function(d, rows){
+        var L=d.luz||{};
+        return '<b>What this list is.</b> '+num(L.books||0)+' star'+(L.books===1?'':'s')+' sealed KRC-77'
+          +(rows&&rows.length?' — click any row for the holder standing of that star.':' — none yet; seal KRC-77 on a star you own.')
+          +' Each book conserves: Σ holders = sealed supply. Catalog tripwire '+(L.conserves===false?'<b>failed</b>.':'<b>holds</b>.')
+          +' Holder standing lives at <a href="/rank/luz">/rank/luz/&lt;n&gt;</a>. The light market catalog is <a href="/market/luz">/market/luz</a>. The paper is the leash; the shares live on the journal.';
+      }
+    },
+    rune:{
+      eye:'L2 RUNES · THE HOUSE IS /rune',
+      title:'Rank · Runes L2',
+      lede:'Every Bitcoin rune bridged onto this book, ordered by holders. Thumbnail, reserve, solvency — the same fold the house already paints. Click a row: the page that already exists opens (<a href="/rune">/rune#id</a>). Rank does not clone the vault.',
+      head:'Runes on the L2',
+      sub:'Ordered by holders. A click opens /rune#id — vault, backing, activity stay on that house.',
+      note:function(d, rows){
+        var R=d.runes||{};
+        return '<b>What this list is.</b> '+num(R.count||(rows&&rows.length)||0)+' rune'+(Number(R.count||(rows&&rows.length)||0)===1?'':'s')+' on the L2'
+          +(rows&&rows.length?' — click any row for the house that already shows holders, vault and activity.':' — none bridged yet.')
+          +' Whole-book tripwire '+(R.solvent===false?'<b>failed</b>.':'<b>holds</b>.')
+          +' The house is <a href="/rune">/rune</a>. ₭ standing is <a href="/rank/kray">/rank/kray</a>.';
+      }
     }
   };
 
@@ -219,12 +320,15 @@
     var c=COPY[cur]||COPY.kray;
     document.getElementById('eyebrow').textContent=c.eye;
     document.getElementById('htitle').textContent=c.title;
-    document.getElementById('lede').innerHTML=c.lede;
     document.getElementById('shead-t').textContent=c.head;
     document.getElementById('shead-s').textContent=c.sub;
     document.getElementById('netlab').textContent=d.network+(d.simulation?' · simulation':'');
     document.getElementById('caslab').textContent=shortRoot(d.chain&&d.chain.cascadeRoot);
-    var ok=d.lights&&d.lights.conservation&&d.lights.conservation.ok;
+    var ok=cur==='luz'
+      ? (d.luz&&d.luz.conserves)!==false
+      : cur==='rune'
+        ? (d.runes&&d.runes.solvent)!==false
+        : d.lights&&d.lights.conservation&&d.lights.conservation.ok;
     var cons=document.getElementById('conslab');
     cons.textContent=ok===false?'HALT':'holds';
     cons.style.color=ok===false?'var(--crit,#f5776b)':'';
@@ -263,6 +367,27 @@
         stat(num((d.library&&d.library.names)||st.named||0),'names')+
         stat(ka((d.library&&d.library.bytes)||0),'bytes sealed')+
         stat(num(d.rankTotal||0),'₭ holders');
+      return;
+    }
+    if(cur==='luz'){
+      var lz=d.luz||{}, books=lz.stars||[];
+      var units=books.reduce(function(t,r){ try{ return t+BigInt(r.supply||0); }catch(_){ return t; } },0n);
+      var people=books.reduce(function(t,r){ return t+Number(r.holders||0); },0);
+      el.innerHTML=
+        stat(num(lz.books||0),'stars with KRC-77')+
+        stat(ka(units),'luz ✧ sealed')+
+        stat(num(people),'holder lines')+
+        stat(lz.conserves===false?'broken':'holds', 'Σ per star = supply', lz.conserves===false?'bad':'ok');
+      return;
+    }
+    if(cur==='rune'){
+      var R=d.runes||{}, books=R.runes||[];
+      var people=books.reduce(function(t,r){ return t+Number(r.holderCount||0); },0);
+      el.innerHTML=
+        stat(num(R.count||books.length),'runes on L2')+
+        stat(num(people),'holder lines')+
+        stat(num(books.filter(function(r){ return r.solvent!==false; }).length),'solvent')+
+        stat(R.solvent===false?'broken':'holds', 'Σ credits + locks = reserve', R.solvent===false?'bad':'ok');
       return;
     }
     el.innerHTML=
@@ -314,6 +439,81 @@
     return {html:h+'</tbody></table></div>', rows:rows};
   }
 
+  function tableLuz(d){
+    var rows=((d.luz&&d.luz.stars)||[]).slice().sort(function(a,b){
+      var ah=Number(a.holders||0), bh=Number(b.holders||0);
+      if(ah!==bh) return bh-ah;
+      try{
+        var as=BigInt(a.supply||0), bs=BigInt(b.supply||0);
+        if(as!==bs) return as>bs?-1:1;
+      }catch(_){ /* keep star order */ }
+      return BigInt(a.star)<BigInt(b.star)?-1:1;
+    });
+    if(!rows.length) return {html:'<div class="empty">No star has sealed KRC-77 yet. Hang the Luz paper on a star you own — then this catalog and that star\'s holder book appear together.</div>', rows:rows};
+    var h='<div class="tblwrap"><table class="dtable"><thead><tr>'
+      +'<th class="rk">#</th><th>star</th>'
+      +'<th class="r">supply ✧</th><th class="r hidem">circulating</th>'
+      +'<th class="r">holders</th><th class="r hides">tripwire</th>'
+      +'</tr></thead><tbody>';
+    rows.forEach(function(r,i){
+      var title=(r.baptism?'“'+r.baptism+'” · ':'')+'★ '+r.star+' · KRC-77';
+      var face=(window.KRAY&&KRAY.faceHtml)
+        ? KRAY.faceHtml({star:r.star,name:r.baptism,contentHash:r.contentHash,contentType:r.contentType,url:r.url,held:r.held})
+        : '<span class="glyph">★ '+esc(r.star)+'</span>';
+      h+='<tr class="trow-click'+(i===0?' top1':'')+'" data-href="/rank/luz/'+esc(r.star)+'">'
+        +rkCell(i)
+        +'<td class="who"><a class="starwho" href="/rank/luz/'+esc(r.star)+'" title="'+esc(title)+'">'
+        +'<span class="face facefill fixed sface-sq">'+face+'</span>'
+        +'<span class="starwho-m"><b>★ '+esc(r.star)+(r.baptism?' · '+esc(r.baptism):'')+'</b>'
+        +'<small>'+(r.id?esc(r.id)+' · ':'')+'KRC-77 · open the book</small></span></a></td>'
+        +'<td class="r luz" title="'+esc(full(r.supply))+' ✧">'+ka(r.supply)+' ✧</td>'
+        +'<td class="r hidem">'+ka(r.circulating)+'</td>'
+        +'<td class="r">'+num(r.holders)+'</td>'
+        +'<td class="r hides">'+(r.conserves===false?'<span class="v bad">broken</span>':'holds')+'</td>'
+        +'</tr>';
+    });
+    return {html:h+'</tbody></table></div>', rows:rows};
+  }
+
+  function runeFace(thumb, symbol){
+    var fb='<span class="rface fb"'+(thumb?' style="display:none"':'')+'>'+esc(symbol||'ᚱ')+'</span>';
+    if(!thumb) return fb;
+    return '<img class="rface" src="'+esc(thumb)+'" alt="" loading="lazy" onerror="this.style.display=&quot;none&quot;;if(this.nextElementSibling)this.nextElementSibling.style.display=&quot;grid&quot;">'+fb;
+  }
+
+  function tableRune(d){
+    var rows=((d.runes&&d.runes.runes)||[]).slice().sort(function(a,b){
+      var ah=Number(a.holderCount||0), bh=Number(b.holderCount||0);
+      if(ah!==bh) return bh-ah;
+      try{
+        var ar=BigInt(a.reserve||0), br=BigInt(b.reserve||0);
+        if(ar!==br) return ar>br?-1:1;
+      }catch(_){ /* keep id order */ }
+      return String(a.runeId)<String(b.runeId)?-1:1;
+    });
+    if(!rows.length) return {html:'<div class="empty">No rune bridged onto the L2 yet. When one lands, this standing and the house at <a href="/rune">/rune</a> appear together.</div>', rows:rows};
+    var h='<div class="tblwrap"><table class="dtable"><thead><tr>'
+      +'<th class="rk">#</th><th>rune</th>'
+      +'<th class="r">holders</th><th class="r hidem">reserve</th>'
+      +'<th class="r hides">tripwire</th>'
+      +'</tr></thead><tbody>';
+    rows.forEach(function(r,i){
+      var house='/rune#'+encodeURIComponent(r.runeId);
+      var title=(r.name||r.runeId)+' · '+r.runeId;
+      h+='<tr class="trow-click'+(i===0?' top1':'')+'" data-href="'+esc(house)+'">'
+        +rkCell(i)
+        +'<td class="who"><a class="starwho" href="'+esc(house)+'" title="'+esc(title)+'">'
+        +runeFace(r.thumbnail, r.symbol)
+        +'<span class="starwho-m"><b>'+esc(r.name||r.runeId)+(r.symbol?' · '+esc(r.symbol):'')+'</b>'
+        +'<small>'+esc(r.runeId)+(r.divisibility?' · '+esc(String(r.divisibility))+' decimals':'')+' · the house →</small></span></a></td>'
+        +'<td class="r">'+num(r.holderCount)+'</td>'
+        +'<td class="r hidem" title="'+esc(full(r.reserve))+'">'+ka(r.reserve)+'</td>'
+        +'<td class="r hides">'+(r.solvent===false?'<span class="v bad">broken</span>':'holds')+'</td>'
+        +'</tr>';
+    });
+    return {html:h+'</tbody></table></div>', rows:rows};
+  }
+
   function tableGlow(d){
     var rows=((d.lights&&d.lights.glow&&d.lights.glow.rank)||[]);
     if(!rows.length) return {html:'<div class="empty">No glow yet. Freeze a star — send it to the hole. ✦ +1, forever, on your stone.</div>', rows:rows};
@@ -331,8 +531,166 @@
     return {html:h+'</tbody></table></div>', rows:rows};
   }
 
+  function shortA(a){
+    a=String(a||'');
+    if(a.indexOf('KRAY_')===0) return a;
+    return a.length>24?a.slice(0,10)+'…'+a.slice(-6):a;
+  }
+  function luzTapeHtml(history){
+    var acts=(history||[]).filter(function(h){
+      return h.kind==='cut-send' || h.kind==='contract';
+    }).slice().reverse().slice(0,40);
+    var head='<div class="shead" style="margin-top:var(--s2)"><span class="n">02</span>'
+      +'<h2>Everything that moved</h2>'
+      +'<span class="sub">The seal and every cut-send on this light — newest first. Each row is a journal act.</span></div>';
+    if(!acts.length) return head+'<div class="empty">No Luz act on this star yet. Seal or send, and it appears here.</div>';
+    return head+'<div class="tblwrap">'+acts.map(function(a){
+      var send=a.kind==='cut-send';
+      var tg=send
+        ? {t:'mid', lb:'→ send', story:'luz ✧ changed hands · fee 1 ₭'}
+        : {t:'in', lb:'✧ seal', story:'KRC-77 hung on this star'};
+      var who=send
+        ? (esc(shortA(a.from))+' → '+esc(shortA(a.to)))
+        : (a.from?esc(shortA(a.from)):'');
+      var amt=send&&a.amount?('<b>'+esc(full(a.amount))+' ✧</b> · '):'';
+      var when=a.blockNumber!=null?(' · sealed #'+esc(String(a.blockNumber))):' · pending';
+      return '<a class="tx" href="/tx/'+esc(a.hash)+'"><span class="txtag '+tg.t+'">'+tg.lb+'</span>'
+        +'<div class="txmeta"><div class="txl">'+amt+tg.story+'</div>'
+        +'<div class="txs">'+who+when+'</div></div></a>';
+    }).join('')+'</div>';
+  }
+  function showTape(history){
+    var tape=document.getElementById('tape');
+    if(!tape) return;
+    tape.hidden=false;
+    tape.innerHTML=luzTapeHtml(history);
+  }
+  function fenyxTapeHtml(acts, total){
+    var rows=acts||[];
+    var n=Number(total!=null?total:rows.length)||0;
+    var head='<div class="shead" style="margin-top:var(--s2)"><span class="n">02</span>'
+      +'<h2>The proof in the journal</h2>'
+      +'<span class="sub">Every Ӿ act that wrote a hash — newest first. Click opens /tx/… Same fold a stranger replays. Lane hops live inside a fold-seal, not as extra txids.</span></div>';
+    if(!rows.length) return head+'<div class="empty">No x-send, burn, or fold-seal on this journal yet. When Ӿ moves or is born by fire, the hash appears here.</div>';
+    var more=n>rows.length?' <span class="sub">Showing '+num(rows.length)+' of '+num(n)+'.</span>':'';
+    return head+more+'<div class="tblwrap">'+rows.map(function(a){
+      var k=a.kind, tg, story, who;
+      if(k==='x-send'){
+        var feeless=String(a.fee||'0')==='0';
+        tg={t:'mid', lb:'→ Ӿ'};
+        story=(a.amount?'<b>'+esc(full(a.amount))+' Ӿ</b> · ':'')+(feeless?'feeless · tank':'fee 1 ₭');
+        who=esc(shortA(a.from))+' → '+esc(shortA(a.to));
+      }else if(k==='burn'||k==='burn-thaw'){
+        tg={t:'in', lb:k==='burn-thaw'?'thaw':'fire'};
+        story=(a.amount?'<b>'+esc(full(a.amount))+' ₭</b> burned · ':'')+'Ӿ born 1:1';
+        who=a.from?esc(shortA(a.from)):'';
+      }else if(k==='lane-enter'){
+        tg={t:'mid', lb:'▸ lane'};
+        story=(a.amount?'<b>'+esc(full(a.amount))+' Ӿ</b> · ':'')+'spendable → lane';
+        who=a.from?esc(shortA(a.from)):'';
+      }else if(k==='lane-exit'){
+        tg={t:'mid', lb:'◂ exit'};
+        story=(a.amount?'<b>'+esc(full(a.amount))+' Ӿ</b> · ':'')+'lane → spendable';
+        who=a.from?esc(shortA(a.from)):'';
+      }else{
+        tg={t:'in', lb:'seal'};
+        story='fold-seal · the proven breath (hops are inside the proof)';
+        who=a.from?esc(shortA(a.from)):'';
+      }
+      var href=a.hash?'/tx/'+esc(a.hash):'#';
+      var hx=a.hash?esc(String(a.hash).slice(0,12)+'…'):'no hash';
+      return '<a class="tx" href="'+href+'"><span class="txtag '+tg.t+'">'+tg.lb+'</span>'
+        +'<div class="txmeta"><div class="txl">'+story+'</div>'
+        +'<div class="txs">'+who+(who?' · ':'')+hx+'</div></div></a>';
+    }).join('')+'</div>';
+  }
+  function showFenyxTape(d){
+    var tape=document.getElementById('tape');
+    if(!tape) return;
+    var x=(d&&d.lights&&d.lights.x)||{};
+    tape.hidden=false;
+    tape.innerHTML=fenyxTapeHtml(x.tape, x.tapeCount);
+  }
+
+  function tableHolders(book){
+    var supply=book.supply||'0';
+    var rows=book.holders||[];
+    if(!rows.length) return '<div class="empty">The book is empty — a capped seal should have credited the sealer. Replay would HALT if Σ drifted.</div>';
+    var h='<div class="tblwrap"><table class="dtable"><thead><tr>'
+      +'<th class="rk">#</th><th>address</th>'
+      +'<th class="r">luz ✧</th><th class="r hides">share</th>'
+      +'</tr></thead><tbody>';
+    rows.forEach(function(r,i){
+      var pct=shareOf(r.amount, supply);
+      h+='<tr class="trow-click'+(i===0?' top1':'')+'" data-href="/address/'+esc(r.address)+'">'
+        +rkCell(i)
+        +'<td class="who"><a href="/address/'+esc(r.address)+'">'+esc(r.address.slice(0,16)+'…'+r.address.slice(-8))
+        +'<small>'+esc(r.address)+'</small></a></td>'
+        +'<td class="r luz" title="'+esc(full(r.amount))+' ✧">'+full(r.amount)+' ✧</td>'
+        +shareBar(pct)
+        +'</tr>';
+    });
+    return h+'</tbody></table></div>';
+  }
+
+  function paintDesk(d, n){
+    var desk=document.getElementById('desk');
+    desk.hidden=false;
+    document.getElementById('shead-t').textContent='Holder standing · ★ '+n;
+    document.getElementById('shead-s').textContent='Who holds this light. Σ must equal the sealed supply.';
+    document.getElementById('htitle').textContent='Rank · Luz · ★ '+n;
+    document.getElementById('eyebrow').textContent='KRC-77 · HOLDER BOOK · ★ '+n;
+    if(deskStar!==String(n)){
+      document.getElementById('desk-crown').innerHTML='<p class="sub">opening ★ '+esc(n)+'…</p>';
+      document.getElementById('tbl').innerHTML='<div class="empty">opening the book…</div>';
+    }
+    fetch('/api/kraynet/star/'+encodeURIComponent(n)).then(function(r){ return r.json(); }).then(function(s){
+      if(luzStar()!==String(n)) return;
+      if(s.error) throw new Error(s.error);
+      deskStar=String(n);
+      var book=s.luz;
+      var crown=document.getElementById('desk-crown');
+      crown.innerHTML=(window.KRAY&&KRAY.starCrownHtml)
+        ? KRAY.starCrownHtml(s, book)
+        : '';
+      if(window.KRAY&&KRAY.hydratePortraits) KRAY.hydratePortraits(crown);
+      if(!book||book.unportioned){
+        document.getElementById('stats').innerHTML='';
+        document.getElementById('tbl').innerHTML='<div class="empty">No Luz on this star. Seal KRC-77 on the star page — Law → KRC-77.</div>';
+        document.getElementById('note').innerHTML='<b>No book.</b> This star has not sealed the token law. The catalog is <a href="/rank/luz">/rank/luz</a>.';
+        showTape(s.history);
+        return;
+      }
+      if(book.infinite){
+        document.getElementById('stats').innerHTML=
+          stat('∞','supply')+stat('0','circulating')+stat('0','holders')+stat('—','genesis');
+        document.getElementById('tbl').innerHTML='<div class="empty">Infinite Luz has no holder lines yet.</div>';
+        showTape(s.history);
+        return;
+      }
+      var supply=book.supply||'0', circ=book.circulating||'0';
+      var rows=book.holders||[];
+      var ok=String(circ)===String(supply);
+      document.getElementById('stats').innerHTML=
+        stat(full(supply),'supply ✧')+
+        stat(full(circ),'circulating')+
+        stat(num(rows.length),'holders')+
+        stat(ok?'holds':'broken','Σ = supply', ok?'ok':'bad');
+      document.getElementById('tbl').innerHTML=tableHolders(book);
+      showTape(s.history);
+      document.getElementById('note').innerHTML=
+        '<b>What this standing is.</b> The holder book of ★ '+esc(String(s.star))+(s.name?' · '+esc(s.name):'')+'. '
+        +'Σ holders = sealed supply. The tape below is every proven Luz act on this star. '
+        +'Catalog: <a href="/rank/luz">/rank/luz</a>. Light market: <a href="/market/luz">/market/luz</a>.';
+      document.title='KRAY.NETWORK · Rank · Luz · ★ '+n;
+    }).catch(function(e){
+      document.getElementById('tbl').innerHTML='<div class="empty">The node did not open that book. '+esc((e&&e.message)||'try again')+'</div>';
+    });
+  }
+
   function render(d){
     last=d;
+    cur=bookFromLoc();
     paintHero(d);
     document.getElementById('rail').innerHTML=BOOKS.map(function(s){
       return '<button class="tab'+(s.id===cur?' on':'')+'" data-s="'+s.id+'" role="tab" aria-selected="'+(s.id===cur?'true':'false')+'" title="'+esc(s.title||s.label)+'" aria-label="'+esc(s.title||s.label)+'">'
@@ -342,18 +700,30 @@
     document.querySelectorAll('#rail .tab').forEach(function(b){
       b.addEventListener('click', function(){ setBook(b.getAttribute('data-s')); });
     });
+
+    var n=luzStar();
+    if(cur==='luz' && n){
+      paintDesk(d, n);
+      document.getElementById('stamp').textContent=' Last read '+new Date(d.at).toLocaleTimeString()+'.';
+      return;
+    }
+    hideDesk();
     paintStats(d);
 
     var out;
     if(cur==='x') out=tableX(d);
     else if(cur==='glow') out=tableGlow(d);
+    else if(cur==='luz') out=tableLuz(d);
+    else if(cur==='rune') out=tableRune(d);
     else if(cur==='stars') out=tableKray(d,'stars');
     else if(cur==='works') out=tableKray(d,'works');
     else out=tableKray(d,'balance');
     document.getElementById('tbl').innerHTML=out.html;
+    if(window.KRAY&&KRAY.hydratePortraits) KRAY.hydratePortraits(document.getElementById('tbl'));
 
     var note=(COPY[cur]||COPY.kray).note(d, out.rows);
     document.getElementById('note').innerHTML=note;
+    if(cur==='x') showFenyxTape(d);
     document.getElementById('stamp').textContent=' Last read '+new Date(d.at).toLocaleTimeString()+'.';
     document.title='KRAY.NETWORK · '+(COPY[cur]||COPY.kray).title;
   }
@@ -362,7 +732,8 @@
     var tr=e.target.closest('tr[data-href]');
     if(tr && !e.target.closest('a')) location.href=tr.getAttribute('data-href');
   });
-  window.addEventListener('hashchange', function(){ setBook(bookFromHash()); });
+  window.addEventListener('hashchange', function(){ cur=bookFromLoc(); if(last) render(last); });
+  window.addEventListener('popstate', function(){ cur=bookFromLoc(); if(last) render(last); });
 
   // The books live in two doors of the same fold. Analytics carries the rich envelope
   // (spendable / lane / tank / tripwire) after the node reloads. /lights is the older
@@ -395,9 +766,12 @@
   function tick(){
     Promise.all([
       fetch('/api/kraynet/analytics').then(function(r){ return r.json(); }),
-      fetch('/api/kraynet/lights').then(function(r){ return r.json(); }).catch(function(){ return null; })
+      fetch('/api/kraynet/lights').then(function(r){ return r.json(); }).catch(function(){ return null; }),
+      fetch('/api/kraynet/runes').then(function(r){ return r.json(); }).catch(function(){ return null; })
     ]).then(function(pair){
-      render(attachLights(pair[0], pair[1]));
+      var d=attachLights(pair[0], pair[1]);
+      if(pair[2]) d.runes=pair[2];
+      render(d);
     }).catch(function(){
       var s=document.getElementById('stamp');
       if(s) s.textContent=' The node stopped answering — the table above is the last good reading.';

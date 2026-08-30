@@ -53,6 +53,10 @@ ok(lights.x.symbol === 'Ӿ' && lights.x.name === 'Nyx' && lights.x.hybrid === 'F
 ok(lights.x.total === '5' && lights.x.totalSpendable === '3' && lights.x.totalLane === '2', `Ӿ books spendable=${lights.x.totalSpendable} lane=${lights.x.totalLane}`)
 ok(lights.x.tankBudget === (5n * FIREBORN_SENDS_PER_KRAY).toString(), `Fireborn tank budget = burned × ${FIREBORN_SENDS_PER_KRAY}`)
 ok(lights.conservation.ok === true && lights.conservation.xMinted === '5', 'conservation tripwire holds on the fold')
+ok(Array.isArray(lights.x.tape) && lights.x.tapeCount === 1 && lights.x.tape[0] && lights.x.tape[0].kind === 'burn' && lights.x.tape[0].hash === 'dd',
+  'fenyx tape is the journal hash (burn), not a second book')
+ok(lights.x.tape.every((t) => t.kind !== 'transfer-star' && t.kind !== 'inscribe'),
+  'tape does not mix glow freezes or star birth')
 
 const books = rankBooksView({ node, events, network: 'signet' })
 ok(books.lights.x.name === 'Nyx' && books.rank.length === 1 && books.rank[0].glow === '2', 'rank books carry ₭ standing + glow 2')

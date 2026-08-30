@@ -12,11 +12,13 @@ import { KrayLedger } from '../protocol/ledger.ts'
 import {
   NETWORKS, _generateKeyPair, _signKrayWallet, _hexToBytes,
   nameMessageV2, contractMessageV2, contractCallMessage, transferMessage, sendStarMessage,
+  cutSendMessage, xSendMessage,
 } from '../protocol/scheme.ts'
 import { canonicalCode, contractAddress, validateContract } from '../protocol/contract.ts'
-import { compileEscrow, compileTunnel, compileVest, compileScroll, compileForm, compileMint, isMintPaper, isLivingTool } from '../protocol/star-forms.ts'
+import { compileEscrow, compileTunnel, compileVest, compileScroll, compileForm, compileMint, compileCut, isMintPaper, isCutPaper, isLivingTool } from '../protocol/star-forms.ts'
+import { runCall, type CallContext } from '../protocol/contract.ts'
 import { callerInt } from '../protocol/star-law.ts'
-import { sha256hex, type KrayEvent } from '../protocol/kray-primitives.ts'
+import { sha256hex, BLACK_HOLE, type KrayEvent } from '../protocol/kray-primitives.ts'
 
 const NET = 'regtest'
 let pass = 0, fail = 0
@@ -32,7 +34,7 @@ function wallet(tag: string) {
 }
 
 function main() {
-  console.log('\n╔═ STAR FORMS — escrow · tunnel · vest · scroll ═╗\n')
+  console.log('\n╔═ STAR FORMS — escrow · tunnel · vest · scroll · cut ═╗\n')
   const A = wallet('A'), B = wallet('B'), C = wallet('C'), Eve = wallet('eve')
 
   const esc = compileEscrow({ buyer: B.addr, seller: C.addr, deadline: '20' })
@@ -44,6 +46,24 @@ function main() {
   ok(vest.rules[0].name === 'release', 'vest compiles to release')
   rejects(() => compileForm({ kind: 'nope' } as never), /unknown kind/, 'unknown form is refused')
   ok(isMintPaper(compileMint({ price: '1', max: '4' })) && compileForm({ kind: 'mint', price: '1', max: '4' }).rules.some((r) => r.name === 'mint'), 'mint compiles on the same IR')
+  const cut = compileCut({ supply: '100000' })
+  ok(isCutPaper(cut) && cut.vars.supply === '100000' && cut.vars.capped === '1' && !cut.rules.some((r) => r.name === 'collect' || r.name.startsWith('toggle_')), 'cut seals 100000 — no collect, no living mouth')
+  const cutInf = compileCut({ infinite: true })
+  ok(cutInf.vars.capped === '0' && cutInf.vars.supply === '0', 'cut infinite seals uncapped')
+  ok(compileForm({ kind: 'cut', supply: '100000' }).vars.prec === '1000000000000', 'cut compiles on the same IR')
+  rejects(() => compileCut({ supply: '0' }), /greater than 0/, 'cut refuses supply 0 without infinite')
+  rejects(() => compileCut({ supply: '10000001' }), /at most/, 'cut refuses supply above the ceiling')
+  const cutState = Object.fromEntries(Object.entries(cut.vars).map(([k, v]) => [k, BigInt(v)]))
+  const cutCtx = (over: Partial<CallContext> = {}): CallContext => ({
+    caller: A.addr, self: 'KRAY_CONTRACT_test', balance: 0n, height: 1n, interval: 0n, at: 0n,
+    beacon: 0n, args: { amount: 1n }, addressToInt: (s) => BigInt('0x' + createHash('sha256').update(s).digest('hex').slice(0, 16)),
+    holderAddress: A.addr, ...over,
+  })
+  const dep = runCall(cut, 'deposit', cutCtx(), cutState)
+  ok(dep.ok && dep.take === 1n && dep.vars.acc_rps === 10_000_000n && dep.vars.deposited === 1n, 'deposit 1 ₭ on 100000 supply bumps acc_rps by 1e12/1e5')
+  const depInf = runCall(cutInf, 'deposit', cutCtx(), Object.fromEntries(Object.entries(cutInf.vars).map(([k, v]) => [k, BigInt(v)])))
+  ok(depInf.ok && depInf.take === 1n && (depInf.vars.acc_rps == null || depInf.vars.acc_rps === 0n) && depInf.vars.deposited === 1n, 'infinite cut takes ₭ and does not divide')
+  ok(!cut.rules.some((r) => r.name === 'collect' || r.name === 'harvest' || r.name.startsWith('toggle_')), 'cut has no owner drain, no fake harvest, no pause latch')
 
   const L = new KrayLedger(undefined, NET)
   L.applyLive({ seq: 1, kind: 'donate', hash: 'da', to: A.addr, amount: '500' } as KrayEvent)
@@ -372,7 +392,151 @@ function main() {
   }, /refused|guard/i, 'a second claim on the same slot is refused')
   ok(L2.conserves(), 'list scroll conserves')
 
+  // cut — sealed constitution, public deposit, lives after freeze, replay is byte-exact
+  const Ccut = new KrayLedger(undefined, NET)
+  const cutFund: KrayEvent[] = [
+    { seq: 1, kind: 'donate', hash: 'cda', to: A.addr, amount: '200' } as KrayEvent,
+    { seq: 2, kind: 'donate', hash: 'cdb', to: B.addr, amount: '40' } as KrayEvent,
+  ]
+  for (const e of cutFund) Ccut.applyLive(e)
+  Ccut.applyLive({
+    seq: 3, kind: 'name', hash: 'cn', at: 0, from: A.addr, name: 'cutface', nonce: 0,
+    publicKey: A.pk, signature: _signKrayWallet(nameMessageV2(NET, A.addr, 0, 'cutface'), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  const ch = sha256hex(canonicalCode(cut))
+  Ccut.applyLive({
+    seq: 4, kind: 'contract', hash: 'cc', from: A.addr, code: cut, star: '0',
+    publicKey: A.pk, signature: _signKrayWallet(contractMessageV2(NET, A.addr, ch, 0n), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  const cpot = contractAddress(ch, A.addr, 4)
+  Ccut.applyLive({
+    seq: 5, kind: 'contract-call', hash: 'dep', from: B.addr, contract: cpot, rule: 'deposit',
+    callArgs: { amount: '5' }, fee: '1', nonce: 0,
+    publicKey: B.pk, signature: _signKrayWallet(contractCallMessage(NET, B.addr, cpot, 'deposit', { amount: 5n }, 0), B.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  ok(Ccut.balanceOf(cpot) === 5n && Ccut.contractAt(cpot)?.state.deposited === '5' && Ccut.contractAt(cpot)?.state.acc_rps === '50000000',
+    'deposit 5 ₭ on 100000 supply — pot holds 5, acc_rps = 5e12/1e5')
+  rejects(() => {
+    Ccut.applyLive({
+      seq: 6, kind: 'contract-call', hash: 'drain', from: A.addr, contract: cpot, rule: 'collect',
+      callArgs: {}, fee: '1', nonce: 1,
+      publicKey: A.pk, signature: _signKrayWallet(contractCallMessage(NET, A.addr, cpot, 'collect', {}, 1), A.sk), scheme: 'kraywallet',
+    } as KrayEvent)
+  }, /refused|no rule/i, 'owner cannot collect a cut — there is no drain')
+  Ccut.applyLive({
+    seq: 6, kind: 'transfer-star', hash: 'freeze', from: A.addr, to: BLACK_HOLE, star: '0', fee: '1', nonce: 1,
+    publicKey: A.pk, signature: _signKrayWallet(sendStarMessage(NET, A.addr, BLACK_HOLE, 0n, 1), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  ok(Ccut.stars.ownerOf(0n) === BLACK_HOLE, 'the face is frozen at the hole')
+  Ccut.applyLive({
+    seq: 7, kind: 'contract-call', hash: 'dep2', from: B.addr, contract: cpot, rule: 'deposit',
+    callArgs: { amount: '3' }, fee: '1', nonce: 1,
+    publicKey: B.pk, signature: _signKrayWallet(contractCallMessage(NET, B.addr, cpot, 'deposit', { amount: 3n }, 1), B.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  ok(Ccut.balanceOf(cpot) === 8n && Ccut.contractAt(cpot)?.state.deposited === '8' && Ccut.contractAt(cpot)?.state.acc_rps === '80000000',
+    'deposit still runs after freeze — terms outlive the face')
+  ok(Ccut.conserves(), 'cut conserves')
+  const cutReboot = new KrayLedger(undefined, NET)
+  const cutJournal: KrayEvent[] = [
+    ...cutFund,
+    {
+      seq: 3, kind: 'name', hash: 'cn', at: 0, from: A.addr, name: 'cutface', nonce: 0,
+      publicKey: A.pk, signature: _signKrayWallet(nameMessageV2(NET, A.addr, 0, 'cutface'), A.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+    {
+      seq: 4, kind: 'contract', hash: 'cc', from: A.addr, code: cut, star: '0',
+      publicKey: A.pk, signature: _signKrayWallet(contractMessageV2(NET, A.addr, ch, 0n), A.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+    {
+      seq: 5, kind: 'contract-call', hash: 'dep', from: B.addr, contract: cpot, rule: 'deposit',
+      callArgs: { amount: '5' }, fee: '1', nonce: 0,
+      publicKey: B.pk, signature: _signKrayWallet(contractCallMessage(NET, B.addr, cpot, 'deposit', { amount: 5n }, 0), B.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+    {
+      seq: 6, kind: 'transfer-star', hash: 'freeze', from: A.addr, to: BLACK_HOLE, star: '0', fee: '1', nonce: 1,
+      publicKey: A.pk, signature: _signKrayWallet(sendStarMessage(NET, A.addr, BLACK_HOLE, 0n, 1), A.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+    {
+      seq: 7, kind: 'contract-call', hash: 'dep2', from: B.addr, contract: cpot, rule: 'deposit',
+      callArgs: { amount: '3' }, fee: '1', nonce: 1,
+      publicKey: B.pk, signature: _signKrayWallet(contractCallMessage(NET, B.addr, cpot, 'deposit', { amount: 3n }, 1), B.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+  ]
+  for (const e of cutJournal) cutReboot.applyLive(e)
+  ok(cutReboot.cascadeRoot() === Ccut.cascadeRoot(), 'cut reboot cascade is byte-exact')
+  ok(cutReboot.balanceOf(cpot) === 8n && cutReboot.stars.ownerOf(0n) === BLACK_HOLE, 'pot and freeze survive replay')
+  ok(Ccut.cuts.of('0', A.addr) === 100000n && Ccut.cuts.view('0')?.name === 'Luz', 'seal credits the sealer — mouth is Luz')
+  ok(!!Ccut.cascadeParts().cutCommitment && !new KrayLedger(undefined, NET).cascadeParts().cutCommitment,
+    'Cadent folds by presence — empty book is absent (A3)')
+
+  const Csend = new KrayLedger(undefined, NET)
+  for (const e of cutFund) Csend.applyLive(e)
+  Csend.applyLive({
+    seq: 3, kind: 'name', hash: 'sn', at: 0, from: A.addr, name: 'cadent', nonce: 0,
+    publicKey: A.pk, signature: _signKrayWallet(nameMessageV2(NET, A.addr, 0, 'cadent'), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  Csend.applyLive({
+    seq: 4, kind: 'contract', hash: 'sc', from: A.addr, code: cut, star: '0',
+    publicKey: A.pk, signature: _signKrayWallet(contractMessageV2(NET, A.addr, ch, 0n), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  Csend.applyLive({
+    seq: 5, kind: 'cut-send', hash: 'cs1', from: A.addr, to: B.addr, star: '0', amount: '40000', fee: '1', nonce: 1,
+    publicKey: A.pk, signature: _signKrayWallet(cutSendMessage(NET, A.addr, B.addr, 0n, 40000n, 1), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  ok(Csend.cuts.of('0', A.addr) === 60000n && Csend.cuts.of('0', B.addr) === 40000n && Csend.cuts.conserves(),
+    'A sends 40000 Cadent to B — Σ still equals supply')
+  rejects(() => {
+    Csend.applyLive({
+      seq: 6, kind: 'cut-send', hash: 'forge', from: A.addr, to: Eve.addr, star: '0', amount: '1', fee: '1', nonce: 2,
+      publicKey: Eve.pk, signature: _signKrayWallet(cutSendMessage(NET, A.addr, Eve.addr, 0n, 1n, 2), Eve.sk), scheme: 'kraywallet',
+    } as KrayEvent)
+  }, /signature|verify|key/i, 'Eve cannot forge a Cadent send')
+  rejects(() => {
+    Csend.applyLive({
+      seq: 6, kind: 'cut-send', hash: 'xreplay', from: A.addr, to: B.addr, star: '0', amount: '1', fee: '1', nonce: 2,
+      publicKey: A.pk, signature: _signKrayWallet(xSendMessage(NET, A.addr, B.addr, 1n, 2), A.sk), scheme: 'kraywallet',
+    } as KrayEvent)
+  }, /signature|verify|message/i, 'an Ӿ signature cannot move Cadent')
+  Csend.applyLive({
+    seq: 6, kind: 'transfer-star', hash: 'sfrz', from: A.addr, to: BLACK_HOLE, star: '0', fee: '1', nonce: 2,
+    publicKey: A.pk, signature: _signKrayWallet(sendStarMessage(NET, A.addr, BLACK_HOLE, 0n, 2), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  Csend.applyLive({
+    seq: 7, kind: 'cut-send', hash: 'cs2', from: B.addr, to: C.addr, star: '0', amount: '10000', fee: '1', nonce: 0,
+    publicKey: B.pk, signature: _signKrayWallet(cutSendMessage(NET, B.addr, C.addr, 0n, 10000n, 0), B.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  ok(Csend.cuts.of('0', B.addr) === 30000n && Csend.cuts.of('0', C.addr) === 10000n && Csend.stars.ownerOf(0n) === BLACK_HOLE,
+    'after freeze, a holder still sends — the hair already fallen does not vanish')
+  ok(Csend.conserves(), 'Cadent send conserves ₭ and the book')
+  const sendReboot = new KrayLedger(undefined, NET)
+  const sendJournal: KrayEvent[] = [
+    ...cutFund,
+    {
+      seq: 3, kind: 'name', hash: 'sn', at: 0, from: A.addr, name: 'cadent', nonce: 0,
+      publicKey: A.pk, signature: _signKrayWallet(nameMessageV2(NET, A.addr, 0, 'cadent'), A.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+    {
+      seq: 4, kind: 'contract', hash: 'sc', from: A.addr, code: cut, star: '0',
+      publicKey: A.pk, signature: _signKrayWallet(contractMessageV2(NET, A.addr, ch, 0n), A.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+    {
+      seq: 5, kind: 'cut-send', hash: 'cs1', from: A.addr, to: B.addr, star: '0', amount: '40000', fee: '1', nonce: 1,
+      publicKey: A.pk, signature: _signKrayWallet(cutSendMessage(NET, A.addr, B.addr, 0n, 40000n, 1), A.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+    {
+      seq: 6, kind: 'transfer-star', hash: 'sfrz', from: A.addr, to: BLACK_HOLE, star: '0', fee: '1', nonce: 2,
+      publicKey: A.pk, signature: _signKrayWallet(sendStarMessage(NET, A.addr, BLACK_HOLE, 0n, 2), A.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+    {
+      seq: 7, kind: 'cut-send', hash: 'cs2', from: B.addr, to: C.addr, star: '0', amount: '10000', fee: '1', nonce: 0,
+      publicKey: B.pk, signature: _signKrayWallet(cutSendMessage(NET, B.addr, C.addr, 0n, 10000n, 0), B.sk), scheme: 'kraywallet',
+    } as KrayEvent,
+  ]
+  for (const e of sendJournal) sendReboot.applyLive(e)
+  ok(sendReboot.cascadeRoot() === Csend.cascadeRoot(), 'Cadent send reboot is byte-exact')
+  ok(sendReboot.cuts.of('0', A.addr) === 60000n && sendReboot.cuts.of('0', C.addr) === 10000n, 'holders survive replay')
+
   if (fail) { console.error(`\n✗ ${fail} failed, ${pass} passed`); process.exit(1) }
-  console.log(`\n✓ ${pass} checks passed — FORMS HOLD: escrow pays the seller only when the buyer signs; the tunnel tap travels with the face; vest pays the beneficiary on journal height; a scroll pays the caller through a mathematical door — never a secret key. Same IR. No second machine. ⚖⭐`)
+  console.log(`\n✓ ${pass} checks passed — FORMS HOLD: escrow pays the seller only when the buyer signs; the tunnel tap travels with the face; vest pays the beneficiary on journal height; a scroll pays the caller through a mathematical door; a cut seals supply, takes ₭, never drains, and keeps running after the face freezes. Cadent genesis + send fold by presence. Same IR. No second machine. ⚖⭐`)
 }
 main()

@@ -14,10 +14,7 @@
   .pulse{display:inline-block;width:var(--s2);height:var(--s2);border-radius:50%;background:var(--good);
     margin-right:var(--s2);vertical-align:middle;animation:pulse 2s var(--ease) infinite}
 
-  /* instrument hero — same type as the rest of the site, section air (not landing s10) */
-  .hero{padding:var(--s8) 0 var(--s7)}
-  @media(min-width:1024px){.hero{padding:var(--s9) 0 var(--s8)}}
-  .hero .stamp{display:flex;gap:var(--s3) var(--s5);flex-wrap:wrap;margin-top:var(--s5);
+  .hero .stamp{display:flex;gap:var(--s3) var(--s5);flex-wrap:wrap;
     font-family:var(--mono);font-size:12px;color:var(--ink-3);line-height:1.5}
   .hero .stamp b{color:var(--ink)}
 
@@ -81,6 +78,12 @@
   .rrow .rw{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rrow .rb{color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
   .rrow .rs{color:var(--ink-4);text-align:right;font-variant-numeric:tabular-nums}
+  a.rrow-luz{text-decoration:none;color:inherit;grid-template-columns:28px 48px minmax(0,1fr) 72px 52px}
+  a.rrow-luz:hover{border-color:var(--line-2);background:var(--surface)}
+  .sface-sq{width:48px;height:48px;border-radius:var(--r2);border:1px solid var(--line);background:var(--surface-2);overflow:hidden}
+  .rrow-luz .rw{display:flex;flex-direction:column;gap:2px;white-space:normal;overflow:hidden}
+  .rrow-luz .rw b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rrow-luz .rw small{display:block;color:var(--ink-4);font-size:10px;letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
   .chips{display:flex;gap:var(--s2);flex-wrap:wrap;margin-top:auto;padding-top:var(--s5)}
   .chip.crit{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,transparent)}
@@ -95,6 +98,7 @@
   @media(max-width:639px){
     .bar{grid-template-columns:80px minmax(0,1fr) 56px;gap:var(--s2)}
     .rrow{grid-template-columns:24px minmax(0,1fr) 80px}
+    a.rrow-luz{grid-template-columns:24px 40px minmax(0,1fr) 64px}
     .rrow .rs{display:none}
     .tiles .card{padding:var(--s4)}
   }
@@ -105,10 +109,7 @@
 <div class="wrap">
   <section class="hero" style="border-top:0">
     <div class="eyebrow">Dashboard · one compiled reading</div>
-    <h1>Everything that<br>has happened,<br><span class="dim">compiled once.</span></h1>
-    <p class="lede">Every number below is <b>derived</b> from the journal, the chain, the star map, the glow ledger and the
-      anchor log — nothing sampled, nothing estimated, so anyone replaying the same journal computes the same figures. Where
-      this node genuinely does not know a fact, it says so instead of guessing. Each card opens its own page.</p>
+    <h1>Dashboard</h1>
     <div class="stamp">
       <span id="netlab"><span class="pulse"></span>live</span>
       <span id="stamp"></span>
@@ -224,6 +225,28 @@
     h+='</div><div class="chips"><span class="chip">'+num(d.rankTotal)+' holders in total</span>'
       +'<span class="chip on">top holder '+(R.length?R[0].share.toFixed(2):'0')+'%</span></div></a>';
 
+    var LZ=d.luz||{}, LZs=LZ.stars||[];
+    h+='<div class="card tick c6">'
+      +'<a class="card-hit" href="/market/luz">'
+      +'<div class="ctop"><span class="label">Light market · Luz ✧</span><span class="go">open /market/luz →</span></div>'
+      +'<p class="csub">The light floor of the markets hub. Click a face for <b>its</b> book. Stars list at /market/star.</p></a>'
+      +'<div class="rank">';
+    if(!LZs.length) h+='<div class="kv"><span class="kk">no star has sealed KRC-77 yet</span><span class="vv">—</span></div>';
+    LZs.slice().sort(function(a,b){ return Number(b.holders||0)-Number(a.holders||0); }).slice(0,6).forEach(function(r,i){
+      var face=(window.KRAY&&KRAY.faceHtml)
+        ? KRAY.faceHtml({star:r.star,name:r.baptism,contentHash:r.contentHash,contentType:r.contentType,url:r.url,held:r.held})
+        : '<span class="glyph">★ '+esc(r.star)+'</span>';
+      h+='<a class="rrow rrow-luz'+(i===0?' top':'')+'" href="/rank/luz/'+esc(r.star)+'">'
+        +'<span class="rn">'+(i+1)+'</span>'
+        +'<span class="face facefill fixed sface-sq">'+face+'</span>'
+        +'<span class="rw"><b>★ '+esc(r.star)+(r.baptism?' · '+esc(r.baptism):'')+'</b>'
+        +'<small>'+(r.id?esc(r.id):'KRC-77')+'</small></span>'
+        +'<span class="rb">'+ka(r.supply)+' ✧</span>'
+        +'<span class="rs">'+num(r.holders)+'</span></a>';
+    });
+    h+='</div><div class="chips"><span class="chip">'+num(LZ.books||0)+' books</span>'
+      +'<span class="chip '+(LZ.conserves===false?'crit':'on')+'">'+(LZ.conserves===false?'tripwire broken':'Σ = supply')+'</span></div></div>';
+
     // ── THE LIBRARY — three namespaces + the shelves ─────────────────────
     var c=d.library.census||{}, sh=d.library.shelves||{};
     var shelfMax=Math.max.apply(null,[1].concat(Object.keys(sh).map(function(k){return sh[k];})));
@@ -329,6 +352,7 @@
     h+='</div></div></section>';
 
     document.getElementById('body').innerHTML=h;
+    if(window.KRAY&&KRAY.hydratePortraits) KRAY.hydratePortraits(document.getElementById('body'));
     document.getElementById('stamp').textContent='Last read '+new Date(d.at).toLocaleTimeString()+'.';
     document.getElementById('netlab').innerHTML='<span class="pulse"></span>'+esc(d.network)
       +(d.simulation?' · simulation':'');

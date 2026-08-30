@@ -284,6 +284,7 @@
     <div class="display" id="s-balance">—</div>
     <div class="k" id="s-breakdown">₭ balance · stars held</div>
     <div class="k" id="s-lights" style="margin-top:var(--s2)"></div>
+    <div class="k" id="s-luz" style="margin-top:var(--s2)"></div>
   </div>
   <div class="stats pstats">
     <div class="stat tick"><div class="v" id="s-insc">—</div><div class="k">inscriptions written</div></div>
@@ -1131,12 +1132,21 @@
     var lightsEl=document.getElementById('s-lights');
     if(lightsEl){
       lightsEl.innerHTML=
-        '<a href="/rank#glow" style="text-decoration:none;color:'+(glowN>0?'var(--gold,#e8b923)':'var(--ink-4)')+'" title="Glow — soulbound honor, 1 per star you froze forever. The rank book is /rank#glow.">✦ <b>'+glowN.toLocaleString()+'</b> glow</a>'
-        +' &nbsp;·&nbsp; <a href="/rank#nyx" style="text-decoration:none;color:'+(xN>0?'var(--ink-2)':'var(--ink-4)')+'" title="Nyx (Ӿ) — born 1:1 from burned ₭. Fenyx is the hybrid (phoenix + Nyx). The rank book is /rank#nyx.">Ӿ <b>'+xN.toLocaleString()+'</b> Nyx</a>'
+        '<a href="/rank/glow" style="text-decoration:none;color:'+(glowN>0?'var(--gold,#e8b923)':'var(--ink-4)')+'" title="Glow — soulbound honor, 1 per star you froze forever. The rank book is /rank/glow.">✦ <b>'+glowN.toLocaleString()+'</b> glow</a>'
+        +' &nbsp;·&nbsp; <a href="/rank/nyx" style="text-decoration:none;color:'+(xN>0?'var(--ink-2)':'var(--ink-4)')+'" title="Nyx (Ӿ) — born 1:1 from burned ₭. Fenyx is the hybrid (phoenix + Nyx). The rank book is /rank/nyx.">Ӿ <b>'+xN.toLocaleString()+'</b> Nyx</a>'
         // the WHOLE Ӿ story, in the X-red the acts wear on /chain: what moves NOW (journal book) and
         // what breathes inside the TK-fold lane (feeless, settled by proven fold-seals)
         +(xsN!=null&&(xsN>0||(lxN||0)>0)?' &nbsp;·&nbsp; <span style="color:'+(xsN>0?'#ff6b6b':'var(--ink-4)')+'" title="Ӿ this address can move NOW by x-send (the journal book).">Ӿ <b>'+xsN.toLocaleString()+'</b> spendable</span>':'')
         +(lxN!=null&&lxN>0?' &nbsp;·&nbsp; <span style="color:#ff3b3b" title="Ӿ living inside the TK-fold lane — feeless transfers, settled on the journal by proven fold-seals.">Ӿ <b>'+lxN.toLocaleString()+'</b> in the lane</span>':'');
+    }
+    var luzEl=document.getElementById('s-luz');
+    if(luzEl){
+      var luzRows=p.luz||[];
+      luzEl.innerHTML=luzRows.length
+        ? luzRows.map(function(h){
+            return '<a href="/rank/luz/'+esc(h.star)+'" style="text-decoration:none;color:var(--ink-2)" title="KRC-77 Luz — holder rank of this star">✧ <b>'+Number(h.amount).toLocaleString()+'</b> on ★ '+esc(String(h.star))+'</a>';
+          }).join(' &nbsp;·&nbsp; ')
+        : '';
     }
     $('s-insc').textContent=p.inscriptions.total.toLocaleString();
     $('s-bapt').textContent=p.baptisms.length.toLocaleString();
@@ -2688,7 +2698,7 @@
   // doors: they carry data-rune but never the rlink class, so they are untouched.
   document.addEventListener('click',function(ev){
     var el=ev.target&&ev.target.closest?ev.target.closest('.rlink'):null; if(!el) return;
-    ev.preventDefault(); ev.stopPropagation(); location.href='/runes#'+(el.getAttribute('data-rune')||'');
+    ev.preventDefault(); ev.stopPropagation(); location.href='/rune#'+(el.getAttribute('data-rune')||'');
   },true);
 })();
 </script>

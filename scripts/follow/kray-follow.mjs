@@ -51,7 +51,7 @@ const SERVE = parseInt(arg('--serve', '0'), 10) || 0   // read-only mirror port 
 // not a mouthless book: opening / paints the "prove it yourself" UI against this node's OWN re-derived state,
 // same origin, no external dependency. Read-only; the API + atlas below stay the verified snapshot.
 const UI_DIR = fileURLToPath(new URL('../../apps/kray-net/', import.meta.url))
-// Same pretty doors the writer ships — a validator opens /rank #nyx #fenyx #glow against ITS OWN fold.
+// Same pretty doors the writer ships — a validator opens /rank/nyx /rank/glow against ITS OWN fold.
 const UI_PRETTY = {
   '/': 'index.html', '/index.html': 'index.html',
   '/validate': 'validate.html', '/mine-live': 'validate.html',
@@ -59,16 +59,21 @@ const UI_PRETTY = {
   '/network': 'network.html', '/nodes': 'network.html',
   '/burn': 'burn.html', '/burn-proof': 'burn.html',
   '/blocks': 'blocks.html', '/chain': 'blocks.html',
-  '/rank': 'rank.html', '/dashboard': 'dashboard.html', '/library': 'library.html',
+  '/rank': 'rank.html',
+  '/rank/kray': 'rank.html', '/rank/nyx': 'rank.html', '/rank/x': 'rank.html', '/rank/fenyx': 'rank.html',
+  '/rank/glow': 'rank.html', '/rank/luz': 'rank.html', '/rank/rune': 'rank.html',
+  '/rank/stars': 'rank.html', '/rank/works': 'rank.html',
+  '/dashboard': 'dashboard.html', '/library': 'library.html',
   '/mind': 'mind.html',
   '/docs': 'docs.html', '/inscribe': 'inscribe.html', '/send': 'send.html',
-  '/baptize': 'baptize.html', '/mine': 'mine.html', '/rune': 'rune.html',
+  '/baptize': 'baptize.html', '/mine': 'mine.html', '/rune': 'rune.html', '/runes': 'rune.html',
   '/defi': 'defi.html', '/pool': 'pool.html',
   '/blackhole': 'blackhole.html',
   '/land3d': 'landcity.html', '/city': 'landcity.html', '/land': 'map.html',
 }
 const UI_PARAM = [
   [/^\/star\/\d+\/?$/, 'star.html'],
+  [/^\/rank\/luz\/\d+\/?$/, 'rank.html'],
   [/^\/block\/\w+\/?$/, 'block.html'],
   [/^\/tx\/[0-9a-f]+/i, 'tx.html'],
   [/^\/profile\/\w+/, 'profile.html'],
@@ -77,7 +82,8 @@ const UI_PARAM = [
   [/^\/pool\/[^/]+/, 'pool.html'],
 ]
 const UI_REDIRECT = {
-  '/x': '/rank#nyx', '/glow': '/rank#glow', '/lights': '/rank', '/two-lights': '/rank',
+  '/x': '/rank/nyx', '/nyx': '/rank/nyx', '/fenyx': '/rank/nyx',
+  '/glow': '/rank/glow', '/lights': '/rank', '/two-lights': '/rank',
 }
 const uiPageOf = (p) => UI_PRETTY[p] || ((UI_PARAM.find(([rx]) => rx.test(p)) || [])[1] || null)
 const UI_MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon', '.webp': 'image/webp', '.wasm': 'application/wasm' }

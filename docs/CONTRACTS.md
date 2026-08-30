@@ -36,8 +36,11 @@ Three laws of the language (they are consensus, not style):
 2. **Deterministic** — integers only. No wall clock, no I/O, no RNG except the Bitcoin **beacon** already in the journal.
 3. **Cannot create value** — a contract is an account. It cannot mint ₭. Worst case: it empties **itself**.
 
-Templates on the desk (mint, raffle, escrow, scroll…) are **shortcuts for common
-patterns**. Most people will write their own paper. Same IR either way.
+Templates on the desk (mint, raffle, escrow, scroll, **Luz / KRC-77**…) are
+**shortcuts for common patterns**. Most people will write their own paper
+(**Code**). Same IR either way. The proof is the sealed bytes in the journal —
+not the button you clicked. A stranger re-derives every call from those bytes
++ Merkle + Bitcoin. Anyone may invent a new being; the exam is the gate.
 
 ## The paper (the only source you may emit)
 

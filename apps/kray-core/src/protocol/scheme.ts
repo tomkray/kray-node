@@ -130,6 +130,12 @@ export function xSendMessage(network: string, from: string, to: string, amount: 
   return `kray-core.x-send.v1|net=${network}|from=${from}|to=${to}|amount=${amount}|nonce=${nonce}`
 }
 
+/** CADENT SEND — move this star's element (KRC-77). Own domain: a ₭ / Ӿ signature
+ *  can never move Cadent, and a send of ★N cannot replay as ★M. */
+export function cutSendMessage(network: string, from: string, to: string, star: bigint, amount: bigint, nonce: number): string {
+  return `kray-core.cut-send.v1|net=${network}|from=${from}|to=${to}|star=${star}|amount=${amount}|nonce=${nonce}`
+}
+
 /** THE TK-FOLD LANE ENTRY (Gate 2) — the message a holder signs to move their own spendable Ӿ INTO the
  *  compressed lane. Its OWN injective domain (no `to` — the lane credits the signer), so it can never be
  *  replayed as an x-send or a lane transfer, nor the reverse. Journal nonce (not the lane nonce). */

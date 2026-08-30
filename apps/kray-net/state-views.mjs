@@ -110,6 +110,36 @@ export function libraryView(node) {
   }
 }
 
+// Fenyx tape — journal acts that ARE the Ӿ book (not a second journal). Newest first.
+// x-send / burn / thaw / lane / fold-seal carry a hash. Lane hops inside a fold-seal
+// do not invent extra txids — the seal is the line. Star birth and glow freezes stay out.
+const FENYX_TAPE_KINDS = new Set(['x-send', 'burn', 'burn-thaw', 'lane-enter', 'lane-exit', 'fold-seal'])
+const FENYX_TAPE_CAP = 40
+
+function fenyxTape(events, cap = FENYX_TAPE_CAP) {
+  const take = Math.min(80, Math.max(1, Number(cap) || FENYX_TAPE_CAP))
+  const tape = []
+  let tapeCount = 0
+  const list = events || []
+  for (let i = list.length - 1; i >= 0; i--) {
+    const e = list[i]
+    if (!e || !FENYX_TAPE_KINDS.has(e.kind)) continue
+    tapeCount++
+    if (tape.length >= take) continue
+    tape.push({
+      hash: e.hash || null,
+      kind: e.kind,
+      from: e.from || null,
+      to: e.to || null,
+      amount: e.amount != null ? String(e.amount) : null,
+      fee: e.fee != null ? String(e.fee) : null,
+      at: e.at || 0,
+      seq: e.seq != null ? e.seq : null,
+    })
+  }
+  return { tape, tapeCount }
+}
+
 // THE TWO LIGHTS — ✦ glow (frozen stars, soulbound) and Ӿ Nyx / Fenyx (burn-born money + Fireborn tank).
 // Pure fold of the replayed ledger + journal events. Writer and follower MUST call this — a validator
 // that relays the writer's /lights is trusting a mouth, not re-deriving the books.
@@ -147,6 +177,7 @@ export function lightsView({ node, events, labelOf, top } = {}) {
     }))
   const burned = L.totalBurned
   const fireBudget = burned * FIREBORN_SENDS_PER_KRAY
+  const fenyx = fenyxTape(events)
   return {
     glow: { symbol: GLOW_SYMBOL, total: glowTotal, holders: glowMap.size, rank: glowRank, rankTotal: glowMap.size },
     x: {
@@ -155,6 +186,7 @@ export function lightsView({ node, events, labelOf, top } = {}) {
       total: L.xEmitted.toString(), totalSpendable: spendSum.toString(), totalLane: laneSum.toString(),
       tankTotal: tankSum.toString(), tankBudget: fireBudget.toString(),
       holders: liveHolders, mintedHolders, rank: xRank, rankTotal: liveHolders,
+      tape: fenyx.tape, tapeCount: fenyx.tapeCount,
     },
     conservation: {
       ok: L.conserves(),

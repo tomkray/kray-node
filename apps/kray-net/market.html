@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>KRAY.NETWORK · Marketplace</title>
+<title>KRAY.NETWORK · Star market</title>
 <link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
@@ -54,8 +54,14 @@
 <body data-page="market">
 <div class="wrap">
   <section class="hero" style="border-top:0">
-    <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; SIGNED · ATOMIC · REPLAYABLE</div>
-    <h1>Marketplace</h1>
+    <div class="eyebrow">STAR MARKET · SIGNED · ATOMIC · REPLAYABLE</div>
+    <h1>Star market</h1>
+    <p class="lede" style="max-width:62ch;font-size:16px;line-height:1.6;color:var(--ink-2);margin:var(--s4) 0 0">The main floor of the <a href="/market">markets hub</a>. Stars list, bid and settle by signature. Luz ✧ lives next door, at the light market.</p>
+    <nav class="mkpair" aria-label="Markets">
+      <a href="/market">Markets</a>
+      <a class="on" href="/market/star" aria-current="page">Star market</a>
+      <a href="/market/luz">Light market</a>
+    </nav>
     <div class="proofbar">
       <span class="chip btc">signed</span>
       <span class="chip">atomic swap</span>
@@ -349,9 +355,9 @@
     if (!t) return;
     if (t.dataset.tab) {
       tab = t.dataset.tab;
-      if (tab === 'collections') { try { history.replaceState(null, '', path === '/collections' ? '/collections' : '/market#collections'); } catch (_) {} loadCols(); return; }
-      if (tab === 'activity') { try { history.replaceState(null, '', '/market#activity'); } catch (_) {} if (!pulse.tape) load(); else draw(); return; }
-      try { history.replaceState(null, '', path === '/collections' ? '/market' : (location.pathname + (location.search || ''))); } catch (_) {}
+      if (tab === 'collections') { try { history.replaceState(null, '', path === '/collections' ? '/collections' : '/market/star#collections'); } catch (_) {} loadCols(); return; }
+      if (tab === 'activity') { try { history.replaceState(null, '', '/market/star#activity'); } catch (_) {} if (!pulse.tape) load(); else draw(); return; }
+      try { history.replaceState(null, '', path === '/collections' ? '/market/star' : (location.pathname + (location.search || ''))); } catch (_) {}
       draw();
       if (!listings.length) load();
       return;

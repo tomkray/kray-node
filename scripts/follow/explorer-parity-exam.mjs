@@ -66,9 +66,9 @@ ok(idx.status === 200 && /node explorer/i.test(idx.body) && /searchform/.test(id
 const rankPage = await grab(F, '/rank')
 ok(rankPage.status === 200 && /KRAY\.NETWORK · Rank/.test(rankPage.body), 'GET /rank → the rank books page')
 const xRedir = await grab(F, '/x')
-ok(xRedir.status === 302 && /\/rank#nyx/.test(xRedir.loc || ''), 'GET /x → 302 /rank#nyx')
+ok(xRedir.status === 302 && /\/rank\/nyx/.test(xRedir.loc || ''), 'GET /x → 302 /rank/nyx')
 const glowRedir = await grab(F, '/glow')
-ok(glowRedir.status === 302 && /\/rank#glow/.test(glowRedir.loc || ''), 'GET /glow → 302 /rank#glow')
+ok(glowRedir.status === 302 && /\/rank\/glow/.test(glowRedir.loc || ''), 'GET /glow → 302 /rank/glow')
 
 // 8 · LIGHTS fold — Ӿ Nyx / Fenyx + ✦ glow from THIS replay, never viaMirror
 const lightsCore = (o) => {

@@ -203,6 +203,14 @@ section{padding:var(--s6) 0;border-top:1px solid var(--line)}
 .chip.on b,.chip.on .gold,.chip.on span{color:var(--signal-ink)}
 .chip.good{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
 
+/* Two markets — star house and light house. Never one page for both books. */
+.mkpair{display:flex;flex-wrap:wrap;gap:var(--s2);margin:var(--s4) 0 0}
+.mkpair a{display:inline-flex;align-items:center;min-height:44px;padding:var(--s2) var(--s4);
+  border:1px solid var(--line);border-radius:var(--r-pill);background:var(--surface-2);
+  color:var(--ink-2);font-family:var(--mono);font-size:12px;letter-spacing:.04em;text-decoration:none}
+.mkpair a:hover{border-color:var(--line-2);color:var(--ink)}
+.mkpair a.on{color:var(--ink);border-color:var(--ink-3);background:var(--surface);font-weight:600}
+
 /* ── sink plates — BURNED 🔥 / FREEZE ❄. Hairline. Never the ₭ glyph. ──
    THE PLATE: one stamp in the unused top-right of a box. The figure and the
    caption stay clean. Do not sit the tag next to a ₭ amount. */
@@ -564,6 +572,15 @@ details.brlink>summary:hover{color:var(--btc)}
 .skind-face{position:absolute;left:8px;bottom:8px;z-index:2;font-family:var(--mono);font-size:8px;
   letter-spacing:.08em;text-transform:uppercase;padding:2px 6px;border-radius:var(--r1);
   background:var(--void);color:var(--ink-2);border:1px solid var(--line);pointer-events:none}
+
+/* STAR CROWN — standard identity header: 128 face · ★ N · name · chips. */
+.starcrown{display:flex;align-items:flex-start;gap:var(--s5);flex-wrap:wrap;margin-bottom:var(--s5)}
+.starcrown-face{width:128px;height:128px;border-radius:var(--r3);border:1px solid var(--line);background:var(--surface-2);box-shadow:var(--shadow);overflow:hidden;flex:0 0 128px}
+.starcrown-m{min-width:0;flex:1 1 220px}
+.starcrown-m h2{margin:0;font-size:22px;line-height:1.25}
+.starcrown-m .sub{margin:var(--s2) 0 0;font-size:14px;line-height:1.5;color:var(--ink-3);max-width:52ch}
+.starids{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s3)}
+.starids .chip{font-family:var(--mono);font-size:11px}
 .skind{display:inline-flex;align-items:center;align-self:flex-start;font-family:var(--mono);font-size:10px;
   letter-spacing:.06em;text-transform:uppercase;padding:2px 6px;border-radius:var(--r1);
   border:1px solid var(--line);color:var(--ink-3)}

@@ -1,5 +1,5 @@
 /**
- * SEALED FORMS — escrow, tunnel, vest, scroll, raffle. Same total IR as living law.
+ * SEALED FORMS — escrow, tunnel, vest, scroll, raffle, mint, cut. Same total IR as living law.
  *
  * Not a second VM. A catalog of beings that compile to contract.ts.
  * Hang on a star (v2, burn 1 ₭) or stand alone (v1, frozen, no burn).
@@ -17,7 +17,7 @@ import { validateContract, type ContractCode, type Expr } from './contract.ts'
 const ADDR_RE = /^[a-z0-9]{8,90}$/i
 const WHOLE = /^(0|[1-9]\d*)$/
 
-export type FormKind = 'escrow' | 'tunnel' | 'vest' | 'scroll' | 'raffle' | 'mint'
+export type FormKind = 'escrow' | 'tunnel' | 'vest' | 'scroll' | 'raffle' | 'mint' | 'cut' | 'luz'
 
 /** Seats in one raffle window — the IR has no list type; each face is a bind. */
 export const MAX_RAFFLE_SEATS = 8
@@ -25,6 +25,10 @@ export const MAX_RAFFLE_SEATS = 8
 export const DEFAULT_RAFFLE_PERIOD = 100
 /** One drop — editions on one face. Hard cap so a mint cannot be an unbounded loop. */
 export const MAX_MINT_EDITION = 256
+/** KRC-77 Cut — max sealed supply (same ceiling as the old L2 share token). 0 + uncapped = infinite. */
+export const MAX_CUT_SUPPLY = 10_000_000
+/** MasterChef scale — integer only. Hidden; the desk does not let a user pick it. */
+export const CUT_PRECISION = '1000000000000'
 /** Art URL the desk pulls at the mint act. NOT IR (vars are integers) and NOT journaled — the reducer refuses
  *  `e.shelf` (ledger.ts: "an art URL does not ride the journal — a stranger would steal the file"); it is a
  *  writer's-desk field kept off consensus (SSRF-guarded parse below). Bound only so the desk cannot store junk. */
@@ -40,6 +44,8 @@ export type ContractForm =
   | { kind: 'scroll'; each: string; max: string; locked?: boolean; gate?: ScrollGate; allow?: string[] }
   | { kind: 'raffle'; price: string; period?: string; seats?: string }
   | { kind: 'mint'; price: string; max: string; payTo?: string }
+  | { kind: 'cut'; supply?: string; infinite?: boolean }
+  | { kind: 'luz'; supply?: string; infinite?: boolean }
 
 function addr(a: string, name: string): string {
   const s = String(a || '').trim()
@@ -486,6 +492,73 @@ export function isMintPaper(code: { rules?: { name: string }[] } | null | undefi
   return names.includes('mint') && !names.includes('enter')
 }
 
+/**
+ * LUZ ✧ (K-7) — the objective token law on a star. The word is IN the bytes:
+ * sealed var `luz=1`. A stranger reading the paper sees Luz. Not chrome.
+ *
+ * Ethereum's ERC-20 / Solana's SPL, smaller: this paper seals the supply
+ * (a max, or infinite) and accepts ₭ into the pot. It does not store a
+ * holder map (the IR has none) and it does not collect — the owner cannot
+ * drain royalties. Harvest waits for the share book (`ctx.shares`).
+ *
+ *   capped=1, supply=N  — max N units (Radiola default 100000)
+ *   capped=0, supply=0  — infinite (uncapped constitution)
+ */
+export function compileCut(input: { supply?: string; infinite?: boolean } = {}): ContractCode {
+  const infinite = !!input.infinite
+  let supply = '0'
+  let capped = '0'
+  if (!infinite) {
+    const raw = input.supply != null && String(input.supply).trim() !== ''
+      ? String(input.supply).trim()
+      : '100000'
+    supply = whole(raw, 'supply')
+    if (supply === '0') throw new Error('form: cut supply must be greater than 0 (or pick infinite)')
+    const n = Number(supply)
+    if (!Number.isInteger(n) || n < 1 || n > MAX_CUT_SUPPLY) {
+      throw new Error(`form: cut supply is at most ${MAX_CUT_SUPPLY}`)
+    }
+    capped = '1'
+  }
+  const bump: Expr = {
+    op: 'if',
+    args: [
+      { op: 'eq', args: [{ var: 'capped' }, { lit: '1' }] },
+      { op: 'div', args: [
+        { op: 'mul', args: [{ arg: 'amount' }, { var: 'prec' }] },
+        { var: 'supply' },
+      ] },
+      { lit: '0' },
+    ],
+  }
+  // Sealed constitution — no toggle_*, no collect. Deposit is the public door.
+  return finish({
+    vars: { luz: '1', supply, capped, acc_rps: '0', deposited: '0', prec: CUT_PRECISION },
+    rules: [
+      {
+        name: 'deposit',
+        when: { op: 'gt', args: [{ arg: 'amount' }, { lit: '0' }] },
+        then: [
+          { take: { amount: { arg: 'amount' } } },
+          { set: { var: 'deposited', to: { op: 'add', args: [{ var: 'deposited' }, { arg: 'amount' }] } } },
+          { set: { var: 'acc_rps', to: { op: 'add', args: [{ var: 'acc_rps' }, bump] } } },
+        ],
+      },
+    ],
+  })
+}
+
+export function isCutPaper(code: { rules?: { name: string }[]; vars?: Record<string, string> } | null | undefined): boolean {
+  const names = (code?.rules || []).map((r) => r.name)
+  return code?.vars?.luz === '1'
+    && names.includes('deposit') && !names.includes('mint') && !names.includes('enter')
+    && code?.vars?.prec != null && code?.vars?.capped != null
+}
+
+/** Same paper. Mouth is Luz; compiler kind may still say cut. */
+export const isLuzPaper = isCutPaper
+export const compileLuz = compileCut
+
 function assertPublicHost(host: string): void {
   const h = String(host || '').toLowerCase().replace(/^\[|\]$/g, '')
   if (!h || h === 'localhost' || h === '0.0.0.0' || h.endsWith('.local') || h === 'metadata.google.internal') {
@@ -544,6 +617,7 @@ export function compileForm(form: ContractForm): ContractCode {
   if (form.kind === 'scroll') return compileScroll(form)
   if (form.kind === 'raffle') return compileRaffle(form)
   if (form.kind === 'mint') return compileMint(form)
+  if (form.kind === 'cut' || form.kind === 'luz') return compileCut(form)
   throw new Error(`form: unknown kind "${(form as { kind: string }).kind}"`)
 }
 

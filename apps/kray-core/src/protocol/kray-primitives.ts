@@ -67,7 +67,7 @@ export function donationProofMinConf(net: string): number {
 // 'donate'/'anchor' are the proof-of-donation mint events (KRAYNET): a donation of
 // proven sats mints ₭ against the anchoring pot's deficit; an anchor spends pot sats
 // to fund a Bitcoin anchor. Every kind the reducer handles lives in this union.
-export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy' | 'star-offer' | 'star-offer-cancel' | 'star-offer-accept'
+export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy' | 'star-offer' | 'star-offer-cancel' | 'star-offer-accept' | 'cut-send'
 
 /** A star's user-given name: 1..64 bytes UTF-8, byte-exact unique, forever. */
 export const NAME_MAX_BYTES = 64

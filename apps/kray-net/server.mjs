@@ -1827,7 +1827,17 @@ function profileView(addr) {
     // at/after the feeless activation seq — the door quotes the prescribed fee, never the client).
     // laneX = this address's Ӿ inside the TK-fold compressed lane (Gate 2; 0 until the fold activates).
     lights: { glow: glowOf(events, addr), glowSymbol: GLOW_SYMBOL, x: node.ledger.xMintedOf(addr).toString(), xSpendable: node.ledger.xBalanceOf(addr).toString(), xSymbol: 'Ӿ', fireTank: node.ledger.fireTankOf(addr).toString(), laneX: node.ledger.laneBalanceOf(addr).toString() },
-    luz: node.ledger.cuts.holdingsOf(addr).map((h) => ({ ...h, name: 'Luz', glyph: '✧' })),
+    // Luz ✧ is additive. The live writer ledger may not carry CutBook yet — never take the
+    // profile door down (a 400 here paints 0 ₭ in the wallet, which is a lie).
+    luz: (() => {
+      try {
+        const cuts = node.ledger && node.ledger.cuts
+        if (cuts && typeof cuts.holdingsOf === 'function') {
+          return cuts.holdingsOf(addr).map((h) => ({ ...h, name: 'Luz', glyph: '✧' }))
+        }
+      } catch (_) { /* Luz must never take the profile door down */ }
+      return []
+    })(),
   }
 }
 
@@ -3328,6 +3338,26 @@ function txSummary(e, block) {
     out.contentUrl = '/content/' + out.contentHash
     out.contentHeld = existsSync(join(CONTENT_DIR, out.contentHash))
   }
+  // Luz ✧ on a cut-send — same honesty as a rune row: which book, how many, the star's face.
+  // Derived from the journal + the star's written bytes. Never a second amount field.
+  if (e.kind === 'cut-send' && starNo != null) {
+    const thumb = out.contentUrl && String(out.contentType || '').toLowerCase().startsWith('image/')
+      ? out.contentUrl
+      : null
+    let supply = null
+    try {
+      const book = node.ledger && node.ledger.cuts && typeof node.ledger.cuts.view === 'function'
+        ? node.ledger.cuts.view(String(starNo))
+        : null
+      if (book && book.supply != null) supply = String(book.supply)
+    } catch { /* Luz must never take the tx door down */ }
+    out.luz = {
+      name: 'Luz', glyph: '✧', star: String(starNo),
+      amount: e.amount != null ? String(e.amount) : null,
+      supply, thumbnail: thumb,
+    }
+    if (thumb) out.thumbnail = thumb
+  }
   return out
 }
 // the minimal /api/state the explorer reads (network/simulation/latestBlock/mainnet), plus a
@@ -3765,13 +3795,19 @@ function starView(nBig) {
   }
 }
 
-/** Luz ✧ on this face — book when portioned, named-empty when the paper is infinite, unportioned otherwise. */
+/** Luz ✧ on this face — book when portioned, named-empty when the paper is infinite, unportioned otherwise.
+ *  A face, never the star door: if the cut book is not on this ledger, the star still loads. */
 function luzFace(nStr, law) {
-  const book = node.ledger.cuts.view(nStr)
-  if (book) return { ...book, glyph: '✧', unportioned: false }
-  if (law && isCutPaper(law.code) && String(law.code.vars?.capped) === '0') {
-    return { star: nStr, name: 'Luz', glyph: '✧', supply: '0', capped: false, circulating: '0', holders: [], unportioned: false, infinite: true }
-  }
+  try {
+    const cuts = node.ledger && node.ledger.cuts
+    if (cuts && typeof cuts.view === 'function') {
+      const book = cuts.view(nStr)
+      if (book) return { ...book, glyph: '✧', unportioned: false }
+    }
+    if (typeof isCutPaper === 'function' && law && isCutPaper(law.code) && String(law.code.vars?.capped) === '0') {
+      return { star: nStr, name: 'Luz', glyph: '✧', supply: '0', capped: false, circulating: '0', holders: [], unportioned: false, infinite: true }
+    }
+  } catch (_) { /* Luz must never take the star view down */ }
   return { star: nStr, name: 'Luz', glyph: '✧', unportioned: true, supply: null, circulating: '0', holders: [] }
 }
 
@@ -5089,6 +5125,24 @@ const server = createServer(async (req, res) => {
       if (p === '/burn' || p === '/burn-proof') return serveFile(res, join(APP_DIR, 'burn.html'), 'text/html; charset=utf-8')
       if (p === '/verify') return serveFile(res, join(APP_DIR, 'verify.html'), 'text/html; charset=utf-8')
       if (p === '/validate' || p === '/mine-live') return serveFile(res, join(APP_DIR, 'validate.html'), 'text/html; charset=utf-8')
+      // Markets: /market is the hub. Floors are /market/star and /market/luz.
+      // Old /luz and /marketplace 302 so a bookmark never 404s and we never ship a second house.
+      {
+        const luzDesk = /^\/luz\/(\d+)\/?$/.exec(p)
+        if (p === '/luz' || p === '/luz/') {
+          res.writeHead(302, { Location: '/market/luz', 'Cache-Control': 'no-store' }); return res.end()
+        }
+        if (luzDesk) {
+          res.writeHead(302, { Location: '/rank/luz/' + luzDesk[1], 'Cache-Control': 'no-store' }); return res.end()
+        }
+        const marketLuzDesk = /^\/market\/luz\/(\d+)\/?$/.exec(p)
+        if (marketLuzDesk) {
+          res.writeHead(302, { Location: '/rank/luz/' + marketLuzDesk[1], 'Cache-Control': 'no-store' }); return res.end()
+        }
+        if (p === '/marketplace') {
+          res.writeHead(302, { Location: '/market', 'Cache-Control': 'no-store' }); return res.end()
+        }
+      }
       // THE EXPLORER'S PRETTY DOORS — the node SHIPS the whole rich explorer in its own tree
       // (blocks/chain constellation, block, star, tx, profile, rune, land…), but only a handful of
       // pages were ever routed: /blocks (the /chain constellation) answered "no route" on every node
@@ -5098,17 +5152,24 @@ const server = createServer(async (req, res) => {
         const PRETTY = {
           '/blocks': 'blocks.html', '/chain': 'blocks.html',
           '/land3d': 'landcity.html', '/city': 'landcity.html', '/land': 'map.html',
-          '/rank': 'rank.html', '/dashboard': 'dashboard.html', '/library': 'library.html',
+          '/rank': 'rank.html',
+          '/rank/kray': 'rank.html', '/rank/nyx': 'rank.html', '/rank/x': 'rank.html', '/rank/fenyx': 'rank.html',
+          '/rank/glow': 'rank.html', '/rank/luz': 'rank.html', '/rank/rune': 'rank.html',
+          '/rank/stars': 'rank.html', '/rank/works': 'rank.html',
+          '/dashboard': 'dashboard.html', '/library': 'library.html',
           '/mind': 'mind.html',
           '/docs': 'docs.html', '/inscribe': 'inscribe.html', '/send': 'send.html', '/baptize': 'baptize.html',
-          '/mine': 'mine.html', '/rune': 'rune.html', '/defi': 'defi.html', '/pool': 'pool.html',
-          '/market': 'market.html', '/marketplace': 'market.html',
+          '/mine': 'mine.html', '/rune': 'rune.html', '/runes': 'rune.html', '/runes/': 'rune.html', '/defi': 'defi.html', '/pool': 'pool.html',
+          '/market': 'markets.html',
+          '/market/star': 'market.html',
+          '/market/luz': 'luz.html',
           '/collections': 'market.html',
         }
         const PARAM = [
           // /star/<n> · /star/<name> · /star/<inscription id> — star.html resolves all three
           // client-side (a baptized name 302s to its number). The canon relic promises
           // /star/<name>, so the door must route it, not 404 it.
+          [/^\/rank\/luz\/\d+\/?$/, 'rank.html'],
           [/^\/star\/[a-zA-Z0-9]+\/?$/, 'star.html'], [/^\/block\/\w+\/?$/, 'block.html'], [/^\/tx\/[0-9a-f]+/i, 'tx.html'],
           // /collection/ord/<l1 id> — Bitcoin father, not a star on this book.
           // /collection/<name|number> — a named KRAY parent star.
@@ -5266,10 +5327,10 @@ const server = createServer(async (req, res) => {
       // The black-hole register — where frozen stars glow forever and burned ₭ died in the fire. The
       // KRAY_BLACK_HOLE redirect below lands here; without this route it fell through to a page with neither sink.
       if (p === '/blackhole') return serveFile(res, join(APP_DIR, 'blackhole.html'), 'text/html; charset=utf-8')
-      // THE TWO LIGHTS live on /rank as books (tabs + hash). Old doors 302 so a bookmark never 404s
-      // and we never ship a second ranking surface (one derived order, one URL).
-      if (p === '/x') { res.writeHead(302, { Location: '/rank#nyx', 'Cache-Control': 'no-store' }); return res.end() }
-      if (p === '/glow') { res.writeHead(302, { Location: '/rank#glow', 'Cache-Control': 'no-store' }); return res.end() }
+      // Rank books are path drawers of one rank.html. Old hash doors 302 so a bookmark never 404s.
+      if (p === '/x' || p === '/nyx' || p === '/fenyx') { res.writeHead(302, { Location: '/rank/nyx', 'Cache-Control': 'no-store' }); return res.end() }
+      if (p === '/glow') { res.writeHead(302, { Location: '/rank/glow', 'Cache-Control': 'no-store' }); return res.end() }
+      if (p === '/krc-77' || p === '/krc77') { res.writeHead(302, { Location: '/market/luz', 'Cache-Control': 'no-store' }); return res.end() }
       if (p === '/lights' || p === '/two-lights') { res.writeHead(302, { Location: '/rank', 'Cache-Control': 'no-store' }); return res.end() }
       // v2 is the ONLY version — the old /v1 monolith (explorer.html) is retired, no duplication
       // /contracts has no rich HTML page (the DeFi data rides /api/kraynet/contracts) — no broken route left
@@ -5635,6 +5696,33 @@ const server = createServer(async (req, res) => {
         const shelves = {}; let writtenBytes = 0
         for (const x of liveIns) { const c = catOf(x.contentType); shelves[c] = (shelves[c] || 0) + 1; writtenBytes += x.size || 0 }
         const bh = blackHoleView(L)
+        const luz = (() => {
+          try {
+            const cuts = L.cuts
+            if (!cuts || typeof cuts.catalog !== 'function') return { books: 0, conserves: true, stars: [] }
+            const stars = cuts.catalog().map((b) => {
+              let st = null
+              try { st = L.stars.star(BigInt(b.star)) } catch { /* unnamed is honest */ }
+              const hash = st && st.contentHash ? String(st.contentHash) : null
+              return {
+                star: b.star,
+                baptism: (st && st.name) || null,
+                id: (st && st.id) || null,
+                contentHash: hash,
+                contentType: (st && st.contentType) || null,
+                url: hash ? '/content/' + hash : null,
+                held: hash ? existsSync(join(CONTENT_DIR, hash)) : false,
+                supply: b.supply,
+                circulating: b.circulating,
+                holders: b.holders.length,
+                conserves: b.circulating === b.supply,
+              }
+            })
+            return { books: stars.length, conserves: cuts.empty() || cuts.conserves(), stars }
+          } catch (_) {
+            return { books: 0, conserves: true, stars: [] }
+          }
+        })()
         return ok(res, {
           // envelope the /rank page reads: the network label, the simulation flag, and the FULL
           // holder count (the rank is uncapped today, so rankTotal == rank.length — but the page
@@ -5656,6 +5744,7 @@ const server = createServer(async (req, res) => {
           })(),
           rank,
           lights,
+          luz,
           stars: { total: L.stars.starCount, written: liveIns.length, named: liveNames.length },
           library: { works: liveIns.length, names: liveNames.length, bytes: writtenBytes, shelves, census: shelves },
           land: { totalLands: R.totalLands, totalLots: R.totalLots },
@@ -6210,24 +6299,31 @@ const server = createServer(async (req, res) => {
         // the profile, ENRICHED with the address's L2 rune holdings (name, amount, and what is exiting)
         // in the exact shape the profile page renders — so "Your rune · the L2" shows real balances.
         const addr = decodeURIComponent(m[1])
-        const view = profileView(addr)
-        const held = node.runesOf(addr)
-        view.runes = await Promise.all(held.map(async (r) => {
-          const meta = await runeMetaOf(r.runeId).catch(() => null)
-          // an OPEN exit shows its SIGNED destination too, so the profile's Cancel pedal can say
-          // exactly where the lock was headed before the holder pulls it back — additive field.
-          const pend = r.locked > 0n ? node.ledger.runes.lockedOf(parseRuneKey(r.runeId), addr) : null
-          return {
-            runeId: r.runeId, rune: (meta && meta.name) || r.runeId, symbol: (meta && meta.symbol) || null,
-            divisibility: (meta && meta.divisibility) || 0,
-            balance: r.amount.toString(), locked: r.locked > 0n ? { amount: r.locked.toString(), l1Address: (pend && pend.l1Address) || null } : null,
-            personal: (r.personal ?? 0n).toString(), transferable: (r.transferable ?? 0n).toString(),
-            thumbnail: meta && meta.parent ? '/api/kraynet/rune-thumb/' + encodeURIComponent(r.runeId) + '?v=2' : null,
-          }
-        }))
-        return ok(res, view)
+        try {
+          const view = profileView(addr)
+          const held = node.runesOf(addr)
+          view.runes = await Promise.all(held.map(async (r) => {
+            const meta = await runeMetaOf(r.runeId).catch(() => null)
+            // an OPEN exit shows its SIGNED destination too, so the profile's Cancel pedal can say
+            // exactly where the lock was headed before the holder pulls it back — additive field.
+            const pend = r.locked > 0n ? node.ledger.runes.lockedOf(parseRuneKey(r.runeId), addr) : null
+            return {
+              runeId: r.runeId, rune: (meta && meta.name) || r.runeId, symbol: (meta && meta.symbol) || null,
+              divisibility: (meta && meta.divisibility) || 0,
+              balance: r.amount.toString(), locked: r.locked > 0n ? { amount: r.locked.toString(), l1Address: (pend && pend.l1Address) || null } : null,
+              personal: (r.personal ?? 0n).toString(), transferable: (r.transferable ?? 0n).toString(),
+              thumbnail: meta && meta.parent ? '/api/kraynet/rune-thumb/' + encodeURIComponent(r.runeId) + '?v=2' : null,
+            }
+          }))
+          return ok(res, view)
+        } catch (e) {
+          return err(res, 500, e instanceof Error ? e.message : String(e))
+        }
       }
-      if ((m = p.match(/^\/api\/kraynet\/account\/(.+)$/))) return ok(res, profileView(decodeURIComponent(m[1])))
+      if ((m = p.match(/^\/api\/kraynet\/account\/(.+)$/))) {
+        try { return ok(res, profileView(decodeURIComponent(m[1]))) }
+        catch (e) { return err(res, 500, e instanceof Error ? e.message : String(e)) }
+      }
       // THE TWO LIGHTS — same fold /rank reads (analytics.lights). `top` caps the lists; omit for the full books.
       if (p === '/api/kraynet/lights') {
         const raw = url.searchParams.get('top')
@@ -6235,7 +6331,11 @@ const server = createServer(async (req, res) => {
         return ok(res, { network: NET, ...lightsView(top) })
       }
       if ((m = p.match(/^\/api\/kraynet\/star\/(\d+)$/))) {
-        const v = starView(BigInt(m[1])); return v ? ok(res, v) : err(res, 404, 'no such star')
+        try {
+          const v = starView(BigInt(m[1])); return v ? ok(res, v) : err(res, 404, 'no such star')
+        } catch (e) {
+          return err(res, 500, e instanceof Error ? e.message : String(e))
+        }
       }
       // same star, named by its tattoo id (`<signed act hash>i<index>`). The page at /star/<id>
       // resolves here, then renders /api/kraynet/star/<number>. Cursed tattoos never bind a star.

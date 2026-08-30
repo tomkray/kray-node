@@ -85,6 +85,7 @@
     { id: "scroll", title: "Scroll", kind: "form", tag: "open claim", blurb: "Open scroll. Anyone claims each until max. The 1 ₭ fee is the sybil tax. Locked: ₭ leaves only through claim." },
     { id: "raffle", title: "Raffle", kind: "form", tag: "enter · settle · draw", blurb: "A looping pot on this face. People buy a seat. After the wait, Bitcoin's seal names the winner. You never pick who. No collect." },
     { id: "mint", title: "Mint", kind: "form", tag: "mint now · inscribe", blurb: "Not a prelist. One click: price to the seller now, eternal burn to write the star, art bytes as the child. Same content cannot mint twice." },
+    { id: "cut", title: "KRC-77", kind: "form", tag: "luz ✧", blurb: "The token law on this star. Pick a max supply or infinite. Anyone may deposit ₭ into the pot. No collect — the owner cannot drain it. Shares live on the book, not in this paper." },
     { id: "stamp", title: "Stamp", kind: "form", tag: "you name winner", blurb: "Stamp scroll. The living owner writes the next claimant. No secret key — the journal sees the claim." },
     { id: "list", title: "List", kind: "form", tag: "allowlist", blurb: "List scroll. Sealed addresses, one claim each. Same paper as a guest list or airdrop." },
     { id: "code", title: "Code", kind: "code", tag: "vars + rules", blurb: "Your own law. Paste the JSON paper. Draft in Solidity if you like — an AI translates it. The exam refuses raw Solidity because this chain cannot run a Turing VM. Run test, then seal." },
@@ -124,6 +125,9 @@
     }
     if (id === "mint") {
       return { form: { kind: "mint", price: "5", max: "8", shelf: "" }, star: star };
+    }
+    if (id === "cut") {
+      return { form: { kind: "cut", supply: "100000", infinite: false }, star: star };
     }
     return { source: JSON.stringify(MARK) };
   }
@@ -231,14 +235,20 @@
         + labeled("f-pay", "Pay mint price to", "Empty = living owner of the face. Or any address on this network — a normal service payment sealed in the paper.", "empty = living owner", "")
         + '<div class="lawknob"><label for="f-shelf">Art URL · secret · this node only</label><p class="hint">Run test compiles the paper without this. Seal needs a real https URL — the grey hint is not a value. Never published. Unguessable paths.</p>'
         + '<input class="input" id="f-shelf" placeholder="paste https://…" autocomplete="off" style="min-height:44px"></div>';
+    } else if (id === "cut") {
+      html = labeled("f-supply", "Supply · max units", "How many luz ✧ this star will ever have. 100000 is Radiola's default (one percent = 1000). Empty + infinite = no cap.", "e.g. 100000", "100000")
+        + '<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px">'
+        + '<input type="checkbox" id="f-infinite"> infinite — no max, supply stays open</label>';
     }
     host.innerHTML = '<div class="lawfields">' + html + "</div>";
     if (opts.onChange) {
       host.oninput = opts.onChange;
       var locked = host.querySelector("#f-locked");
       var gate = host.querySelector("#f-gate");
+      var inf = host.querySelector("#f-infinite");
       if (locked) locked.addEventListener("change", opts.onChange);
       if (gate) gate.addEventListener("change", opts.onChange);
+      if (inf) inf.addEventListener("change", opts.onChange);
     }
   }
   function read(host, id, extra) {
@@ -267,6 +277,10 @@
     }
     if (id === "mint") {
       return { form: { kind: "mint", price: val("f-price"), max: val("f-max"), payTo: val("f-pay"), shelf: val("f-shelf") } };
+    }
+    if (id === "cut") {
+      var infBox = document.getElementById("f-infinite");
+      return { form: { kind: "cut", supply: val("f-supply"), infinite: !!(infBox && infBox.checked) } };
     }
     return { living: { flags: cloneFlags("being") } };
   }
@@ -297,6 +311,11 @@
       var max = Number(f.max);
       var price = Number(f.price);
       return f.price !== "" && Number.isFinite(price) && price >= 0 && max >= 1 && max <= 256;
+    }
+    if (f.kind === "cut") {
+      if (f.infinite) return true;
+      var sup = Number(f.supply);
+      return f.supply !== "" && Number.isInteger(sup) && sup >= 1 && sup <= 10000000;
     }
     return false;
   }

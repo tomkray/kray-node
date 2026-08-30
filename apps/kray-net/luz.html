@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KRAY.NETWORK · Light market</title>
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  /* Luz — the light market. Page-local only; the system lives in /kray.css. */
+  .hero .stamp{display:flex;gap:var(--s3) var(--s5);flex-wrap:wrap;margin-top:var(--s3);font-family:var(--mono);font-size:12px;color:var(--ink-3);line-height:1.5}
+  .hero .stamp b{color:var(--ink)}
+  .lede{max-width:62ch;font-size:16px;line-height:1.6;color:var(--ink-2);margin:var(--s4) 0 0}
+  .lede b{color:var(--ink)}
+  .proofbar{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s4)}
+  .bookstats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3);margin:var(--s5) 0 0}
+  .bookstats .stat .v.ok{color:var(--good)}
+  .bookstats .stat .v.bad{color:var(--crit,#f5776b)}
+  .laws{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--s4);margin-top:var(--s4)}
+  .law{padding:var(--s5);border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);min-height:0}
+  .law .k{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);margin-bottom:var(--s3)}
+  .law h3{font-size:18px;line-height:1.3;margin:0 0 var(--s3);color:var(--ink);font-weight:600}
+  .law p{margin:0;font-size:15px;line-height:1.6;color:var(--ink-2)}
+  .law p+p{margin-top:var(--s3)}
+  .law b{color:var(--ink);font-weight:600}
+  .law code{font-family:var(--mono);font-size:13px}
+  .tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);box-shadow:var(--shadow)}
+  .dtable{width:100%}
+  .dtable th,.dtable td{padding:var(--s3) var(--s4);font-family:var(--mono);font-size:12px}
+  .dtable th{color:var(--ink-3);font-weight:500;letter-spacing:.06em;text-transform:uppercase;font-size:11px;border-bottom:1px solid var(--line);text-align:left}
+  .dtable td{border-bottom:1px solid var(--line-2);color:var(--ink-2)}
+  .dtable tr:last-child td{border-bottom:0}
+  .dtable th.r,.dtable td.r{text-align:right}
+  .dtable td.rk{color:var(--ink-4);white-space:nowrap}
+  .dtable .medal{display:inline-block;width:20px}
+  .dtable tr.top1 td.rk{color:var(--ink);font-weight:600}
+  .dtable tr.trow-click{cursor:pointer}
+  .dtable tr.trow-click:hover td{background:var(--surface-2)}
+  .dtable tr.on td{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+  .dtable td.who{max-width:1px;width:100%}
+  .dtable td.who a{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+  .dtable td.who a.starwho{display:flex;align-items:center;gap:var(--s3);white-space:normal;overflow:visible;text-overflow:unset}
+  .dtable td.who small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-4);font-size:10px;letter-spacing:.02em}
+  .sface-sq{width:64px;height:64px;border-radius:var(--r2);border:1px solid var(--line);background:var(--surface-2);flex:0 0 64px;overflow:hidden}
+  .starwho-m{min-width:0;flex:1}
+  .starwho-m b{display:block;color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dtable td.bal{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+  .shr{height:3px;border-radius:2px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line);margin-top:4px}
+  .shr i{display:block;height:100%;background:var(--ink-3)}
+  .empty{padding:var(--s7) var(--s4);text-align:center;color:var(--ink-3);font-size:14px;line-height:1.6}
+  .desk{margin-top:var(--s6);padding:var(--s5);border:1px solid var(--line);border-radius:var(--r3);background:var(--surface);box-shadow:var(--shadow)}
+  .desk[hidden]{display:none!important}
+  .starcrown{display:flex;align-items:flex-start;gap:var(--s5);flex-wrap:wrap;margin-bottom:var(--s5)}
+  .starcrown-face{width:128px;height:128px;border-radius:var(--r3);border:1px solid var(--line);background:var(--surface-2);box-shadow:var(--shadow)}
+  .starcrown-m{min-width:0;flex:1 1 220px}
+  .starcrown-m h2{margin:0;font-size:22px;line-height:1.25}
+  .starcrown-m .sub{margin:var(--s2) 0 0;font-size:14px;line-height:1.5;color:var(--ink-3);max-width:52ch}
+  .starids{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s3)}
+  .starids .chip{font-family:var(--mono);font-size:11px}
+  .srcline{font-family:var(--mono);font-size:12px;color:var(--ink-4);margin-top:var(--s5)}
+  .note{margin-top:var(--s5);padding:var(--s4) var(--s5);font-size:14px;line-height:1.6;color:var(--ink-3)}
+  .note b{color:var(--ink-2);font-weight:500}
+  @media(max-width:1023px){.bookstats,.laws{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:639px){.bookstats,.laws{grid-template-columns:minmax(0,1fr)}.dtable .hides{display:none}}
+</style>
+</head>
+<body data-page="market">
+
+<div class="wrap">
+  <section class="hero" style="border-top:0">
+    <div class="eyebrow">LIGHT MARKET · LUZ ✧ · KRC-77 · SAME FOLD ON EVERY NODE</div>
+    <h1>Light market</h1>
+    <p class="lede">The market of lights — a floor of the <a href="/market">markets hub</a>. Every star that sealed Luz ✧. Click a book. Stars themselves list next door, at the <a href="/market/star">star market</a>. The shares live on the journal, not in the paper.</p>
+    <nav class="mkpair" aria-label="Markets">
+      <a href="/market">Markets</a>
+      <a href="/market/star">Star market</a>
+      <a class="on" href="/market/luz" aria-current="page">Light market</a>
+    </nav>
+    <div class="proofbar">
+      <span class="chip">KRC-77</span>
+      <span class="chip">Σ holders = supply</span>
+      <span class="chip">signed cut-send</span>
+      <span class="chip">no drain</span>
+      <span class="chip">never ₭ · never Ӿ</span>
+      <span class="chip live" id="live"><i></i>book</span>
+    </div>
+    <div class="stamp">
+      <span>network <b id="netlab">—</b></span>
+      <span>cascade <b id="caslab">—</b></span>
+      <span>tripwire <b id="conslab">—</b></span>
+      <span>refreshed every <b>6s</b></span>
+    </div>
+    <div class="bookstats" id="stats"></div>
+  </section>
+</div>
+
+<section><div class="wrap">
+  <div class="shead"><span class="n">01</span>
+    <h2>How the mathematics holds</h2>
+    <span class="sub">The same curtain as Fenyx: signature ‖ Merkle ‖ Bitcoin. If a stranger cannot re-derive it from the bytes, it did not happen.</span></div>
+  <div class="laws">
+    <article class="law">
+      <div class="k">01 · destiny</div>
+      <h3>Supply is sealed once</h3>
+      <p>KRC-77 hangs on a star you own. One leash forever. The sealer is credited with the whole supply — or the paper is infinite and no units exist yet. Nobody reseals a bigger number. The owner cannot <b>collect</b> the book. There is no admin key.</p>
+    </article>
+    <article class="law">
+      <div class="k">02 · transit</div>
+      <h3>Luz moves on its own domain</h3>
+      <p>A send is <code>cut-send</code> — a BIP-340 signature over a message that names <b>from · to · star · amount · nonce · network</b>. A ₭ signature cannot move Luz. An Ӿ signature cannot move Luz. Eve cannot spend what she does not hold. Fee is the eternal 1 ₭.</p>
+    </article>
+    <article class="law">
+      <div class="k">03 · conservation</div>
+      <h3>Σ holders = sealed supply</h3>
+      <p>After every honest send the units only change hands. Over-supply is refused. A lie that minted extra luz would break the tripwire — the node <b>HALTs</b> rather than serve it. Luz never becomes ₭. ₭ never becomes Luz. Fenyx (Ӿ) is the other night; the books do not mix.</p>
+    </article>
+    <article class="law">
+      <div class="k">04 · the bytes</div>
+      <h3>Replay is the verifier</h3>
+      <p>Holders are not stored in the paper (that would flood the IR). They are rebuilt from the journal on every boot. The book folds into the cascade <b>by presence</b> — empty means absent, so history stays byte-identical. A forged line is a different root. Every honest node refuses it.</p>
+    </article>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="shead"><span class="n">02</span>
+    <h2>The light books</h2>
+    <span class="sub">Stars that sealed KRC-77. Click a row to open that star’s holder dashboard — the market of one light.</span></div>
+  <div id="tbl"><div class="empty">reading the journal…</div></div>
+  <div class="desk" id="desk" hidden>
+    <div class="starcrown" id="desk-crown"></div>
+    <div class="bookstats" id="desk-stats"></div>
+    <div id="desk-tbl"></div>
+  </div>
+  <div class="card note" id="note"></div>
+  <div class="srcline">Catalog from <span class="mono">/api/kraynet/analytics</span> · holders from <span class="mono">/api/kraynet/star/&lt;n&gt;</span> — both folds of the anchored journal. <span id="stamp"></span></div>
+</div></section>
+
+<script src="/kray.js" defer></script>
+<script>
+(function(){
+  'use strict';
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function ka(v){
+    var n=Number(v||0), a=Math.abs(n);
+    var u=[[1e15,'Q'],[1e12,'T'],[1e9,'B'],[1e6,'M'],[1e3,'K']];
+    for(var i=0;i<u.length;i++) if(a>=u[i][0]) return (n/u[i][0]).toFixed(a/u[i][0]>=100?0:a/u[i][0]>=10?1:2).replace(/\.0+$/,'')+u[i][1];
+    return String(n);
+  }
+  function full(v){ try{ return BigInt(v).toLocaleString(); }catch(_){ return String(v); } }
+  function num(v){ return Number(v||0).toLocaleString(); }
+  function shortRoot(r){ r=String(r||''); return r? r.slice(0,12)+'…' : '—'; }
+  function shareOf(part, whole){
+    try{
+      var p=BigInt(part||0), w=BigInt(whole||0);
+      if(w===0n) return 0;
+      return Number((p*10000n)/w)/100;
+    }catch(_){ return 0; }
+  }
+  function stat(v, k, cls){
+    return '<div class="stat"><div class="v'+(cls?' '+cls:'')+'">'+v+'</div><div class="k">'+k+'</div></div>';
+  }
+  function rkCell(i){
+    var medal=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    return '<td class="rk"><span class="medal">'+medal+'</span>'+(i+1)+'</td>';
+  }
+  function faceBox(t, cls){
+    var inner=(window.KRAY&&KRAY.faceHtml)?KRAY.faceHtml(t):('<span class="glyph">★ '+esc(t&&t.star!=null?t.star:'')+'</span>');
+    return '<span class="face facefill fixed '+(cls||'sface-sq')+'">'+inner+'</span>';
+  }
+  function faceTok(r){
+    return { star:r.star, name:r.baptism||r.name, contentHash:r.contentHash, contentType:r.contentType||r.ctype, url:r.url, held:r.held };
+  }
+  function hydrate(el){
+    if(window.KRAY&&KRAY.hydratePortraits) KRAY.hydratePortraits(el||document);
+  }
+
+  function pathStar(){
+    var m=location.pathname.match(/^\/(?:market\/)?luz\/(\d+)\/?$/);
+    if(m) return m[1];
+    var h=(location.hash||'').replace(/^#/,'');
+    if(/^\d+$/.test(h)) return h;
+    return '';
+  }
+  function floor(){ return '/rank/luz'; }
+  var open=pathStar();
+  var last=null;
+
+  function go(star){
+    if(!star) return;
+    location.href='/rank/luz/'+encodeURIComponent(star);
+  }
+
+  function hideDesk(){
+    var desk=document.getElementById('desk');
+    if(desk) desk.hidden=true;
+    document.title='KRAY.NETWORK · Light market';
+  }
+
+  function paintHero(d){
+    document.getElementById('netlab').textContent=d.network+(d.simulation?' · simulation':'');
+    document.getElementById('caslab').textContent=shortRoot(d.chain&&d.chain.cascadeRoot);
+    var ok=(d.luz&&d.luz.conserves)!==false && !(d.chain&&d.chain.conserves===false);
+    var cons=document.getElementById('conslab');
+    cons.textContent=ok?'holds':'HALT';
+    cons.style.color=ok?'':'var(--crit,#f5776b)';
+    var live=document.getElementById('live');
+    if(live) live.innerHTML='<i></i>'+(ok?'holds':'HALT');
+  }
+
+  function paintStats(d){
+    var lz=d.luz||{}, books=lz.stars||[];
+    var units=books.reduce(function(t,r){ try{ return t+BigInt(r.supply||0); }catch(_){ return t; } },0n);
+    var people=books.reduce(function(t,r){ return t+Number(r.holders||0); },0);
+    document.getElementById('stats').innerHTML=
+      stat(num(lz.books||0),'stars with Luz')+
+      stat(ka(units),'luz sealed')+
+      stat(num(people),'holder lines')+
+      stat(lz.conserves===false?'broken':'holds','Σ per star = supply', lz.conserves===false?'bad':'ok');
+  }
+
+  function paintCatalog(d){
+    last=d;
+    paintHero(d);
+    paintStats(d);
+    var rows=((d.luz&&d.luz.stars)||[]).slice().sort(function(a,b){
+      var ah=Number(a.holders||0), bh=Number(b.holders||0);
+      if(ah!==bh) return bh-ah;
+      try{
+        var as=BigInt(a.supply||0), bs=BigInt(b.supply||0);
+        if(as!==bs) return as>bs?-1:1;
+      }catch(_){ /* star order */ }
+      return BigInt(a.star)<BigInt(b.star)?-1:1;
+    });
+    var el=document.getElementById('tbl');
+    if(!rows.length){
+      el.innerHTML='<div class="empty">No star has sealed KRC-77 yet. Hang Luz on a star you own — Inscribe → Law → KRC-77 — then the book appears here, and a stranger can replay it.</div>';
+    } else {
+      var h='<div class="tblwrap"><table class="dtable"><thead><tr>'
+        +'<th class="rk">#</th><th>star</th>'
+        +'<th class="r">supply ✧</th><th class="r hides">circulating</th>'
+        +'<th class="r">holders</th><th class="r hides">tripwire</th>'
+        +'</tr></thead><tbody>';
+      rows.forEach(function(r,i){
+        var title=(r.baptism?'“'+r.baptism+'” · ':'')+'★ '+r.star;
+        h+='<tr class="trow-click'+(i===0?' top1':'')+(String(r.star)===String(open)?' on':'')+'" data-star="'+esc(r.star)+'">'
+          +rkCell(i)
+          +'<td class="who"><a class="starwho" href="/rank/luz/'+esc(r.star)+'" title="'+esc(title)+'">'
+          +faceBox(faceTok(r))
+          +'<span class="starwho-m"><b>★ '+esc(r.star)+(r.baptism?' · '+esc(r.baptism):'')+'</b>'
+          +'<small>'+(r.id?esc(r.id)+' · ':'')+'KRC-77 · open the book</small></span></a></td>'
+          +'<td class="r bal" title="'+esc(full(r.supply))+' ✧">'+ka(r.supply)+' ✧</td>'
+          +'<td class="r hides">'+ka(r.circulating)+'</td>'
+          +'<td class="r">'+num(r.holders)+'</td>'
+          +'<td class="r hides">'+(r.conserves===false?'<span style="color:var(--crit)">broken</span>':'holds')+'</td>'
+          +'</tr>';
+      });
+      el.innerHTML=h+'</tbody></table></div>';
+      hydrate(el);
+    }
+    var L=d.luz||{};
+    document.getElementById('note').innerHTML=
+      '<b>What this market is.</b> '+num(L.books||0)+' light book'+(L.books===1?'':'s')+' on this journal. '
+      +'Each row is a star that sealed KRC-77. The holder standing of a book is not an index we maintain — it is replayed from <code>cut-send</code> acts. '
+      +'Catalog tripwire '+(L.conserves===false?'<b>failed</b>.':'<b>holds</b>.')
+      +' Fenyx is the fire book (<a href="/rank/nyx">/rank/nyx</a>). Luz is the light of a star. They never mix.';
+    document.getElementById('stamp').textContent=' Last read '+new Date(d.at).toLocaleTimeString()+'.';
+  }
+
+  function paintCrown(s, book){
+    var crown=document.getElementById('desk-crown');
+    if(!crown) return;
+    crown.innerHTML=(window.KRAY&&KRAY.starCrownHtml)
+      ? KRAY.starCrownHtml(s, book)
+      : faceBox(faceTok({star:s.star,baptism:s.name,contentHash:s.contentHash,contentType:s.contentType,url:s.url,held:!!s.contentHash}),'starcrown-face');
+    hydrate(crown);
+  }
+
+  function loadBook(star){
+    var desk=document.getElementById('desk');
+    desk.hidden=false;
+    document.getElementById('desk-crown').innerHTML='<p class="sub">opening ★ '+esc(String(star))+'…</p>';
+    document.getElementById('desk-tbl').innerHTML='<div class="empty">opening the book…</div>';
+    fetch('/api/kraynet/star/'+encodeURIComponent(star)).then(function(r){ return r.json(); }).then(function(s){
+      if(s.error) throw new Error(s.error);
+      var book=s.luz;
+      paintCrown(s, book);
+      document.title='KRAY.NETWORK · Light market · ★ '+star;
+      if(!book || book.unportioned){
+        document.getElementById('desk-stats').innerHTML='';
+        document.getElementById('desk-tbl').innerHTML='<div class="empty">No Luz on this star. The owner seals it on the star page — Law → KRC-77.</div>';
+        return;
+      }
+
+      if(book.infinite){
+        document.getElementById('desk-stats').innerHTML=stat('∞','supply')+stat('0','circulating')+stat('0','holders')+stat('—','genesis');
+        document.getElementById('desk-tbl').innerHTML='<div class="empty">Infinite Luz has no holder lines yet. The paper is the leash; units wait for a mint door that does not invent value.</div>';
+        desk.scrollIntoView({behavior:'smooth',block:'start'});
+        return;
+      }
+
+      var supply=book.supply||'0', circ=book.circulating||'0';
+      var rows=book.holders||[];
+      var ok=String(circ)===String(supply);
+      document.getElementById('desk-stats').innerHTML=
+        stat(full(supply),'supply ✧')+
+        stat(full(circ),'circulating')+
+        stat(num(rows.length),'holders')+
+        stat(ok?'holds':'broken','Σ = supply', ok?'ok':'bad');
+
+      if(!rows.length){
+        document.getElementById('desk-tbl').innerHTML='<div class="empty">The book is empty — a capped seal should have credited the sealer. Replay would HALT if Σ drifted.</div>';
+      } else {
+        var h='<div class="tblwrap"><table class="dtable"><thead><tr>'
+          +'<th class="rk">#</th><th>address</th>'
+          +'<th class="r">luz ✧</th><th class="r hides">share</th>'
+          +'</tr></thead><tbody>';
+        rows.forEach(function(r,i){
+          var pct=shareOf(r.amount, supply);
+          h+='<tr class="'+(i===0?'top1':'')+'">'
+            +rkCell(i)
+            +'<td class="who"><a href="/address/'+esc(r.address)+'">'+esc(r.address.slice(0,16)+'…'+r.address.slice(-8))
+            +'<small>'+esc(r.address)+'</small></a></td>'
+            +'<td class="r bal">'+full(r.amount)+' ✧</td>'
+            +'<td class="r hides">'+pct.toFixed(2)+'%<span class="shr"><i style="width:'+Math.max(1,Math.min(100,pct)).toFixed(1)+'%"></i></span></td>'
+            +'</tr>';
+        });
+        document.getElementById('desk-tbl').innerHTML=h+'</tbody></table></div>';
+      }
+      desk.scrollIntoView({behavior:'smooth',block:'start'});
+    }).catch(function(e){
+      document.getElementById('desk-tbl').innerHTML='<div class="empty">The node did not open that book. '+esc((e&&e.message)||'try again')+'</div>';
+    });
+  }
+
+  document.getElementById('tbl').addEventListener('click', function(e){
+    var tr=e.target.closest('tr[data-star]');
+    if(!tr) return;
+    e.preventDefault();
+    go(tr.getAttribute('data-star'));
+  });
+  window.addEventListener('popstate', function(){
+    open=pathStar();
+    if(last) paintCatalog(last);
+    if(open) loadBook(open); else hideDesk();
+  });
+
+  function tick(){
+    fetch('/api/kraynet/analytics').then(function(r){ return r.json(); }).then(function(d){
+      paintCatalog(d);
+      if(open) loadBook(open);
+    }).catch(function(){
+      var s=document.getElementById('stamp');
+      if(s) s.textContent=' The node stopped answering — the table above is the last good reading.';
+    });
+  }
+  tick();
+  setInterval(tick, 6000);
+})();
+</script>
+</body>
+</html>
