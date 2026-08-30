@@ -28,7 +28,7 @@ import { finalityView } from '../kray-core/src/protocol/finality.ts'   // ADR-4 
 import { WINDOW_PER_SEAL_SATS } from '../kray-core/src/protocol/pot.ts'
 import { BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, RETARGET_WINDOW_SEALS, SIZE_PROPORTION_ACTIVATION_SEQ, starBurnOf, retargetBytesPerKray, donationProofMinConf } from '../kray-core/src/protocol/kray-primitives.ts'
 import {
-  transferMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, xSendMessage, laneEnterMessage, laneExitMessage, foldSealMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
+  transferMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, xSendMessage, cutSendMessage, laneEnterMessage, laneExitMessage, foldSealMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, INSCRIBE_META_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
@@ -78,7 +78,7 @@ import { validateContract, canonicalCode, contractAddress, isContractPotAddress 
 import { examContract, parseExamSource } from '../kray-core/src/protocol/contract-exam.ts'
 import { speakMessage, parseSpeakMessage, readAudience, verifySpeak, speakId, SPEAK_TTL_SEC } from '../kray-core/src/protocol/star-speak.ts'
 import { compileLivingLaw, callerInt } from '../kray-core/src/protocol/star-law.ts'
-import { compileForm, requireMintShelf, resolveMintShelf } from '../kray-core/src/protocol/star-forms.ts'
+import { compileForm, requireMintShelf, resolveMintShelf, isCutPaper } from '../kray-core/src/protocol/star-forms.ts'
 import { packNodeTree, nodeVersionView } from './node-pack.mjs'
 import { docsPack, docsFile } from './docs-pack.mjs'
 import { defaultDataDirName, applyWriterIsolationOrDie } from './network-boot.mjs'
@@ -760,7 +760,24 @@ async function spvProofFor(txid, minConf = DONATION_MIN_CONF) {
       `${txid} needs ${minConf} confirmations on this network (has ${have}) — wait for the next block(s), then retry`,
     )
   }
-  return { rawTx, txoutproof, headers }
+  // BIP-34 clock: a self-anchor seal is born-strict (inclusion seq 0). The reducer
+  // refuses a seal without l1Height. The height is Bitcoin's own statement — the
+  // coinbase of the burying block, merkle-proven into the same header. Without
+  // these bytes verifyDonationProof cannot name the clock and journalSeal fails
+  // closed. A pruned/RPC miss is named, never silent: the donate still credits
+  // (the burn is proven); journalMissingSeals retries once the header height lands.
+  const proof = { rawTx, txoutproof, headers }
+  try {
+    const blk = await btcRpc('getblock', [info.blockhash, 1])
+    const coinbase = blk && Array.isArray(blk.tx) ? blk.tx[0] : null
+    if (coinbase) {
+      proof.coinbaseTx = await btcRpc('getrawtransaction', [coinbase])
+      proof.coinbaseProof = await btcRpc('gettxoutproof', [[coinbase], info.blockhash])
+    }
+  } catch (e) {
+    console.error('spvProofFor: coinbase clock missing for', String(txid).slice(0, 16), '—', e instanceof Error ? e.message : e)
+  }
+  return proof
 }
 
 // THE KEYSTONE ASSEMBLER — build the ancestry bundle a born-strict rune-deposit must journal:
@@ -1706,6 +1723,19 @@ async function fillMissingAnchorHeights() {
     anchors.set(number, { ...a, btcHeight: st.btcHeight, confirmations: st.confirmations ?? a.confirmations })
     saveAnchors()
   }
+  let selfDirty = false
+  for (const s of selfAnchors.values()) {
+    if (!s || !s.txid || Number.isInteger(s.btcHeight)) continue
+    const st = await readAnchorStatus(s.txid)
+    if (!st.ok || !Number.isInteger(st.btcHeight)) continue
+    s.btcHeight = st.btcHeight
+    selfAnchors.set(s.txid, s)
+    selfDirty = true
+  }
+  if (selfDirty) saveSelfAnchors()
+  // THE CLOCK ARRIVED — journal every verified donate that painted gold without a seal.
+  // Order by Bitcoin height (non-decreasing). 1 or 1000, same law, no conflict.
+  journalMissingSeals()
 }
 function headView() {
   const o = node.overview()
@@ -1796,6 +1826,7 @@ function profileView(addr) {
     // at/after the feeless activation seq — the door quotes the prescribed fee, never the client).
     // laneX = this address's Ӿ inside the TK-fold compressed lane (Gate 2; 0 until the fold activates).
     lights: { glow: glowOf(events, addr), glowSymbol: GLOW_SYMBOL, x: node.ledger.xMintedOf(addr).toString(), xSpendable: node.ledger.xBalanceOf(addr).toString(), xSymbol: 'Ӿ', fireTank: node.ledger.fireTankOf(addr).toString(), laneX: node.ledger.laneBalanceOf(addr).toString() },
+    luz: node.ledger.cuts.holdingsOf(addr).map((h) => ({ ...h, name: 'Luz', glyph: '✧' })),
   }
 }
 
@@ -2423,16 +2454,17 @@ function recordSelfAnchor(txid, vout, blockNumber, root, sats, donor, btcHeight)
   try { selfAnchorScriptHex(POT_INTERNAL_KEY, KrayAnchor.payload(blockNumber, root)) } catch { return false }
   // btcHeight = the Bitcoin block that buried the donation (from verifyDonationProof) — the seal's 3d-a height,
   // persisted so the boot sweep can re-journal it (A3: ignored below activation, required at/after).
-  selfAnchors.set(txid, { txid, vout: Number(vout) || 0, blockNumber, root, sats: String(sats), donor, at: Date.now(), ...(Number.isInteger(btcHeight) ? { btcHeight } : {}) })
+  const height = Number.isInteger(btcHeight) && btcHeight > 0 ? btcHeight : undefined
+  selfAnchors.set(txid, { txid, vout: Number(vout) || 0, blockNumber, root, sats: String(sats), donor, at: Date.now(), ...(height ? { btcHeight: height } : {}) })
   saveSelfAnchors()
-  console.log(`⚓ self-anchor recorded — donation ${String(txid).slice(0, 16)}… seals block #${blockNumber} (root ${root.slice(0, 12)}…)${Number.isInteger(btcHeight) ? ` @ btc height ${btcHeight}` : ''} — keyless, the donation IS the anchor`)
+  console.log(`⚓ self-anchor recorded — donation ${String(txid).slice(0, 16)}… seals block #${blockNumber} (root ${root.slice(0, 12)}…)${height ? ` @ btc height ${height}` : ''} — keyless, the donation IS the anchor`)
   poolSatisfied(root)   // Slice 2b: the donation anchored it for free — the backstop stands down, nobody owed
-  journalSeal(txid, btcHeight, root, blockNumber)   // Slice 2c: a confirmed seal reopens one mint-cap of window (once per txid, ever)
+  journalSeal(txid, height, root, blockNumber)   // Slice 2c: a confirmed seal reopens one mint-cap of window (once per txid, ever)
   // adopt the donation's seal into the anchor log (root-matched) so the explorer + sealOf() show it gold —
   // the donation IS the anchor, first-class, exactly as fork-choice already weighs it (Slice 2a).
   const ablk = blocks[blockNumber]
   if (ablk && ablk.cascadeRoot === root && !(anchors.get(blockNumber) || {}).verified) {
-    anchors.set(blockNumber, { txid, rawHex: null, confirmations: DONATION_MIN_CONF, root, verified: true, btcHeight: null, btcChain: NET, pending: false, real: true, selfAnchor: true })
+    anchors.set(blockNumber, { txid, rawHex: null, confirmations: DONATION_MIN_CONF, root, verified: true, btcHeight: height ?? null, btcChain: NET, pending: false, real: true, selfAnchor: true })
     saveAnchors()
   }
   return true
@@ -2543,6 +2575,31 @@ function journalSeal(txid, l1Height, l1Root, l1BlockNumber) {
     console.log(`♻ window: confirmed seal ${t.slice(0, 16)}… reopened ${WINDOW_PER_SEAL_SATS} ₭ of mint capacity (once, ever)${Number.isInteger(l1Height) ? ` @ btc height ${l1Height}` : ''}`)
   } catch (e) { console.error('seal journal failed:', e.message); return }
   void settleFeePoolOnSeal(t)   // validators are paid on EVERY proven seal — donation, drawn guardian, or operator
+}
+/** Every verified self-anchor / Bitcoin seal that has a height but is not yet in the journal.
+ *  Sort by Bitcoin height (the reducer's non-decreasing law) so 1 or 1000 donates never collide. */
+function journalMissingSeals() {
+  const pending = []
+  const consider = (txid, height, root, blockNumber) => {
+    if (!txid || !/^[0-9a-f]{64}$/i.test(String(txid))) return
+    const t = String(txid).toLowerCase()
+    if (node.ledger.hasSeal(t)) return
+    if (!Number.isInteger(height) || height <= 0) return
+    if (typeof root !== 'string' || !/^[0-9a-f]{64}$/i.test(root)) return
+    pending.push({ txid: t, height, root: root.toLowerCase(), blockNumber: Number.isInteger(blockNumber) ? blockNumber : 0 })
+  }
+  for (const [number, a] of anchors.entries()) {
+    if (!a || !a.verified || !a.real || a.simulated) continue
+    consider(a.txid, a.btcHeight, a.root, Number(number))
+  }
+  for (const s of selfAnchors.values()) consider(s.txid, s.btcHeight, s.root, s.blockNumber)
+  pending.sort((a, b) => a.height - b.height || a.blockNumber - b.blockNumber || (a.txid < b.txid ? -1 : 1))
+  const seen = new Set()
+  for (const p of pending) {
+    if (seen.has(p.txid)) continue
+    seen.add(p.txid)
+    journalSeal(p.txid, p.height, p.root, p.blockNumber)
+  }
 }
 /** PHASE 2 · pay validators by PROVEN work, on EVERY confirmed seal (the operator is retired, so the payout
  *  can never depend on him): journal the beats gathered for the current beacon as ONE settlement — the ledger
@@ -2877,15 +2934,26 @@ function sealOf(blk) {
 // later cascade that buried it), otherwise the block's own still-pending broadcast. `verified` reflects
 // Bitcoin burial via the cascade; `sealedBy` names the block whose anchor proved it (=== the block itself
 // at an anchor point, a LATER block when the cascade buried it).
+function donateSealAt(blockNumber) {
+  const n = Number(blockNumber)
+  for (const s of selfAnchors.values()) {
+    if (Number(s.blockNumber) === n) return s
+  }
+  const a = anchors.get(n) || anchors.get(String(n))
+  return (a && a.selfAnchor) ? a : null
+}
 function sealView(blk) {
   const own = anchorOf(blk)
   const seal = sealOf(blk)
   const a = (seal && seal.anchor) || own
   if (!a) return null
+  const donate = donateSealAt(blk.number)
   return {
     txid: a.txid, confirmations: a.confirmations, verified: !!seal, simulated: !!a.simulated,
     cascadeRoot: a.root, sealedBy: seal ? seal.block : null,
     btcHeight: a.btcHeight ?? null, btcChain: a.btcChain ?? null,
+    selfAnchor: !!donate,
+    donateTxid: donate ? donate.txid : null,
   }
 }
 /** THE PAID BINDING certificate for one journal seq (or the tip). Null if the seq is not on this node.
@@ -3087,6 +3155,8 @@ function blockCard(b) {
     sealedBy: seal ? seal.block : null,                  // which block's anchor proved it (=== h at an anchor point, a later block via cascade)
     cascadeRoot, opreturn: cascadeRoot ? KrayAnchor.payload(b.number, cascadeRoot) : null,
     btcHeight: a ? (a.btcHeight ?? null) : null, btcChain: a ? (a.btcChain ?? null) : null,
+    selfAnchor: !!donateSealAt(b.number),
+    donateTxid: (donateSealAt(b.number) || {}).txid || null,
     land: null,
   }
 }
@@ -3704,7 +3774,18 @@ function starView(nBig) {
     listing,   // { seller, price } when the star is for sale on the native market, else null
     offers,    // live escrowed bids [{ bidder, price }] — pot-locked, highest first
     lastDelivery: [...history].reverse().find((h) => h.kind === 'contract-call' && (h.rule === 'settle' || h.rule === 'draw') && Array.isArray(h.paid) && h.paid.length) || null,
+    luz: luzFace(nStr, s.contract ? node.contract(s.contract) : null),
   }
+}
+
+/** Luz ✧ on this face — book when portioned, named-empty when the paper is infinite, unportioned otherwise. */
+function luzFace(nStr, law) {
+  const book = node.ledger.cuts.view(nStr)
+  if (book) return { ...book, glyph: '✧', unportioned: false }
+  if (law && isCutPaper(law.code) && String(law.code.vars?.capped) === '0') {
+    return { star: nStr, name: 'Luz', glyph: '✧', supply: '0', capped: false, circulating: '0', holders: [], unportioned: false, infinite: true }
+  }
+  return { star: nStr, name: 'Luz', glyph: '✧', unportioned: true, supply: null, circulating: '0', holders: [] }
 }
 
 // ══ LINEAGE COLLECTIONS — a parent with children is the collection.
@@ -4159,13 +4240,12 @@ function prepareLaneSend(b) {
 // write. Seals that confirmed while the node was down (or before this law existed) reopen their window
 // increment now, once each, ever (hasSeal makes this idempotent across every future boot). Only REAL,
 // VERIFIED seals count: simulated markers never touch Bitcoin, so they never touch the window.
-for (const [number, a] of anchors.entries()) if (a.verified && a.real && !a.simulated && a.txid) journalSeal(a.txid, a.btcHeight, a.root, Number(number))
-for (const s of selfAnchors.values()) journalSeal(s.txid, s.btcHeight, s.root, s.blockNumber)
+journalMissingSeals()
 // the heartbeat survives an error, but never silently: a seal that cannot happen is NAMED (once per
 // distinct cause) — a mute catch here once hid a whole exam's worth of unsealed blocks.
 let _sealErrSeen = ''
 setInterval(() => {
-  try { sealTick(Date.now()); _sealErrSeen = '' } catch (e) {
+  try { sealTick(Date.now()); journalMissingSeals(); _sealErrSeen = '' } catch (e) {
     const m = e instanceof Error ? e.message : String(e)
     if (m !== _sealErrSeen) { _sealErrSeen = m; console.error('⚠ seal heartbeat failed (will keep retrying): ' + m) }
   }
@@ -4354,9 +4434,16 @@ function readContractCode(b, from, opts) {
       if (!exam) requireMintShelf(f.shelf, Number(max))
       return code
     }
-    throw new Error(`unknown form "${kind}" — escrow, tunnel, vest, scroll, raffle, or mint`)
+    if (kind === 'cut' || kind === 'luz') {
+      return compileForm({
+        kind: 'luz',
+        supply: f.supply != null && String(f.supply) !== '' ? String(f.supply) : undefined,
+        infinite: !!f.infinite,
+      })
+    }
+    throw new Error(`unknown form "${kind}" — escrow, tunnel, vest, scroll, raffle, mint, or luz`)
   }
-  throw new Error('a contract needs code, a living-law flag list, or a form (escrow / tunnel / vest / scroll / raffle / mint)')
+  throw new Error('a contract needs code, a living-law flag list, or a form (escrow / tunnel / vest / scroll / raffle / mint / luz)')
 }
 function readCallArgs(b) {
   const raw = (b.args && typeof b.args === 'object') ? b.args : (b.callArgs && typeof b.callArgs === 'object' ? b.callArgs : {})
@@ -4453,6 +4540,14 @@ function prepareMessage(action, b, nonceOverride) {
       const xAmt = parseLaneAmount(String(b.amount ?? ''))
       if (xAmt === undefined) throw new Error('an Ӿ amount must be a canonical decimal within u128 (the canonical-decimal law)')
       return { message: xSendMessage(NET, from, b.to, xAmt, nonce), nonce }
+    }
+    case 'cut-send': {
+      assertNotAmmPot(b.to, 'cut-send'); assertNotContractPot(b.to, 'cut-send')
+      const star = readOnStar(b)
+      if (star == null) throw new Error('a Luz send needs a star number')
+      const luzAmt = parseLaneAmount(String(b.amount ?? ''))
+      if (luzAmt === undefined) throw new Error('a Luz amount must be a canonical decimal within u128 (the canonical-decimal law)')
+      return { message: cutSendMessage(NET, from, b.to, BigInt(star), luzAmt, nonce), nonce, star }
     }
     // THE TK-FOLD (Gate 2, dormant until the ratified seq): enter/exit the compressed lane; a folder lands a proven breath
     case 'lane-enter': {
@@ -4601,6 +4696,13 @@ function buildSubmitEvent(action, b, atOverride) {
     case 'transfer': assertNotAmmPot(b.to, 'transfer'); action_ = { ...base, kind: 'transfer', to: b.to, amount: String(b.amount), fee: '1' }; break
     case 'burn': action_ = { ...base, kind: 'burn', amount: String(b.amount), fee: '1' }; break   // the sporadic burn — no recipient; ₭ dies, Ӿ born 1:1
     case 'x-send': assertNotAmmPot(b.to, 'x-send'); assertNotContractPot(b.to, 'x-send'); action_ = { ...base, kind: 'x-send', to: b.to, amount: String(b.amount), fee: '1' }; break   // Ӿ transfer (slice 2, live from the ratified seq)
+    case 'cut-send': {
+      assertNotAmmPot(b.to, 'cut-send'); assertNotContractPot(b.to, 'cut-send')
+      const star = readOnStar(b)
+      if (star == null) throw new Error('a Luz send needs a star number')
+      action_ = { ...base, kind: 'cut-send', to: b.to, star, amount: String(b.amount), fee: '1' }
+      break
+    }
     // THE TK-FOLD (Gate 2): the lane's journal doors — the reducer holds every wall (proof, chaining, conservation)
     case 'lane-enter': action_ = { ...base, kind: 'lane-enter', amount: String(b.amount), fee: '1' }; break
     case 'lane-exit': action_ = { ...base, kind: 'lane-exit', amount: String(b.amount), fee: '1' }; break
@@ -5665,7 +5767,7 @@ const server = createServer(async (req, res) => {
           return ok(res, {
             number: b.number, hash: b.hash, prevHash: b.prevHash, merkleRoot: b.merkleRoot,
             fromSeq: b.fromSeq, toSeq: b.toSeq, txCount: b.txCount, at: b.at,
-            anchor: sv ? { txid: sv.txid, confirmations: sv.confirmations, verified: sv.verified, simulated: sv.simulated, cascadeRoot: sv.cascadeRoot, sealedBy: sv.sealedBy } : null,
+            anchor: sv ? { txid: sv.txid, confirmations: sv.confirmations, verified: sv.verified, simulated: sv.simulated, cascadeRoot: sv.cascadeRoot, sealedBy: sv.sealedBy, selfAnchor: !!sv.selfAnchor, donateTxid: sv.donateTxid || null } : null,
             btcHeight: sv ? sv.btcHeight : null, btcChain: sv ? sv.btcChain : null,
             land: { land: null, live: true, lots: 0, note: 'sealed — building the district the next Bitcoin block will mint' },
             transactions: evs.map((e) => txSummary(e, b)),
@@ -5741,7 +5843,7 @@ const server = createServer(async (req, res) => {
               ...sum,
               prevHash: e.prevHash,
               block: block ? { number: block.number, hash: block.hash, merkleRoot: block.merkleRoot, at: block.at, txCount: block.txCount } : null,
-              anchor: sv ? { txid: sv.txid, confirmations: sv.confirmations, verified: sv.verified, simulated: sv.simulated, cascadeRoot: sv.cascadeRoot, sealedBy: sv.sealedBy } : null,
+              anchor: sv ? { txid: sv.txid, confirmations: sv.confirmations, verified: sv.verified, simulated: sv.simulated, cascadeRoot: sv.cascadeRoot, sealedBy: sv.sealedBy, selfAnchor: !!sv.selfAnchor, donateTxid: sv.donateTxid || null } : null,
               btcHeight: sv ? sv.btcHeight : null, btcChain: sv ? sv.btcChain : null,
               receipt: '/api/kraynet/receipt/' + e.seq,
               paidBinding: paidBindingOf(e.seq),
@@ -6033,6 +6135,7 @@ const server = createServer(async (req, res) => {
           contractScroll: true,                           // proven Dev Scroll: claim pays the caller; no secret key
           contractRaffle: true,                           // looping pot: enter · settle · draw · skip — needs a star
           contractMint: true,                             // drop on the face: inscribe with this star as parent; runCall mint is the blessing
+          contractCut: true,                              // KRC-77 Cut: seal supply (max or infinite) + deposit ₭; no collect
           contractSource: true,                           // GET /star and /contract publish the sealed IR + codeHash (public paper)
           contractExam: true,                             // POST /contract-exam dry-runs IR (no journal, no ₭) before a seal
           starSpeak: true,                                // GET/POST /speak — BIP-340 hold proof, no journal, no ₭ (A2 intact)
@@ -7261,7 +7364,15 @@ const server = createServer(async (req, res) => {
           // a self-anchoring donation that sealed a REAL cascade root is a keyless anchor — RECORD it in the
           // self-anchor log (Slice 1). The seal already rides the output on Bitcoin; this makes it a proven,
           // re-verifiable anchor the explorer can show, alongside the operator OP_RETURN anchor.
-          if (sealed) { const [atxid, avout] = String(v.outpoint).split(':'); recordSelfAnchor(atxid, avout, sealed.blockNumber, sealed.root, v.sats, v.donor, v.btcHeight) }
+          if (sealed) {
+            let sealHeight = v.btcHeight
+            if (!Number.isInteger(sealHeight) || sealHeight <= 0) {
+              const st = await readAnchorStatus(String(v.outpoint).split(':')[0])
+              if (st.ok && Number.isInteger(st.btcHeight) && st.btcHeight > 0) sealHeight = st.btcHeight
+            }
+            const [atxid, avout] = String(v.outpoint).split(':')
+            recordSelfAnchor(atxid, avout, sealed.blockNumber, sealed.root, v.sats, v.donor, sealHeight)
+          }
           const isLiveSeal = !!(sealed && String(sealed.blockNumber) === String(Math.max(0, tipNumber())) && sealed.root === node.cascadeRoot())
           return ok(res, { ok: true, minted: node.pot().minted, seq: e.seq, credited: v.donor, sats: String(v.sats), outpoint: v.outpoint, pot: node.pot(), ...(sealed ? { selfAnchor: { ...sealed, liveSeal: isLiveSeal } } : {}) })
         }

@@ -247,6 +247,7 @@
         +'<div style="text-align:right">'
           +(sealed
             ? '<span class="chip btc">'+g('g-anchor',13)+' sealed to Bitcoin</span>'
+              +(a.selfAnchor?'<span class="chip btc" style="margin-left:8px">donate · self-anchor</span>':'')
             : '<span class="chip">'+g('g-anchor',13)+' anchor pending</span>')
         +'</div>'
       +'</div>'
@@ -262,7 +263,7 @@
       +(sealed
         ? '<div class="card btc tick">'
             +'<div class="spread" style="margin-bottom:var(--s5)">'
-              +'<div class="label btc-ink" style="letter-spacing:.16em">'+g('g-anchor',15)+' sealed to Bitcoin</div>'
+              +'<div class="label btc-ink" style="letter-spacing:.16em">'+g('g-anchor',15)+' '+(a.selfAnchor?'the donation IS the Bitcoin seal':'sealed to Bitcoin')+'</div>'
               +'<div class="row" style="gap:var(--s2)">'
                 +(a.confirmations!=null?'<span class="chip btc">₿ '+n(a.confirmations)+' confirmation'+(a.confirmations===1?'':'s')+'</span>':'')
                 +(a.verified?'<span class="chip good">✓ verified on-chain</span>':'')
@@ -279,9 +280,11 @@
                   : 'the anchor is on Bitcoin; this node did not record which block')
             +'</div>'
             // ── this block was buried by a LATER seal, through the cascade — say so plainly ──
-            +((a.sealedBy!=null && a.sealedBy!==b.number)
+            +(a.selfAnchor
+                ? '<div class="dim" style="font-size:12.5px;margin-top:var(--s2);opacity:.9">This is the donate point — a burn on Bitcoin sealed this cube\'s cascade root. Blocks after it stay gold through that same seal.</div>'
+                : ((a.sealedBy!=null && a.sealedBy!==b.number)
                 ? '<div class="dim" style="font-size:12.5px;margin-top:var(--s2);opacity:.85">Sealed through the cascade by the anchor at <a href="/block/'+n(a.sealedBy)+'">block #'+n(a.sealedBy)+'</a> — its cumulative root commits this block\'s history too, so this block is on Bitcoin.</div>'
-                : '')
+                : ''))
             +'<table class="dtable" style="margin-top:var(--s5)"><tbody>'
               +'<tr><td class="hk">anchor transaction</td><td class="hx">'
                 +(mempool(0,b.btcChain)

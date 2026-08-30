@@ -56,6 +56,7 @@
   </div>
   <div class="legend">
     <span><i style="background:#f7931a"></i>Bitcoin seal</span>
+    <span><i style="background:linear-gradient(180deg,#f8e7b0,#e0b34a)"></i>donate · self-anchor</span>
     <span><i style="background:#6b7488"></i>block · awaiting ₿</span>
     <span><i style="background:#d8b878"></i>block · verified</span>
     <span><i style="background:#e8cd93"></i>star / inscription</span>
@@ -118,12 +119,14 @@
     // when no bitcoind is live (simulated). A block that is only broadcast (has a txid but still
     // 0..ANCHOR_CONF-1 conf) is NOT gold yet — it stays a forming block showing its confirmation count.
     var sealed=!!(b.verified||b.simulated), anc=!!(b.anchored&&b.txid), age=window.KRAY?KRAY.age(b.at):'';
-    var status=anc?('₿ '+(b.conf||0)+' conf'):(b.latest?'just sealed':'sealed');
-    var cls='mblock'+(sealed?' anc':'')+(b.latest?' new':'')+(burst?' burst':'')+(slide?' slidein':'');
-    return '<a class="'+cls+'" href="/block/'+b.h+'"><span class="tp"></span><span class="rt"></span>'
+    var donate=!!b.selfAnchor;
+    var status=donate?'donate · ₿ seal':(anc?('₿ '+(b.conf||0)+' conf'):(b.latest?'just sealed':'sealed'));
+    var cls='mblock'+(sealed?' anc':'')+(donate?' selfa':'')+(b.latest?' new':'')+(burst?' burst':'')+(slide?' slidein':'');
+    return '<a class="'+cls+'" href="/block/'+b.h+'" title="'+(donate?'this cube\'s burn is the Bitcoin seal':'')+'"><span class="tp"></span><span class="rt"></span>'
       +'<span class="fc"><span class="top">'+(sealed?'◈ ':'')+status+'</span>'
       +'<span class="mid"><b>'+Number(b.leaves||0).toLocaleString()+'</b><em>'+(Number(b.leaves)===1?'leaf':'leaves')+'</em></span>'
       +'<span class="bot">'+(age?age+' <em>ago</em>':'&nbsp;')+'</span></span>'
+      +(donate?'<span class="tag">self-anchor</span>':'')
       +'<span class="cap">#'+Number(b.h).toLocaleString()+'</span></a>';
   }
   function sSealTopOf(list){ var t=-1; list.forEach(function(b){ if(b.verified||b.simulated) t=Math.max(t,Number(b.h)); }); return t; }
@@ -170,8 +173,8 @@
   }
   function fallback(){
     var f=el('fallback'); if(!f) return; f.classList.remove('hidden'); el('scene').classList.add('hidden');
-    f.innerHTML=blocksData.map(function(b){var a=!!(b.verified||b.simulated);
-      return '<a class="fb'+(a?' anc':'')+'" href="/block/'+b.h+'"><div class="h">#'+Number(b.h).toLocaleString()+(a?' <span style="color:var(--btc)">◈</span>':'')+'</div><div class="n">'+Number(b.leaves||0)+'</div></a>';}).join('')||'<div class="dim mono" style="grid-column:1/-1;text-align:center;padding:40px">no blocks yet</div>';
+    f.innerHTML=blocksData.map(function(b){var a=!!(b.verified||b.simulated),d=!!b.selfAnchor;
+      return '<a class="fb'+(a?' anc':'')+'" href="/block/'+b.h+'"><div class="h">#'+Number(b.h).toLocaleString()+(d?' <span style="color:var(--btc)">◈ donate</span>':(a?' <span style="color:var(--btc)">◈</span>':''))+'</div><div class="n">'+Number(b.leaves||0)+'</div></a>';}).join('')||'<div class="dim mono" style="grid-column:1/-1;text-align:center;padding:40px">no blocks yet</div>';
   }
 
   function makeGlow(){
@@ -234,8 +237,9 @@
       // network's ANCHOR_CONF) · seen (a covering anchor is broadcast, 0-conf) · pending (sealed by KRAY,
       // awaiting the Bitcoin witness). The tip is pending until an anchor confirms — then it snaps to gold.
       var tier=(b.verified||b.simulated)?'verified':((b.anchored&&b.txid)?'seen':'pending');
-      var col=latest?(tier==='pending'?0x9aa4bf:0xf4f5fa):(tier==='verified'?0xd8b878:(tier==='seen'?0xa8863f:0x6b7488));
-      var n={type:'block', ref:b, latest:latest, tier:tier, r:r, color:col,
+      var donate=!!b.selfAnchor;
+      var col=donate?0xf8e7b0:(latest?(tier==='pending'?0x9aa4bf:0xf4f5fa):(tier==='verified'?0xd8b878:(tier==='seen'?0xa8863f:0x6b7488)));
+      var n={type:'block', ref:b, latest:latest, tier:tier, donate:donate, r:r, color:col,}
         x:(host?host.x:0)+(Math.random()-0.5)*6, y:(host?host.y:0)+(Math.random()-0.5)*6, z:(host?host.z:0)+(Math.random()-0.5)*6, vx:0,vy:0,vz:0};
       var self=nodes.length; blockIdx[String(b.h)]=self; nodes.push(n);
       if(mi>=0) edges.push({a:mi, b:self, kind:'hub'});
@@ -408,10 +412,10 @@
           +(mm.amber?'<div class="r btc"><span>bitcoin</span><b>◈ '+(L.confirmations!=null?L.confirmations+' conf':'sealed')+'</b></div>':'<div class="r"><span>bitcoin</span><b>next block seals it</b></div>')
           +'<div class="r"><span></span><b style="color:var(--ink-4)">click to open →</b></div>';
       } else if(n.type==='block'){ var b=n.ref;
-        var tl=n.tier==='verified'?'◈ buried · verified':(n.tier==='seen'?'₿ seen · 0-conf':'sealed by KRAY · awaiting Bitcoin');
-        tip.innerHTML='<div class="hh">block #'+Number(b.h).toLocaleString()+(n.latest?' · newest':'')+'</div>'
+        var tl=n.donate?'◈ donate · the burn IS the seal':(n.tier==='verified'?'◈ buried · verified':(n.tier==='seen'?'₿ seen · 0-conf':'sealed by KRAY · awaiting Bitcoin'));
+        tip.innerHTML='<div class="hh">block #'+Number(b.h).toLocaleString()+(n.latest?' · newest':'')+(n.donate?' · self-anchor':'')+'</div>'
           +'<div class="r"><span>stars sealed</span><b>'+(b.leaves!=null?b.leaves:'—')+'</b></div>'
-          +'<div class="r'+(n.tier==='verified'?' btc':'')+'"><span>bitcoin</span><b>'+esc(tl)+'</b></div>'
+          +'<div class="r'+(n.tier==='verified'||n.donate?' btc':'')+'"><span>bitcoin</span><b>'+esc(tl)+'</b></div>'
           +'<div class="r"><span></span><b style="color:var(--ink-4)">click → open block</b></div>';
       } else if(n.type==='act'){ var rv=n.ref, hex='#'+('000000'+actCol(rv).toString(16)).slice(-6);
         tip.innerHTML='<div class="hh" style="color:'+hex+'">'+esc(KIND_LB[rv.kind]||rv.kind)+'</div>'
