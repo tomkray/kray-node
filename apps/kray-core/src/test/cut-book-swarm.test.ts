@@ -1,9 +1,9 @@
 /**
- * CADENT / LUZ SWARM — the holder book under hostility, then reboot.
+ * LUZ SWARM — the holder book under hostility, then reboot.
  *   node src/test/cut-book-swarm.test.ts
  *
  * In-memory. Does not touch Signet, main, or the living lab journal.
- * Seal a Cut, send Cadent, forge, over-send, freeze, conserve, replay byte-exact.
+ * Seal a Cut, send Luz, forge, over-send, freeze, conserve, replay byte-exact.
  */
 import { createHash } from 'node:crypto'
 import * as btc from '@scure/btc-signer'
@@ -40,7 +40,7 @@ function mulberry(seed: number) {
 }
 
 function main() {
-  console.log('\n╔═ CADENT / LUZ SWARM — seal · send · forge · freeze · reboot ═╗\n')
+  console.log('\n╔═ LUZ SWARM — seal · send · forge · freeze · reboot ═╗\n')
   const empty = new KrayLedger(undefined, NET)
   ok(!empty.cascadeParts().cutCommitment, 'empty book is absent from the cascade (A3)')
   ok(empty.cuts.empty() && empty.cuts.conserves(), 'empty CutBook conserves')
@@ -87,7 +87,7 @@ function main() {
     const ch = sha256hex(canonicalCode(paper))
     push(next(A, { kind: 'contract', hash: sha256hex(`c|${seed}`), code: paper, star: '0' }, () => contractMessageV2(NET, A.addr, ch, 0n)))
     pin(L.cuts.of('0', A.addr) === 100000n && L.cuts.view('0')?.name === 'Luz', `seed ${seed}: seal credits A — mouth is Luz`)
-    pin(!!L.cascadeParts().cutCommitment, `seed ${seed}: Cadent folds by presence after genesis`)
+    pin(!!L.cascadeParts().cutCommitment, `seed ${seed}: Luz folds by presence after genesis`)
 
     for (let step = 0; step < 40; step++) {
       const roll = rnd()
@@ -120,7 +120,7 @@ function main() {
           publicKey: from.pk, signature: _signKrayWallet(xSendMessage(NET, from.addr, to.addr, 1n, n), from.sk), scheme: 'kraywallet',
         } as KrayEvent)
         if (xsig) { refused++; continue }
-        pin(false, `seed ${seed}: Ӿ sig must not move Cadent`)
+        pin(false, `seed ${seed}: Ӿ sig must not move Luz`)
         return
       }
       if (roll < 0.36) {
@@ -165,10 +165,10 @@ function main() {
     pin(reboot.cuts.view('0')?.name === 'Luz', `seed ${seed}: mouth is still Luz after reboot`)
   }
 
-  ok(sends > 0 && refused > 0, `swarm mixed Cadent sends and refusals (sent ${sends}, refused ${refused})`)
-  ok(frozenSends > 0, `Cadent still moved after freeze (${frozenSends} post-hole sends)`)
+  ok(sends > 0 && refused > 0, `swarm mixed Luz sends and refusals (sent ${sends}, refused ${refused})`)
+  ok(frozenSends > 0, `Luz still moved after freeze (${frozenSends} post-hole sends)`)
 
   if (fail) { console.error(`\n✗ ${fail} failed, ${pass} passed`); process.exit(1) }
-  console.log(`\n✓ ${pass} checks — Luz seals, Cadent moves on its own domain, forges die, freeze keeps the hair, reboot is exact. ✧\n`)
+  console.log(`\n✓ ${pass} checks — Luz seals, Luz moves on its own domain, forges die, freeze keeps the hair, reboot is exact. ✧\n`)
 }
 main()

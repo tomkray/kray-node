@@ -467,7 +467,7 @@ function main() {
   ok(cutReboot.balanceOf(cpot) === 8n && cutReboot.stars.ownerOf(0n) === BLACK_HOLE, 'pot and freeze survive replay')
   ok(Ccut.cuts.of('0', A.addr) === 100000n && Ccut.cuts.view('0')?.name === 'Luz', 'seal credits the sealer — mouth is Luz')
   ok(!!Ccut.cascadeParts().cutCommitment && !new KrayLedger(undefined, NET).cascadeParts().cutCommitment,
-    'Cadent folds by presence — empty book is absent (A3)')
+    'Luz folds by presence — empty book is absent (A3)')
 
   const Csend = new KrayLedger(undefined, NET)
   for (const e of cutFund) Csend.applyLive(e)
@@ -484,19 +484,19 @@ function main() {
     publicKey: A.pk, signature: _signKrayWallet(cutSendMessage(NET, A.addr, B.addr, 0n, 40000n, 1), A.sk), scheme: 'kraywallet',
   } as KrayEvent)
   ok(Csend.cuts.of('0', A.addr) === 60000n && Csend.cuts.of('0', B.addr) === 40000n && Csend.cuts.conserves(),
-    'A sends 40000 Cadent to B — Σ still equals supply')
+    'A sends 40000 Luz to B — Σ still equals supply')
   rejects(() => {
     Csend.applyLive({
       seq: 6, kind: 'cut-send', hash: 'forge', from: A.addr, to: Eve.addr, star: '0', amount: '1', fee: '1', nonce: 2,
       publicKey: Eve.pk, signature: _signKrayWallet(cutSendMessage(NET, A.addr, Eve.addr, 0n, 1n, 2), Eve.sk), scheme: 'kraywallet',
     } as KrayEvent)
-  }, /signature|verify|key/i, 'Eve cannot forge a Cadent send')
+  }, /signature|verify|key/i, 'Eve cannot forge a Luz send')
   rejects(() => {
     Csend.applyLive({
       seq: 6, kind: 'cut-send', hash: 'xreplay', from: A.addr, to: B.addr, star: '0', amount: '1', fee: '1', nonce: 2,
       publicKey: A.pk, signature: _signKrayWallet(xSendMessage(NET, A.addr, B.addr, 1n, 2), A.sk), scheme: 'kraywallet',
     } as KrayEvent)
-  }, /signature|verify|message/i, 'an Ӿ signature cannot move Cadent')
+  }, /signature|verify|message/i, 'an Ӿ signature cannot move Luz')
   Csend.applyLive({
     seq: 6, kind: 'transfer-star', hash: 'sfrz', from: A.addr, to: BLACK_HOLE, star: '0', fee: '1', nonce: 2,
     publicKey: A.pk, signature: _signKrayWallet(sendStarMessage(NET, A.addr, BLACK_HOLE, 0n, 2), A.sk), scheme: 'kraywallet',
@@ -507,7 +507,7 @@ function main() {
   } as KrayEvent)
   ok(Csend.cuts.of('0', B.addr) === 30000n && Csend.cuts.of('0', C.addr) === 10000n && Csend.stars.ownerOf(0n) === BLACK_HOLE,
     'after freeze, a holder still sends — the hair already fallen does not vanish')
-  ok(Csend.conserves(), 'Cadent send conserves ₭ and the book')
+  ok(Csend.conserves(), 'Luz send conserves ₭ and the book')
   const sendReboot = new KrayLedger(undefined, NET)
   const sendJournal: KrayEvent[] = [
     ...cutFund,
@@ -533,10 +533,10 @@ function main() {
     } as KrayEvent,
   ]
   for (const e of sendJournal) sendReboot.applyLive(e)
-  ok(sendReboot.cascadeRoot() === Csend.cascadeRoot(), 'Cadent send reboot is byte-exact')
+  ok(sendReboot.cascadeRoot() === Csend.cascadeRoot(), 'Luz send reboot is byte-exact')
   ok(sendReboot.cuts.of('0', A.addr) === 60000n && sendReboot.cuts.of('0', C.addr) === 10000n, 'holders survive replay')
 
   if (fail) { console.error(`\n✗ ${fail} failed, ${pass} passed`); process.exit(1) }
-  console.log(`\n✓ ${pass} checks passed — FORMS HOLD: escrow pays the seller only when the buyer signs; the tunnel tap travels with the face; vest pays the beneficiary on journal height; a scroll pays the caller through a mathematical door; a cut seals supply, takes ₭, never drains, and keeps running after the face freezes. Cadent genesis + send fold by presence. Same IR. No second machine. ⚖⭐`)
+  console.log(`\n✓ ${pass} checks passed — FORMS HOLD: escrow pays the seller only when the buyer signs; the tunnel tap travels with the face; vest pays the beneficiary on journal height; a scroll pays the caller through a mathematical door; a cut seals supply, takes ₭, never drains, and keeps running after the face freezes. Luz genesis + send fold by presence. Same IR. No second machine. ⚖⭐`)
 }
 main()

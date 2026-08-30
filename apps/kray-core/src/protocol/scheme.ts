@@ -130,8 +130,8 @@ export function xSendMessage(network: string, from: string, to: string, amount: 
   return `kray-core.x-send.v1|net=${network}|from=${from}|to=${to}|amount=${amount}|nonce=${nonce}`
 }
 
-/** CADENT SEND — move this star's element (KRC-77). Own domain: a ₭ / Ӿ signature
- *  can never move Cadent, and a send of ★N cannot replay as ★M. */
+/** LUZ SEND — move this star's element (KRC-77). Own domain: a ₭ / Ӿ signature
+ *  can never move Luz, and a send of ★N cannot replay as ★M. */
 export function cutSendMessage(network: string, from: string, to: string, star: bigint, amount: bigint, nonce: number): string {
   return `kray-core.cut-send.v1|net=${network}|from=${from}|to=${to}|star=${star}|amount=${amount}|nonce=${nonce}`
 }

@@ -1271,7 +1271,7 @@ export class KrayLedger {
         break
       }
       case 'cut-send': {
-        // CADENT ✧ — move this star's element. Own domain (cutSendMessage). Fee is the
+        // LUZ ✧ — move this star's element. Own domain (cutSendMessage). Fee is the
         // eternal 1 ₭. The star may already be frozen: sealed terms keep running (§11.0c).
         if (e.from && (e.from.startsWith('KRAY_') || isContractPotAddress(e.from))) {
           throw new Error('ledger: a protocol pot cannot move Luz — only a holder signs')
