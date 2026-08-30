@@ -79,6 +79,7 @@ import { examContract, parseExamSource } from '../kray-core/src/protocol/contrac
 import { speakMessage, parseSpeakMessage, readAudience, verifySpeak, speakId, SPEAK_TTL_SEC } from '../kray-core/src/protocol/star-speak.ts'
 import { compileLivingLaw, callerInt } from '../kray-core/src/protocol/star-law.ts'
 import { compileForm, requireMintShelf, resolveMintShelf, isCutPaper } from '../kray-core/src/protocol/star-forms.ts'
+import { considerSeal, sortPendingSeals, donateSealAt as donateSealAtOf } from './seal-chronology.mjs'
 import { packNodeTree, nodeVersionView } from './node-pack.mjs'
 import { docsPack, docsFile } from './docs-pack.mjs'
 import { defaultDataDirName, applyWriterIsolationOrDie } from './network-boot.mjs'
@@ -2581,25 +2582,16 @@ function journalSeal(txid, l1Height, l1Root, l1BlockNumber) {
 function journalMissingSeals() {
   const pending = []
   const consider = (txid, height, root, blockNumber) => {
-    if (!txid || !/^[0-9a-f]{64}$/i.test(String(txid))) return
-    const t = String(txid).toLowerCase()
-    if (node.ledger.hasSeal(t)) return
-    if (!Number.isInteger(height) || height <= 0) return
-    if (typeof root !== 'string' || !/^[0-9a-f]{64}$/i.test(root)) return
-    pending.push({ txid: t, height, root: root.toLowerCase(), blockNumber: Number.isInteger(blockNumber) ? blockNumber : 0 })
+    const row = considerSeal(txid, height, root, blockNumber)
+    if (!row || node.ledger.hasSeal(row.txid)) return
+    pending.push(row)
   }
   for (const [number, a] of anchors.entries()) {
     if (!a || !a.verified || !a.real || a.simulated) continue
     consider(a.txid, a.btcHeight, a.root, Number(number))
   }
   for (const s of selfAnchors.values()) consider(s.txid, s.btcHeight, s.root, s.blockNumber)
-  pending.sort((a, b) => a.height - b.height || a.blockNumber - b.blockNumber || (a.txid < b.txid ? -1 : 1))
-  const seen = new Set()
-  for (const p of pending) {
-    if (seen.has(p.txid)) continue
-    seen.add(p.txid)
-    journalSeal(p.txid, p.height, p.root, p.blockNumber)
-  }
+  for (const p of sortPendingSeals(pending)) journalSeal(p.txid, p.height, p.root, p.blockNumber)
 }
 /** PHASE 2 · pay validators by PROVEN work, on EVERY confirmed seal (the operator is retired, so the payout
  *  can never depend on him): journal the beats gathered for the current beacon as ONE settlement — the ledger
@@ -2935,12 +2927,7 @@ function sealOf(blk) {
 // Bitcoin burial via the cascade; `sealedBy` names the block whose anchor proved it (=== the block itself
 // at an anchor point, a LATER block when the cascade buried it).
 function donateSealAt(blockNumber) {
-  const n = Number(blockNumber)
-  for (const s of selfAnchors.values()) {
-    if (Number(s.blockNumber) === n) return s
-  }
-  const a = anchors.get(n) || anchors.get(String(n))
-  return (a && a.selfAnchor) ? a : null
+  return donateSealAtOf(selfAnchors.values(), anchors, blockNumber)
 }
 function sealView(blk) {
   const own = anchorOf(blk)
