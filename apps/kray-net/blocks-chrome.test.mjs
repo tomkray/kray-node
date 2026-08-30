@@ -32,6 +32,8 @@ ok(!/color:col,\s*\}/.test(blocks), 'block node object is not closed after color
 ok(/var donate=!!b\.selfAnchor/.test(blocks), 'constellation donate hue reads the book field selfAnchor')
 ok(/var sealed=!!\(b\.verified\|\|b\.simulated\)/.test(blocks), 'gold is verified-or-simulated — Bitcoin burial, not a CSS lie')
 ok(/kind:'chain'/.test(blocks), 'fast-block chain edges are drawn — chronology, not loose dots')
+ok(/seals:\(w\.seals\|\|\[\]\)/.test(blocks), 'constellation consumes /world.seals — one neuron per Bitcoin donate')
+ok(/KEEP IN LOCKSTEP with neuron-seals\.mjs/.test(blocks), 'master ranges stay locked to the shared spine')
 
 const door = readFileSync(join(here, 'server.mjs'), 'utf8')
 ok(/from '\.\/seal-chronology\.mjs'/.test(door), 'the door imports the shared seal clock')

@@ -149,6 +149,8 @@
         return {glyph:'g-glow', line:'Swapped against the book. k did not fall.', tags:[{v:'SWAP'}]};
       case 'anchor':
         return {glyph:'g-anchor', btc:true, line:'Bitcoin anchor — sealed this history’s cascade root into a real Bitcoin block.', tags:[{v:'ANCHOR',cls:'btc'}]};
+      case 'rune-lodge':
+        return {glyph:'g-block', line:'Armed a rune exit — <b>'+esc(t.runeName||t.runeId||'a rune')+'</b>'+(t.exitAmount?' · <b>'+ka(t.exitAmount)+'</b> units':'')+' locked to leave L2. This is a KRAY journal act inside the cube — not the Bitcoin donate that sealed the cube.', tags:[{v:'LODGE'},{v:'L2 ACT'}]};
       default:
         return {glyph:'g-block', line:esc(t.summary||t.kind), tags:[{v:String(t.kind||'event').toUpperCase()}]};
     }
@@ -255,10 +257,23 @@
       +'<div class="stats">'
         +'<div class="stat tick"><div class="v tnum">'+n(b.fromSeq)+'</div><div class="k">first sequence</div></div>'
         +'<div class="stat"><div class="v tnum">'+n(b.toSeq)+'</div><div class="k">last sequence</div></div>'
-        +'<div class="stat"><div class="v tnum">'+(L.land!=null?'#'+n(L.land):'—')+'</div><div class="k">land district</div></div>'
+        +'<div class="stat"><div class="v tnum">'+(L.land!=null?'#'+n(L.land):(a&&a.selfAnchor?'barren':'—'))+'</div><div class="k">land district</div></div>'
         +'<div class="stat"><div class="v tnum">'+n(L.lots||0)+'</div><div class="k">lots staked here</div></div>'
       +'</div>'
       +'<div class="stack" style="margin-top:var(--s5)">'
+      +'<div class="card tick">'
+        +'<div class="label" style="margin-bottom:var(--s4)">two clocks on this cube</div>'
+        +'<div class="dim" style="font-size:13.5px;margin-bottom:var(--s4)">A KRAY block has an inside and an outside. Inside is the merkle tree — every act this cube sealed. Outside is the Bitcoin donate that witnessed the cascade root. They are never the same transaction.</div>'
+        +'<table class="dtable"><tbody>'
+          +'<tr><td class="hk">inside · merkle leaves</td><td>'+n(txs.length)+(function(){ var k={},i,t,line; for(i=0;i<txs.length;i++){ t=txs[i].kind||'act'; k[t]=(k[t]||0)+1; } line=Object.keys(k).map(function(x){return k[x]+' '+x;}).join(' · '); return line?' · '+esc(line):''; })()+'</td></tr>'
+          +(a&&a.txid?'<tr><td class="hk">outside · Bitcoin witness</td><td class="hx">'
+            +(mempool(0,b.btcChain)
+              ? '<a href="'+(b.btcChain==='signet'?'https://mempool.space/signet/tx/':'https://mempool.space/tx/')+esc(a.txid)+'" target="_blank" rel="noopener">'+esc(a.txid)+' ↗</a>'
+              : esc(a.txid))
+            +'</td></tr>':'<tr><td class="hk">outside · Bitcoin witness</td><td>waiting for the next donate</td></tr>')
+          +(a&&a.selfAnchor?'<tr><td class="hk">this donate minted land?</td><td>'+(L.land!=null?'yes · land #'+n(L.land):'no · barren seal — no star was born beneath this cube')+'</td></tr>':'')
+        +'</tbody></table>'
+      +'</div>'
       // ── the Bitcoin seal — amber ONLY when it is truly sealed to L1 ──
       +(sealed
         ? '<div class="card btc tick">'
@@ -317,17 +332,22 @@
       // ── what this block sealed — every txid, in full detail ──
       +'<div class="card tick">'
         +'<div class="spread" style="margin-bottom:var(--s3)">'
-          +'<div class="label">'+g('g-block',15)+' what this block sealed</div>'
+          +'<div class="label">'+g('g-block',15)+' acts inside this cube</div>'
           +'<span class="mono dim2" style="font-size:11px">'+txs.length+' txid'+(txs.length===1?'':'s')+'</span>'
         +'</div>'
-        +'<div class="dim" style="font-size:13px;margin-bottom:var(--s4)">Every leaf below is one txid under the merkle root above, in the exact order it was sealed — with its tags, what it did, and the thumbnail of what it carved.</div>'
+        +'<div class="dim" style="font-size:13px;margin-bottom:var(--s4)">Every leaf below is one KRAY journal act under the merkle root above, in the exact order it was sealed. This list is not the Bitcoin donate — that witness lives in the amber card above.</div>'
         +'<div class="tx-list">'
           +(txs.map(txReceipt).join('') || '<div class="dim" style="text-align:center;padding:var(--s6)">this block sealed nothing — the network turned and conserved</div>')
         +'</div>'
       +'</div>';
 
-    // ── the land it helped raise — the SAME treemap the land page draws ──
-    if(L.land!=null){
+    // ── the land it helped raise — OR the barren-seal law, said plainly ──
+    if(a&&a.selfAnchor&&L.land==null){
+      h+='<div class="card tick">'
+        +'<div class="label" style="margin-bottom:var(--s3)">◈ this Bitcoin seal minted no land</div>'
+        +'<div class="dim" style="font-size:13.5px">An anchor mints land only if a star was born beneath it. This cube sealed no inscription and no baptism. Land numbers stay consecutive — a barren donate takes no number. The Bitcoin witness still sealed the cascade root.</div>'
+      +'</div>';
+    } else if(L.land!=null){
       h+='<div class="card tick">'
         +'<div class="spread" style="margin-bottom:var(--s3)">'
           +'<div class="label">◈ the land it helped raise</div>'

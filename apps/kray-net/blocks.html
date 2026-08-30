@@ -55,7 +55,8 @@
     <div id="fallback" class="fallback hidden"></div>
   </div>
   <div class="legend">
-    <span><i style="background:#f7931a"></i>Bitcoin seal</span>
+    <span><i style="background:#f7931a"></i>Bitcoin seal · land</span>
+    <span><i style="background:#c9a24a"></i>Bitcoin seal · barren</span>
     <span><i style="background:linear-gradient(180deg,#f8e7b0,#e0b34a)"></i>donate · self-anchor</span>
     <span><i style="background:#6b7488"></i>block · awaiting ₿</span>
     <span><i style="background:#d8b878"></i>block · verified</span>
@@ -88,7 +89,7 @@
   'use strict';
   var scene, camera, renderer, root, raf, glowTex, starfield;
   var nodes=[], edges=[], adj=[], baseLines, hiLines, sprites=[];
-  var hovered=-1, blocksData=[], worldData={lands:[],live:null}, runeFlow=[];
+  var hovered=-1, blocksData=[], worldData={lands:[],live:null,seals:[],totalLands:0}, runeFlow=[];
   // RUNE ACTS — each its own hue so the river reads at a glance (violet family = the L2 bridge life)
   // EACH TXID FAMILY ITS OWN COLOUR — read the sky at a glance. The family is decided by the node (act-flow),
   // the hue mirrors the legend, and the per-kind label names the exact act on hover.
@@ -166,8 +167,9 @@
       var bl=res[0]||{}, w=res[1]||{}, rf=res[2]||{};
       blocksData=((bl.blocks)||[]).slice().sort(function(a,b){return Number(a.h)-Number(b.h);});
       runeFlow=(rf.flow||[]);
-      worldData={lands:(w.lands||[]), live:(w.live||null), totalLands:w.totalLands||0};
-      if(el('totals')) el('totals').textContent=(worldData.totalLands||0)+' master'+(worldData.totalLands===1?'':'s')+' sealed · '+blocksData.length+' fast block'+(blocksData.length===1?'':'s');
+      worldData={lands:(w.lands||[]), live:(w.live||null), seals:(w.seals||[]), totalLands:w.totalLands||0};
+      var nSeals=(worldData.seals||[]).length, nLands=worldData.totalLands||0;
+      if(el('totals')) el('totals').textContent=nSeals+' Bitcoin seal'+(nSeals===1?'':'s')+' · '+nLands+' land'+(nLands===1?'':'s')+' · '+blocksData.length+' fast block'+(blocksData.length===1?'':'s');
       boot();
     });
   }
@@ -194,34 +196,40 @@
     s.scale.set(6,1.5,1); return s;
   }
 
+  // KEEP IN LOCKSTEP with neuron-seals.mjs — one master per Bitcoin seal; land is a badge.
+  function masterRanges(seals, maxH){
+    var out=[], list=(seals||[]).slice().sort(function(a,b){return Number(a.height)-Number(b.height);}), prev=0, i, s, h, land, hasLand, tip;
+    for(i=0;i<list.length;i++){
+      s=list[i]; h=Number(s.height); if(!isFinite(h)) continue;
+      land=(s.land==null||s.land==='')?null:Number(s.land); hasLand=land!=null&&isFinite(land);
+      out.push({fromBlock:prev, toBlock:h, height:h, land:hasLand?land:null, barren:!hasLand, forming:false,
+        txid:s.txid||null, confirmations:s.confirmations==null?null:s.confirmations, blocks:h-prev+1});
+      prev=h+1;
+    }
+    tip=Number(maxH);
+    if(isFinite(tip)&&tip>=prev) out.push({fromBlock:prev, toBlock:tip, height:null, land:null, barren:false, forming:true, txid:null, confirmations:null, blocks:tip-prev+1});
+    return out;
+  }
+  function landOf(n){
+    if(n==null) return null; var ls=worldData.lands||[];
+    for(var i=0;i<ls.length;i++) if(ls[i].land===n) return ls[i];
+    return null;
+  }
   function buildGraph(){
     nodes=[]; edges=[]; sprites=[]; hovered=-1;
-    // ── MASTER NODES — every Bitcoin seal, plus the district still forming ──
-    var masters=[]; // {ref, fromBlock, toBlock, amber, forming}
-    worldData.lands.slice().sort(function(a,b){return (a.height||0)-(b.height||0);}).forEach(function(L){
-      var toB=Number(L.height), fromB=toB-(Number(L.blocks)||1)+1;
-      masters.push({ref:L, fromBlock:fromB, toBlock:toB, amber:true, forming:false});
-    });
-    if(worldData.live){ var lv=worldData.live;
-      masters.push({ref:lv, fromBlock:Number(lv.fromBlock), toBlock:Number(lv.toBlock), amber:false, forming:true}); }
-    else if(blocksData.length){
-      // THE FORMING NEURON EXISTS EVEN WITH NO NEW STARS — /world returns live:null when no unsealed
-      // star exists, but fast blocks past the last land are still truthfully "not yet sealed into a
-      // land". Without this neuron the fallback below glued them to the LAST land (a lie) and the whole
-      // recent chain collapsed into one unreadable clump on a young or star-quiet book (the :4477 bug).
-      var lastTo=masters.length?masters[masters.length-1].toBlock:-1;
-      var maxH=Number(blocksData[blocksData.length-1].h);
-      if(maxH>lastTo) masters.push({ref:{blocks:maxH-lastTo, parcelCount:0}, fromBlock:lastTo+1, toBlock:maxH, amber:false, forming:true});
-    }
+    // ── MASTER NODES — every Bitcoin seal (barren included). Land is a halo, not the only clock.
+    // FORMING is the tip AFTER the last seal. Never glue later cubes onto the last land.
+    var maxH=blocksData.length?Number(blocksData[blocksData.length-1].h):-1;
+    var masters=masterRanges(worldData.seals, maxH);
     var masterIdx=[]; // node index of each master, parallel to masters[]
     masters.forEach(function(mm,mi){
-      var r=mm.amber?1.9:1.7, col=mm.amber?0xf7931a:0x8b95b8;
-      var n={type:'master', ref:mm, amber:mm.amber, forming:mm.forming, r:r, color:col,
+      var land=mm.land!=null, barren=!!mm.barren, forming=!!mm.forming;
+      var r=forming?1.7:1.9, col=land?0xf7931a:(barren?0xc9a24a:0x8b95b8);
+      var n={type:'master', ref:mm, amber:land, barren:barren, forming:forming, land:mm.land, height:mm.height, r:r, color:col,
         x:(mi-masters.length/2)*16+(Math.random()-0.5)*4, y:(Math.random()-0.5)*4, z:(Math.random()-0.5)*4, vx:0,vy:0,vz:0};
       masterIdx.push(nodes.length); nodes.push(n);
       if(mi>0) edges.push({a:masterIdx[mi-1], b:masterIdx[mi], kind:'spine'}); // the anchor backbone
-      // floating label
-      var lab=makeLabel(mm.amber?('LAND #'+mm.ref.land):'FORMING', mm.amber?0xf7931a:0x9aa2b4);
+      var lab=makeLabel(land?('LAND #'+mm.land):(barren?('SEAL #'+mm.height):'FORMING'), land?0xf7931a:(barren?0xc9a24a:0x9aa2b4));
       n.label=lab; root.add(lab);
     });
     function masterOf(h){ for(var i=0;i<masters.length;i++){ if(h>=masters[i].fromBlock && h<=masters[i].toBlock) return masterIdx[i]; }
@@ -279,6 +287,12 @@
       var m=new THREE.SpriteMaterial({map:glowTex, color:n.color, transparent:true, opacity:1, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:false});
       var s=new THREE.Sprite(m); var sc=n.r*3.4; s.scale.set(sc,sc,1); s.position.set(n.x,n.y,n.z); s.userData={ni:idx};
       n.sprite=s; n.mat=m; root.add(s); sprites.push(s);
+      // LAND HALO — a second, larger glow only when a star was born under this seal.
+      if(n.type==='master' && n.land!=null){
+        var hm=new THREE.SpriteMaterial({map:glowTex, color:0xffe08a, transparent:true, opacity:0.32, blending:THREE.AdditiveBlending, depthWrite:false, depthTest:false});
+        var hs=new THREE.Sprite(hm); hs.scale.set(n.r*5.4, n.r*5.4, 1); hs.position.set(n.x,n.y,n.z); hs.userData={ni:idx};
+        n.halo=hs; n.haloMat=hm; root.add(hs);
+      }
     });
     // base edges buffer
     var pos=new Float32Array(edges.length*6), col=new Float32Array(edges.length*6);
@@ -297,7 +311,7 @@
       arr[k*6]=A.x;arr[k*6+1]=A.y;arr[k*6+2]=A.z;arr[k*6+3]=B.x;arr[k*6+4]=B.y;arr[k*6+5]=B.z; });
     pa.needsUpdate=true;
     // keep master labels floating just above their node
-    nodes.forEach(function(n){ if(n.label){ n.label.position.set(n.x, n.y+n.r*2.4, n.z); } });
+    nodes.forEach(function(n){ if(n.label){ n.label.position.set(n.x, n.y+n.r*2.4, n.z); } if(n.halo) n.halo.position.set(n.x,n.y,n.z); });
   }
 
   function boot(){
@@ -389,7 +403,7 @@
     el('zin').addEventListener('click', function(){ tDist=Math.max(0.12, tDist*0.75); });
     el('zout').addEventListener('click', function(){ tDist=Math.min(2.8, tDist*1.33); });
     cv.addEventListener('click', function(){ if(hovered<0) return; var n=nodes[hovered];
-      if(n.type==='master'){ window.location.href = n.amber ? '/land/'+n.ref.ref.land : '/land'; }
+      if(n.type==='master'){ window.location.href = n.land!=null ? '/land/'+n.land : (n.forming ? '/land' : '/block/'+n.height); }
       else if(n.type==='block') window.location.href='/block/'+n.ref.h;
       else if(n.type==='act'&&n.ref&&n.ref.runeId) window.location.href='/rune#'+encodeURIComponent(n.ref.runeId);
       else if(n.ref&&n.ref.star!=null) window.location.href='/star/'+n.ref.star;
@@ -405,12 +419,12 @@
     var hits=ray.intersectObjects(sprites, false), ni=hits.length?hits[0].object.userData.ni:-1;
     if(ni!==hovered) setHover(ni);
     if(hovered>=0){ var n=nodes[hovered];
-      if(n.type==='master'){ var mm=n.ref, L=mm.ref;
-        tip.innerHTML='<div class="hh">'+(mm.amber?'land #'+L.land+' · master':'district · forming')+'</div>'
-          +'<div class="r"><span>fast blocks</span><b>'+(L.blocks!=null?L.blocks:'—')+'</b></div>'
-          +'<div class="r"><span>stars</span><b>'+(L.parcelCount!=null?L.parcelCount:'—')+'</b></div>'
-          +(mm.amber?'<div class="r btc"><span>bitcoin</span><b>◈ '+(L.confirmations!=null?L.confirmations+' conf':'sealed')+'</b></div>':'<div class="r"><span>bitcoin</span><b>next block seals it</b></div>')
-          +'<div class="r"><span></span><b style="color:var(--ink-4)">click to open →</b></div>';
+      if(n.type==='master'){ var mm=n.ref, L=n.land!=null?landOf(n.land):null, stars=L&&L.parcelCount!=null?L.parcelCount:0;
+        tip.innerHTML='<div class="hh">'+(n.forming?'district · forming':(n.barren?'Bitcoin seal · barren — no star under this donate':'land #'+n.land+' · stars born under this seal'))+'</div>'
+          +'<div class="r"><span>fast blocks</span><b>'+(mm.blocks!=null?mm.blocks:'—')+'</b></div>'
+          +'<div class="r"><span>stars</span><b>'+stars+'</b></div>'
+          +(n.forming?'<div class="r"><span>bitcoin</span><b>next donate seals it</b></div>':'<div class="r btc"><span>bitcoin</span><b>◈ '+(mm.confirmations!=null?mm.confirmations+' conf':'sealed')+'</b></div>')
+          +'<div class="r"><span></span><b style="color:var(--ink-4)">'+(n.land!=null?'click → open land':(n.forming?'click → open land':'click → open the donate cube'))+'</b></div>';
       } else if(n.type==='block'){ var b=n.ref;
         var tl=n.donate?'◈ donate · the burn IS the seal':(n.tier==='verified'?'◈ buried · verified':(n.tier==='seen'?'₿ seen · 0-conf':'sealed by KRAY · awaiting Bitcoin'));
         tip.innerHTML='<div class="hh">block #'+Number(b.h).toLocaleString()+(n.latest?' · newest':'')+(n.donate?' · self-anchor':'')+'</div>'
@@ -436,11 +450,11 @@
   }
   function setHover(ni){
     hovered=ni;
-    if(ni<0){ nodes.forEach(function(n){ if(n.mat) n.mat.opacity=1; if(n.label) n.label.material.opacity=0.92; });
+    if(ni<0){ nodes.forEach(function(n){ if(n.mat) n.mat.opacity=1; if(n.haloMat) n.haloMat.opacity=0.32; if(n.label) n.label.material.opacity=0.92; });
       if(baseLines) baseLines.material.opacity=0.66;
       if(hiLines) hiLines.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0),3)); return; }
     var near={}; near[ni]=1; (adj[ni]||[]).forEach(function(j){ near[j]=1; });
-    nodes.forEach(function(n,idx){ if(n.mat) n.mat.opacity = near[idx]?1:0.13; if(n.label) n.label.material.opacity = near[idx]?0.95:0.12; });
+    nodes.forEach(function(n,idx){ if(n.mat) n.mat.opacity = near[idx]?1:0.13; if(n.haloMat) n.haloMat.opacity = near[idx]?0.38:0.06; if(n.label) n.label.material.opacity = near[idx]?0.95:0.12; });
     if(baseLines) baseLines.material.opacity=0.1;
     var inc=edges.filter(function(e){ return e.a===ni||e.b===ni; });
     var arr=new Float32Array(inc.length*6);
@@ -462,8 +476,8 @@
     camera.position.set(Math.sin(yaw)*rr, cy, Math.cos(yaw)*rr); camera.lookAt(0,0,0);
     if(starfield) starfield.rotation.y+=0.0003;
     var far=tDist>1.2; if(el('scope')) el('scope').innerHTML = far
-      ? 'the whole constellation · <b>'+(worldData.totalLands||0)+' master'+(worldData.totalLands===1?'':'s')+'</b>'
-      : (hovered>=0 ? 'tracing links…' : (worldData.totalLands? 'one neuron per Bitcoin seal' : 'one district forming — waiting for Bitcoin'));
+      ? 'the whole constellation · <b>'+(worldData.seals||[]).length+' Bitcoin seal'+((worldData.seals||[]).length===1?'':'s')+'</b>'+(worldData.totalLands?' · '+worldData.totalLands+' land'+(worldData.totalLands===1?'':'s'):'')
+      : (hovered>=0 ? 'tracing links…' : ((worldData.seals||[]).length? 'one neuron per Bitcoin seal — land is the halo' : 'one district forming — waiting for Bitcoin'));
     renderer.render(scene, camera);
   }
   function onResize(){ if(!renderer) return; var c=el('scene'), W=c.clientWidth, H=c.clientHeight||560; camera.aspect=W/H; camera.updateProjectionMatrix(); renderer.setSize(W,H); }
