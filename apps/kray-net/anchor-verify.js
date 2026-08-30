@@ -86,6 +86,10 @@
     var blk = Number(opening.blockNumber), root = String(opening.root || '').toLowerCase()
     if (!/^[0-9a-f]{64}$/.test(txid) || !(blk >= 0) || !/^[0-9a-f]{64}$/.test(root)) { badge(host, 'grey', 'UNVERIFIABLE', 'Missing txid / block / root — nothing to prove.'); return }
 
+    if (opening.cascadeCover && opening.coveredBlock != null) {
+      line(host, src('sealed chain') + 'KRAY block <b>#' + clean(String(opening.coveredBlock)) + '</b> has no own Bitcoin transaction. It is already inside the cascade that <b>block #' + clean(String(blk)) + '</b> sealed. That prefix cannot be rewritten. The proof below is the covering seal — the same one you would run on the donate cube.')
+    }
+
     // ── 1 · recompute the expected Bitcoin output, in YOUR browser ──
     var expectScript
     try {

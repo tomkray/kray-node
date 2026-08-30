@@ -6006,29 +6006,44 @@ const server = createServer(async (req, res) => {
       }
       { const aom = p.match(/^\/api\/kraynet\/anchor-opening\/(\d+)$/); if (aom) {
         // THE UNIFIED OPENING — the PUBLIC bytes a client needs to re-prove an anchor ITSELF, never a verdict.
-        // It names which Bitcoin tx sealed this KRAY block, under which carrier, the internal key + the exact
-        // 49-byte payload, and where to read Bitcoin (a third-party explorer the client chooses). The client
-        // recomputes the output key (self-anchor) or the OP_RETURN and matches it against Bitcoin's own record —
-        // THIS ENDPOINT ASSERTS NOTHING. `verified` here is only this node's own claim; the client re-proves it.
+        // A cube that only golds through the CASCADE has no own Bitcoin tx — the covering seal's opening
+        // is the one to prove (same bytes as /block/<sealedBy>). THIS ENDPOINT ASSERTS NOTHING.
         const bn = Number(aom[1])
-        const sa = [...selfAnchors.values()].find((s) => Number(s.blockNumber) === bn)
-        const op = anchors.get(bn) || anchors.get(String(bn))
         const hintBases = NET === 'main' ? ['https://mempool.space', 'https://blockstream.info']
           : NET === 'signet' ? ['https://mempool.space/signet']
           : NET === 'testnet' ? ['https://mempool.space/testnet', 'https://blockstream.info/testnet'] : []
         const hintsFor = (txid) => hintBases.map((b) => ({ name: b.replace('https://', ''), txPage: `${b}/tx/${txid}`, rawTx: `${b}/api/tx/${txid}/hex`, merkleProof: `${b}/api/tx/${txid}/merkle-proof` }))
-        let opening = null
-        if (sa) {
-          const payload = KrayAnchor.payload(sa.blockNumber, sa.root)
-          let burnAddress = null
-          try { burnAddress = addressFromOutputKey(selfAnchorScriptHex(POT_INTERNAL_KEY, payload).slice(4), NET) } catch { /* leave null */ }
-          const claimed = sa.root === GENESIS_ROOT || !!(blocks[sa.blockNumber] && blocks[sa.blockNumber].cascadeRoot === sa.root)
-          opening = { carrier: 'self-anchor', txid: sa.txid, vout: sa.vout ?? 0, blockNumber: sa.blockNumber, root: sa.root, internalKey: POT_INTERNAL_KEY, keyIsNums: POT_INTERNAL_KEY === BURN_INTERNAL_KEY, payload, burnAddress, nodeClaimsVerified: claimed }
-        } else if (op && op.real && op.txid && !op.simulated) {
-          opening = { carrier: op.pooled ? 'guardian' : 'operator', txid: op.txid, vout: op.vout ?? null, blockNumber: bn, root: op.root, payload: KrayAnchor.payload(bn, op.root), nodeClaimsVerified: !!op.verified }
+        const openingAt = (n) => {
+          const sa = [...selfAnchors.values()].find((s) => Number(s.blockNumber) === n)
+          const op = anchors.get(n) || anchors.get(String(n))
+          if (sa) {
+            const payload = KrayAnchor.payload(sa.blockNumber, sa.root)
+            let burnAddress = null
+            try { burnAddress = addressFromOutputKey(selfAnchorScriptHex(POT_INTERNAL_KEY, payload).slice(4), NET) } catch { /* leave null */ }
+            const claimed = sa.root === GENESIS_ROOT || !!(blocks[sa.blockNumber] && blocks[sa.blockNumber].cascadeRoot === sa.root)
+            return { carrier: 'self-anchor', txid: sa.txid, vout: sa.vout ?? 0, blockNumber: sa.blockNumber, root: sa.root, internalKey: POT_INTERNAL_KEY, keyIsNums: POT_INTERNAL_KEY === BURN_INTERNAL_KEY, payload, burnAddress, nodeClaimsVerified: claimed }
+          }
+          if (op && op.real && op.txid && !op.simulated) {
+            return { carrier: op.pooled ? 'guardian' : 'operator', txid: op.txid, vout: op.vout ?? null, blockNumber: n, root: op.root, payload: KrayAnchor.payload(n, op.root), nodeClaimsVerified: !!op.verified }
+          }
+          return null
+        }
+        let opening = openingAt(bn)
+        let cascadeCover = false
+        let coveredBlock = null
+        if (!opening) {
+          const cover = blocks[bn] ? sealOf(blocks[bn]) : null
+          if (cover && Number.isInteger(cover.block)) {
+            opening = openingAt(cover.block)
+            if (opening) { cascadeCover = true; coveredBlock = bn }
+          }
         }
         if (!opening) return err(res, 404, `no anchor opening for KRAY block ${bn} — it is not sealed into Bitcoin yet, or unknown to this node`)
-        return ok(res, { network: NET, ...opening, explorerHints: hintsFor(opening.txid), note: 'opening bytes only — recompute the output key from (payload) and match it against Bitcoin yourself; this node asserts nothing' })
+        return ok(res, {
+          network: NET, ...opening, explorerHints: hintsFor(opening.txid),
+          ...(cascadeCover ? { cascadeCover: true, coveredBlock, sealedBy: opening.blockNumber } : {}),
+          note: 'opening bytes only — recompute the output key from (payload) and match it against Bitcoin yourself; this node asserts nothing',
+        })
       } }
       { const txm = p.match(/^\/api\/kraynet\/address-txs\/(.+)$/); if (txm) {
         // THE PROFILE'S ACTIVITY FEED — every journal event that touched this address, newest first,

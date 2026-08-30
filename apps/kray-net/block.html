@@ -293,7 +293,9 @@
               +'</td></tr>'
               +(a.cascadeRoot?'<tr><td class="hk">cascade root</td><td class="hx btc-ink">'+esc(a.cascadeRoot)+'</td></tr>':'')
             +'</tbody></table>'
-            +'<div class="av-prove" style="margin-top:var(--s5)"><button class="av-prove-btn" data-blk="'+n(b.number)+'">Prove this on Bitcoin yourself ↗</button>'
+            +'<div class="av-prove" style="margin-top:var(--s5)"><button class="av-prove-btn" data-blk="'+n(b.number)+'">'
+              +((a.sealedBy!=null && a.sealedBy!==b.number)?'Prove the covering Bitcoin seal ↗':'Prove this on Bitcoin yourself ↗')
+              +'</button>'
               +'<div class="dim" style="font-size:12px;margin-top:8px;opacity:.85;max-width:60ch">Your own browser recomputes the seal from the cascade root and matches it against Bitcoin through a third-party explorer — this node is trusted for none of it.</div>'
               +'<div class="av-out" style="margin-top:var(--s3)"></div></div>'
           +'</div>'
@@ -386,7 +388,7 @@
         return setTimeout(function () { go((tries || 0) + 1) }, 100)
       }
       fetch('/api/kraynet/anchor-opening/' + encodeURIComponent(blk)).then(function (r) { return r.ok ? r.json() : null }).then(function (op) {
-        if (!op) { out.innerHTML = '<div class="dim" style="font-size:12.5px">no anchor opening for this block yet.</div>'; btn.disabled = false; return }
+        if (!op) { out.innerHTML = '<div class="dim" style="font-size:12.5px">This cube is not on Bitcoin yet — a later donate (or any seal) will cover it. Until then there is nothing to prove here.</div>'; btn.disabled = false; return }
         window.AnchorVerify.run(out, op, op.network || 'signet')
       }).catch(function () { out.innerHTML = '<div class="dim" style="font-size:12.5px">could not load the opening.</div>'; btn.disabled = false })
     })(0)
