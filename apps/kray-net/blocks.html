@@ -239,7 +239,7 @@
       var tier=(b.verified||b.simulated)?'verified':((b.anchored&&b.txid)?'seen':'pending');
       var donate=!!b.selfAnchor;
       var col=donate?0xf8e7b0:(latest?(tier==='pending'?0x9aa4bf:0xf4f5fa):(tier==='verified'?0xd8b878:(tier==='seen'?0xa8863f:0x6b7488)));
-      var n={type:'block', ref:b, latest:latest, tier:tier, donate:donate, r:r, color:col,}
+      var n={type:'block', ref:b, latest:latest, tier:tier, donate:donate, r:r, color:col,
         x:(host?host.x:0)+(Math.random()-0.5)*6, y:(host?host.y:0)+(Math.random()-0.5)*6, z:(host?host.z:0)+(Math.random()-0.5)*6, vx:0,vy:0,vz:0};
       var self=nodes.length; blockIdx[String(b.h)]=self; nodes.push(n);
       if(mi>=0) edges.push({a:mi, b:self, kind:'hub'});
