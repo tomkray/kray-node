@@ -261,13 +261,14 @@ const SAME_INSTANT_ORDER_ACTIVATION_SEQ: Record<string, number> = {
  * paid-to-try attempt replay byte-identically). The official door already 409s
  * without burning; at/after this pin the reducer speaks the same sentence.
  *
- * Pins: regtest and living signet stay MAX so goldens and any cursed scar replay
- * exact (lab injects `KRAY_LAB_UNIQUE_RELIC_SEQ`; the rite pins signet at tip+margin
- * after a disposable replay of THAT journal). main is empty genesis — born active (0).
+ * Pins: regtest stays MAX so goldens and any cursed scar replay exact (lab injects
+ * `KRAY_LAB_UNIQUE_RELIC_SEQ`). signet ratified at 80 (tip 68 + margin on 2026-08-31;
+ * every recorded event replays below the pin — dormant, byte-identical, proven by a
+ * disposable replay of that journal). main is empty genesis — born active (0).
  */
 const UNIQUE_RELIC_REFUSE_SEQ: Record<string, number> = {
   regtest: Number.MAX_SAFE_INTEGER,
-  signet: Number.MAX_SAFE_INTEGER,
+  signet: 80,
   main: 0,
 }
 
