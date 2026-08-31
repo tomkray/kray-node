@@ -1175,9 +1175,9 @@
     var res=await sub.json(); if(!sub.ok||res.error) throw new Error(res.error||'submit refused');
     return res;
   }
-  // ⚓ ETERNIZE rite (docs/ETERNIZE.md) — verify the atlas bytes in this browser, hand
-  // THAT file to the human's Bitcoin wallet, then prove + seal. The node never builds
-  // an L1 PSBT (book ≠ bakery). Same bytes or the door refuses.
+  // ⚓ ETERNIZE rite (docs/ETERNIZE.md) — two buttons. ₿ talks to the Kray Space
+  // bakery (commit/reveal) with the verified atlas bytes. This node never builds
+  // an L1 PSBT (book ≠ bakery). ⚓ is the 1 ₭ seal after Bitcoin buries a match.
   var etRite={step:0, buf:null, hex:'', proof:null, watch:null, conf:null, need:2, match:null, why:''};
   function etSay(m, ok){
     var out=document.getElementById('etout'); if(!out) return;
@@ -1193,13 +1193,6 @@
       var n=+li.getAttribute('data-s');
       li.className = n<etRite.step ? 'ok' : (n===etRite.step ? 'on' : '');
     });
-  }
-  function etShowId(on){
-    var inp=document.getElementById('etid');
-    if(!inp) return;
-    inp.hidden=!on;
-    inp.classList.toggle('eton', !!on);
-    if(on) inp.focus();
   }
   function etGoLabel(t){
     var b=document.getElementById('etgo'); if(b) b.textContent=t;
@@ -1220,7 +1213,7 @@
     var need=etRite.need||2;
     var buried=conf!=null && conf>=need;
     var confLab=conf==null
-      ? (id ? 'watching Bitcoin…' : 'paste the inscription id after you carve')
+      ? (id ? 'watching Bitcoin…' : 'waiting for ₿ Inscribe')
       : (buried ? conf+' / '+need+' — buried' : conf+' / '+need+' — waiting');
     var matchLab=etRite.match===true?'yes — same sha256':(etRite.match===false?'no — wrong file':(id?'checking…':'—'));
     host.innerHTML=
@@ -1230,6 +1223,7 @@
       +'<div class="er"><span class="ek">Bitcoin id</span><span class="ev">'+(id?esc(id):'not yet')+'</span></div>'
       +'<div class="er"><span class="ek">confirmations</span><span class="ev '+(buried?'ok':(id?'wait':''))+'">'+esc(confLab)+'</span></div>'
       +'<div class="er"><span class="ek">bytes match</span><span class="ev '+(etRite.match===true?'ok':(etRite.match===false?'':''))+'">'+esc(matchLab)+'</span></div>'
+      +'<div class="er"><span class="ek">L1 metadata</span><span class="ev">kray.network · eternize · star #'+esc(star)+'</span></div>'
       +(etRite.why?'<div class="er"><span class="ek">status</span><span class="ev">'+esc(etRite.why)+'</span></div>':'');
   }
   function etWatchStop(){
@@ -1281,30 +1275,139 @@
     var hex=await etSha256(buf);
     if(hex!==want) throw new Error('atlas bytes do not match the star\'s content sha256 — refuse. Do not carve.');
     etRite.buf=buf; etRite.hex=hex; etRite.step=1; etPaintTrail();
-    etStage('<p><b>Bytes match.</b> Inscribe the file this page just verified. The sha256 below is the only fingerprint that will eternize. Then the ⚓ button seals.</p>');
+    etStage('<p><b>Bytes match.</b> The ₿ button carves these exact bytes on Bitcoin (same commit/reveal as kray.space). Tag 5 names the star in JSON/CBOR; the body stays the file. Approve two signatures. The Bitcoin id lands on this board.</p>');
     etPaintFacts();
-    etSay('verified in this browser — now inscribe THAT file on Bitcoin', true);
+    etSay('verified in this browser — click ₿ Inscribe to carve these bytes', true);
   }
-  function etSave(box){
-    if(!etRite.buf) throw new Error('verify the bytes first');
-    var mime=box.getAttribute('data-type')||'application/octet-stream';
-    var fname=box.getAttribute('data-name')||'star-body';
-    var blob=new Blob([etRite.buf], {type:mime});
-    var a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=fname;
-    a.click();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
-    etRite.step=2; etPaintTrail();
-    etStage('<p><b>File saved — carve it on Bitcoin.</b> Paste the inscription id here when miners take it. This board will update confirmations. Then click ⚓ Eternize.</p>');
-    etShowId(true);
-    etPaintFacts();
-    etSay('inscribe the file you just saved — not a screenshot, not a re-export', true);
+  function etBufToB64(buf){
+    var u=new Uint8Array(buf), chunk=0x8000, s='';
+    for(var i=0;i<u.length;i+=chunk) s+=String.fromCharCode.apply(null, u.subarray(i, i+chunk));
+    return btoa(s);
   }
-  function etAskId(){
-    etRite.step=3; etPaintTrail(); etShowId(true); etPaintFacts(); etWatchStart();
-    etStage('<p><b>Watching the stone.</b> Paste the Bitcoin inscription id. Confirmations and the hash check update here. When it is buried and the bytes match, click ⚓ Eternize.</p>');
-    etSay('paste <txid>iN — this board updates while Bitcoin buries it');
+  // Tag 5 metadata is CBOR (ord spec). Body stays the star bytes — this sidecar
+  // only names the book so a stranger reading Bitcoin knows which star this is.
+  function etCborHex(value){
+    function concat(parts){
+      var n=0,i; for(i=0;i<parts.length;i++) n+=parts[i].length;
+      var o=new Uint8Array(n), p=0;
+      for(i=0;i<parts.length;i++){ o.set(parts[i], p); p+=parts[i].length; }
+      return o;
+    }
+    function head(major, n){
+      if(n<24) return new Uint8Array([(major<<5)|n]);
+      if(n<256) return new Uint8Array([(major<<5)|24, n]);
+      if(n<65536) return new Uint8Array([(major<<5)|25, n>>8, n&255]);
+      throw new Error('metadata too large for the envelope');
+    }
+    function enc(x){
+      if(typeof x==='boolean') return new Uint8Array([x?0xf5:0xf4]);
+      if(typeof x==='number' && isFinite(x) && Math.floor(x)===x && x>=0 && x<=0xffffffff) return head(0, x);
+      if(typeof x==='string'){
+        var b=new TextEncoder().encode(x);
+        return concat([head(3, b.length), b]);
+      }
+      if(x && typeof x==='object' && !Array.isArray(x)){
+        var keys=Object.keys(x).filter(function(k){ return x[k]!==undefined && x[k]!==null && x[k]!==''; }).sort();
+        var parts=[head(5, keys.length)];
+        for(var i=0;i<keys.length;i++){ parts.push(enc(keys[i]), enc(x[keys[i]])); }
+        return concat(parts);
+      }
+      throw new Error('metadata is not CBOR-encodable');
+    }
+    var bytes=enc(value);
+    var hex='';
+    for(var i=0;i<bytes.length;i++) hex+=bytes[i].toString(16).padStart(2,'0');
+    return hex;
+  }
+  function etL1Meta(box){
+    var star=Number(box.getAttribute('data-star'));
+    var hash=String(etRite.hex||box.getAttribute('data-hash')||'').toLowerCase();
+    if(!Number.isFinite(star) || star<0) throw new Error('star number missing — refuse to label the stone');
+    if(!/^[0-9a-f]{64}$/.test(hash)) throw new Error('content sha256 missing — refuse to label the stone');
+    var rec={
+      contentHash: hash,
+      net: (window.KRAY&&KRAY.net)||undefined,
+      op: 'eternize',
+      p: 'kray.network',
+      star: star
+    };
+    var kid=String(box.getAttribute('data-kid')||'').trim();
+    if(kid) rec.inscription=kid;
+    return {rec:rec, hex:etCborHex(rec), proto:'kray.network'};
+  }
+  function etBakery(){
+    var net=(window.KRAY&&KRAY.net)||'';
+    if(net==='main'||net==='bitcoin'||net==='mainnet') return {origin:'https://www.kray.space', header:'mainnet'};
+    if(net==='signet') return {origin:'http://127.0.0.1:7777', header:'signet'};
+    if(net==='regtest') return {origin:'http://127.0.0.1:7777', header:'regtest'};
+    throw new Error('unknown universe — refuse to carve on the wrong Bitcoin');
+  }
+  function etNeedAddr(){
+    var net=(window.KRAY&&KRAY.net)||'';
+    var w=window.krayWallet;
+    if(!(w&&w._isKrayWallet)) throw new Error('connect KrayWallet first');
+    return w.getAccounts().then(function(a){
+      var raw=(a&&a[0])||a;
+      var addr=String((raw&&raw.address)||raw||'').trim();
+      if(!addr) throw new Error('KrayWallet returned no address');
+      var low=addr.toLowerCase();
+      if((net==='main'||net==='bitcoin'||net==='mainnet') && (low.indexOf('tb1')===0||low.indexOf('bcrt1')===0))
+        throw new Error('this page is mainnet Bitcoin — switch KrayWallet off DevNet / Signet');
+      if(net==='signet' && low.indexOf('tb1')!==0)
+        throw new Error('this page is Signet — KrayWallet must be a tb1 address');
+      if(net==='regtest' && low.indexOf('bcrt1')!==0)
+        throw new Error('this page is regtest — switch KrayWallet to DevNet (bcrt1)');
+      return {w:w, addr:addr};
+    });
+  }
+  function etPost(bakery, path, body, method){
+    var ctrl=new AbortController();
+    var timer=setTimeout(function(){ ctrl.abort(); }, 90000);
+    var headers={'X-Kray-Network':bakery.header, Accept:'application/json'};
+    var opts={method:method||'POST', headers:headers, signal:ctrl.signal, credentials:'omit', mode:'cors'};
+    if((method||'POST')!=='GET'){ headers['Content-Type']='application/json'; opts.body=JSON.stringify(body||{}); }
+    return fetch(bakery.origin+path, opts).then(function(r){
+      return r.text().then(function(txt){
+        var j={}; try{ j=txt?JSON.parse(txt):{}; }catch(_){ throw new Error('bakery returned non-JSON'); }
+        if(!r.ok) throw new Error(j.error||('bakery '+r.status));
+        return j;
+      });
+    }).catch(function(e){
+      if(e&&e.name==='AbortError') throw new Error('bakery timed out');
+      if(e&&/Failed to fetch|NetworkError/i.test(String((e&&e.message)||e))){
+        throw new Error(bakery.header==='mainnet'
+          ? 'cannot reach the kray.space inscribe desk from this page'
+          : 'Kray Space inscribe is not running on this machine (localhost:7777). That desk builds the Bitcoin PSBT — this node never does.');
+      }
+      throw e;
+    }).finally(function(){ clearTimeout(timer); });
+  }
+  async function etFee(bakery){
+    try{
+      var r=await etPost(bakery, '/api/wallet/fees', null, 'GET');
+      var n=Number((r&&r.fees&&r.fees.medium)||r.recommended_for_swap||0);
+      if(n>=1 && n<=500) return Math.round(n);
+    }catch(_){ /* bakery fee oracle optional — fall through */ }
+    return bakery.header==='mainnet'?8:2;
+  }
+  async function etSignPsbt(w, psbt, inputs){
+    if(!w.signPsbt) throw new Error('KrayWallet cannot sign a PSBT');
+    var toSign=(inputs||[0]).map(function(i){
+      return {index:typeof i==='number'?i:(i&&i.index), sighashTypes:[0x01]};
+    });
+    var result=await w.signPsbt(psbt, {autoFinalized:false, toSignInputs:toSign});
+    if(result&&result.success===false) throw new Error(result.error||'wallet rejected the signature');
+    var signed=(result&&result.signedPsbt)||result;
+    if(!signed||typeof signed!=='string') throw new Error('wallet did not return a signed PSBT');
+    return signed;
+  }
+  async function etFinalize(bakery, signed){
+    var data=await etPost(bakery, '/api/kraywallet/finalize-psbt', {psbt:signed});
+    if(data.txid && data.broadcast) return {txid:data.txid};
+    if(!data.hex) throw new Error(data.error||'finalize failed');
+    var br=await etPost(bakery, '/api/wallet/broadcast', {hex:data.hex});
+    if(!br.txid) throw new Error(br.error||'broadcast failed');
+    return {txid:br.txid};
   }
   async function etProve(box){
     var star=box.getAttribute('data-star');
@@ -1338,15 +1441,44 @@
   }
   async function etCarveL1(box){
     if(etRite.step===0) await etVerify(box);
-    etSave(box);
-    var net=(window.KRAY&&KRAY.net)||'';
-    etShowId(true); etPaintFacts(); etWatchStart();
-    if(net==='main' || net==='bitcoin'){
-      window.open('https://www.kray.space/inscribe','_blank','noopener');
-      etSay('file saved — drop THAT file on the Bitcoin inscribe desk. Paste the id here; confirmations update. Then ⚓ Eternize.', true);
-    } else {
-      etSay('file saved — inscribe THAT file on this universe\'s Bitcoin ('+(net||'this chain')+'). Paste the id here; this board updates. Then ⚓ Eternize.', true);
-    }
+    var bakery=etBakery();
+    var sess=await etNeedAddr();
+    var w=sess.w, addr=sess.addr;
+    var pk=await w.getPublicKey();
+    var pub=(pk&&pk.publicKey)||pk;
+    if(!pub) throw new Error('KrayWallet returned no public key');
+    var mime=box.getAttribute('data-type')||'application/octet-stream';
+    var fee=await etFee(bakery);
+    var meta=etL1Meta(box);
+    etSay('building the Bitcoin commit for these exact bytes…');
+    var commit=await etPost(bakery, '/api/inscription/commit', {
+      address:addr, publicKey:pub, content:etBufToB64(etRite.buf), contentType:mime, feeRate:fee,
+      metaprotocol:meta.proto, metadata:meta.hex
+    });
+    if(!commit.success) throw new Error(commit.error||'commit refused');
+    etRite.step=Math.max(etRite.step,2); etPaintTrail();
+    etSay('approve the commit in KrayWallet…');
+    var signedCommit=await etSignPsbt(w, commit.psbt, commit.inputsToSign);
+    etSay('broadcasting the commit…');
+    var finC=await etFinalize(bakery, signedCommit);
+    if(!finC.txid) throw new Error('commit broadcast failed');
+    etSay('building the reveal…');
+    var reveal=await etPost(bakery, '/api/inscription/reveal', {
+      commitTxId:finC.txid, commitVout:0, commitValue:commit.commitValue,
+      recipientAddress:addr, revealData:commit.revealData, userAddress:addr, feeRate:fee
+    });
+    if(!reveal.success) throw new Error(reveal.error||('reveal refused — commit is on-chain '+String(finC.txid).slice(0,12)+'… finish on kray.space inscribe'));
+    etSay('approve the reveal in KrayWallet…');
+    var signedReveal=await etSignPsbt(w, reveal.psbt, reveal.inputsToSign||[0]);
+    etSay('broadcasting the reveal…');
+    var finR=await etFinalize(bakery, signedReveal);
+    if(!finR.txid) throw new Error('reveal broadcast failed');
+    var id=String(finR.txid).toLowerCase()+'i0';
+    var inp=document.getElementById('etid');
+    if(inp){ inp.value=id; inp.hidden=false; inp.classList.add('eton'); }
+    etRite.step=3; etPaintTrail(); etPaintFacts(); etWatchStart();
+    etStage('<p><b>Carved.</b> Bitcoin id <code>'+esc(id)+'</code> is on this board. Confirmations update here. When the stone is buried and the bytes match, click ⚓ Eternize.</p>');
+    etSay('inscribed on Bitcoin — watching confirmations. Then ⚓ Eternize · 1 ₭', true);
   }
   async function eternizeGo(){
     var box=document.getElementById('etrite');
@@ -1355,15 +1487,17 @@
     box.setAttribute('data-busy','1');
     try{
       var id=String((document.getElementById('etid')||{}).value||'').trim().toLowerCase();
-      if(etRite.step<2 && !id){
-        etSay('first click ₿ Inscribe on Bitcoin (the button above). Or paste an id and skip.');
+      if(!id){
+        etSay('first click ₿ Inscribe — that carves these bytes and fills the Bitcoin id');
         return;
       }
       if(etRite.proof && etRite.match) await etSeal(box);
       else if(/^[0-9a-f]{64}i\d+$/.test(id)){
         await etProve(box);
         if(etRite.proof && etRite.match) await etSeal(box);
-      } else etAskId();
+      } else {
+        etSay('Bitcoin id is not ready yet — wait for ₿ Inscribe to finish');
+      }
     }catch(e){ etSay('✗ '+((e&&e.message)||e), false); }
     finally{ box.removeAttribute('data-busy'); }
   }
@@ -1377,12 +1511,6 @@
       box.setAttribute('data-busy','1');
       etCarveL1(box).catch(function(e){ etSay('✗ '+((e&&e.message)||e), false); })
         .finally(function(){ box.removeAttribute('data-busy'); });
-    });
-    var skip=document.getElementById('etskip');
-    if(skip) skip.addEventListener('click', function(){
-      etRite.step=3; etPaintTrail(); etShowId(true); etPaintFacts(); etWatchStart();
-      etStage('<p><b>Watching the stone.</b> Paste the Bitcoin inscription id. This board updates confirmations and the hash. Then ⚓ Eternize.</p>');
-      etSay('paste <txid>iN — the board updates while Bitcoin buries it');
     });
     var inp=document.getElementById('etid');
     if(inp) inp.addEventListener('input', function(){ etPaintFacts(); etWatchStart(); });
@@ -2154,17 +2282,16 @@
         })[mime]||'';
         var fname='star-'+String(s.star||s.no)+'-body'+ext;
         h+='<dt id="eternal">⚓ eternize</dt><dd>'
-          +'<div id="etrite" data-star="'+esc(String(s.star||s.no))+'" data-hash="'+esc(String(s.contentHash))+'" data-url="'+esc(bodyUrl)+'" data-name="'+esc(fname)+'" data-type="'+esc(mime)+'">'
+          +'<div id="etrite" data-star="'+esc(String(s.star||s.no))+'" data-hash="'+esc(String(s.contentHash))+'" data-url="'+esc(bodyUrl)+'" data-name="'+esc(fname)+'" data-type="'+esc(mime)+'"'+(ins&&ins.id?' data-kid="'+esc(String(ins.id))+'"':'')+'>'
           +'<ol class="etrail" aria-label="eternize rite">'
-          +'<li data-s="0" class="on">1 verify</li><li data-s="1">2 save</li><li data-s="2">3 carve</li><li data-s="3">4 prove</li><li data-s="4">5 seal</li>'
+          +'<li data-s="0" class="on">1 verify</li><li data-s="1">2 inscribe</li><li data-s="2">3 watch</li><li data-s="3">4 prove</li><li data-s="4">5 seal</li>'
           +'</ol>'
-          +'<div id="etstage"><p>Two buttons, one board. <b>₿ Inscribe</b> verifies and saves the exact file. After Bitcoin takes it, paste the id — confirmations and the hash check update here. Then <b>⚓ Eternize</b> seals 1 ₭. The ⚓ mark appears only after that.</p></div>'
+          +'<div id="etstage"><p>Two buttons. <b>₿ Inscribe</b> verifies this star\u2019s exact bytes and asks KrayWallet to carve them on Bitcoin \u2014 the same commit/reveal as kray.space inscribe. The Bitcoin id and confirmations appear on this board. When the stone is buried and the bytes match, <b>⚓ Eternize</b> seals 1 ₭.</p></div>'
           +'<div id="etfacts" class="etfacts"></div>'
-          +'<input id="etid" hidden placeholder="Bitcoin inscription id — ab12…i0  (not the sha256)" autocomplete="off" spellcheck="false" style="width:100%;margin:0 0 var(--s3);background:var(--bg-2,#0b0c10);color:inherit;border:1px solid var(--line,#2a2d36);border-radius:8px;padding:10px 12px;font:12px/1.4 ui-monospace,monospace">'
+          +'<input id="etid" hidden placeholder="filled after ₿ Inscribe — Bitcoin id, not the sha256" autocomplete="off" spellcheck="false" style="width:100%;margin:0 0 var(--s3);background:var(--bg-2,#0b0c10);color:inherit;border:1px solid var(--line,#2a2d36);border-radius:8px;padding:10px 12px;font:12px/1.4 ui-monospace,monospace">'
           +'<div class="etacts">'
           +'<button type="button" class="btn primary" id="etl1">₿ Inscribe on Bitcoin · these exact bytes</button>'
           +'<button type="button" class="btn" id="etgo">⚓ Eternize · 1 ₭</button>'
-          +'<button type="button" class="btn" id="etskip">I already have the Bitcoin id</button>'
           +'</div>'
           +'<div id="etout" style="margin-top:var(--s3);color:var(--ink-4);font-size:12px"></div>'
           +'</div></dd>';
