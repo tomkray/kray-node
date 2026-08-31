@@ -320,7 +320,13 @@
       <button class="btn primary" id="xsend-go" disabled>Send Ӿ — fee prescribed</button>
     </div>
     <div class="out" id="xsend-out"></div>
-    <div class="flab" style="margin-top:var(--s5)">Enter the TK-fold lane</div>
+    <!-- TK-fold: same Ӿ, another book. IDs stay — JS and the door do not change.
+         Closed by default; opens when this address already holds lane Ӿ (so the
+         other book cannot vanish from the citizen's eye). -->
+    <details class="brlink" id="x-lane">
+      <summary>Advanced · TK-fold lane <span id="x-lane-hint"></span></summary>
+      <p class="sub" style="margin-top:var(--s3)">The same Ӿ, another book. Enter or exit is a journal act (1 ₭). A send inside the lane is feeless and waits for a house to seal a proven breath — not a button here.</p>
+    <div class="flab" style="margin-top:var(--s4)">Enter the TK-fold lane</div>
     <p class="sub">Moves spendable Ӿ off the journal book into the compressed lane. A journal act — fee 1 ₭ (data availability).</p>
     <div class="sendform" style="grid-template-columns:1fr auto">
       <input class="input" id="lane-enter-amt" placeholder="amount · Ӿ to enter" inputmode="numeric" autocomplete="off" disabled>
@@ -328,7 +334,7 @@
     </div>
     <div class="out" id="lane-enter-out"></div>
     <div class="flab" style="margin-top:var(--s5)">Send Ӿ in the lane · feeless</div>
-    <p class="sub">Off-journal. Sits in the node's mempool until anyone seals a proven breath. Any house with 1 ₭: <code>scripts/folder/preflight.mjs</code> then <code>fold-once.mjs</code> (Groth16 + 1 ₭ journal DA) — not a browser button, not an official folder.</p>
+    <p class="sub">Off-journal. Sits in the node's mempool until a house seals a proven breath. Not a browser button.</p>
     <div class="sendform">
       <input class="input" id="lane-to" placeholder="send Ӿ in the lane to · a name, a domain, @username — or the address" autocomplete="off" disabled>
       <div class="resolved" id="lane-res" hidden></div>
@@ -343,6 +349,7 @@
       <button class="btn" id="lane-exit-go" disabled>Exit lane — fee 1 ₭</button>
     </div>
     <div class="out" id="lane-exit-out"></div>
+    </details>
     <div class="flab" style="margin-top:var(--s5)">Send a WRITTEN star · the relic travels whole, its writings ride forever</div>
     <div class="istars" id="relic-pick"><span class="eyebrow">no written stars yet — inscribe or baptize one below</span></div>
     <div class="sendform" style="grid-template-columns:1fr auto">
@@ -1147,6 +1154,10 @@
         +(xsN!=null&&(xsN>0||(lxN||0)>0)?' &nbsp;·&nbsp; <span style="color:'+(xsN>0?'#ff6b6b':'var(--ink-4)')+'" title="Ӿ this address can move NOW by x-send (the journal book).">Ӿ <b>'+xsN.toLocaleString()+'</b> spendable</span>':'')
         +(lxN!=null&&lxN>0?' &nbsp;·&nbsp; <span style="color:#ff3b3b" title="Ӿ living inside the TK-fold lane — feeless transfers, settled on the journal by proven fold-seals.">Ӿ <b>'+lxN.toLocaleString()+'</b> in the lane</span>':'');
     }
+    var laneHint=document.getElementById('x-lane-hint');
+    var laneBox=document.getElementById('x-lane');
+    if(laneHint) laneHint.textContent=(lxN!=null&&lxN>0)?' · '+lxN.toLocaleString()+' Ӿ in the lane':'';
+    if(laneBox) laneBox.open=!!(lxN!=null&&lxN>0);
     var luzEl=document.getElementById('s-luz');
     if(luzEl){
       var luzRows=p.luz||[];
@@ -1489,7 +1500,7 @@
       var sr=await fetch('/api/kraynet/lane-send',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({from:me,to:to,amount:amt,nonce:prep.nonce,publicKey:pub,signature:(sig&&sig.signature)||sig})});
       var res=await sr.json(); if(!sr.ok||res.error) throw new Error(res.error||'refused');
       out.className='out ok';
-      out.innerHTML='✓ in the lane pool — feeless. Waiting for a fold-seal (any house: <code>scripts/folder/preflight.mjs</code> then <code>fold-once.mjs</code> — journal fee 1 ₭). Pending '+esc(String(res.pending!=null?res.pending:''))+(res.dedup?' · already queued':'');
+      out.innerHTML='✓ in the lane pool — feeless. Waiting for a house fold-seal (1 ₭ journal DA). Pending '+esc(String(res.pending!=null?res.pending:''))+(res.dedup?' · already queued':'');
       $('lane-to').value=''; $('lane-amt').value=''; var lb=document.getElementById('lane-res'); if(lb) lb.hidden=true;
     }catch(e){ out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused'); }
     finally{ busy=false; }
