@@ -1,5 +1,5 @@
 /**
- * SEALED FORMS — escrow, tunnel, vest, scroll, raffle, mint, cut. Same total IR as living law.
+ * SEALED FORMS — escrow, tunnel, vest, scroll, raffle, mint, cut, poll. Same total IR as living law.
  *
  * Not a second VM. A catalog of beings that compile to contract.ts.
  * Hang on a star (v2, burn 1 ₭) or stand alone (v1, frozen, no burn).
@@ -10,14 +10,16 @@
  * scroll `claim` pays the living caller; raffle `enter` / `settle` are public;
  * mint `mint` is not a call — the reducer runs it as the blessing on an inscribe
  * (take price → pay the sealed dest or living owner → taken++).
+ * poll `vote` is a public door: 1 ₭ fee, one ballot, weight = ✦ glow (the book).
  */
 import { callerInt } from './star-law.ts'
-import { validateContract, type ContractCode, type Expr } from './contract.ts'
+import { isContractPotAddress, validateContract, type ContractCode, type Expr, type LuzGenesisRow, type PollPaper } from './contract.ts'
+import { BLACK_HOLE, STAR_OFFER, TREASURY } from './kray-primitives.ts'
 
 const ADDR_RE = /^[a-z0-9]{8,90}$/i
 const WHOLE = /^(0|[1-9]\d*)$/
 
-export type FormKind = 'escrow' | 'tunnel' | 'vest' | 'scroll' | 'raffle' | 'mint' | 'cut' | 'luz'
+export type FormKind = 'escrow' | 'tunnel' | 'vest' | 'scroll' | 'raffle' | 'mint' | 'cut' | 'luz' | 'poll'
 
 /** Seats in one raffle window — the IR has no list type; each face is a bind. */
 export const MAX_RAFFLE_SEATS = 8
@@ -27,6 +29,8 @@ export const DEFAULT_RAFFLE_PERIOD = 100
 export const MAX_MINT_EDITION = 256
 /** KRC-77 Cut — max sealed supply (same ceiling as the old L2 share token). 0 + uncapped = infinite. */
 export const MAX_CUT_SUPPLY = 10_000_000
+/** Founder rows at seal — the remainder stays with the sealer. Same bound as a list scroll. */
+export const MAX_CUT_FOUNDERS = 8
 /** MasterChef scale — integer only. Hidden; the desk does not let a user pick it. */
 export const CUT_PRECISION = '1000000000000'
 /** Art URL the desk pulls at the mint act. NOT IR (vars are integers) and NOT journaled — the reducer refuses
@@ -36,6 +40,11 @@ export const MAX_MINT_SHELF = 512
 export type ScrollGate = 'open' | 'stamp' | 'list'
 
 export const MAX_SCROLL_ALLOW = 8
+/** Poll alternatives — same bound as list / founders / raffle seats. */
+export const MAX_POLL_CHOICES = 8
+export const MIN_POLL_CHOICES = 2
+export const MAX_POLL_TITLE = 80
+export const MAX_POLL_CHOICE = 48
 
 export type ContractForm =
   | { kind: 'escrow'; buyer: string; seller: string; deadline: string }
@@ -44,8 +53,9 @@ export type ContractForm =
   | { kind: 'scroll'; each: string; max: string; locked?: boolean; gate?: ScrollGate; allow?: string[] }
   | { kind: 'raffle'; price: string; period?: string; seats?: string }
   | { kind: 'mint'; price: string; max: string; payTo?: string }
-  | { kind: 'cut'; supply?: string; infinite?: boolean }
-  | { kind: 'luz'; supply?: string; infinite?: boolean }
+  | { kind: 'cut'; supply?: string; infinite?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
+  | { kind: 'luz'; supply?: string; infinite?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
+  | { kind: 'poll'; title?: string; choices?: string[] }
 
 function addr(a: string, name: string): string {
   const s = String(a || '').trim()
@@ -61,6 +71,72 @@ function finish(code: ContractCode): ContractCode {
   const v = validateContract(code)
   if (!v.ok) throw new Error(`form: compiled IR is not valid (${v.reason})`)
   return code
+}
+
+function refuseFounderAddr(a: string): void {
+  if (a.startsWith('KRAY_') || isContractPotAddress(a) || a === BLACK_HOLE || a === TREASURY || a === STAR_OFFER) {
+    throw new Error('form: a founder cannot be a protocol pot')
+  }
+}
+
+/** Empty / omitted ⇒ sealer holds supply. Present ⇒ signed into the paper. */
+export function parseCutFounders(
+  raw: unknown,
+  supply: string,
+  infinite: boolean,
+): LuzGenesisRow[] | undefined {
+  if (raw == null) return undefined
+  if (!Array.isArray(raw)) throw new Error('form: founders must be a list')
+  const rows: LuzGenesisRow[] = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') throw new Error('form: a founder needs to + amount')
+    const rec = item as { to?: string; address?: string; amount?: string }
+    const toRaw = String(rec.to ?? rec.address ?? '').trim()
+    const amountRaw = String(rec.amount ?? '').trim()
+    if (!toRaw && !amountRaw) continue
+    if (!toRaw || !amountRaw) throw new Error('form: each founder needs an address and an amount')
+    const to = addr(toRaw, 'founder')
+    refuseFounderAddr(to)
+    const amount = whole(amountRaw, 'founder amount')
+    if (amount === '0') throw new Error('form: a founder amount must be greater than 0')
+    rows.push({ to, amount })
+  }
+  if (rows.length === 0) return undefined
+  if (infinite) throw new Error('form: infinite Luz has no genesis table')
+  if (rows.length > MAX_CUT_FOUNDERS) throw new Error(`form: at most ${MAX_CUT_FOUNDERS} founders`)
+  const cap = BigInt(supply)
+  const seen = new Set<string>()
+  let sum = 0n
+  for (const r of rows) {
+    if (seen.has(r.to)) throw new Error(`form: duplicate founder ${r.to}`)
+    seen.add(r.to)
+    sum += BigInt(r.amount)
+    if (sum > cap) throw new Error('form: founders take more than supply')
+  }
+  return rows
+}
+
+/** Replay math: listed founders + remainder to the sealer. Σ == supply. */
+export function resolveLuzGenesis(code: ContractCode, sealer: string): Array<{ to: string; amount: bigint }> {
+  const supply = BigInt(code.vars?.supply ?? '0')
+  if (supply <= 0n) return []
+  const listed = Array.isArray(code.genesis) ? code.genesis : []
+  const out = new Map<string, bigint>()
+  let sum = 0n
+  for (const r of listed) {
+    const to = String(r.to || '')
+    const amount = BigInt(String(r.amount || '0'))
+    if (!to || amount <= 0n) throw new Error('ledger: a founder row is empty')
+    out.set(to, (out.get(to) ?? 0n) + amount)
+    sum += amount
+  }
+  if (sum > supply) throw new Error('ledger: founders take more than supply')
+  const rest = supply - sum
+  if (rest > 0n) {
+    if (!sealer) throw new Error('ledger: genesis remainder needs the sealer')
+    out.set(sealer, (out.get(sealer) ?? 0n) + rest)
+  }
+  return [...out.entries()].filter(([, n]) => n > 0n).map(([to, amount]) => ({ to, amount }))
 }
 
 const callerIs = (id: Expr): Expr => ({ op: 'eq', args: [{ ctx: 'caller' }, id] })
@@ -504,7 +580,7 @@ export function isMintPaper(code: { rules?: { name: string }[] } | null | undefi
  *   capped=1, supply=N  — max N units (Radiola default 100000)
  *   capped=0, supply=0  — infinite (uncapped constitution)
  */
-export function compileCut(input: { supply?: string; infinite?: boolean } = {}): ContractCode {
+export function compileCut(input: { supply?: string; infinite?: boolean; founders?: unknown } = {}): ContractCode {
   const infinite = !!input.infinite
   let supply = '0'
   let capped = '0'
@@ -520,6 +596,7 @@ export function compileCut(input: { supply?: string; infinite?: boolean } = {}):
     }
     capped = '1'
   }
+  const founders = parseCutFounders(input.founders, supply, infinite)
   const bump: Expr = {
     op: 'if',
     args: [
@@ -545,6 +622,7 @@ export function compileCut(input: { supply?: string; infinite?: boolean } = {}):
         ],
       },
     ],
+    ...(founders ? { genesis: founders } : {}),
   })
 }
 
@@ -609,6 +687,88 @@ export function resolveMintShelf(shelf: string, taken: number): string {
   return src.replace(/\{n\}/g, String(n)).replace(/\{i\}/g, String(n + 1))
 }
 
+function cleanPollLabel(raw: unknown, name: string, max: number): string {
+  const s = String(raw ?? '').trim()
+  if (!s) throw new Error(`form: ${name} is empty`)
+  if (s.length > max) throw new Error(`form: ${name} is too long`)
+  if (/[\x00-\x1f<>]/.test(s)) throw new Error(`form: ${name} has a forbidden character`)
+  return s
+}
+
+/** Sealed question + alternatives. Empty title is omitted (A3). */
+export function parsePollChoices(input: { title?: string; choices?: unknown }): PollPaper {
+  const raw = Array.isArray(input.choices) ? input.choices : []
+  const choices: string[] = []
+  const seen = new Set<string>()
+  for (const item of raw) {
+    const label = cleanPollLabel(item, 'choice', MAX_POLL_CHOICE)
+    if (seen.has(label)) throw new Error(`form: duplicate poll choice "${label}"`)
+    seen.add(label)
+    choices.push(label)
+  }
+  if (choices.length < MIN_POLL_CHOICES) throw new Error(`form: a poll needs at least ${MIN_POLL_CHOICES} choices`)
+  if (choices.length > MAX_POLL_CHOICES) throw new Error(`form: at most ${MAX_POLL_CHOICES} poll choices`)
+  const titleRaw = input.title != null ? String(input.title).trim() : ''
+  const title = titleRaw ? cleanPollLabel(titleRaw, 'title', MAX_POLL_TITLE) : undefined
+  return title ? { title, choices } : { choices }
+}
+
+/**
+ * POLL — a glow-weighted ballot on this star. People pick one sealed alternative.
+ * Each signer pays the eternal 1 ₭ fee and votes once. Weight is ✦ glow at the
+ * act (stars they froze). Glow cannot move, so a whale cannot buy the room.
+ * The IR remembers the latch + the ballot count; who voted which face lives
+ * on PollBook (the map the language cannot store). No collect. No payout.
+ */
+export function compilePoll(input: { title?: string; choices?: string[] } = {}): ContractCode {
+  const paper = parsePollChoices(input)
+  const faces = String(paper.choices.length)
+  return finish({
+    vars: { poll: '1', faces, open: '1', ballots: '0' },
+    rules: [
+      {
+        name: 'toggle_open',
+        when: callerIsHolder,
+        then: [{
+          set: {
+            var: 'open',
+            to: {
+              op: 'if',
+              args: [
+                { op: 'eq', args: [{ var: 'open' }, { lit: '1' }] },
+                { lit: '0' },
+                { lit: '1' },
+              ],
+            },
+          },
+        }],
+      },
+      {
+        name: 'vote',
+        when: {
+          op: 'and',
+          args: [
+            { op: 'eq', args: [{ var: 'open' }, { lit: '1' }] },
+            { op: 'ge', args: [{ arg: 'face' }, { lit: '0' }] },
+            { op: 'lt', args: [{ arg: 'face' }, { var: 'faces' }] },
+            { op: 'gt', args: [{ ctx: 'glow' }, { lit: '0' }] },
+          ],
+        },
+        then: [
+          { set: { var: 'ballots', to: { op: 'add', args: [{ var: 'ballots' }, { lit: '1' }] } } },
+        ],
+      },
+    ],
+    poll: paper,
+  })
+}
+
+export function isPollPaper(code: { rules?: { name: string }[]; vars?: Record<string, string> } | null | undefined): boolean {
+  const names = (code?.rules || []).map((r) => r.name)
+  return code?.vars?.poll === '1'
+    && names.includes('vote') && !names.includes('mint') && !names.includes('enter') && !names.includes('deposit')
+}
+
 export function compileForm(form: ContractForm): ContractCode {
   if (!form || typeof form !== 'object' || !form.kind) throw new Error('form: kind is required')
   if (form.kind === 'escrow') return compileEscrow(form)
@@ -618,6 +778,7 @@ export function compileForm(form: ContractForm): ContractCode {
   if (form.kind === 'raffle') return compileRaffle(form)
   if (form.kind === 'mint') return compileMint(form)
   if (form.kind === 'cut' || form.kind === 'luz') return compileCut(form)
+  if (form.kind === 'poll') return compilePoll(form)
   throw new Error(`form: unknown kind "${(form as { kind: string }).kind}"`)
 }
 

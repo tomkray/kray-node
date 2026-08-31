@@ -35,6 +35,8 @@ import {
   runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, quantumCommitMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, scriptOfAddress, toBtcNet, normalizeAddr, verifySignature, addressOf,
   _generateKeyPair, isAddressOnNetwork, isSupportedScheme,
 } from '../kray-core/src/protocol/scheme.ts'
+import { eternizeMessage } from '../kray-core/src/protocol/scheme.ts'
+import { proveInscription } from '../kray-core/src/protocol/inscription-proof.ts'
 import { tkFoldSendMessage, parseLaneAmount } from '../kray-core/src/protocol/tk-fold.ts'   // THE LANE DOOR: the fold's own signing domain
 import { orderWindow, keyFromSignedMessage } from '../kray-core/src/protocol/window-order.ts'   // THE SAME-INSTANT GATE: the objective order
 import { signedBytesOfEvent } from '../kray-core/src/protocol/signed-message.ts'   // the MIRROR the reducer's referee re-proves on every apply
@@ -78,7 +80,7 @@ import { validateContract, canonicalCode, contractAddress, isContractPotAddress 
 import { examContract, parseExamSource } from '../kray-core/src/protocol/contract-exam.ts'
 import { speakMessage, parseSpeakMessage, readAudience, verifySpeak, speakId, SPEAK_TTL_SEC } from '../kray-core/src/protocol/star-speak.ts'
 import { compileLivingLaw, callerInt } from '../kray-core/src/protocol/star-law.ts'
-import { compileForm, requireMintShelf, resolveMintShelf, isCutPaper } from '../kray-core/src/protocol/star-forms.ts'
+import { compileForm, requireMintShelf, resolveMintShelf, isCutPaper, isPollPaper } from '../kray-core/src/protocol/star-forms.ts'
 import { considerSeal, sortPendingSeals, donateSealAt as donateSealAtOf } from './seal-chronology.mjs'
 import { packNodeTree, nodeVersionView } from './node-pack.mjs'
 import { docsPack, docsFile } from './docs-pack.mjs'
@@ -779,6 +781,26 @@ async function spvProofFor(txid, minConf = DONATION_MIN_CONF) {
     console.error('spvProofFor: coinbase clock missing for', String(txid).slice(0, 16), '—', e instanceof Error ? e.message : e)
   }
   return proof
+}
+
+// THE ETERNAL BAG GATE (Zero Trust at the door) — shape-check the client-returned SPV bundle before it
+// rides a signed act. The reducer re-proves every byte (proveInscription); this only refuses garbage
+// early and caps size so a hostile body cannot journal megabytes of junk rows beside a valid act.
+function parseEternalProof(raw) {
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 4) throw new Error('eternalProof must be 1..4 proven-transaction rows — assemble it at /api/kraynet/eternize-proof')
+  const hexOk = (s, max) => typeof s === 'string' && s.length >= 2 && s.length <= max && s.length % 2 === 0 && /^[0-9a-f]+$/.test(s)
+  return raw.map((r, i) => {
+    if (!r || typeof r !== 'object') throw new Error(`eternalProof[${i}] must be {rawTx, txoutproof, headers[]}`)
+    const rawTx = String(r.rawTx || '').toLowerCase()
+    const txoutproof = String(r.txoutproof || '').toLowerCase()
+    const headers = Array.isArray(r.headers) ? r.headers.map((h) => String(h || '').toLowerCase()) : []
+    if (!hexOk(rawTx, 2_000_000)) throw new Error(`eternalProof[${i}].rawTx must be raw-transaction hex (≤1 MB of bytes)`)
+    if (!hexOk(txoutproof, 200_000)) throw new Error(`eternalProof[${i}].txoutproof must be merkle-proof hex`)
+    if (!headers.length || headers.length > 300 || headers.some((h) => !/^[0-9a-f]{160}$/.test(h))) {
+      throw new Error(`eternalProof[${i}].headers must be 1..300 raw 80-byte block-header hexes`)
+    }
+    return { rawTx, txoutproof, headers }
+  })
 }
 
 // THE KEYSTONE ASSEMBLER — build the ancestry bundle a born-strict rune-deposit must journal:
@@ -3778,6 +3800,7 @@ function starView(nBig) {
     meta: s.meta ?? null,
     contract: s.contract ?? null,
     law: s.contract ? node.contract(s.contract) : null,
+    eternal: s.eternal ?? null,   // ⚓ the L1 carving of this star's exact bytes (docs/ETERNIZE.md)
     parent: s.parent != null ? String(s.parent) : null, origin: s.origin ?? null,
     // MULTIPARENT (additive): the FULL signed lineage; the scalars above keep first-of meaning
     parents: s.parents ? s.parents.map(String) : null, origins: s.origins ? s.origins.map((o) => o.l1InscriptionId) : null,
@@ -3792,6 +3815,7 @@ function starView(nBig) {
     offers,    // live escrowed bids [{ bidder, price }] — pot-locked, highest first
     lastDelivery: [...history].reverse().find((h) => h.kind === 'contract-call' && (h.rule === 'settle' || h.rule === 'draw') && Array.isArray(h.paid) && h.paid.length) || null,
     luz: luzFace(nStr, s.contract ? node.contract(s.contract) : null),
+    poll: pollFace(nStr, s.contract ? node.contract(s.contract) : null),
   }
 }
 
@@ -3809,6 +3833,24 @@ function luzFace(nStr, law) {
     }
   } catch (_) { /* Luz must never take the star view down */ }
   return { star: nStr, name: 'Luz', glyph: '✧', unportioned: true, supply: null, circulating: '0', holders: [] }
+}
+
+/** Poll · ✦ on this face — glow-weighted ballots. Never take the star door down. */
+function pollFace(nStr, law) {
+  try {
+    const polls = node.ledger && node.ledger.polls
+    const book = polls && typeof polls.view === 'function' ? polls.view(nStr) : null
+    const open = !(law && law.state && String(law.state.open) === '0')
+    if (book) return { ...book, glyph: '✦', open }
+    if (typeof isPollPaper === 'function' && law && isPollPaper(law.code) && law.code.poll) {
+      const choices = law.code.poll.choices || []
+      return {
+        star: nStr, title: law.code.poll.title || '', choices, glyph: '✦', open,
+        ballots: 0, tallies: choices.map(() => 0), voters: [],
+      }
+    }
+  } catch (_) { /* a poll must never take the star view down */ }
+  return null
 }
 
 // ══ LINEAGE COLLECTIONS — a parent with children is the collection.
@@ -4462,11 +4504,24 @@ function readContractCode(b, from, opts) {
         kind: 'luz',
         supply: f.supply != null && String(f.supply) !== '' ? String(f.supply) : undefined,
         infinite: !!f.infinite,
+        ...(Array.isArray(f.founders) ? { founders: f.founders } : {}),
       })
     }
-    throw new Error(`unknown form "${kind}" — escrow, tunnel, vest, scroll, raffle, mint, or luz`)
+    if (kind === 'poll') {
+      if (!exam && readOnStar(b) == null) throw new Error('a poll hangs on a star')
+      const raw = f.choices
+      const choices = Array.isArray(raw)
+        ? raw.map((c) => String(c))
+        : String(raw || '').split(/\n/).map((c) => c.trim()).filter(Boolean)
+      return compileForm({
+        kind: 'poll',
+        title: f.title != null ? String(f.title) : undefined,
+        choices,
+      })
+    }
+    throw new Error(`unknown form "${kind}" — escrow, tunnel, vest, scroll, raffle, mint, luz, or poll`)
   }
-  throw new Error('a contract needs code, a living-law flag list, or a form (escrow / tunnel / vest / scroll / raffle / mint / luz)')
+  throw new Error('a contract needs code, a living-law flag list, or a form (escrow / tunnel / vest / scroll / raffle / mint / luz / poll)')
 }
 function readCallArgs(b) {
   const raw = (b.args && typeof b.args === 'object') ? b.args : (b.callArgs && typeof b.callArgs === 'object' ? b.callArgs : {})
@@ -4558,6 +4613,21 @@ function prepareMessage(action, b, nonceOverride) {
   switch (action) {
     case 'transfer': assertNotAmmPot(b.to, 'transfer'); return { message: transferMessage(NET, from, b.to, BigInt(b.amount), nonce), nonce }
     case 'burn': return { message: burnMessage(NET, from, BigInt(b.amount), nonce), nonce }   // the sporadic burn — its own domain, no `to`
+    case 'eternize': {
+      // THE ETERNAL DOOR (docs/ETERNIZE.md) — pre-checks mirror the reducer so the wallet never
+      // signs a doomed act; the reducer stays the only law (it re-proves everything on apply).
+      const star = readOnStar(b)
+      if (star == null) throw new Error('eternize needs the star number')
+      const id = String(b.l1InscriptionId || b.parentId || '').toLowerCase()
+      if (!/^[0-9a-f]{64}i\d+$/.test(id)) throw new Error('eternize needs the L1 inscription id (<txid>iN)')
+      const s = node.ledger.stars.star(BigInt(star))
+      if (!s) throw new Error(`star #${star} does not exist`)
+      if (!s.contentHash) throw new Error('a baptism-only star has no bytes to eternize — carve the body first')
+      if (s.eternal) throw new Error(`star #${star} is already eternal — carved at ${s.eternal}`)
+      const taken = node.ledger.stars.starOfEternal(id)
+      if (taken != null) throw new Error(`that carving is already eternal on star #${taken} — one binding, forever`)
+      return { message: eternizeMessage(NET, from, BigInt(star), id, nonce), nonce }
+    }
     case 'x-send': {
       assertNotAmmPot(b.to, 'x-send'); assertNotContractPot(b.to, 'x-send')
       const xAmt = parseLaneAmount(String(b.amount ?? ''))
@@ -4735,6 +4805,16 @@ function buildSubmitEvent(action, b, atOverride) {
       foldDiffs: b.foldDiffs, foldProof: String(b.foldProof), foldPublic: String(b.foldPublic),
     }; break
     case 'sendstar': assertNotAmmPot(b.to, 'send star'); action_ = { ...base, kind: 'transfer-star', to: b.to, star: String(b.star), fee: '1' }; break
+    // THE ETERNAL DOOR (docs/ETERNIZE.md) — bind a star to the L1 carving of its exact bytes. The SPV
+    // bag is assembled by /api/kraynet/eternize-proof (or any client); the reducer re-proves every byte.
+    case 'eternize': {
+      const star = readOnStar(b)
+      if (star == null) throw new Error('eternize needs the star number')
+      const id = String(b.l1InscriptionId || b.parentId || '').toLowerCase()
+      if (!/^[0-9a-f]{64}i\d+$/.test(id)) throw new Error('eternize needs the L1 inscription id (<txid>iN)')
+      action_ = { ...base, kind: 'eternize', star, l1InscriptionId: id, eternalProof: parseEternalProof(b.eternalProof), fee: '1' }
+      break
+    }
     // THE STAR MARKET — native, atomic, trustless. list/edit-price + delist + buy; the eternal 1-₭ fee → validators.
     case 'star-list': action_ = { ...base, kind: 'star-list', star: String(b.star), amount: String(b.price), fee: '1' }; break
     case 'star-delist': action_ = { ...base, kind: 'star-delist', star: String(b.star), fee: '1' }; break
@@ -5608,6 +5688,7 @@ const server = createServer(async (req, res) => {
           'contract': 'law', 'contract-call': 'law',
           'quantum-commit': 'quantum', 'quantum-migrate': 'quantum',
           'transfer-star': 'starmove',
+          'eternize': 'starmove',   // ⚓ the eternal binding — a star fact, hung beside the moves
           // THE NATIVE STAR MARKET — list / delist / buy are user acts; the constellation
           // hangs a market-coloured node for each so a sale reads at a glance.
           'star-list': 'market', 'star-delist': 'market', 'star-buy': 'market',
@@ -7035,8 +7116,52 @@ const server = createServer(async (req, res) => {
         try {
           if (!b.from) return err(res, 400, 'origin-proof needs {from, parentId, satpoint}')
           const proof = await assembleOriginProofFromBitcoin(String(b.from), b.parentId, b.satpoint)
-          return ok(res, { ok: true, proof, parentId: String(b.parentId || '').toLowerCase() })
+          // THE FREE STONE (docs/ETERNIZE.md) — the blessing's bundle already holds the reveal's
+          // proven bytes. Name what they carve so the desk can offer the ⚓ in the same breath when
+          // the newborn star is that ordinal's exact mirror. Hint only: blessing never fails on it.
+          let carving = null
+          try {
+            const pid = String(b.parentId || '').toLowerCase()
+            const em = /^([0-9a-f]{64})i(\d+)$/.exec(pid)
+            if (em && proof?.[0]) {
+              const v = proveInscription(em[1], parseInt(em[2], 10), [proof[0]], { minConfirmations: DONATION_MIN_CONF, net: NET })
+              if (v.ok) carving = {
+                contentHash: v.contentHash || null, contentType: v.contentType || null, size: v.size ?? null,
+                eternalOn: node.ledger.stars.starOfEternal(pid)?.toString() ?? null,
+              }
+            }
+          } catch { /* hint only — a blessing must never be refused because the ⚓ hint could not be computed */ }
+          return ok(res, { ok: true, proof, parentId: String(b.parentId || '').toLowerCase(), carving })
         } catch (e) { return err(res, 403, e instanceof Error ? e.message : String(e)) }
+      }
+      // THE ETERNAL BAG ASSEMBLER (docs/ETERNIZE.md S2) — given an L1 inscription id, fetch the reveal's
+      // SPV proof from bitcoind, prove the carving locally, and AUTO-DETECT the KRAY side: which star
+      // carries these exact bytes (byte-uniqueness ⇒ at most one), and whether the carving is already
+      // eternal. Read + assemble only — no journal write; the signed act goes through prepare/submit.
+      if (p === '/api/kraynet/eternize-proof') {
+        try {
+          if (!btcConfigured()) return err(res, 501, 'this node has no bitcoind — it cannot assemble an SPV bundle')
+          const id = String(b.l1InscriptionId || b.id || '').toLowerCase()
+          const em = /^([0-9a-f]{64})i(\d+)$/.exec(id)
+          if (!em) return err(res, 400, 'eternize-proof needs the L1 inscription id (<txid>iN)')
+          const already = node.ledger.stars.starOfEternal(id)
+          if (already != null) return ok(res, { ok: true, alreadyEternal: String(already), l1InscriptionId: id, bundle: null, match: false })
+          const sp = await spvProofFor(em[1], DONATION_MIN_CONF)
+          const bundle = [{ rawTx: sp.rawTx, txoutproof: sp.txoutproof, headers: sp.headers }]
+          const verdict = proveInscription(em[1], parseInt(em[2], 10), bundle, { minConfirmations: DONATION_MIN_CONF, net: NET })
+          if (!verdict.ok) return err(res, 400, `the carving is not proven yet (${verdict.reason}) — wait for Bitcoin to bury it`)
+          // auto-detect the star: the byte-unique registry names the ONE star these bytes could belong to
+          const auto = verdict.contentHash ? node.ledger.stars.starOfContent(verdict.contentHash) : null
+          const star = (b.star != null && String(b.star) !== '') ? String(b.star).replace(/[#,\s]/g, '') : (auto != null ? String(auto) : null)
+          const s = star != null && /^(0|[1-9]\d*)$/.test(star) ? node.ledger.stars.star(BigInt(star)) : null
+          return ok(res, {
+            ok: true, l1InscriptionId: verdict.inscriptionId, bundle,
+            contentType: verdict.contentType || null, size: verdict.size ?? null,
+            contentHash: verdict.contentHash || null, confirmations: verdict.confirmations ?? null,
+            star, starEternal: s?.eternal || null, alreadyEternal: null,
+            match: !!(s && s.contentHash && s.contentHash === verdict.contentHash),
+          })
+        } catch (e) { return err(res, 400, e instanceof Error ? e.message : String(e)) }
       }
       // THE LANE PREPARE — the profile's feeless door. Returns the exact domain string + next nonce
       // so HTML never duplicates `tkFoldSendMessage`. No journal write. No state mutation.

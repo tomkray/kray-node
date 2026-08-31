@@ -26,7 +26,7 @@ import {
   transferMessage, xSendMessage, cutSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6,
   runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage,
-  ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2,
+  ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, eternizeMessage,
   contractCallMessage, contractCallMessageV2, quantumCommitMessage,
   laneEnterMessage, laneExitMessage, foldSealMessage,
 } from './scheme.ts'
@@ -103,6 +103,7 @@ export function signedMessageOfEvent(e: KrayEvent, network: string): string | nu
         ? contractMessageV2(network, e.from!, codeHash, BigInt(e.star))
         : contractMessage(network, e.from!, codeHash)
     }
+    case 'eternize': return eternizeMessage(network, e.from!, BigInt(e.star!), e.l1InscriptionId!, e.nonce!)
     case 'contract-call': {
       const args: Record<string, bigint> = {}
       for (const [kk, val] of Object.entries(e.callArgs ?? {})) {

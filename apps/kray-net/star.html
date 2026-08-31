@@ -533,7 +533,7 @@
   }
   function livingFlagsFromLaw(law){
     if(!law || !law.state) return [];
-    return Object.keys(law.state).filter(function(k){ return k!=='owner' && /^(0|1)$/.test(String(law.state[k])); })
+    return Object.keys(law.state).filter(function(k){ return k!=='owner' && k!=='poll' && k!=='luz' && k!=='capped' && /^(0|1)$/.test(String(law.state[k])); })
       .map(function(k){ return { name:k, on: String(law.state[k])==='1' }; });
   }
   function flagRow(f, canCall, rule, verb){
@@ -545,6 +545,20 @@
   function isMintLaw(law){
     var r=law.rules||[];
     return r.indexOf('mint')>=0 && r.indexOf('enter')<0;
+  }
+  function isPollLaw(law){
+    var r=law.rules||[];
+    return (law.state && String(law.state.poll)==='1' && r.indexOf('vote')>=0)
+      || (law.code && law.code.vars && String(law.code.vars.poll)==='1' && r.indexOf('vote')>=0);
+  }
+  function pollDesk(st, book){
+    var open=!(st && String(st.open)==='0');
+    var ballots=Number((book&&book.ballots!=null)?book.ballots:(st&&st.ballots)||0);
+    var choices=(book&&book.choices)||[];
+    var tallies=(book&&book.tallies)||choices.map(function(){ return 0; });
+    var total=0;
+    tallies.forEach(function(n){ total+=Number(n)||0; });
+    return { open:open, ballots:ballots, choices:choices, tallies:tallies, total:total, title:(book&&book.title)||'', voters:(book&&book.voters)||[] };
   }
   function mintDesk(st){
     var taken=Number(st.taken||0), max=Number(st.max||0), price=String(st.price||'0');
@@ -593,6 +607,8 @@
     opts=opts||{};
     if(opts.hide) return '';
     return '<button type="button" class="btn'+(opts.primary?' primary':'')+'" data-lawcall="'+esc(rule)+'"'
+      +(opts.arg?' data-arg="'+esc(opts.arg)+'"':'')
+      +(opts.face!=null?' data-face="'+esc(String(opts.face))+'"':'')
       +(opts.off?' disabled':'')+' style="min-height:44px">'+label+'</button>';
   }
   function mountLuz(s){
@@ -701,18 +717,24 @@
     var host=document.getElementById('lawbody');
     if(!host) return;
     var law=s.law;
-    function paint(mine, seals){
+    function paint(mine, seals, glow){
       if(law && law.address){
         var flags=livingFlagsFromLaw(law);
         var rules=law.rules||[];
         var wheel=law.state && (rules.indexOf('enter')>=0) && law.state.price!=null ? raffleDesk(law.state, law.balance, seals||0) : null;
         var drop=isMintLaw(law) && law.state ? mintDesk(law.state) : null;
+        var booth=isPollLaw(law) ? pollDesk(law.state, s.poll || (law.code && law.code.poll)) : null;
+        var myGlow=Number(glow||0);
         var h='<dl class="rows">'
           +'<dt>pot</dt><dd><b>'+esc(law.address)+'</b><br><span style="color:var(--ink-4)">keyless — transfer of this star never drains it</span></dd>'
           +'<dt>holds</dt><dd><b>'+kray(law.balance||'0')+'</b> <span style="color:var(--ink-4)">— send ₭ here to add value</span></dd>'
           +(law.state && law.state.each ? '<dt>each</dt><dd><b>'+kray(law.state.each)+'</b>'+(law.state.max?' · taken '+esc(String(law.state.taken||'0'))+' / '+esc(String(law.state.max)):'')+'</dd>' : '')
           +(drop ? '<dt>mint</dt><dd><b>'+esc(String(drop.taken))+' / '+esc(String(drop.max))+'</b> editions · price <b>'+kray(drop.price)+'</b>'
             +(drop.open ? (drop.room ? ' · open' : ' · sold out') : ' · paused')
+            +'</dd>' : '')
+          +(booth ? '<dt>poll</dt><dd><b>'+esc(String(booth.ballots))+' ballot'+(booth.ballots===1?'':'s')+'</b> · weight <b>'+esc(String(booth.total))+' ✦</b>'
+            +(booth.open ? ' · open' : ' · closed')
+            +(booth.title ? '<br>'+esc(booth.title) : '')
             +'</dd>' : '')
           +(wheel ? '<dt>raffle</dt><dd><b>'+esc(String(wheel.taken))+' / '+esc(String(wheel.seats))+' seats</b> · ticket <b>'+kray(wheel.price)+'</b>'
             +(wheel.due===0 ? ' · clock starts on the first ticket'
@@ -725,6 +747,21 @@
           +(law.codeHash ? '<dt>codeHash</dt><dd><b>'+esc(law.codeHash)+'</b><br><span style="color:var(--ink-4)">the 32 bytes the seal signed — a stranger re-derives it from the source</span></dd>' : '')
           +'</dl>';
         if(drop) h+='<p class="raffnote">'+drop.note+'</p>';
+        if(booth){
+          h+='<p class="raffnote">'+(booth.open
+            ? 'Pick one alternative. You sign once, pay 1 ₭, and vote with your ✦ glow ('+esc(String(myGlow))+'). Glow cannot move. A second vote is refused.'
+            : 'The owner closed this poll. The tallies stay — they are journal facts.')+'</p>';
+          if(booth.choices.length){
+            h+='<div class="lawflags" style="margin:var(--s4) 0 0">';
+            booth.choices.forEach(function(lab, i){
+              var w=Number(booth.tallies[i]||0);
+              var pct=booth.total>0 ? Math.round((w/booth.total)*1000)/10 : 0;
+              h+='<div class="lawflag"><span class="fn">'+esc(lab)+'</span>'
+                +'<span><b>'+esc(String(w))+' ✦</b> · '+esc(String(pct))+'%</span></div>';
+            });
+            h+='</div>';
+          }
+        }
         if(wheel) h+='<p class="raffnote">'+wheel.note+'</p>';
         if(s.lastDelivery && s.lastDelivery.paid && s.lastDelivery.paid.length){
           var d=s.lastDelivery;
@@ -780,6 +817,12 @@
           if(mine && rules.indexOf('draw')>=0) h+='<button class="btn" data-lawcall="draw">draw — living owner delivers the full pot</button>';
           if(mine && rules.indexOf('skip')>=0) h+='<button class="btn" data-lawcall="skip">skip — 0–1 tickets, open the next window</button>';
         }
+        if(booth && rules.indexOf('vote')>=0){
+          booth.choices.forEach(function(lab, i){
+            var can=booth.open && myGlow>0;
+            h+=lawBtn('vote', can ? ('Vote · '+lab+' · '+myGlow+' ✦') : (!booth.open ? 'Closed · '+lab : (myGlow<1 ? 'Need ✦ glow · '+lab : lab)), { arg:'face', face:i, primary:can && i===0, off:!can });
+          });
+        }
         if(rules.indexOf('deposit')>=0){
           h+='<input class="input" id="lawamt" placeholder="₭ to deposit" inputmode="numeric" style="min-height:44px;max-width:180px">';
           h+='<button class="btn" data-lawcall="deposit" data-arg="amount">deposit — fund the pot</button>';
@@ -816,6 +859,12 @@
                 .catch(function(e){ setLawOut((e&&e.message)||'could not hash that address'); });
               return;
             }
+            if(btn.getAttribute('data-arg')==='face'){
+              var face=String(btn.getAttribute('data-face')||'');
+              if(!/^\d+$/.test(face)){ setLawOut('pick a sealed alternative'); return; }
+              callLaw(s, 'vote', { face: face });
+              return;
+            }
             callLaw(s, btn.getAttribute('data-lawcall'), args);
           });
         });
@@ -831,10 +880,10 @@
         times3:[{name:'use_1',on:true,motion:'once'},{name:'use_2',on:true,motion:'once'},{name:'use_3',on:true,motion:'once'}]
       };
       var flags=LIVING_PRESET.being.map(function(f){ return {name:f.name,on:f.on,motion:f.motion}; });
-      var desk='being';
+      var desk='code';
       function tabs(){
         return '<div class="lawtabs">'
-          +[['being','Being'],['pass','Pass'],['times3','3-use'],['escrow','Escrow'],['tunnel','Tunnel'],['vest','Vest'],['scroll','Scroll'],['raffle','Raffle'],['mint','Mint'],['cut','luz'],['code','Code']].map(function(t){
+          +[['code','Code'],['cut','KRC-77'],['poll','Poll'],['mint','Mint'],['scroll','Scroll'],['escrow','Escrow'],['pass','Pass'],['raffle','Raffle'],['vest','Vest'],['tunnel','Tunnel'],['being','Being'],['times3','3-use']].map(function(t){
             return '<button class="btn lawtab'+(desk===t[0]?' on':'')+'" data-desk="'+t[0]+'">'+t[1]+'</button>';
           }).join('')+'</div>';
       }
@@ -894,6 +943,20 @@
             +'<div class="lawknob"><label for="f-supply">Supply · max units</label><p class="hint">How many luz ✧ this star will ever have. 100000 is Radiola\'s default. Empty + infinite = no cap.</p>'
             +'<input class="input" id="f-supply" placeholder="e.g. 100000" value="100000" inputmode="numeric"></div>'
             +'<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px"><input type="checkbox" id="f-infinite"> infinite — no max, supply stays open</label>'
+            +'<div class="lawknob" id="f-founders-box"><label>Founders · optional</label>'
+            +'<p class="hint">Address + amount at seal. Empty = you hold the whole supply. What is not listed stays with you. At most 8. Σ cannot exceed supply.</p>'
+            +'<div id="f-founders"></div>'
+            +'<button type="button" class="btn" id="f-founder-add" style="min-height:44px;margin-top:8px">add a founder</button></div>'
+            +'</div>';
+        } else if(desk==='poll'){
+          body='<p class="note">A proposal on this star. Seal the alternatives. People sign once, pay 1 ₭, and vote with their ✦ glow. Glow cannot move — that is why it can gate. You may close the poll later. Burns 1 ₭ to hang.</p>'
+            +'<div class="lawfields">'
+            +'<div class="lawknob"><label for="f-title">Question · optional</label><p class="hint">The proposal. Empty = this star\'s name is the question. Sealed in the paper.</p>'
+            +'<input class="input" id="f-title" placeholder="e.g. Open the east gate?" autocomplete="off" maxlength="80"></div>'
+            +'<div class="lawknob" id="f-choices-box"><label>Alternatives · 2 to 8</label>'
+            +'<p class="hint">Each person picks one. Weight = ✦ glow at the act. At most 8.</p>'
+            +'<div id="f-choices"></div>'
+            +'<button type="button" class="btn" id="f-choice-add" style="min-height:44px;margin-top:8px">add an alternative</button></div>'
             +'</div>';
         } else if(desk==='raffle'){
           body='<p class="note">A looping pot on this face. People buy a seat. After the wait, Bitcoin\'s seal names the winner. You never pick who. No collect. Burns 1 ₭.</p>'
@@ -952,6 +1015,12 @@
         });
         var seal=document.getElementById('lawseal');
         var examFp='';
+        if(desk==='cut' && window.KrayContractPapers && KrayContractPapers.mountFounders){
+          KrayContractPapers.mountFounders(document.getElementById('f-founders-box')||host, function(){ examFp=''; if(seal) seal.disabled=true; });
+        }
+        if(desk==='poll' && window.KrayContractPapers && KrayContractPapers.mountChoices){
+          KrayContractPapers.mountChoices(document.getElementById('f-choices-box')||host, function(){ examFp=''; if(seal) seal.disabled=true; }, ['Yes','No']);
+        }
         function deskExamBody(){
           if(desk==='being'||desk==='pass'||desk==='times3') return { living:{ flags:flags } };
           if(desk==='code') return { source: String((document.getElementById('f-code')||{}).value||'') };
@@ -960,7 +1029,18 @@
           if(desk==='vest') return { form:{ kind:'vest', beneficiary:String((document.getElementById('f-ben')||{}).value||'').trim(), total:String((document.getElementById('f-total')||{}).value||'').trim(), duration:String((document.getElementById('f-dur')||{}).value||'').trim() } };
           if(desk==='raffle') return { form:{ kind:'raffle', price:String((document.getElementById('f-price')||{}).value||'').trim(), period:String((document.getElementById('f-period')||{}).value||'').trim(), seats:String((document.getElementById('f-seats')||{}).value||'').trim() }, star:String(s.star) };
           if(desk==='mint') return { form:{ kind:'mint', price:String((document.getElementById('f-price')||{}).value||'').trim(), max:String((document.getElementById('f-max')||{}).value||'').trim(), payTo:String((document.getElementById('f-pay')||{}).value||'').trim(), shelf:String((document.getElementById('f-shelf')||{}).value||'').trim() }, star:String(s.star) };
-          if(desk==='cut') return { form:{ kind:'cut', supply:String((document.getElementById('f-supply')||{}).value||'').trim(), infinite:!!(document.getElementById('f-infinite')&&document.getElementById('f-infinite').checked) }, star:String(s.star) };
+          if(desk==='cut'){
+            var founders=(window.KrayContractPapers&&KrayContractPapers.readFounders)
+              ? KrayContractPapers.readFounders(document.getElementById('f-founders-box')||host)
+              : [];
+            return { form:{ kind:'cut', supply:String((document.getElementById('f-supply')||{}).value||'').trim(), infinite:!!(document.getElementById('f-infinite')&&document.getElementById('f-infinite').checked), ...(founders.length?{founders:founders}:{}) }, star:String(s.star) };
+          }
+          if(desk==='poll'){
+            var choices=(window.KrayContractPapers&&KrayContractPapers.readChoices)
+              ? KrayContractPapers.readChoices(document.getElementById('f-choices-box')||host)
+              : [];
+            return { form:{ kind:'poll', title:String((document.getElementById('f-title')||{}).value||'').trim(), choices:choices }, star:String(s.star) };
+          }
           return { form:{ kind:'scroll', each:String((document.getElementById('f-each')||{}).value||'').trim(), max:String((document.getElementById('f-max')||{}).value||'').trim(), gate:String((document.getElementById('f-gate')||{}).value||'open'), locked:!!(document.getElementById('f-locked')&&document.getElementById('f-locked').checked), allow:String((document.getElementById('f-allow')||{}).value||'').split(/[\s,]+/).filter(Boolean) }, star:String(s.star) };
         }
         var runBtn=document.getElementById('lawrun');
@@ -1030,13 +1110,20 @@
       }).catch(function(){ return null; });
     }
     function check(){
-      var mineP=walletAddr().then(function(addr){ return !!addr && String(addr)===String(s.owner); });
+      var addrP=walletAddr();
+      var mineP=addrP.then(function(addr){ return !!addr && String(addr)===String(s.owner); });
+      var glowP=addrP.then(function(addr){
+        if(!addr) return 0;
+        return fetch('/api/kraynet/account/'+encodeURIComponent(addr)).then(function(r){ return r.json(); })
+          .then(function(d){ return Number((d.lights&&d.lights.glow)||0); }).catch(function(){ return 0; });
+      });
       var sealsP=fetch('/api/kraynet/overview').then(function(r){ return r.json(); }).then(function(o){ return Number(o.bitcoinSeals||0); }).catch(function(){ return 0; });
-      Promise.all([mineP, sealsP]).then(function(pair){ paint(pair[0], pair[1]); });
+      Promise.all([mineP, sealsP, glowP]).then(function(pair){ paint(pair[0], pair[1], pair[2]); });
     }
     function refreshLaw(){
       fetch('/api/kraynet/star/'+encodeURIComponent(String(s.star))).then(function(r){ return r.json(); }).then(function(fresh){
         if(fresh && fresh.law) law=fresh.law;
+        if(fresh && fresh.poll) s.poll=fresh.poll;
         check();
       }).catch(function(){ check(); });
     }
@@ -1065,6 +1152,44 @@
     var res=await sub.json(); if(!sub.ok||res.error) throw new Error(res.error||'submit refused');
     return res;
   }
+  // ⚓ ETERNIZE (docs/ETERNIZE.md S2) — the node proves the carving from Bitcoin bytes and
+  // auto-detects the KRAY side; the wallet signs the 1 ₭ act only when the byte-match is certain.
+  async function eternizeGo(btn){
+    var out=document.getElementById('etout');
+    var say=function(m){ if(out) out.textContent=m; };
+    try{
+      var star=String(btn.getAttribute('data-star')||'');
+      var id=String((document.getElementById('etid')||{}).value||'').trim().toLowerCase();
+      if(!/^[0-9a-f]{64}i\d+$/.test(id)) throw new Error('paste the L1 inscription id — <txid>iN');
+      var w=window.krayWallet;
+      if(!(w && w._isKrayWallet)) throw new Error('connect KrayWallet');
+      var a=await w.getAccounts(); var from=(a&&a[0])||a;
+      say('asking the node to prove the carving from Bitcoin bytes…');
+      var pr=await fetch('/api/kraynet/eternize-proof',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({l1InscriptionId:id, star:star})});
+      var pj=await pr.json(); if(!pr.ok||pj.error) throw new Error(pj.error||'proof refused');
+      if(pj.alreadyEternal!=null) throw new Error('that carving is already eternal on star #'+pj.alreadyEternal+' — one binding, forever');
+      if(!pj.match) throw new Error('the carved bytes are NOT this star\u2019s bytes — byte-for-byte or nothing (carved sha256 '+String(pj.contentHash||'?').slice(0,16)+'…)');
+      var sz=pj.size!=null?Number(pj.size).toLocaleString()+' bytes':'the exact bytes';
+      var conf=pj.confirmations!=null?String(pj.confirmations):'?';
+      var accept=window.confirm(
+        '⚓ Eternize star #'+star+'\n\n'+
+        'Bitcoin already holds this star\u2019s '+sz+' at\n'+id+'\n'+
+        'buried under '+conf+' confirmation'+(conf==='1'?'':'s')+'.\n\n'+
+        'Accepting binds that carving here, forever.\n'+
+        'You pay 1 ₭. The star stays with its owner. Nothing on Bitcoin is spent.\n\n'+
+        'Next: KrayWallet asks you to sign the seal — a KRAY message, not a Bitcoin PSBT.'
+      );
+      if(!accept){ say('you declined — the star is unchanged'); return; }
+      say('accepted — approve the 1 ₭ seal in KrayWallet…');
+      await signAndSubmit({action:'eternize', from:from, star:star, l1InscriptionId:id, eternalProof:pj.bundle});
+      say('⚓ eternal — the exact bytes are bound forever. reloading…');
+      setTimeout(function(){location.reload();},900);
+    }catch(e){ say('✗ '+((e&&e.message)||e)); }
+  }
+  document.addEventListener('click', function(ev){
+    var t=ev.target && ev.target.closest ? ev.target.closest('#etgo') : null;
+    if(t) eternizeGo(t);
+  });
   async function mintChild(s){
     var out=document.getElementById('lawout');
     try{
@@ -1151,6 +1276,11 @@
     } else if(kind==='cut'){
       form.supply=String((document.getElementById('f-supply')||{}).value||'').trim();
       form.infinite=!!(document.getElementById('f-infinite')&&document.getElementById('f-infinite').checked);
+    } else if(kind==='poll'){
+      form.title=String((document.getElementById('f-title')||{}).value||'').trim();
+      form.choices=(window.KrayContractPapers&&KrayContractPapers.readChoices)
+        ? KrayContractPapers.readChoices(document.getElementById('f-choices-box')||document.getElementById('lawbody'))
+        : [];
     }
     try{
       if(out) out.textContent='the node is compiling the IR you will sign…';
@@ -1712,6 +1842,7 @@
       +'<div class="shero-line"><div class="snum-big">'+sn(s.star)+'</div>'+(nameHero||'')+'</div></div>'
       +'<div class="hbadges">'+rbadge+insbadge+szbadge+bornbadge
       +(s.luz&&!s.luz.unportioned?'<a class="insbadge" href="#luz" title="KRC-77 Luz — holder book on this star">KRC-77 · luz ✧</a>':'')
+      +(s.poll?'<a class="insbadge" href="#lawcard" title="Poll — vote with ✦ glow">Poll · ✦</a>':'')
       +((window.KRAY&&KRAY.kindChipHtml)?KRAY.kindChipHtml(s):'')+'</div>'
       +'<div class="tags">'
       +codexTags
@@ -1755,6 +1886,16 @@
         });
         return h;
       })()
+      // ⚓ ETERNAL — this star's exact bytes are carved on Bitcoin (docs/ETERNIZE.md): SPV-proven
+      // by every node, availability upgraded to Bitcoin's own. One binding, forever.
+      +(function(){
+        if(!s.eternal) return '';
+        var href=(window.KRAY&&KRAY.ordinalsInscriptionUrl)?KRAY.ordinalsInscriptionUrl(s.eternal):null;
+        var t=esc(String(s.eternal))+' — this star\u2019s exact bytes, carved on Bitcoin forever';
+        return href
+          ? '<a class="chip" href="'+esc(href)+'" target="_blank" rel="noopener noreferrer" style="color:var(--btc);border-color:var(--btc-line)" title="'+t+'">⚓ eternal ↗</a>'
+          : '<span class="chip" style="color:var(--btc);border-color:var(--btc-line)" title="'+t+'">⚓ eternal</span>';
+      })()
       +'</div>'
       +(s.owner==='KRAY_BLACK_HOLE'
         ? '<div class="frozenmark" title="This star was sent to the black hole — retired forever. It can never move again: no public key encodes to that account, and the reducer refuses to spend from it regardless. Everything written here stays visible forever.">'
@@ -1793,6 +1934,20 @@
             :'<br>the bytes are held by another node')
           +'</dd>';
       });
+      // ⚓ THE ETERNAL ROW — carved: show the stone; not yet: offer the door (any wallet may prove;
+      // the node auto-detects a carving already bound elsewhere and refuses a doomed signature).
+      if(s.eternal){
+        var ehref=(window.KRAY&&KRAY.ordinalsInscriptionUrl)?KRAY.ordinalsInscriptionUrl(s.eternal):null;
+        h+='<dt>⚓ eternal</dt><dd><b>carved on Bitcoin</b> · <code style="word-break:break-all">'+esc(s.eternal)+'</code>'
+          +(ehref?' · <a href="'+esc(ehref)+'" target="_blank" rel="noopener">open the stone ↗</a>':'')
+          +'<br><span style="color:var(--ink-4)">the exact bytes of this star live inside a Bitcoin transaction forever — SPV-proven by every node on every replay; availability no longer depends on anyone</span></dd>';
+      } else if(s.contentHash && s.owner!=='KRAY_BLACK_HOLE'){
+        h+='<dt>⚓ eternize</dt><dd><span style="color:var(--ink-4)">first carve these exact bytes as a Bitcoin ordinal with your own wallet (miners are paid in BTC). Then paste the inscription id here — the node proves the stone, you accept, KrayWallet signs the 1 ₭ seal. The owner usually does this; anyone holding 1 ₭ may. One binding, forever. Not a Bitcoin PSBT.</span>'
+          +'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">'
+          +'<input id="etid" placeholder="L1 inscription id — <txid>iN" autocomplete="off" spellcheck="false" style="flex:1;min-width:240px;background:var(--bg-2,#0b0c10);color:inherit;border:1px solid var(--line,#2a2d36);border-radius:8px;padding:10px 12px;font:12px/1.4 ui-monospace,monospace">'
+          +'<button class="btn" id="etgo" data-star="'+esc(String(s.star||s.no))+'">⚓ eternize · 1 ₭</button></div>'
+          +'<div id="etout" style="margin-top:6px;color:var(--ink-4);font-size:12px"></div></dd>';
+      }
       h+='</dl>';
       if(ins && ins.held){
         var markupStar=isMarkup(ins.contentType||'');
@@ -1949,6 +2104,7 @@
           else if(e.kind==='inscribe'){ tag='write'; what='content chiselled'+(e.burn?' · burned '+kray(e.burn):''); }
           else if(e.kind==='name'){ tag='name'; what='baptised'+(e.burn?' · burned '+kray(e.burn):''); }
           else if(e.kind==='origin'){ tag='origin'; what='born from L1'+(e.burn?' · burned '+kray(e.burn):''); }
+          else if(e.kind==='eternize'){ tag='eternal'; what='⚓ carved on Bitcoin — the exact bytes, bound forever · 1 ₭ seal'; }
           else if(e.kind==='contract'){ tag='law'; what='raffle sealed on this face'+(e.burn?' · burned '+kray(e.burn):''); }
           else if(e.kind==='contract-call' && e.rule==='enter'){
             tag='ticket';

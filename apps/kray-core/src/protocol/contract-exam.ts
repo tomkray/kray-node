@@ -47,7 +47,8 @@ function examContext(balance = 10_000n): CallContext {
     star: 1n,
     holder: callerInt,
     holderAddress: EXAM_CALLER,
-    args: {},
+    glow: 1n,
+    args: { face: 0n },
     addressToInt: (a: string) => BigInt('0x' + sha256hex(a).slice(0, 16)),
   }
 }

@@ -72,6 +72,9 @@ export interface Star {
   meta?: string
   /** Living law — keyless pot address. Absent on every star that never received a v2 contract. */
   contract?: string
+  /** ETERNAL binding — the L1 ordinal inscription carrying this star's exact bytes, SPV-proven
+   *  by the ledger before this slot fills. One binding, forever; absent until eternized (A3). */
+  eternal?: string
 }
 
 export class StarRegistry {
@@ -79,6 +82,7 @@ export class StarRegistry {
   private nextNo = 0n                                        // the creation counter (the star's number)
   private readonly contentSeen = new Map<string, string>()  // contentHash → creationNo (byte-unique forever)
   private readonly bodySeen = new Map<string, string>()     // bodyHash → creationNo (skeleton-unique; v5)
+  private readonly eternalSeen = new Map<string, string>()  // l1InscriptionId → creationNo (the eternal binding — one, forever)
   private readonly nameToStar = new Map<string, string>()   // canonical name → creationNo
   private readonly starToName = new Map<string, string>()   // creationNo → display name
   private readonly children = new Map<string, string[]>()   // parentNo → child creationNos
@@ -135,6 +139,10 @@ export class StarRegistry {
         // v2 only: e.star set. The pot address is derived here the same way the ledger does.
         // Transfer of the star does NOT move the pot (moveStar never touches this pointer).
         this.bindLawToStar(e)
+        break
+      case 'eternize':
+        // The ledger already SPV-proved the carving and the byte equality; this only fills the slot.
+        this.bindEternalToStar(e)
         break
       default:
         // every other kind carries no star — nothing to do (KRAY is fungible in the ledger)
@@ -281,6 +289,17 @@ export class StarRegistry {
     this.starToName.set(noKey, e.name!)                  // display: first writer's exact bytes
   }
 
+  /** Fourth canvas — one ETERNAL binding per star, forever. The ledger proved the carving
+   *  (SPV + byte equality) before this runs; here only the empty slot fills, once. Any
+   *  signer may have paid the seal — availability is a fact about the bytes, not the owner. */
+  private bindEternalToStar(e: KrayEvent): void {
+    if (e.star == null || typeof e.l1InscriptionId !== 'string' || !e.l1InscriptionId) return
+    const st = this.stars.get(BigInt(e.star).toString())
+    if (!st || !st.contentHash || st.eternal) return
+    st.eternal = e.l1InscriptionId
+    this.eternalSeen.set(e.l1InscriptionId.toLowerCase(), st.no.toString())
+  }
+
   /** Third canvas — one law per star, forever. The pointer is the pot, not the relic. */
   private bindLawToStar(e: KrayEvent): void {
     if (e.star == null || !e.code || !e.from) return
@@ -322,6 +341,9 @@ export class StarRegistry {
   starOfContent(contentHash: string): bigint | null { const k = this.contentSeen.get(contentHash); return k === undefined ? null : BigInt(k) }
   isBodyTaken(bodyHash: string): boolean { return this.bodySeen.has(bodyHash) }
   starOfBody(bodyHash: string): bigint | null { const k = this.bodySeen.get(bodyHash); return k === undefined ? null : BigInt(k) }
+  /** The star an L1 carving is eternally bound to, if any — desk auto-detection (consensus already
+   *  makes a second binding impossible: bytes are star-unique, and the slot fills once). */
+  starOfEternal(l1InscriptionId: string): bigint | null { const k = this.eternalSeen.get(String(l1InscriptionId).toLowerCase()); return k === undefined ? null : BigInt(k) }
   nameOfStar(no: bigint): string | null { return this.starToName.get(no.toString()) ?? null }
   starOfName(name: string): bigint | null { const k = this.nameToStar.get(canonicalName(name)); return k === undefined ? null : BigInt(k) }
   isNameTaken(name: string): boolean { return this.nameToStar.has(canonicalName(name)) }
@@ -378,7 +400,10 @@ export class StarRegistry {
       // LAW lines EXTEND the same way: a star without a pot hashes the exact pre-law
       // line (A3). The address has no pipes; the journal holds the code.
       const law = s.contract ? `|law=${s.contract}` : ''
-      h.update(`${s.no}|${s.owner}|${s.contentHash ?? ''}|${s.name ?? ''}|${s.parent ?? ''}|${s.origin?.l1InscriptionId ?? ''}${ext}${meta}${law}\n`, 'utf8')
+      // ETERNAL lines EXTEND the same way: a never-eternized star hashes the exact
+      // pre-eternal line (A3). The id (<txid>iN) has no pipes; Bitcoin holds the bytes.
+      const eternal = s.eternal ? `|eternal=${s.eternal}` : ''
+      h.update(`${s.no}|${s.owner}|${s.contentHash ?? ''}|${s.name ?? ''}|${s.parent ?? ''}|${s.origin?.l1InscriptionId ?? ''}${ext}${meta}${law}${eternal}\n`, 'utf8')
     }
     return (this.rootCache = h.digest('hex'))
   }

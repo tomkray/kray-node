@@ -36,7 +36,7 @@ Three laws of the language (they are consensus, not style):
 2. **Deterministic** — integers only. No wall clock, no I/O, no RNG except the Bitcoin **beacon** already in the journal.
 3. **Cannot create value** — a contract is an account. It cannot mint ₭. Worst case: it empties **itself**.
 
-Templates on the desk (mint, raffle, escrow, scroll, **Luz / KRC-77**…) are
+Templates on the desk (mint, raffle, escrow, scroll, **Luz / KRC-77**, **Poll · ✦**…) are
 **shortcuts for common patterns**. Most people will write their own paper
 (**Code**). Same IR either way. The proof is the sealed bytes in the journal —
 not the button you clicked. A stranger re-derives every call from those bytes
@@ -81,6 +81,7 @@ in the JSON you seal.
 | `{ "ctx": "height" }` | Journal seq of this act |
 | `{ "ctx": "beacon" }` | Bitcoin seal entropy (v2 calls) |
 | `{ "ctx": "star" }` | Bound face number |
+| `{ "ctx": "glow" }` | ✦ glow of the signer (frozen-star count). 0 if they never froze one |
 | `{ "op": "add", "args": [A, B] }` | `add sub mul div mod min max isqrt neg` · `eq ne lt le gt ge` · `and or not` · `if` (cond, then, else) |
 
 ### Actions
@@ -98,7 +99,7 @@ in the JSON you seal.
 ### Living mouth vs public door
 
 - **Mouth** (only `ownerOf` the face): `collect`, `toggle_*`, `once_*`, `stamp`, `draw`, `skip`.
-- **Door** (anyone who can satisfy `when`): `claim`, `enter`, `accept`, `punch` if the guard says so, …
+- **Door** (anyone who can satisfy `when`): `claim`, `enter`, `accept`, `punch`, `vote` if the guard says so, …
 - Rule name **`mint`**: **not a call.** The reducer runs it when someone **inscribes** a child with this star as parent. A standalone `contract-call` `mint` is refused.
 
 ## Collection mint (the ETH/SOL drop)
@@ -114,6 +115,22 @@ Multi-edition URL must contain `{n}` (0-based next) or `{i}` (1-based). The URL 
 **not** consensus — a replica must not learn it. Seal still requires a real `https://`.
 
 Do **not** invent a second transaction "pay then mint". That races (`taken` without a child).
+
+## Poll · ✦ (glow vote)
+
+A proposal with sealed alternatives. Hang **Poll** on a star you own. People
+call `vote` with `face` (0-based index). Each signer:
+
+1. Pays the eternal **1 ₭** fee (the seal).
+2. Votes **once**. A second call is refused.
+3. Weights the ballot with their **✦ glow** at that act (stars they froze).
+
+Glow cannot transfer, so a whale cannot buy the room. The IR stores the latch
+and the ballot count. Who voted which face lives on the poll book (the map
+the language cannot store) — replayed from the journal, like Luz holdings.
+No collect. No payout. Closing is `toggle_open` (living mouth).
+
+Custom Code may also read `{ "ctx": "glow" }`. That is the same journal fact.
 
 ## How a person (or an AI) ships
 

@@ -36,8 +36,16 @@ function main() {
   console.log('\n╔═ LUZ / KRC-77 ADVERSARIAL — dest · drain · forge · replay ═╗\n')
   const A = wallet('A'), B = wallet('B'), C = wallet('C'), Eve = wallet('eve')
   const paper = compileCut({ supply: '100000' })
+  ok(!paper.genesis, 'empty founders omit genesis — same paper as before (A3)')
   rejects(() => compileCut({ supply: '0' }), /greater than 0/, 'supply 0 without infinite is refused')
   rejects(() => compileCut({ supply: '-1' }), /whole|greater/, 'negative supply is refused')
+  rejects(() => compileCut({ supply: '100000', founders: [{ to: B.addr, amount: '100001' }] }), /more than supply/, 'founders cannot take more than supply')
+  rejects(() => compileCut({ supply: '100000', founders: [{ to: B.addr, amount: '1' }, { to: B.addr, amount: '2' }] }), /duplicate/, 'duplicate founder is refused')
+  rejects(() => compileCut({ infinite: true, founders: [{ to: B.addr, amount: '1' }] }), /infinite/, 'infinite Luz has no genesis table')
+  rejects(() => compileCut({ supply: '100000', founders: [{ to: BLACK_HOLE, amount: '1' }] }), /protocol|sealed|founder/, 'a pot cannot be a founder')
+  const table = compileCut({ supply: '100000', founders: [{ to: B.addr, amount: '30000' }, { to: C.addr, amount: '20000' }] })
+  ok(table.genesis && table.genesis.length === 2, 'founder table rides the paper')
+  ok(canonicalCode(table) !== canonicalCode(paper), 'a founder table is a different sealed paper')
   rejects(() => compileCut({ supply: '10000001' }), /at most/, 'supply above the ceiling is refused')
 
   const L = new KrayLedger(undefined, NET)
@@ -176,6 +184,15 @@ function main() {
   ok(L.cuts.of('0', B.addr) === 30000n && L.cuts.of('0', C.addr) === 10000n && L.cuts.of('0', A.addr) === 60000n,
     'after freeze, holders still move — the book is not the face')
   ok(L.cuts.of('0', A.addr) + L.cuts.of('0', B.addr) + L.cuts.of('0', C.addr) === 100000n, 'Σ still 100000 after freeze+send')
+
+  push(sign(A, { kind: 'name', hash: 'nfound', name: 'founders' }, nameMessageV2(NET, A.addr, L.nonceOf(A.addr), 'founders')))
+  const fh = sha256hex(canonicalCode(table))
+  const faceF = L.stars.createdSeq - 1n
+  push(sign(A, { kind: 'contract', hash: 'cf', code: table, star: faceF.toString() }, contractMessageV2(NET, A.addr, fh, faceF)))
+  const fk = faceF.toString()
+  ok(L.cuts.of(fk, A.addr) === 50000n && L.cuts.of(fk, B.addr) === 30000n && L.cuts.of(fk, C.addr) === 20000n,
+    'founders + remainder: A 50000 · B 30000 · C 20000')
+  ok(L.cuts.view(fk)?.circulating === '100000' && L.cuts.conserves(), 'founder table Σ == supply')
 
   // ── infinite paper: no genesis units to steal ───────────────────────────
   push(sign(A, { kind: 'name', hash: 'ninf', name: 'openluz' }, nameMessageV2(NET, A.addr, L.nonceOf(A.addr), 'openluz')))

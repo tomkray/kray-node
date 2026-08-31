@@ -15,7 +15,7 @@ import {
   cutSendMessage, xSendMessage,
 } from '../protocol/scheme.ts'
 import { canonicalCode, contractAddress, validateContract } from '../protocol/contract.ts'
-import { compileEscrow, compileTunnel, compileVest, compileScroll, compileForm, compileMint, compileCut, isMintPaper, isCutPaper, isLivingTool } from '../protocol/star-forms.ts'
+import { compileEscrow, compileTunnel, compileVest, compileScroll, compileForm, compileMint, compileCut, compilePoll, isMintPaper, isCutPaper, isPollPaper, isLivingTool } from '../protocol/star-forms.ts'
 import { runCall, type CallContext } from '../protocol/contract.ts'
 import { callerInt } from '../protocol/star-law.ts'
 import { sha256hex, BLACK_HOLE, type KrayEvent } from '../protocol/kray-primitives.ts'
@@ -51,6 +51,12 @@ function main() {
   const cutInf = compileCut({ infinite: true })
   ok(cutInf.vars.capped === '0' && cutInf.vars.supply === '0', 'cut infinite seals uncapped')
   ok(compileForm({ kind: 'cut', supply: '100000' }).vars.prec === '1000000000000', 'cut compiles on the same IR')
+  const poll = compilePoll({ title: 'Open the gate?', choices: ['Yes', 'No'] })
+  ok(isPollPaper(poll) && poll.vars.poll === '1' && poll.poll?.choices.length === 2 && poll.rules.some((r) => r.name === 'vote'), 'poll compiles — vote + sealed choices')
+  ok(canonicalCode(poll).includes('"poll"') && canonicalCode(compileCut({ supply: '100000' })) === canonicalCode(cut), 'poll labels ride the hash; a Luz paper is unchanged (A3)')
+  rejects(() => compilePoll({ choices: ['Only'] }), /at least 2|two/i, 'one choice is not a poll')
+  rejects(() => compilePoll({ choices: ['Yes', 'Yes'] }), /duplicate/, 'duplicate choices are refused')
+  ok(compileForm({ kind: 'poll', choices: ['A', 'B', 'C'] }).vars.faces === '3', 'poll compiles on the same IR')
   rejects(() => compileCut({ supply: '0' }), /greater than 0/, 'cut refuses supply 0 without infinite')
   rejects(() => compileCut({ supply: '10000001' }), /at most/, 'cut refuses supply above the ceiling')
   const cutState = Object.fromEntries(Object.entries(cut.vars).map(([k, v]) => [k, BigInt(v)]))

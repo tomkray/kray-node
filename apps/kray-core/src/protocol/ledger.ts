@@ -26,7 +26,7 @@ import {
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, BODY_HASH_RE, ORIGIN_COHORT_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
-  runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, quantumCommitMessage, quantumMigrateMessage,
+  runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, eternizeMessage, quantumCommitMessage, quantumMigrateMessage,
 } from './scheme.ts'
 import { parseOriginProofs, verifyOriginProofs } from './ordinal-ancestry.ts'
 import { emptyLane, laneRoot, laneTotal, applyFoldDiffs, foldDiffsHash, parseLaneAmount, type FoldDiffs } from './tk-fold.ts'
@@ -38,13 +38,16 @@ import { settleFromBeats } from '../economics/settlement.ts'
 import { hitCount, custodyFromHex, verifyCustody, type AtlasOracle } from '../economics/custody.ts'
 import { assertPresenceClaims, assertPresenceEra, foldClaimsByAddress, readPresenceTip } from '../economics/presence-window.ts'
 import { validateContract, canonicalCode, runCall, contractAddress, isContractPotAddress, type ContractCode } from './contract.ts'
-import { isMintPaper, isCutPaper } from './star-forms.ts'
+import { isMintPaper, isCutPaper, isPollPaper, resolveLuzGenesis } from './star-forms.ts'
 import { CutBook } from './cut-book.ts'
+import { PollBook } from './poll-book.ts'
 import { sha256hex, MIN_FEE, TREASURY, BLACK_HOLE, STAR_OFFER, MAX_INSCRIPTION_BYTES, MAX_INSCRIPTION_PROPORTION, starBurnOf, BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, SEAL_CONTENT_BUDGET, RETARGET_WINDOW_SEALS, retargetBytesPerKray, donationProofMinConf, SIZE_PROPORTION_ACTIVATION_SEQ, STAR_RE, type KrayEvent, type SettlementRow } from './kray-primitives.ts'
 import { verifyDonationProof } from '../anchor/spv.ts'   // ADR-1: pure/offline SPV re-verify (no network) — safe in the reducer
 import { selfAnchorScriptHex } from './self-anchor.ts'   // ADR-1 extended: re-derive a self-anchor burn script from (pot key, sealed payload) — pure, offline
 import { KrayAnchor } from '../anchor/anchor.ts'         // KrayAnchor.payload — the one canonical anchor payload codec (static, offline)
 import { verifyRuneDepositProof, verifyRuneSettleProof } from './rune-bridge.ts'   // ADR-1 extended to the rune peg — same purity, same law
+import { proveInscription } from './inscription-proof.ts'   // ADR-1 extended to ETERNIZE — the L1 carving re-proven from raw bytes, offline
+import type { ProvenTx } from './rune-ancestry.ts'
 import type { RuneBalance } from './runestone.ts'   // THE KEYSTONE: the journal's accumulated per-rune outpoint truth
 import { AmmBook, ammPoolAddress, ammRrPoolAddress, isAmmPotAddress, quoteAdd, quoteFirstMint, quoteOut, quoteRemove, rrPairKey } from './amm.ts'
 import { StarMarket } from './star-market.ts'   // native, atomic, trustless star order book — folds by presence (A3), never touches Σ
@@ -270,6 +273,7 @@ export class KrayLedger {
   readonly market = new StarMarket()   // star listings (seller, price); folds by presence, never holds value
   readonly offers = new StarOffers()   // escrowed bids; pot ₭ lives at STAR_OFFER
   readonly cuts = new CutBook()        // Luz ✧ per star — folds by presence (A3); IR cannot store the map
+  readonly polls = new PollBook()      // Poll · ✦ — one glow-weighted ballot per address; not a cascade field
   private readonly contracts = new Map<string, { code: ContractCode; creator: string; state: Record<string, bigint>; star?: string; roster?: string[] }>()
   readonly pot: AnchoringPot
   readonly network: string
@@ -288,6 +292,7 @@ export class KrayLedger {
   // (the ₭ is truly gone). Accumulated from the ACTUAL burned amount at the site — never re-derived from size
   // (the byte-per-₭ rate retargets). Slice 1 = the birth, re-derivable by replay and NOT yet folded into the
   // cascade root; the Merkle commitment + transfers ride on top, gated. See docs/ACTIONS-MAP.md.
+  private readonly glow = new Map<string, number>()      // ✦ frozen-star count per address (soulbound; matches glow-star.ts)
   private readonly xMinted = new Map<string, bigint>()   // lifetime Ӿ born to each address (the sacrifice record — never decreases)
   private readonly xBalance = new Map<string, bigint>()  // SPENDABLE Ӿ (slice 2): credited at the burn, moved by x-send; folds into the root at/after activation
   private xTotal = 0n
@@ -747,6 +752,8 @@ export class KrayLedger {
   get totalBurned(): bigint { return this.burned }
   get circulating(): bigint { return this.emitted - this.burned }
   get appliedSeq(): number { return this.lastAppliedSeq }
+  /** ✦ glow — stars this address froze. Soulbound tally; never a balance. Same derivation as glow-star.ts. */
+  glowOf(a: string): number { return this.glow.get(a) ?? 0 }
   /** The Ӿ born to an address from its own ₭ burns — the transferable light of sacrifice, 1:1, never redeemable for ₭. */
   xMintedOf(a: string): bigint { return this.xMinted.get(a) ?? 0n }
   /** An address's SPENDABLE Ӿ (slice 2) — what it can send. Equals xMintedOf until it sends or receives an Ӿ transfer. */
@@ -1090,6 +1097,7 @@ export class KrayLedger {
         this.credit(TREASURY, fee)
         this.stars.applyLive(e)           // move the star (registry no-op guard is belt-and-suspenders)
         this.market.remove(star)          // the owner changed: any live offer from the old owner is void (no stale/reviving listing)
+        if (e.to === BLACK_HOLE) this.glow.set(e.from!, (this.glow.get(e.from!) ?? 0) + 1)
         break
       }
       case 'star-list': {
@@ -2156,6 +2164,7 @@ export class KrayLedger {
         }
         const addr = contractAddress(codeHash, e.from, e.seq)
         if (this.contracts.has(addr)) throw new Error('ledger: that contract address already exists')
+        if (isPollPaper(e.code) && !useV2) throw new Error('ledger: a poll hangs on a star')
         // ── validated → mutate ──
         const state: Record<string, bigint> = {}
         for (const [kk, val] of Object.entries(e.code.vars ?? {})) state[kk] = BigInt(val)
@@ -2169,10 +2178,26 @@ export class KrayLedger {
           this.balances.set(e.from, this.balanceOf(e.from) - 1n)
           this.burned += 1n
           this.mintX(e.from, 1n)          // BURN → Ӿ: sealing a law burns 1 ₭ → 1 Ӿ to the burner (1:1, conserved)
-          // Luz genesis: a capped paper credits the sealer. Infinite has no units yet.
+          // Luz genesis: capped paper spends supply once (founders + remainder to sealer).
           if (isCutPaper(e.code) && String(e.code.vars?.capped) === '1') {
             const supply = BigInt(e.code.vars?.supply ?? '0')
-            if (supply > 0n) this.cuts.genesis(String(onStar), e.from, supply)
+            if (supply > 0n) {
+              const credits = resolveLuzGenesis(e.code, e.from)
+              for (const c of credits) {
+                this.requireRecipientNetwork(c.to)
+                if (c.to.startsWith('KRAY_') || isContractPotAddress(c.to) || isAmmPotAddress(c.to)) {
+                  throw new Error('ledger: a founder cannot be a protocol pot')
+                }
+              }
+              this.cuts.genesisAlloc(String(onStar), supply, credits)
+            }
+          }
+          if (isPollPaper(e.code) && onStar != null) {
+            const paper = e.code.poll
+            if (!paper || !Array.isArray(paper.choices) || paper.choices.length < 2) {
+              throw new Error('ledger: a poll needs sealed choices')
+            }
+            this.polls.open(String(onStar), paper.title || '', paper.choices)
           }
         }
         break
@@ -2204,7 +2229,7 @@ export class KrayLedger {
         }
         if (this.balanceOf(e.from) < cfee) throw new Error('ledger: 1 ₭ of gas is needed to call a contract')
         // LIVING MOUTH (v2): toggle_* / once_* / collect / stamp / draw / skip travel with the face.
-        // Pulse and form doors (accept, refund, punch, release, claim, enter, settle) follow the IR.
+        // Pulse and form doors (accept, refund, punch, release, claim, enter, settle, vote) follow the IR.
         let livingHolder: string | undefined
         if (entry.star != null) {
           livingHolder = this.stars.ownerOf(BigInt(entry.star)) ?? undefined
@@ -2220,11 +2245,24 @@ export class KrayLedger {
           if (!v2) throw new Error('ledger: a raffle door needs a v2 call — the Bitcoin seal is the clock')
           if (entry.star == null) throw new Error('ledger: a raffle door needs a star — the Bitcoin seal is the clock, and draw is the living mouth')
         }
+        if (isPollPaper(entry.code) && e.rule === 'vote') {
+          if (!v2) throw new Error('ledger: a poll vote needs a v2 call — glow is a journal fact')
+          if (entry.star == null) throw new Error('ledger: a poll vote needs a star')
+        }
         const stateForCall = { ...entry.state }
         if (livingHolder) stateForCall.owner = BigInt('0x' + sha256hex(livingHolder).slice(0, 16))
         const at = v2 ? clock : (e.at ?? 0)
         const result = runCall(entry.code, e.rule, this.callContext(e.from, e.contract, e.seq, at, args, entry.star, v2), stateForCall)
         if (!result.ok) throw new Error(`ledger: the call was refused by the contract (${result.reason})`)
+        if (isPollPaper(entry.code) && e.rule === 'vote') {
+          const face = args.face
+          if (face === undefined) throw new Error('ledger: a poll vote names a face')
+          const fi = Number(face)
+          if (!Number.isInteger(fi) || fi < 0) throw new Error('ledger: a poll face must be a whole number')
+          const weight = this.glowOf(e.from)
+          if (weight < 1) throw new Error('ledger: a poll vote needs ✦ glow — freeze a star first')
+          if (this.polls.voted(String(entry.star), e.from)) throw new Error('ledger: already voted on this poll')
+        }
         if (livingHolder && e.rule === 'collect') {
           for (const pmt of result.payments) pmt.to = livingHolder
         }
@@ -2270,11 +2308,49 @@ export class KrayLedger {
         for (const b of result.binds ?? []) entry.roster[Number(b.at)] = b.addr
         for (const [kk, val] of Object.entries(result.vars)) entry.state[kk] = val
         if (entry.state.taken === 0n) entry.roster = []
+        if (isPollPaper(entry.code) && e.rule === 'vote' && entry.star != null) {
+          this.polls.cast(String(entry.star), e.from, Number(args.face), this.glowOf(e.from))
+        }
         this.lastCall = {
           rule: e.rule, from: e.from, contract: e.contract, take: takeIn.toString(),
           payments: resolved.map((p) => ({ to: p.to, amount: p.amount.toString() })),
           interval: this.sealsSeen.toString(), beacon: this.lastSealTxid,
         }
+        break
+      }
+      case 'eternize': {
+        // THE ETERNAL DOOR (docs/ETERNIZE.md) — bind a star to the L1 ordinal inscription that
+        // carries its EXACT bytes. Ordinals solved the stone; this act buys that stone for one
+        // star's body. The proof rides the event (ADR-1: pure/offline SPV re-verify, no network)
+        // and re-proves on EVERY replay — a follower that cannot re-prove it refuses the line.
+        // Identity, ownership and ₭ do not move; only availability upgrades to Bitcoin's own.
+        this.checkNonce(e)
+        // SHAPE GATE — inputs are hostile until validated; refuse malformed TYPES before any mutation.
+        if (typeof e.from !== 'string') throw new Error('ledger: from must be a string')
+        if (typeof e.star !== 'string' || !STAR_RE.test(e.star)) throw new Error('ledger: eternize names one star, by its number')
+        if (typeof e.l1InscriptionId !== 'string' || !ORDINAL_ID_RE.test(e.l1InscriptionId)) throw new Error('ledger: eternize needs the L1 inscription id (<txid>iN)')
+        this.requireSig(e, eternizeMessage(this.network, e.from, BigInt(e.star), e.l1InscriptionId, e.nonce!))
+        const efee = BigInt(e.fee ?? '0')
+        if (efee !== MIN_FEE) throw new Error('ledger: eternize costs exactly 1 ₭ — the seal, no more, no less')
+        if (this.balanceOf(e.from) < efee) throw new Error('ledger: 1 ₭ is needed to eternize')
+        const est = this.stars.star(BigInt(e.star))
+        if (!est) throw new Error(`ledger: star #${e.star} does not exist`)
+        if (!est.contentHash) throw new Error('ledger: a star with no content has no bytes to eternize — carve the body first')
+        if (est.eternal) throw new Error(`ledger: star #${e.star} is already eternal — one binding, forever`)
+        // THE PROOF — the reveal's carved bytes must BE this star's bytes, buried under real work.
+        // Anyone may prove (a fan can eternize an artist's star): eternity is a fact, not a right.
+        if (!Array.isArray(e.eternalProof) || e.eternalProof.length === 0) throw new Error('ledger: eternize carries its own SPV bundle — no proof, no eternity')
+        const [revealTxid, idxStr] = e.l1InscriptionId.split('i')
+        const verdict = proveInscription(revealTxid, Number(idxStr), e.eternalProof as ProvenTx[], {
+          minConfirmations: donationProofMinConf(this.network), net: this.network,
+        })
+        if (!verdict.ok) throw new Error(`ledger: the L1 carving is not proven (${verdict.reason}) — refused`)
+        if (verdict.contentHash !== est.contentHash) throw new Error('ledger: the carved bytes are not this star\'s bytes — byte-for-byte or nothing')
+        // ── validated → mutate, atomically: 1 ₭ → Treasury, the star gains its eternal binding ──
+        this.commitNonce(e)
+        this.balances.set(e.from, this.balanceOf(e.from) - efee)
+        this.credit(TREASURY, efee)
+        this.stars.applyLive(e)
         break
       }
       case 'settlement': {
@@ -2488,6 +2564,7 @@ export class KrayLedger {
       star: star != null ? BigInt(star) : 0n,
       holder: holderAddress ? BigInt('0x' + sha256hex(holderAddress).slice(0, 16)) : 0n,
       holderAddress,
+      glow: BigInt(this.glowOf(from)),
       args,
       addressToInt: (a: string) => BigInt('0x' + sha256hex(a).slice(0, 16)),
     }

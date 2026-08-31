@@ -67,7 +67,7 @@ export function donationProofMinConf(net: string): number {
 // 'donate'/'anchor' are the proof-of-donation mint events (KRAYNET): a donation of
 // proven sats mints ₭ against the anchoring pot's deficit; an anchor spends pot sats
 // to fund a Bitcoin anchor. Every kind the reducer handles lives in this union.
-export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy' | 'star-offer' | 'star-offer-cancel' | 'star-offer-accept' | 'cut-send'
+export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'eternize' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy' | 'star-offer' | 'star-offer-cancel' | 'star-offer-accept' | 'cut-send'
 
 /** A star's user-given name: 1..64 bytes UTF-8, byte-exact unique, forever. */
 export const NAME_MAX_BYTES = 64
@@ -216,7 +216,11 @@ export interface KrayEvent {
   lamportSignature?: string // 16384-hex (256×32 bytes)
   proofHash?: string // sha256 of the proof bundle, so an auditor can demand the bytes
   // origin: bind a Bitcoin L1 Ordinals inscription to a star
-  l1InscriptionId?: string // origin: the L1 PARENT ordinal id <reveal_txid>i<index>
+  l1InscriptionId?: string // origin: the L1 PARENT ordinal id <reveal_txid>i<index> · eternize: the carving that holds the star's exact bytes
+  /** ETERNIZE (docs/ETERNIZE.md) — the SPV bundle proving the L1 inscription that carries this
+   *  star's exact bytes: raw reveal tx + BIP-37 merkle proof + burying headers. Rides the event
+   *  like a donation proof (cascade-committed, re-proven on every replay); absent everywhere else (A3). */
+  eternalProof?: Array<{ rawTx: string; txoutproof: string; headers: string[] }>
   satOffset?: string // origin: the sat offset in the holder outpoint (decimal, BigInt-safe)
   // contracts: the sealed code, and the calls that drive it.
   code?: ContractCode

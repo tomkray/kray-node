@@ -84,10 +84,13 @@
     'indole', 'canon', 'foundation', 'divine', 'algorithm', 'kray',
     'bitcoin', 'fenyx', 'consensus', 'diretriz', 'consciousness', 'lightdoor',
   ]
-  // after the twelve — parent-safe (satoshi before donation before bornstrict)
+  // after the twelve — parent-safe (satoshi before donation before bornstrict;
+  // paper before its contract children; poll after glow)
   var LATER = [
     'satoshi', 'donation', 'nums', 'psbt', 'rune', 'bridge', 'glow',
     'whitepaper', 'bornstrict', 'witness',
+    'paper', 'being', 'escrow', 'tunnel', 'vest', 'scroll', 'raffle',
+    'mint', 'luz', 'poll', 'abundance', 'origin', 'eternize', 'library',
   ]
   var SPINE = SKELETON.concat(LATER)
 

@@ -4,7 +4,7 @@
  */
 import { examContract, parseExamSource } from '../protocol/contract-exam.ts'
 import { compileLivingLaw, callerInt } from '../protocol/star-law.ts'
-import { compileTunnel, compileRaffle, compileMint } from '../protocol/star-forms.ts'
+import { compileTunnel, compileRaffle, compileMint, compilePoll } from '../protocol/star-forms.ts'
 
 let pass = 0, fail = 0
 const ok = (c: boolean, m: string) => { if (c) { pass++; console.log('  ✓ ' + m) } else { fail++; console.log('  ✗ FAIL — ' + m) } }
@@ -60,6 +60,12 @@ function main() {
     'mint knobs compile to a paper that may be sealed — the blessing is dry-run, not a journal act')
   ok(drop.checks.some((c) => c.id === 'rule:mint' && c.kind === 'pass'),
     'mint fires under the exam fixture (open and room)')
+
+  const booth = examContract(compilePoll({ choices: ['Yes', 'No'] }))
+  ok(booth.ready && !booth.checks.some((c) => c.kind === 'fail'),
+    'poll knobs compile to a paper that may be sealed')
+  ok(booth.checks.some((c) => c.id === 'rule:vote' && c.kind === 'pass'),
+    'vote fires under the exam fixture (glow 1, face 0)')
 
   if (fail) { console.error(`\n✗ ${fail} failed, ${pass} passed`); process.exit(1) }
   console.log(`\n✓ ${pass} checks passed — EXAM HOLDS: valid paper is ready, foreign languages never run, a clean refuse is not a crash. ⚖`)

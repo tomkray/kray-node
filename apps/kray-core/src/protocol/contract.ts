@@ -64,7 +64,7 @@ export type Expr =
   | { lit: string } // decimal string → BigInt (never a JS number)
   | { var: string }
   | { arg: string }
-  | { ctx: 'caller' | 'height' | 'interval' | 'at' | 'beacon' | 'balance' | 'star' | 'holder' }
+  | { ctx: 'caller' | 'height' | 'interval' | 'at' | 'beacon' | 'balance' | 'star' | 'holder' | 'glow' }
   | { op: OpName; args: Expr[] }
 
 export type OpName =
@@ -81,7 +81,16 @@ export type Action =
   | { require: Expr } // a guard mid-way: false ⇒ the whole call is refused
 
 export interface Rule { name: string; when: Expr; then: Action[] }
-export interface ContractCode { rules: Rule[]; vars?: Record<string, string> }
+/** Optional Luz founder table. Absent ⇒ sealer holds the whole supply (A3). In the hash when present. */
+export interface LuzGenesisRow { to: string; amount: string }
+/** Sealed poll labels. Absent on every paper that is not a poll (A3). Order is the face index. */
+export interface PollPaper { title?: string; choices: string[] }
+export interface ContractCode {
+  rules: Rule[]
+  vars?: Record<string, string>
+  genesis?: LuzGenesisRow[]
+  poll?: PollPaper
+}
 
 export interface CallContext {
   /** who signed the call — as an integer, so addresses compare without strings */
@@ -101,6 +110,11 @@ export interface CallContext {
   holder?: bigint
   /** living star owner's address — `pay { living: 'owner' }` resolves here. Empty when unbound. */
   holderAddress?: string
+  /**
+   * ✦ glow of the signer — frozen-star count, journal-derived, never a balance.
+   * Absent / 0 on a paper that does not read it (A3). The poll door requires > 0.
+   */
+  glow?: bigint
   /** the call's arguments, already parsed to integers */
   args: Record<string, bigint>
   /** address → integer, so a rule can compare identities without string ops */
@@ -130,7 +144,21 @@ const ADDR_RE = /^[a-z0-9]{8,90}$/i
  *  under a state that was built by different rules. Also the size we refuse. */
 export function canonicalCode(code: ContractCode): string {
   const rules = code.rules.map((r) => ({ name: r.name, when: r.when, then: r.then }))
-  return JSON.stringify({ rules, vars: Object.fromEntries(Object.entries(code.vars ?? {}).sort(([a], [b]) => (a < b ? -1 : 1))) })
+  const vars = Object.fromEntries(Object.entries(code.vars ?? {}).sort(([a], [b]) => (a < b ? -1 : 1)))
+  const genesis = Array.isArray(code.genesis) && code.genesis.length > 0
+    ? [...code.genesis]
+      .map((r) => ({ to: String(r.to ?? '').trim(), amount: String(r.amount ?? '').trim() }))
+      .sort((a, b) => (a.to < b.to ? -1 : a.to > b.to ? 1 : a.amount < b.amount ? -1 : 1))
+    : undefined
+  const poll = code.poll && Array.isArray(code.poll.choices) && code.poll.choices.length > 0
+    ? {
+        ...(code.poll.title && String(code.poll.title).trim() ? { title: String(code.poll.title).trim() } : {}),
+        choices: code.poll.choices.map((c) => String(c).trim()),
+      }
+    : undefined
+  if (poll && genesis) return JSON.stringify({ rules, vars, genesis, poll })
+  if (poll) return JSON.stringify({ rules, vars, poll })
+  return JSON.stringify(genesis ? { rules, vars, genesis } : { rules, vars })
 }
 
 function litDigits(s: string): number {
@@ -189,6 +217,55 @@ export function validateContract(code: ContractCode): { ok: boolean; reason?: st
       } else return { ok: false, reason: 'unknown action' }
     }
   }
+  if (code.genesis !== undefined) {
+    if (!Array.isArray(code.genesis)) return { ok: false, reason: 'genesis must be a list' }
+    if (code.vars?.luz !== '1') return { ok: false, reason: 'genesis is a Luz table — this paper is not KRC-77' }
+    if (String(code.vars?.capped) !== '1') return { ok: false, reason: 'infinite Luz has no genesis table' }
+    if (code.genesis.length === 0) return { ok: false, reason: 'empty genesis is absence — omit the field' }
+    if (code.genesis.length > 8) return { ok: false, reason: 'at most 8 founders' }
+    const supply = code.vars?.supply
+    if (!supply || !/^[1-9]\d*$/.test(supply)) return { ok: false, reason: 'a genesis table needs a capped supply' }
+    const cap = BigInt(supply)
+    const seen = new Set<string>()
+    let sum = 0n
+    for (const row of code.genesis) {
+      if (!row || typeof row !== 'object') return { ok: false, reason: 'a founder row needs to + amount' }
+      const to = String(row.to ?? '').trim()
+      const amount = String(row.amount ?? '').trim()
+      if (!ADDR_RE.test(to)) return { ok: false, reason: 'a founder needs a sealed address' }
+      if (to.startsWith('KRAY_') || isContractPotAddress(to)) return { ok: false, reason: 'a founder cannot be a protocol pot' }
+      if (!/^[1-9]\d*$/.test(amount)) return { ok: false, reason: 'a founder amount must be a whole number greater than 0' }
+      if (litDigits(amount) > MAX_LIT_DIGITS) return { ok: false, reason: 'a founder amount is too wide' }
+      if (seen.has(to)) return { ok: false, reason: `duplicate founder ${to}` }
+      seen.add(to)
+      sum += BigInt(amount)
+      if (sum > cap) return { ok: false, reason: 'founders take more than supply' }
+    }
+  }
+  if (code.poll !== undefined || code.vars?.poll === '1') {
+    if (code.vars?.poll !== '1') return { ok: false, reason: 'poll labels need the sealed poll paper' }
+    if (code.genesis !== undefined) return { ok: false, reason: 'a poll is not a Luz table' }
+    if (!code.poll || !Array.isArray(code.poll.choices)) return { ok: false, reason: 'a poll needs sealed choices' }
+    if (code.poll.choices.length < 2) return { ok: false, reason: 'a poll needs at least two choices' }
+    if (code.poll.choices.length > 8) return { ok: false, reason: 'at most 8 poll choices' }
+    if (code.poll.title !== undefined && String(code.poll.title).trim() === '') {
+      return { ok: false, reason: 'empty poll title is absence — omit the field' }
+    }
+    if (code.poll.title != null) {
+      const title = String(code.poll.title).trim()
+      if (title.length > 80) return { ok: false, reason: 'poll title is too long' }
+      if (/[\x00-\x1f<>]/.test(title)) return { ok: false, reason: 'poll title has a forbidden character' }
+    }
+    const seen = new Set<string>()
+    for (const raw of code.poll.choices) {
+      const label = String(raw ?? '').trim()
+      if (!label) return { ok: false, reason: 'a poll choice is empty' }
+      if (label.length > 48) return { ok: false, reason: 'a poll choice is too long' }
+      if (/[\x00-\x1f<>]/.test(label)) return { ok: false, reason: 'a poll choice has a forbidden character' }
+      if (seen.has(label)) return { ok: false, reason: `duplicate poll choice "${label}"` }
+      seen.add(label)
+    }
+  }
   const bytes = canonicalCode(code).length
   if (bytes > MAX_CODE_BYTES) return { ok: false, reason: `contract code is ${bytes} bytes — at most ${MAX_CODE_BYTES}` }
   return { ok: true }
@@ -211,7 +288,7 @@ function checkExpr(e: Expr, vars: Set<string>, depth: number, budget: { nodes: n
   }
   if ('var' in e) return vars.has(e.var) ? { ok: true } : { ok: false, reason: `unknown variable "${e.var}"` }
   if ('arg' in e) return /^[a-z][a-z0-9_]{0,23}$/.test(e.arg) ? { ok: true } : { ok: false, reason: 'bad argument name' }
-  if ('ctx' in e) return ['caller', 'height', 'interval', 'at', 'beacon', 'balance', 'star', 'holder'].includes(e.ctx) ? { ok: true } : { ok: false, reason: `unknown context "${e.ctx}"` }
+  if ('ctx' in e) return ['caller', 'height', 'interval', 'at', 'beacon', 'balance', 'star', 'holder', 'glow'].includes(e.ctx) ? { ok: true } : { ok: false, reason: `unknown context "${e.ctx}"` }
   if ('op' in e) {
     const arity = ARITY[e.op]
     if (arity === undefined) return { ok: false, reason: `unknown operation "${e.op}"` }
@@ -248,6 +325,7 @@ function evalExpr(e: Expr, ctx: CallContext, state: Record<string, bigint>, budg
       case 'balance': return ctx.balance
       case 'star': return ctx.star ?? 0n
       case 'holder': return ctx.holder ?? 0n
+      case 'glow': return ctx.glow ?? 0n
     }
   }
   const a = (i: number): bigint => evalExpr(e.op ? (e as { args: Expr[] }).args[i] : e, ctx, state, budget, depth + 1)

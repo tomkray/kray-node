@@ -76,19 +76,20 @@
     rules: [{ name: "mark", when: { lit: "1" }, then: [{ set: { var: "hit", to: { lit: "1" } } }] }],
   };
   var LIST = [
-    { id: "being", title: "Being", kind: "living", tag: "alive · open · agent", blurb: "The default mouth. Toggle forever. Pulse is public breath. Collect follows the living owner." },
-    { id: "pass", title: "Pass", kind: "living", tag: "once valid", blurb: "A ticket. valid starts true and can be spent once — never back. The star stays as the souvenir." },
-    { id: "times3", title: "3-use", kind: "living", tag: "three latches", blurb: "Three once clauses. Three calls, then mute. Same paper as a concert pass — not a new kind." },
-    { id: "escrow", title: "Escrow", kind: "form", tag: "buyer · seller", blurb: "Two sealed keys. Buyer accepts and the seller is paid; after the journal deadline anyone may refund." },
-    { id: "tunnel", title: "Tunnel", kind: "form", tag: "punch ₭", blurb: "A pipe. Anyone funds it. You punch an amount through — to a dest, or it follows the face." },
-    { id: "vest", title: "Vest", kind: "form", tag: "release over acts", blurb: "Vesting on journal height, not a clock. Anyone may call release; ₭ goes only to the beneficiary." },
-    { id: "scroll", title: "Scroll", kind: "form", tag: "open claim", blurb: "Open scroll. Anyone claims each until max. The 1 ₭ fee is the sybil tax. Locked: ₭ leaves only through claim." },
-    { id: "raffle", title: "Raffle", kind: "form", tag: "enter · settle · draw", blurb: "A looping pot on this face. People buy a seat. After the wait, Bitcoin's seal names the winner. You never pick who. No collect." },
-    { id: "mint", title: "Mint", kind: "form", tag: "mint now · inscribe", blurb: "Not a prelist. One click: price to the seller now, eternal burn to write the star, art bytes as the child. Same content cannot mint twice." },
-    { id: "cut", title: "KRC-77", kind: "form", tag: "luz ✧", blurb: "The token law on this star. Pick a max supply or infinite. Anyone may deposit ₭ into the pot. No collect — the owner cannot drain it. Shares live on the book, not in this paper." },
-    { id: "stamp", title: "Stamp", kind: "form", tag: "you name winner", blurb: "Stamp scroll. The living owner writes the next claimant. No secret key — the journal sees the claim." },
-    { id: "list", title: "List", kind: "form", tag: "allowlist", blurb: "List scroll. Sealed addresses, one claim each. Same paper as a guest list or airdrop." },
     { id: "code", title: "Code", kind: "code", tag: "vars + rules", blurb: "Your own law. Paste the JSON paper. Draft in Solidity if you like — an AI translates it. The exam refuses raw Solidity because this chain cannot run a Turing VM. Run test, then seal." },
+    { id: "cut", title: "KRC-77", kind: "form", tag: "luz ✧", blurb: "The token law on this star. Pick a max supply or infinite. Anyone may deposit ₭ into the pot. No collect — the owner cannot drain it. Shares live on the book, not in this paper." },
+    { id: "poll", title: "Poll", kind: "form", tag: "✦ glow vote", blurb: "A proposal with sealed alternatives. Each person signs once, pays 1 ₭, and votes with the weight of their ✦ glow. Glow cannot move — a whale cannot buy the room. This is what glow is for." },
+    { id: "mint", title: "Mint", kind: "form", tag: "mint now · inscribe", blurb: "Not a prelist. One click: price to the seller now, eternal burn to write the star, art bytes as the child. Same content cannot mint twice." },
+    { id: "scroll", title: "Scroll", kind: "form", tag: "open claim", blurb: "Open scroll. Anyone claims each until max. The 1 ₭ fee is the sybil tax. Locked: ₭ leaves only through claim." },
+    { id: "list", title: "List", kind: "form", tag: "allowlist", blurb: "List scroll. Sealed addresses, one claim each. Same paper as a guest list or airdrop." },
+    { id: "stamp", title: "Stamp", kind: "form", tag: "you name winner", blurb: "Stamp scroll. The living owner writes the next claimant. No secret key — the journal sees the claim." },
+    { id: "escrow", title: "Escrow", kind: "form", tag: "buyer · seller", blurb: "Two sealed keys. Buyer accepts and the seller is paid; after the journal deadline anyone may refund." },
+    { id: "pass", title: "Pass", kind: "living", tag: "once valid", blurb: "A ticket. valid starts true and can be spent once — never back. The star stays as the souvenir." },
+    { id: "raffle", title: "Raffle", kind: "form", tag: "enter · settle · draw", blurb: "A looping pot on this face. People buy a seat. After the wait, Bitcoin's seal names the winner. You never pick who. No collect." },
+    { id: "vest", title: "Vest", kind: "form", tag: "release over acts", blurb: "Vesting on journal height, not a clock. Anyone may call release; ₭ goes only to the beneficiary." },
+    { id: "tunnel", title: "Tunnel", kind: "form", tag: "punch ₭", blurb: "A pipe. Anyone funds it. You punch an amount through — to a dest, or it follows the face." },
+    { id: "being", title: "Being", kind: "living", tag: "alive · open · agent", blurb: "The default mouth. Toggle forever. Pulse is public breath. Collect follows the living owner." },
+    { id: "times3", title: "3-use", kind: "living", tag: "three latches", blurb: "Three once clauses. Three calls, then mute. Same paper as a concert pass — not a new kind." },
   ];
   var PLACE = {
     buyer: "KRAYEXAMBUYER",
@@ -128,6 +129,9 @@
     }
     if (id === "cut") {
       return { form: { kind: "cut", supply: "100000", infinite: false }, star: star };
+    }
+    if (id === "poll") {
+      return { form: { kind: "poll", title: "", choices: ["Yes", "No"] }, star: star };
     }
     return { source: JSON.stringify(MARK) };
   }
@@ -238,9 +242,28 @@
     } else if (id === "cut") {
       html = labeled("f-supply", "Supply · max units", "How many luz ✧ this star will ever have. 100000 is Radiola's default (one percent = 1000). Empty + infinite = no cap.", "e.g. 100000", "100000")
         + '<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px">'
-        + '<input type="checkbox" id="f-infinite"> infinite — no max, supply stays open</label>';
+        + '<input type="checkbox" id="f-infinite"> infinite — no max, supply stays open</label>'
+        + '<div class="lawknob" id="f-founders-box">'
+        + '<label>Founders · optional</label>'
+        + '<p class="hint">Address + amount at seal. Empty = you hold the whole supply. What is not listed stays with you. At most 8. Σ cannot exceed supply. This table is in the signed paper — not a later airdrop.</p>'
+        + '<div id="f-founders"></div>'
+        + '<button type="button" class="btn" id="f-founder-add" style="min-height:44px;margin-top:8px">add a founder</button>'
+        + '</div>';
+    } else if (id === "poll") {
+      html = '<div class="lawknob"><label for="f-title">Question · optional</label>'
+        + '<p class="hint">The proposal. Empty = the star\'s name is the question. Sealed in the paper.</p>'
+        + field("f-title", "e.g. Open the east gate?", "")
+        + '</div>'
+        + '<div class="lawknob" id="f-choices-box">'
+        + '<label>Alternatives · 2 to 8</label>'
+        + '<p class="hint">People pick one. Each signer pays 1 ₭ and votes once, weighted by ✦ glow in their wallet. Glow cannot be transferred. Add a row for each option.</p>'
+        + '<div id="f-choices"></div>'
+        + '<button type="button" class="btn" id="f-choice-add" style="min-height:44px;margin-top:8px">add an alternative</button>'
+        + '</div>';
     }
     host.innerHTML = '<div class="lawfields">' + html + "</div>";
+    if (id === "cut") mountFounders(host, opts.onChange);
+    if (id === "poll") mountChoices(host, opts.onChange, ["Yes", "No"]);
     if (opts.onChange) {
       host.oninput = opts.onChange;
       var locked = host.querySelector("#f-locked");
@@ -250,6 +273,73 @@
       if (gate) gate.addEventListener("change", opts.onChange);
       if (inf) inf.addEventListener("change", opts.onChange);
     }
+  }
+  function mountFounders(host, onChange) {
+    var add = host.querySelector("#f-founder-add");
+    if (!add) return;
+    add.addEventListener("click", function () {
+      var box = host.querySelector("#f-founders");
+      if (!box || box.querySelectorAll("[data-founder]").length >= 8) return;
+      var row = document.createElement("div");
+      row.setAttribute("data-founder", "1");
+      row.style.cssText = "display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap";
+      row.innerHTML = '<input class="input" data-fto placeholder="address (tb1… / bc1…)" autocomplete="off" style="min-height:44px;flex:1;min-width:180px">'
+        + '<input class="input" data-famt placeholder="amount ✧" inputmode="numeric" autocomplete="off" style="min-height:44px;width:128px">'
+        + '<button type="button" class="btn" data-fdel style="min-height:44px">remove</button>';
+      row.querySelector("[data-fdel]").addEventListener("click", function () {
+        row.remove();
+        if (onChange) onChange();
+      });
+      box.appendChild(row);
+      if (onChange) onChange();
+    });
+  }
+  function addChoiceRow(box, onChange, value) {
+    if (!box || box.querySelectorAll("[data-choice]").length >= 8) return;
+    var row = document.createElement("div");
+    row.setAttribute("data-choice", "1");
+    row.style.cssText = "display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap";
+    row.innerHTML = '<input class="input" data-clabel placeholder="alternative" autocomplete="off" maxlength="48" style="min-height:44px;flex:1;min-width:180px">'
+      + '<button type="button" class="btn" data-cdel style="min-height:44px">remove</button>';
+    var inp = row.querySelector("[data-clabel]");
+    if (inp && value) inp.value = value;
+    row.querySelector("[data-cdel]").addEventListener("click", function () {
+      if (box.querySelectorAll("[data-choice]").length <= 2) return;
+      row.remove();
+      if (onChange) onChange();
+    });
+    box.appendChild(row);
+  }
+  function mountChoices(host, onChange, seed) {
+    var add = host.querySelector("#f-choice-add");
+    var box = host.querySelector("#f-choices");
+    if (!add || !box) return;
+    var start = Array.isArray(seed) && seed.length >= 2 ? seed : ["Yes", "No"];
+    start.forEach(function (v) { addChoiceRow(box, onChange, v); });
+    add.addEventListener("click", function () {
+      addChoiceRow(box, onChange, "");
+      if (onChange) onChange();
+    });
+  }
+  function readChoices(host) {
+    var rows = [];
+    if (!host) return rows;
+    host.querySelectorAll("[data-choice]").forEach(function (row) {
+      var label = String((row.querySelector("[data-clabel]") || {}).value || "").trim();
+      if (label) rows.push(label);
+    });
+    return rows;
+  }
+  function readFounders(host) {
+    var rows = [];
+    if (!host) return rows;
+    host.querySelectorAll("[data-founder]").forEach(function (row) {
+      var to = String((row.querySelector("[data-fto]") || {}).value || "").trim();
+      var amount = String((row.querySelector("[data-famt]") || {}).value || "").trim();
+      if (!to && !amount) return;
+      rows.push({ to: to, amount: amount });
+    });
+    return rows;
   }
   function read(host, id, extra) {
     extra = extra || {};
@@ -280,7 +370,11 @@
     }
     if (id === "cut") {
       var infBox = document.getElementById("f-infinite");
-      return { form: { kind: "cut", supply: val("f-supply"), infinite: !!(infBox && infBox.checked) } };
+      var founders = readFounders(host);
+      return { form: { kind: "cut", supply: val("f-supply"), infinite: !!(infBox && infBox.checked), ...(founders.length ? { founders: founders } : {}) } };
+    }
+    if (id === "poll") {
+      return { form: { kind: "poll", title: val("f-title"), choices: readChoices(host) } };
     }
     return { living: { flags: cloneFlags("being") } };
   }
@@ -313,9 +407,30 @@
       return f.price !== "" && Number.isFinite(price) && price >= 0 && max >= 1 && max <= 256;
     }
     if (f.kind === "cut") {
-      if (f.infinite) return true;
+      if (f.infinite) return !(f.founders && f.founders.length);
       var sup = Number(f.supply);
-      return f.supply !== "" && Number.isInteger(sup) && sup >= 1 && sup <= 10000000;
+      if (!(f.supply !== "" && Number.isInteger(sup) && sup >= 1 && sup <= 10000000)) return false;
+      var listed = f.founders || [];
+      var sum = 0;
+      for (var i = 0; i < listed.length; i++) {
+        var to = String((listed[i] && listed[i].to) || "").trim();
+        var amt = Number((listed[i] && listed[i].amount) || "");
+        if (!to || !Number.isInteger(amt) || amt < 1) return false;
+        sum += amt;
+        if (sum > sup) return false;
+      }
+      return listed.length <= 8;
+    }
+    if (f.kind === "poll") {
+      var ch = f.choices || [];
+      if (ch.length < 2 || ch.length > 8) return false;
+      for (var p = 0; p < ch.length; p++) {
+        var lab = String(ch[p] || "").trim();
+        if (!lab || lab.length > 48) return false;
+      }
+      var t = String(f.title || "").trim();
+      if (t.length > 80) return false;
+      return true;
     }
     return false;
   }
@@ -336,6 +451,10 @@
     seed: seed,
     paint: paint,
     read: read,
+    readFounders: readFounders,
+    mountFounders: mountFounders,
+    readChoices: readChoices,
+    mountChoices: mountChoices,
     fingerprint: fingerprint,
     ready: ready,
     sealReady: sealReady,

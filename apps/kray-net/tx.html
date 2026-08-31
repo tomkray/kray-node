@@ -295,7 +295,9 @@
       case 'amm-rr-remove':return 'Removed LP <span class="amt">'+kWhole(t.lp||'0')+'</span> from '+runeNm(t)+' / '+otherNm(t);
       case 'amm-rr-swap':  return 'Sold <span class="amt">'+runeAmt(t.amount, payDiv(t))+'</span> '+payNm(t)+' for '+recvNm(t);
       case 'contract':      return 'Law sealed'+(n?' on star '+n:'')+(burnOf(t)?' · burned '+kray(burnOf(t)):'')+' — the IR is the paper';
-      case 'contract-call': return 'Law called'+(t.rule?' · '+esc(t.rule):'')+(t.paid&&t.paid.length?' · pot paid '+t.paid.map(function(p){ return kray(p.amount); }).join(' + '):'')+(n?' on star '+n:'');
+      case 'contract-call': return t.rule==='vote'
+        ? ('Poll vote · ✦ glow · 1 ₭ seal'+(n?' on star '+n:''))
+        : ('Law called'+(t.rule?' · '+esc(t.rule):'')+(t.paid&&t.paid.length?' · pot paid '+t.paid.map(function(p){ return kray(p.amount); }).join(' + '):'')+(n?' on star '+n:''));
       case 'cut-send':      return '<span class="amt">'+luzAmt(t)+' ✧</span> '+luzNm(t)+' → sent — Luz of this star (KRC-77 · ₭ pays the gas)';
       default:              return esc(t.kind);
     }

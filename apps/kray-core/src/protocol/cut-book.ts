@@ -9,8 +9,10 @@
  * Product mouth: Luz ✧ (Portuguese luz — the living star's light). Compiler
  * kind stays `cut`. Catalog: KRC-77. Cadent and LuX are discarded names.
  *
- * Genesis: a capped Cut credits the sealer with `supply`. Infinite has no
- * genesis credit (nothing to send until a later mint door exists).
+ * Genesis: a capped Cut spends `supply` once. Empty founder table ⇒ the sealer
+ * holds all of it. A sealed table credits those addresses; the remainder stays
+ * with the sealer. Σ == supply or the book refuses. Infinite has no genesis
+ * credit (nothing to send until a later mint door exists).
  * Send is its own signed kind (`cut-send`) — never a ₭ / Ӿ signature.
  */
 import { sha256hex } from './kray-primitives.ts'
@@ -49,12 +51,27 @@ export class CutBook {
   }
 
   genesis(star: string, owner: string, supply: bigint): void {
+    this.genesisAlloc(star, supply, [{ to: owner, amount: supply }])
+  }
+
+  /** Spend the whole sealed supply across named addresses. Σ must equal supply. */
+  genesisAlloc(star: string, supply: bigint, credits: Array<{ to: string; amount: bigint }>): void {
     const k = String(star)
     if (this.supply.has(k)) throw new Error('cut-book: this star already has a Cut')
     if (supply <= 0n) throw new Error('cut-book: genesis supply must be greater than 0')
-    if (!owner) throw new Error('cut-book: genesis needs an owner')
+    if (!Array.isArray(credits) || credits.length === 0) throw new Error('cut-book: genesis needs at least one holder')
+    const row = new Map<string, bigint>()
+    let sum = 0n
+    for (const c of credits) {
+      const to = String(c.to || '')
+      if (!to) throw new Error('cut-book: genesis needs an owner')
+      if (c.amount <= 0n) throw new Error('cut-book: genesis amount must be greater than 0')
+      row.set(to, (row.get(to) ?? 0n) + c.amount)
+      sum += c.amount
+    }
+    if (sum !== supply) throw new Error('cut-book: genesis must spend the whole supply')
     this.supply.set(k, supply)
-    this.bal.set(k, new Map([[owner, supply]]))
+    this.bal.set(k, row)
   }
 
   send(star: string, from: string, to: string, amount: bigint): void {

@@ -451,6 +451,13 @@ export function contractMessageV2(network: string, from: string, codeHash: strin
   return `kray-core.contract.v2|net=${network}|from=${from}|code=${codeHash}|onstar=${onStar}`
 }
 
+/** KRAYNET eternize v1 (docs/ETERNIZE.md) — bind a star to the L1 ordinal inscription that
+ *  carries its EXACT bytes. The signer names star + inscription id; the SPV bundle rides the
+ *  event and the reducer re-proves it (ADR-1). Anyone may prove — eternity is a fact. */
+export function eternizeMessage(network: string, from: string, star: bigint, l1InscriptionId: string, nonce: number): string {
+  return `kraynet.eternize.v1|net=${network}|from=${from}|star=${star}|l1=${l1InscriptionId}|nonce=${nonce}`
+}
+
 /** Canonical RUNE-SEND message — an L2 rune transfer, signed by its holder. */
 export function runeSendMessage(network: string, from: string, to: string, runeId: string, amount: bigint, nonce: number): string {
   return `kray-core.rune-send.v1|net=${network}|from=${from}|to=${to}|rune=${runeId}|amount=${amount}|nonce=${nonce}`
