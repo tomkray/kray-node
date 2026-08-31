@@ -1638,11 +1638,14 @@
       var born = (res.star!=null ? res.star : prep.star); // the number actually assigned at birth
       var url = res.url || ('/star/'+born);
       var hang = (born!=null) ? ' · <a href="/inscribe?star='+encodeURIComponent(String(born))+'&tab=law">hang a law on this face →</a>' : '';
-      if(action==='origin') out.innerHTML='✓ origin child — star #'+Number(born).toLocaleString()+' born from Bitcoin L1 ordinal '+esc((body.parentId||'').slice(0,10))+'… · <a href="'+url+'" target="_blank" rel="noopener">view</a>'+hang;
-      else if(body.parents || body.origins) out.innerHTML='✓ sealed — star #'+Number(born).toLocaleString()+' born with '+(((body.parents||[]).length)+((body.origins||[]).length))+' parents ('+((body.parents||[]).length)+' ★ + '+((body.origins||[]).length)+' ₿), the whole lineage in ONE signature · <a href="'+url+'" target="_blank" rel="noopener">view</a>'+hang;
+      var stone = (born!=null && (action==='inscribe'||action==='origin'))
+        ? ' · <a href="/star/'+encodeURIComponent(String(born))+'#eternal">⚓ written — carve these exact bytes on Bitcoin to eternize →</a>'
+        : '';
+      if(action==='origin') out.innerHTML='✓ origin child — star #'+Number(born).toLocaleString()+' born from Bitcoin L1 ordinal '+esc((body.parentId||'').slice(0,10))+'… · <a href="'+url+'" target="_blank" rel="noopener">view</a>'+hang+stone;
+      else if(body.parents || body.origins) out.innerHTML='✓ sealed — star #'+Number(born).toLocaleString()+' born with '+(((body.parents||[]).length)+((body.origins||[]).length))+' parents ('+((body.parents||[]).length)+' ★ + '+((body.origins||[]).length)+' ₿), the whole lineage in ONE signature · <a href="'+url+'" target="_blank" rel="noopener">view</a>'+hang+stone;
       else if(action==='inscribe') out.innerHTML = TARGET!=null
-        ? '✓ sealed — content added to star #'+Number(born).toLocaleString()+' · <a href="'+url+'" target="_blank" rel="noopener">view content</a> · enters the mosaic on the next beat'+hang
-        : '✓ sealed — star #'+Number(born).toLocaleString()+' born from fire · <a href="'+url+'" target="_blank" rel="noopener">view content</a> · enters the mosaic on the next beat'+hang;
+        ? '✓ sealed — content added to star #'+Number(born).toLocaleString()+' · <a href="'+url+'" target="_blank" rel="noopener">view content</a> · enters the mosaic on the next beat'+hang+stone
+        : '✓ sealed — star #'+Number(born).toLocaleString()+' born from fire · <a href="'+url+'" target="_blank" rel="noopener">view content</a> · enters the mosaic on the next beat'+hang+stone;
       else out.innerHTML='✓ baptized — star #'+Number(born).toLocaleString()+' is now “'+esc(body.name)+'” forever'+hang;
       ['i-content','i-name','i-parent','i-oparent','i-metadata'].forEach(function(id){var e=$(id); if(e) e.value='';});
       clearFileQueue();
