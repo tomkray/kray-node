@@ -1175,6 +1175,11 @@
     var res=await sub.json(); if(!sub.ok||res.error) throw new Error(res.error||'submit refused');
     return res;
   }
+  // ⚓ ETERNIZE — HELD (Creator 2026-08-31). The living world does not offer
+  // this door. Flip to true only when the thought is resumed
+  // (later/36 · kray-dev references/eternize.md). Chrome below stays so
+  // resume is one flag, not a rebuild.
+  var ETERNIZE_OPEN = false;
   // ⚓ ETERNIZE rite (docs/ETERNIZE.md) — two buttons. ₿ talks to the Kray Space
   // bakery (commit/reveal) with the verified atlas bytes. This node never builds
   // an L1 PSBT (book ≠ bakery). ⚓ is the 1 ₭ seal after Bitcoin buries a match.
@@ -1440,6 +1445,7 @@
     setTimeout(function(){location.reload();},900);
   }
   async function etCarveL1(box){
+    if(!ETERNIZE_OPEN) return;
     if(etRite.step===0) await etVerify(box);
     var bakery=etBakery();
     var sess=await etNeedAddr();
@@ -1481,6 +1487,7 @@
     etSay('inscribed on Bitcoin — watching confirmations. Then ⚓ Eternize · 1 ₭', true);
   }
   async function eternizeGo(){
+    if(!ETERNIZE_OPEN) return;
     var box=document.getElementById('etrite');
     if(!box) return;
     if(box.getAttribute('data-busy')==='1') return;
@@ -1502,6 +1509,7 @@
     finally{ box.removeAttribute('data-busy'); }
   }
   function mountEternizeRite(){
+    if(!ETERNIZE_OPEN) return;
     var box=document.getElementById('etrite');
     if(!box || box.getAttribute('data-wired')==='1') return;
     box.setAttribute('data-wired','1');
@@ -2272,7 +2280,7 @@
         h+='<dt id="eternal">⚓ eternal</dt><dd><b>carved on Bitcoin</b> · <code style="word-break:break-all">'+esc(s.eternal)+'</code>'
           +(ehref?' · <a href="'+esc(ehref)+'" target="_blank" rel="noopener">open the stone ↗</a>':'')
           +'<br><span style="color:var(--ink-4)">the exact bytes of this star live inside a Bitcoin transaction forever — SPV-proven by every node on every replay; availability no longer depends on anyone</span></dd>';
-      } else if(s.contentHash && s.owner!=='KRAY_BLACK_HOLE'){
+      } else if(ETERNIZE_OPEN && s.contentHash && s.owner!=='KRAY_BLACK_HOLE'){
         var bodyUrl=(ins&&ins.url)?ins.url:('/content/'+s.contentHash);
         var mime=String((ins&&ins.contentType)||s.contentType||'').split(';')[0].trim().toLowerCase();
         var ext=({

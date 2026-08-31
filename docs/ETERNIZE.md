@@ -1,9 +1,10 @@
 # ETERNIZE — the eternal door
 
-> Status: **S1 + S2 BUILT AND PROVEN** (Creator, 2026-08-30). S3 (Signet rite) waits.
-> Pipeline: regtest bench → Signet → main, per `OPERATOR-SHIP.md` § The change map.
-> Mirror precedent: `ORIGIN.md` (the same door, walked the other way).
-> Two acts, two facts: **blessing = possession** (father a child). **eternize = availability** (these exact bytes live on Bitcoin). They compose; they never fuse.
+> Status: **HELD** (Creator, 2026-08-31). Lab exams exist. The living world
+> does not offer this door (`ETERNIZE_OPEN = false` on the star page).
+> Not a Signet/main rite. Resume: `kray-dev` `references/eternize.md`.
+> Two acts, two facts: **blessing = possession**. **eternize = availability**.
+> They compose; they never fuse. The living floor does not wait on this door.
 
 ## The one sentence
 
@@ -53,18 +54,22 @@ Event fields:
 
 | field | meaning |
 |---|---|
-| `from` | any signer holding 1 ₭ — see "who may call" |
+| `from` | the star owner who seals — see "who may call" |
 | `star` | the star number being eternized |
 | `l1InscriptionId` | `<64-hex reveal txid>i<index>` (`ORDINAL_ID_RE`) — the reveal, not the satpoint (sats move; the reveal does not) |
 | `eternalProof` | `ProvenTx[]` bundle — raw reveal tx + BIP-37 merkle block + header chain (the same bag shape as a rune deposit) |
 | `nonce`, `signature`, `publicKey` | the usual signed-act envelope |
 | `fee` | exactly `MIN_FEE` (1 ₭) → Treasury. No mint, no burn — the L1 miner fee was the sacrifice, and it happened on Bitcoin |
 
-**Who may call: anyone.** Eternity is a fact, not a right. The proof
-cannot lie (a false one is refused; a true one is true no matter whose
-signature carries it), the act grants no honor and moves no value, so
-an owner-only gate would only slow a gift down. Same doctrine as
-escrow's `refund`: when mathematics can verify, anyone may knock.
+**Who may call: the owner, only.** `from` must be `star.owner` at the
+door and again in the reducer — a rule in one place is a hole. The
+reveal must have **paid that eternizer's script** (`paidScriptHex ===
+scriptOfAddress(from)`). Owner changes later; this line does not chase
+them. A clone of the same bytes born to another key is false. After
+the seal, the star is already eternal — anyone else who tries is
+refused. Tag 5 is a label, never this gate. After a sale with no seal
+yet, the new holder must carve to themselves; the previous birth
+stone cannot bind.
 
 ## Reducer verification (pure, offline, in order — refuse before mutate)
 
@@ -82,8 +87,13 @@ escrow's `refund`: when mathematics can verify, anyone may knock.
    identity. A gzip / content-encoding envelope hashes differently and
    is therefore auto-refused by this same line — no decompressor ever
    enters consensus.
-6. Fee gate: signer holds ≥ 1 ₭; exactly 1 ₭, never more.
-7. **Mutate atomically:** fee → Treasury; the star gains
+6. `verdict.paidScriptHex === scriptOfAddress(from)` — the reveal
+   output that received the inscribed sat **was paid to the owner who
+   seals**. Not "whoever owns the star later." A clone paid to another
+   key cannot bind. Bitcoin still allows the clone to exist; the book
+   will not wear it.
+7. Fee gate: signer holds ≥ 1 ₭; exactly 1 ₭, never more.
+8. **Mutate atomically:** fee → Treasury; the star gains
    `eternal = <l1InscriptionId>`.
 
 A proof that is present but false HALTs the replay, exactly like a
@@ -113,9 +123,10 @@ to Bitcoin — the eternity is notarized by the same clock it lives on.
 - Ownership, name, law, lineage, or any ₭ beyond the 1 ₭ fee changing
   because of this act.
 - The node signing, funding, or broadcasting the L1 inscription.
-- A star *depending* on L1 to be served — the atlas remains the body;
-  L1 is the eternal backup, read by humans in a disaster, not by the
-  reducer in the hot path.
+- A stranger binding the star by carving the same bytes on Bitcoin
+  first, or by injecting an `eternize` into their own node. The
+  writer journal is the book; `requireSig` + owner + paid-to-`from`
+  refuse both. A private fork is not this cascade.
 
 ## Size and cost (the honest border)
 
@@ -155,7 +166,7 @@ ordinal <id> carries BODY   ──①──▶  trunk star born via origin:
 Proven in the stack exam: the child cannot wear the father's carving
 (different bytes → refused); a second binding refused; a blessing
 theft after the eternize dies the same death; eternize lands before
-OR after a sale (anyone, anytime, once); a cold replay re-proves the
+OR after a sale (the new owner, once); a cold replay re-proves the
 blessing AND the carving from the journal alone, same cascade root.
 
 Neither act requires the other: a blessing births children with no
@@ -170,10 +181,11 @@ coincide, the same proven reveal serves both — one bag, two facts.
   line-extension), scheme `eternizeMessage` v1 + signed-message mirror,
   desk index `starOfEternal`. Broken and refused: wrong bytes · tampered
   burial · missing proof · wrong index · malformed id · baptism-only
-  star · missing star · fee ≠ 1 · second binding. Proven: stranger-may-
-  prove, ownership frozen, 1 ₭ → Treasury, cascade folds it, cold replay
-  re-verifies the SPV bundle byte-exact.
-- **S2 — door + desk: ✅ BUILT** (server syntax-clean; live Bitcoin is S3).
+  star · missing star · fee ≠ 1 · second binding · stranger inject.
+  Proven: owner-only seal, ownership frozen, 1 ₭ → Treasury, cascade
+  folds it, cold replay re-verifies the SPV bundle byte-exact.
+- **S2 — door + desk: HELD** (2026-08-31). Code and exams remain. The living
+  star page does not offer the two buttons (`ETERNIZE_OPEN = false`).
   `/api/kraynet/eternize-proof` assembles the SPV bag from bitcoind,
   proves the carving locally, and AUTO-DETECTS the KRAY side: the one
   star those bytes could belong to (`starOfContent`) and whether the
@@ -196,8 +208,8 @@ coincide, the same proven reveal serves both — one bag, two facts.
 2. On the star page, paste the inscription id `<txid>iN`.
 3. The node proves the carving from bitcoind (no `ord` server). If the
    bytes are not this star's, the wallet never signs.
-4. Sign the 1 ₭ seal. The star gains `⚓ eternal`. Anyone may pay that
-   seal; ownership does not move.
+4. Sign the 1 ₭ seal. The star gains `⚓ eternal`. Only the holder
+   may pay that seal; ownership does not move.
 
 Blessing a parent to birth a child is a different button, a different
 fact. If the child's body *is* that ordinal's body, the same reveal bag
@@ -209,8 +221,16 @@ can start its walk; the walk itself is raw Bitcoin.
 
 ## Discarded branches (bifurcation echo)
 
-- **Owner-only gate** — a provable fact should not need permission;
-  discarded for the anyone-may-prove door (refund precedent).
+- **Anyone-may-prove eternize** — a stranger could carve the same
+  bytes and bind the owner's star (or lock it, if a later bridge
+  rides the stone). Creator reversed this (2026-08-31): owner-only
+  at door and reducer. Metadata is not the lock.
+- **Chase the current holder after hops** — owner changes many times;
+  eternize is one instant. The birth script must be the eternizer's,
+  not "whoever holds the sat now." A later buyer cannot wear the
+  previous owner's stone; they carve to themselves or they do not
+  seal. Tag 5 / a pubkey in metadata is forgeable — the reveal
+  `scriptPubKey` is the check.
 - **Gzip in consensus** — saves fees on text but imports a
   decompressor into the reducer's trusted surface; discarded, the
   hash-equality line refuses it for free.

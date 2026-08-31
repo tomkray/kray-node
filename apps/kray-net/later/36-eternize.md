@@ -8,18 +8,23 @@ body from Bitcoin alone.
 The living floor is cheap and large. Its integrity is already
 absolute: the content hash rides the signed act, folds through
 `starsRoot` into the cascade, and the cascade is anchored to
-Bitcoin. Nobody falsifies a byte without being caught. What the
-anchor does not buy is availability. If every follower vanished,
-the hashes would prove what existed and not return the body.
+Bitcoin. Nobody falsifies a byte without being caught. The
+network already runs on that. A star with no eternal slot is
+still a star. What the anchor does not buy is availability. If
+every follower vanished, the hashes would prove what existed
+and not return the body. This door is that backup, not the
+motor.
 
-This door buys that stone for one star, by choice. The owner (or
-anyone holding 1 ₭) carves the star's exact bytes as an ordinal
-with their own wallet. Miners are paid on Bitcoin. The node never
+This door buys that stone for one star, by choice. Only the owner
+who seals carves the star's exact bytes as an ordinal paid to
+their own script. Miners are paid on Bitcoin. The node never
 spends. Then a signed act — `eternize` — presents the SPV bag.
 The reducer re-proves the carving and requires
-`verdict.contentHash === star.contentHash`. Byte-for-byte, or
-nothing. One binding, forever. The star gains `eternal = <txid>iN`.
-Ownership, name, law, and lineage do not move.
+`verdict.contentHash === star.contentHash` and that the reveal
+paid `from`. Byte-for-byte, paid to the eternizer, or nothing.
+A clone in another wallet is false. One binding, forever. The
+star gains `eternal = <txid>iN`. Ownership, name, law, and
+lineage do not move.
 
 The 1 ₭ is the seal, not the price of the bytes. The bytes were
 priced when the inscription hit Bitcoin. The seal is the same
