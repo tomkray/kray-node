@@ -95,6 +95,50 @@ export function buildInscriptionSendPsbt(params: {
   return out({ psbtHex: _bytesToHex(psbt), psbtB64: Buffer.from(psbt).toString('base64'), fee: feeSats.toString(), change: (change >= dust ? change : 0n).toString(), inputs: 1 + picked.length })
 }
 
+/** An open-mint claim (Runestone Tag 20, twice: etching block then tx — ord's Tag::Mint takes two
+ *  values). Output shape mirrors the kray-space mainnet builder byte-for-byte so the wallet verifies
+ *  ONE contract on every network:
+ *    out 0 — the minter's postage (first non-OP_RETURN output: ord's default allocation → the minted
+ *            runes land here), out 1 — the mint runestone, [out 2 — the fixed service fee],
+ *    [out last — BTC change]. Inputs are pure-BTC ScriptUtxos the caller pre-verified (no rune, no
+ *  inscription), signed SIGHASH_ALL by the wallet's own key — a mint can never melt an artifact. */
+export function buildRuneMintPsbt(params: {
+  net: string
+  runeId: { block: bigint; tx: bigint }
+  to: string                 // the minter — receives the postage (runes) + BTC change
+  feeUtxos: ScriptUtxo[]     // pure-BTC purse, pre-verified by the caller
+  feeSats: bigint
+  dust: bigint               // postage + change floor (330 for p2tr at today's relay floor)
+  serviceFee?: { script: Uint8Array; sats: bigint }   // the platform's fixed fee output, if any
+}) {
+  const { net, runeId, to, feeUtxos, feeSats, dust, serviceFee } = params
+  if (runeId.block < 0n || runeId.tx < 0n) throw new Error('a rune id is block:tx, both non-negative')
+  const bnet = NETWORKS[toBtcNet(net)]
+  const stone = runestoneScript([TAG.Mint, runeId.block, TAG.Mint, runeId.tx])
+  const svcSats = serviceFee ? serviceFee.sats : 0n
+  const need = dust + svcSats + feeSats
+  const picked: ScriptUtxo[] = []; let sum = 0n
+  for (const u of [...feeUtxos].sort((a, z) => (z.sats > a.sats ? 1 : -1))) {
+    if (sum >= need + dust) break
+    picked.push(u); sum += u.sats
+  }
+  if (sum < need) throw new Error(`insufficient pure BTC for the mint: have ${sum} sats, need at least ${need}`)
+  const tx = new btc.Transaction({ allowUnknownOutputs: true })
+  for (const u of picked) tx.addInput({ txid: u.txid, index: u.vout, witnessUtxo: { script: u.script, amount: u.sats }, sighashType: btc.SigHash.ALL, sequence: SEQUENCE_RBF })
+  tx.addOutputAddress(to, dust, bnet)                       // out 0 — postage: the minted runes land here
+  tx.addOutput({ script: stone, amount: 0n })               // out 1 — the mint runestone
+  if (serviceFee) tx.addOutput({ script: serviceFee.script, amount: serviceFee.sats })
+  const change = sum - need
+  if (change >= dust) tx.addOutputAddress(to, change, bnet) // out last — BTC change (sub-dust rides as fee)
+  const psbt = tx.toPSBT()
+  return out({
+    psbtHex: _bytesToHex(psbt), psbtB64: Buffer.from(psbt).toString('base64'),
+    fee: (change >= dust ? feeSats : feeSats + change).toString(),
+    runestoneHex: _bytesToHex(stone), postage: dust.toString(), serviceFee: svcSats.toString(),
+    change: (change >= dust ? change : 0n).toString(), inputs: picked.length,
+  })
+}
+
 /** A Runes transfer: `amount` of the rune → `to`, the rune remainder → `from`, both by explicit edict. */
 export function buildRuneSendPsbt(params: {
   net: string

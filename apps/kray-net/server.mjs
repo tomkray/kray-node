@@ -59,7 +59,7 @@ import { verifyRuneMovement } from '../kray-core/src/protocol/rune-bridge.ts'
 import { parentCanHoldFocusedRune } from '../kray-core/src/protocol/rune-ancestry.ts'
 import { buildDonationPsbt, buildSelfAnchorDonationPsbt } from '../kray-core/src/protocol/donate-psbt.ts'
 import { selfAnchorScriptHex, addressFromOutputKey, BURN_INTERNAL_KEY } from '../kray-core/src/protocol/self-anchor.ts'
-import { buildBtcSendPsbt, buildInscriptionSendPsbt, buildRuneSendPsbt, feeSatsAtRate } from '../kray-core/src/protocol/wallet-psbt.ts'
+import { buildBtcSendPsbt, buildInscriptionSendPsbt, buildRuneSendPsbt, buildRuneMintPsbt, feeSatsAtRate } from '../kray-core/src/protocol/wallet-psbt.ts'
 import { decipher, runeName, spacedRuneName } from '../kray-core/src/protocol/runestone.ts'
 import { parseRuneKey, canonicalRuneKey } from '../kray-core/src/economics/rune-book.ts'
 import { rrPairKey, isAmmPotAddress, ammPoolAddress, ammRrPoolAddress, parseAmmPotAddress } from '../kray-core/src/protocol/amm.ts'
@@ -111,6 +111,7 @@ const PUBLIC_L1_OFF = new Set([
   '/api/kraywallet/build-send-psbt',
   '/api/kraywallet/build-send-inscription-psbt',
   '/api/runes/build-send-psbt',
+  '/api/runes/build-mint-psbt',
 ])
 const _postHitsIp = new Map()
 let _postHitsGlobal = { t: 0, n: 0 }
@@ -263,6 +264,11 @@ const NODE_VERSION = (() => {
 })()
 const POT_ADDRESS = process.env.KRAY_POT_ADDRESS || null
 const POT_SCRIPT_HEX = POT_ADDRESS ? scriptOfAddress(POT_ADDRESS, toBtcNet(NET)) : null
+// ── MINT RUNE service fee — the SAME platform taproot key kray-space charges on mainnet, as a
+// scriptPubKey (5120 + witness program): the program is HRP-independent, so one script is that key's
+// address on main, signet AND regtest. Flat 546 sats per mint — the same figure as the mainnet door.
+const MINT_SERVICE_FEE_SATS = 546n
+const MINT_SERVICE_FEE_SCRIPT_HEX = scriptOfAddress('bc1pe3nvklfghzyepcjme5tyrv28kkmruypq0tmykgcdatkkreufyrhqaxf9p2', 'bitcoin')
 // ADR-4 slice 4c — the door's ingress gate is UN-LOWERABLE below the per-network consensus floor: it may
 // demand MORE confirmations than the chain rule, never fewer. So on main it captures + requires >= 6 (Bitcoin's
 // customary settlement), matching the reducer's donationProofMinConf — one atemporal ruler, one source of truth.
@@ -5555,6 +5561,40 @@ const server = createServer(async (req, res) => {
           return ok(res, { usd, source: usd > 0 ? 'kraynet' : 'unavailable' })
         }
       }
+      // ── THE WALLET's RUNE CHECK on THIS network — the same JSON shape kray-space's explorer serves
+      // on mainnet, read from this node's OWN ord (the only indexer that knows a signet/regtest etch).
+      // The extension's Mint Rune screen asks here when DevNet breathes this chain.
+      { let xm
+        if (req.method === 'GET' && (xm = p.match(/^\/api\/explorer\/rune\/([^/]+)$/i))) {
+          if (PUBLIC && publicWalletGetFlood(req)) return err(res, 429, 'slow down')
+          const q = decodeURIComponent(xm[1]).trim()
+          const r = await ordGet(`/rune/${encodeURIComponent(q)}`)
+          if (!r || !r.entry) return send(res, 404, { success: false, error: `rune ${q} not found on ${NET}` })
+          const e = r.entry
+          const num = (v) => (v == null ? null : Number(v))
+          const amount = num(e.terms && e.terms.amount), cap = num(e.terms && e.terms.cap)
+          const mints = num(e.mints) || 0, premine = num(e.premine) || 0, burned = num(e.burned) || 0
+          const totalSupply = premine + (amount && cap ? amount * cap : 0)
+          return ok(res, {
+            success: true, network: NET,
+            rune: {
+              id: r.id || (/^\d+:\d+$/.test(q) ? q : null),
+              name: e.spaced_rune || q, spacedName: e.spaced_rune || null,
+              symbol: e.symbol || '⧈', number: num(e.number), divisibility: num(e.divisibility) || 0,
+              // kray-space parity: `minted` is mints × amount-per-mint (premine reported separately)
+              supply: { total: totalSupply, premine, minted: amount ? mints * amount : mints, burned, circulating: totalSupply - burned },
+              mintTerms: e.terms ? {
+                amount, cap,
+                heightStart: num(e.terms.height && e.terms.height[0]), heightEnd: num(e.terms.height && e.terms.height[1]),
+                offsetStart: num(e.terms.offset && e.terms.offset[0]), offsetEnd: num(e.terms.offset && e.terms.offset[1]),
+              } : null,
+              mintable: r.mintable === true,
+              etching: { txid: e.etching || null, block: num(e.block), timestamp: num(e.timestamp) },
+              turbo: !!e.turbo,
+            },
+          })
+        }
+      }
       // ── the proof surface — is this node still telling Bitcoin's story? ──
       if (p === '/api/kraynet/audit') {
         const L = node.ledger, intact = L.conserves() && L.backed() && L.runesSolvent() && L.ammSolvent()
@@ -7334,6 +7374,55 @@ const server = createServer(async (req, res) => {
           // extension falls back to a guessed 3 and would try to sign a nonexistent input.
           return ok(res, { success: true, psbt: built.psbtB64, psbtHex: built.psbtHex, fee: built.fee, feeRate: feeRateOf(b), runeChange: built.runeChange, inputCount: built.inputs, rbf: true })
         } catch (e) { return ok(res, { success: false, error: e instanceof Error ? e.message : String(e) }) }
+      }
+      if (p === '/api/runes/build-mint-psbt') {
+        // THE OPEN-MINT CLAIM (Runestone Tag 20) on THIS node's own chain — the same request/response
+        // contract as the kray-space mainnet door, so the extension's Mint Rune screen speaks ONE
+        // language on every network. Zero Trust: mintability is re-read from OUR ord (fail-closed),
+        // and the purse is cardinalOnly-verified pure BTC — the client's UTXO list is never trusted.
+        if (!btcConfigured()) return err(res, 501, 'no bitcoind RPC configured')
+        const address = normalizeAddr(String(b.address || ''), NET)
+        const runeIdStr = String(b.runeId || '').trim()
+        if (!address || !/^\d+:\d+$/.test(runeIdStr)) return err(res, 400, 'build-mint-psbt needs {address, runeId "block:tx"}')
+        // minted runes land on the postage output → taproot only (rune parity rule, same as kray-space)
+        if (!scriptOfAddress(address, toBtcNet(NET)).startsWith('5120')) {
+          return ok(res, { success: false, code: 'RECIPIENT_MUST_BE_TAPROOT', error: 'minted runes land on the postage output — use a Taproot address on this network' })
+        }
+        const rid = parseRuneKey(runeIdStr)
+        const r = await ordGet(`/rune/${encodeURIComponent(runeIdStr)}`)
+        if (!r || !r.entry) return send(res, 404, { success: false, code: 'RUNE_NOT_FOUND', error: `Rune ${runeIdStr} not found on ${NET}.` })
+        if (r.mintable !== true) {
+          const hasTerms = !!(r.entry && r.entry.terms)
+          return send(res, 400, {
+            success: false, code: hasTerms ? 'MINT_CLOSED' : 'NO_MINT',
+            error: hasTerms ? `Mint for ${r.entry.spaced_rune || runeIdStr} is closed.` : `${r.entry.spaced_rune || runeIdStr} has no open mint terms.`,
+          })
+        }
+        // fee purse: the donate path's proven guard — pure BTC only, unverifiable UTXOs protected
+        const { cardinal, guarded } = await cardinalOnly(await scanUtxos(address))
+        if (!cardinal.length) return ok(res, { success: false, error: guarded.some((g) => g.reason === 'unverified') ? 'cannot prove your fee UTXOs are asset-free right now (indexer unreachable) — try again shortly' : 'no rune/inscription-free BTC UTXOs to fund the mint at this address' })
+        const feeUtxos = cardinal.map((u) => ({ txid: u.txid, vout: u.vout, sats: BigInt(u.value), script: Buffer.from(u.scriptHex, 'hex') }))
+        try {
+          const dust = dustFromEnv(process.env, 'p2tr')
+          const serviceFee = { script: Buffer.from(MINT_SERVICE_FEE_SCRIPT_HEX, 'hex'), sats: MINT_SERVICE_FEE_SATS }
+          // two-pass fee: estimate at 1 input / 4 outputs, rebuild at the real input count
+          let feeSats = feeFor(b, 1, 4)
+          let built = buildRuneMintPsbt({ net: NET, runeId: rid, to: address, feeUtxos, feeSats, dust, serviceFee })
+          feeSats = feeFor(b, built.inputs, BigInt(built.change) > 0n ? 4 : 3)
+          built = buildRuneMintPsbt({ net: NET, runeId: rid, to: address, feeUtxos, feeSats, dust, serviceFee })
+          const e = r.entry
+          return ok(res, {
+            success: true,
+            psbt_base64: built.psbtB64, psbt_hex: built.psbtHex, runestone_hex: built.runestoneHex,
+            fee: Number(built.fee), feeRate: feeRateOf(b), postage: Number(built.postage),
+            serviceFee: Number(built.serviceFee), inputCount: built.inputs, rbf: true,
+            rune: {
+              id: runeIdStr, name: e.spaced_rune || null, symbol: e.symbol || null,
+              amountPerMint: e.terms && e.terms.amount != null ? String(e.terms.amount) : null,
+              divisibility: e.divisibility ?? 0,
+            },
+          })
+        } catch (e2) { return ok(res, { success: false, error: e2 instanceof Error ? e2.message : String(e2) }) }
       }
       if (p === '/api/kraynet/anchor-pool/offer') {
         // a guardian's SIGNED standing offer to pay anchor fees (supreme law: every user action is a

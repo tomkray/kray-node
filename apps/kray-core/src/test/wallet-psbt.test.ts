@@ -8,7 +8,7 @@
  */
 import { createHash } from 'node:crypto'
 import * as btc from '@scure/btc-signer'
-import { buildRuneSendPsbt, buildBtcSendPsbt, buildInscriptionSendPsbt, taprootKeypathVsize, feeSatsAtRate, SEQUENCE_RBF } from '../protocol/wallet-psbt.ts'
+import { buildRuneSendPsbt, buildBtcSendPsbt, buildInscriptionSendPsbt, buildRuneMintPsbt, taprootKeypathVsize, feeSatsAtRate, SEQUENCE_RBF } from '../protocol/wallet-psbt.ts'
 import { decipher, allocate } from '../protocol/runestone.ts'
 import { NETWORKS, _hexToBytes, _generateKeyPair } from '../protocol/scheme.ts'
 
@@ -115,6 +115,38 @@ function main() {
 
   ok(taprootKeypathVsize(3, 4) === 10 + 3 * 58 + 4 * 43, '3-in/4-out rune send vsize is ~356, not the old 160 guess')
   ok(feeSatsAtRate(4, 3, 4) === BigInt(4 * (10 + 3 * 58 + 4 * 43)), 'High 4 sat/vB on that shape pays 4×vsize — not 640 from 4×160')
+
+  // ── 7 · an OPEN-MINT claim (Tag 20) — byte-exact runestone, service fee, change ──
+  const svcScript = scriptOf(to) // stand-in for the platform's service-fee script
+  const b7 = buildRuneMintPsbt({ net: NET, runeId: RUNE, to: from, feeUtxos: pureFee, feeSats: 500n, dust: 330n, serviceFee: { script: svcScript, sats: 546n } })
+  // byte-exact vector: 840000:9 → OP_RETURN OP_13 push6 [20, LEB128(840000)=c0a233, 20, 9]
+  ok(b7.runestoneHex === '6a5d0614c0a2331409', `mint runestone is BYTE-EXACT: 6a5d0614c0a2331409 (got ${b7.runestoneHex})`)
+  const s7 = scriptsOf(b7.psbtHex), art7 = decipher(s7)
+  ok(!!art7 && art7.kind === 'runestone' && !!art7.mint && art7.mint.block === RUNE.block && art7.mint.tx === RUNE.tx,
+    'the decoder reads it back as a RUNESTONE with mint = 840000:9 — never a cenotaph')
+  ok(art7 && art7.kind === 'runestone' && art7.edicts.length === 0 && art7.pointer === undefined && !art7.etching,
+    'a mint claim carries NO edicts, NO pointer, NO etching — the minted amount defaults to the first non-OP_RETURN output')
+  const tx7 = btc.Transaction.fromPSBT(_hexToBytes(b7.psbtHex))
+  const o0 = tx7.getOutput(0), o2 = tx7.getOutput(2), o3 = tx7.getOutput(3)
+  ok(o0.amount === 330n && Buffer.from(o0.script!).toString('hex') === Buffer.from(scriptOf(from)).toString('hex'),
+    'output 0 is the minter postage (330) — ord default allocation lands the minted runes here')
+  ok(Buffer.from(tx7.getOutput(1).script!).toString('hex') === b7.runestoneHex && tx7.getOutput(1).amount === 0n,
+    'output 1 carries the runestone at 0 sats')
+  ok(o2.amount === 546n && Buffer.from(o2.script!).toString('hex') === Buffer.from(svcScript).toString('hex'),
+    'output 2 pays the flat 546-sat service fee to the platform script')
+  ok(tx7.outputsLength === 4 && o3.amount === 20000n - 330n - 546n - 500n && b7.change === String(20000n - 330n - 546n - 500n),
+    'output 3 changes the rest back to the minter; reported change matches')
+  ok(rbfOk(b7.psbtHex) && sighashPinned(b7.psbtHex), 'mint inputs opt into RBF and pin SIGHASH_ALL')
+  // sub-dust change rides as fee (never a dust output) and the honest fee is reported
+  const tight = [{ txid: '55'.repeat(32), vout: 0, sats: 1500n, script: scriptOf(from) }]
+  const b7b = buildRuneMintPsbt({ net: NET, runeId: RUNE, to: from, feeUtxos: tight, feeSats: 500n, dust: 330n, serviceFee: { script: svcScript, sats: 546n } })
+  const tx7b = btc.Transaction.fromPSBT(_hexToBytes(b7b.psbtHex))
+  ok(tx7b.outputsLength === 3 && b7b.change === '0' && b7b.fee === String(1500n - 330n - 546n),
+    'change below dust folds into the fee — no dust output, fee reported honestly')
+  // underfunded → REFUSED, never a truncated mint
+  let mintRefused = false
+  try { buildRuneMintPsbt({ net: NET, runeId: RUNE, to: from, feeUtxos: [{ txid: '66'.repeat(32), vout: 0, sats: 800n, script: scriptOf(from) }], feeSats: 500n, dust: 330n, serviceFee: { script: svcScript, sats: 546n } }) } catch { mintRefused = true }
+  ok(mintRefused, 'a purse that cannot cover postage + service fee + fee is REFUSED')
 
   console.log(`\n╚═ ${pass} checks passed${fail ? `, ${fail} FAILED` : ''} — every rune in is a rune out; the transfer allocates the send and the change by explicit edict, so a wallet send can never strand or burn a coin. ⚗️₭`)
   process.exit(fail ? 1 : 0)
