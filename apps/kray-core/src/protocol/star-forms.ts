@@ -53,8 +53,8 @@ export type ContractForm =
   | { kind: 'scroll'; each: string; max: string; locked?: boolean; gate?: ScrollGate; allow?: string[] }
   | { kind: 'raffle'; price: string; period?: string; seats?: string }
   | { kind: 'mint'; price: string; max: string; payTo?: string }
-  | { kind: 'cut'; supply?: string; infinite?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
-  | { kind: 'luz'; supply?: string; infinite?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
+  | { kind: 'cut'; supply?: string; infinite?: boolean; rain?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
+  | { kind: 'luz'; supply?: string; infinite?: boolean; rain?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
   | { kind: 'poll'; title?: string; choices?: string[] }
 
 function addr(a: string, name: string): string {
@@ -579,8 +579,16 @@ export function isMintPaper(code: { rules?: { name: string }[] } | null | undefi
  *
  *   capped=1, supply=N  — max N units (Radiola default 100000)
  *   capped=0, supply=0  — infinite (uncapped constitution)
+ *   rain=true           — pot door: anyone deposits ₭; it rains on holders. Default
+ *                         is off (book only). `rain: true` keeps the older sealed hash (A3).
+ *
+ * ₭ has no decimals. acc_rps is fixed-point (prec=1e12). A deposit of A ₭ on
+ * supply S adds floor(A * prec / S). A holder of H units can later claim a
+ * whole ₭ only when floor(H * acc_rps / prec) ≥ 1 — i.e. the pot must gather
+ * at least ceil(S / H) ₭ before the smallest hand sees 1 ₭. Dust stays in the
+ * pot (no rounding gift, no invisible mint).
  */
-export function compileCut(input: { supply?: string; infinite?: boolean; founders?: unknown } = {}): ContractCode {
+export function compileCut(input: { supply?: string; infinite?: boolean; rain?: boolean; founders?: unknown } = {}): ContractCode {
   const infinite = !!input.infinite
   let supply = '0'
   let capped = '0'
@@ -597,6 +605,7 @@ export function compileCut(input: { supply?: string; infinite?: boolean; founder
     capped = '1'
   }
   const founders = parseCutFounders(input.founders, supply, infinite)
+  const rain = input.rain === true
   const bump: Expr = {
     op: 'if',
     args: [
@@ -608,20 +617,28 @@ export function compileCut(input: { supply?: string; infinite?: boolean; founder
       { lit: '0' },
     ],
   }
-  // Sealed constitution — no toggle_*, no collect. Deposit is the public door.
-  return finish({
-    vars: { luz: '1', supply, capped, acc_rps: '0', deposited: '0', prec: CUT_PRECISION },
-    rules: [
-      {
-        name: 'deposit',
-        when: { op: 'gt', args: [{ arg: 'amount' }, { lit: '0' }] },
-        then: [
-          { take: { amount: { arg: 'amount' } } },
-          { set: { var: 'deposited', to: { op: 'add', args: [{ var: 'deposited' }, { arg: 'amount' }] } } },
-          { set: { var: 'acc_rps', to: { op: 'add', args: [{ var: 'acc_rps' }, bump] } } },
-        ],
-      },
+  // Rain constitution — no toggle_*, no collect. Deposit is the public door.
+  // Book-only: the IR still needs one rule (validateContract). `hold` never
+  // fires — the book is the memory; the paper is just the sealed supply.
+  const depositRule = {
+    name: 'deposit',
+    when: { op: 'gt' as const, args: [{ arg: 'amount' }, { lit: '0' }] },
+    then: [
+      { take: { amount: { arg: 'amount' } } },
+      { set: { var: 'deposited', to: { op: 'add', args: [{ var: 'deposited' }, { arg: 'amount' }] } } },
+      { set: { var: 'acc_rps', to: { op: 'add', args: [{ var: 'acc_rps' }, bump] } } },
     ],
+  }
+  const holdRule = {
+    name: 'hold',
+    when: { op: 'eq' as const, args: [{ lit: '0' }, { lit: '1' }] },
+    then: [{ set: { var: 'luz', to: { var: 'luz' } } }],
+  }
+  return finish({
+    vars: rain
+      ? { luz: '1', supply, capped, acc_rps: '0', deposited: '0', prec: CUT_PRECISION }
+      : { luz: '1', supply, capped, prec: CUT_PRECISION },
+    rules: rain ? [depositRule] : [holdRule],
     ...(founders ? { genesis: founders } : {}),
   })
 }
@@ -629,7 +646,8 @@ export function compileCut(input: { supply?: string; infinite?: boolean; founder
 export function isCutPaper(code: { rules?: { name: string }[]; vars?: Record<string, string> } | null | undefined): boolean {
   const names = (code?.rules || []).map((r) => r.name)
   return code?.vars?.luz === '1'
-    && names.includes('deposit') && !names.includes('mint') && !names.includes('enter')
+    && (names.includes('deposit') || names.includes('hold'))
+    && !names.includes('mint') && !names.includes('enter')
     && code?.vars?.prec != null && code?.vars?.capped != null
 }
 
@@ -766,7 +784,7 @@ export function compilePoll(input: { title?: string; choices?: string[] } = {}):
 export function isPollPaper(code: { rules?: { name: string }[]; vars?: Record<string, string> } | null | undefined): boolean {
   const names = (code?.rules || []).map((r) => r.name)
   return code?.vars?.poll === '1'
-    && names.includes('vote') && !names.includes('mint') && !names.includes('enter') && !names.includes('deposit')
+    && names.includes('vote') && !names.includes('mint') && !names.includes('enter') && !names.includes('deposit') && !names.includes('hold')
 }
 
 export function compileForm(form: ContractForm): ContractCode {

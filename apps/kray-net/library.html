@@ -303,6 +303,7 @@
   function drawAll(){
     var items=[];
     (data.works||[]).forEach(function(w){ if(matchWork(w)) items.push({star:w.star, html:workCard(w)}); });
+    (data.laws||[]).forEach(function(w){ if(matchWork(w)) items.push({star:w.star, html:workCard(w)}); });
     (data.entries||[]).forEach(function(e){ if(matchName(e)) items.push({star:e.star, html:nameCard(e)}); });
     // newest first (star DESC) by default; oldest / star# read ascending
     var asc = order==='old' || order==='star';

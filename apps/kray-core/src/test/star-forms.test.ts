@@ -46,14 +46,18 @@ function main() {
   ok(vest.rules[0].name === 'release', 'vest compiles to release')
   rejects(() => compileForm({ kind: 'nope' } as never), /unknown kind/, 'unknown form is refused')
   ok(isMintPaper(compileMint({ price: '1', max: '4' })) && compileForm({ kind: 'mint', price: '1', max: '4' }).rules.some((r) => r.name === 'mint'), 'mint compiles on the same IR')
-  const cut = compileCut({ supply: '100000' })
+  const cut = compileCut({ supply: '100000', rain: true })
   ok(isCutPaper(cut) && cut.vars.supply === '100000' && cut.vars.capped === '1' && !cut.rules.some((r) => r.name === 'collect' || r.name.startsWith('toggle_')), 'cut seals 100000 — no collect, no living mouth')
-  const cutInf = compileCut({ infinite: true })
+  ok(canonicalCode(compileCut({ supply: '100000', rain: true })) === canonicalCode(cut), 'rain:true keeps the sealed Luz hash (A3)')
+  const dry = compileCut({ supply: '100000' })
+  ok(isCutPaper(dry) && dry.rules.some((r) => r.name === 'hold') && !dry.rules.some((r) => r.name === 'deposit') && dry.vars.deposited == null, 'omit rain is book-only — no pot door')
+  ok(canonicalCode(dry) !== canonicalCode(cut), 'book-only is a different paper')
+  const cutInf = compileCut({ infinite: true, rain: true })
   ok(cutInf.vars.capped === '0' && cutInf.vars.supply === '0', 'cut infinite seals uncapped')
   ok(compileForm({ kind: 'cut', supply: '100000' }).vars.prec === '1000000000000', 'cut compiles on the same IR')
   const poll = compilePoll({ title: 'Open the gate?', choices: ['Yes', 'No'] })
   ok(isPollPaper(poll) && poll.vars.poll === '1' && poll.poll?.choices.length === 2 && poll.rules.some((r) => r.name === 'vote'), 'poll compiles — vote + sealed choices')
-  ok(canonicalCode(poll).includes('"poll"') && canonicalCode(compileCut({ supply: '100000' })) === canonicalCode(cut), 'poll labels ride the hash; a Luz paper is unchanged (A3)')
+  ok(canonicalCode(poll).includes('"poll"') && canonicalCode(compileCut({ supply: '100000', rain: true })) === canonicalCode(cut), 'poll labels ride the hash; a Luz paper is unchanged (A3)')
   rejects(() => compilePoll({ choices: ['Only'] }), /at least 2|two/i, 'one choice is not a poll')
   rejects(() => compilePoll({ choices: ['Yes', 'Yes'] }), /duplicate/, 'duplicate choices are refused')
   ok(compileForm({ kind: 'poll', choices: ['A', 'B', 'C'] }).vars.faces === '3', 'poll compiles on the same IR')
@@ -70,6 +74,23 @@ function main() {
   const depInf = runCall(cutInf, 'deposit', cutCtx(), Object.fromEntries(Object.entries(cutInf.vars).map(([k, v]) => [k, BigInt(v)])))
   ok(depInf.ok && depInf.take === 1n && (depInf.vars.acc_rps == null || depInf.vars.acc_rps === 0n) && depInf.vars.deposited === 1n, 'infinite cut takes ₭ and does not divide')
   ok(!cut.rules.some((r) => r.name === 'collect' || r.name === 'harvest' || r.name.startsWith('toggle_')), 'cut has no owner drain, no fake harvest, no pause latch')
+  const dryCall = runCall(dry, 'deposit', cutCtx(), Object.fromEntries(Object.entries(dry.vars).map(([k, v]) => [k, BigInt(v)])))
+  ok(!dryCall.ok, 'book-only refuses deposit — there is no pot door')
+  const Cdry = new KrayLedger(undefined, NET)
+  Cdry.applyLive({ seq: 1, kind: 'donate', hash: 'dda', to: A.addr, amount: '20' } as KrayEvent)
+  Cdry.applyLive({
+    seq: 2, kind: 'name', hash: 'dn', at: 0, from: A.addr, name: 'dryface', nonce: 0,
+    publicKey: A.pk, signature: _signKrayWallet(nameMessageV2(NET, A.addr, 0, 'dryface'), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  const dh = sha256hex(canonicalCode(dry))
+  Cdry.applyLive({
+    seq: 3, kind: 'contract', hash: 'ddry', from: A.addr, code: dry, star: '0',
+    publicKey: A.pk, signature: _signKrayWallet(contractMessageV2(NET, A.addr, dh, 0n), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  ok(Cdry.cuts.of('0', A.addr) === 100000n && Cdry.cuts.conserves(), 'book-only still credits the sealer — the book is the token')
+  const held = 1n, supplyN = 100000n, oneK = 1n, prec = 1000000000000n
+  const rps = (oneK * prec) / supplyN
+  ok(rps === 10_000_000n && (held * rps) / prec === 0n, '1 ₭ on 100000 units: a 1-unit hand claims 0 ₭ (dust stays; ₭ has no decimals)')
 
   const L = new KrayLedger(undefined, NET)
   L.applyLive({ seq: 1, kind: 'donate', hash: 'da', to: A.addr, amount: '500' } as KrayEvent)

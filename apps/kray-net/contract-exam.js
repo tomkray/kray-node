@@ -77,7 +77,7 @@
   };
   var LIST = [
     { id: "code", title: "Code", kind: "code", tag: "vars + rules", blurb: "Your own law. Paste the JSON paper. Draft in Solidity if you like — an AI translates it. The exam refuses raw Solidity because this chain cannot run a Turing VM. Run test, then seal." },
-    { id: "cut", title: "KRC-77", kind: "form", tag: "luz ✧", blurb: "The token law on this star. Pick a max supply or infinite. Anyone may deposit ₭ into the pot. No collect — the owner cannot drain it. Shares live on the book, not in this paper." },
+    { id: "cut", title: "KRC-77", kind: "form", tag: "luz ✧", blurb: "The token law on this star. Pick a max supply or infinite. Default is book only. Rain is opt-in: ₭ deposits fall on holders. No collect. Shares live on the book, not in this paper." },
     { id: "poll", title: "Poll", kind: "form", tag: "✦ glow vote", blurb: "A proposal with sealed alternatives. Each person signs once, pays 1 ₭, and votes with the weight of their ✦ glow. Glow cannot move — a whale cannot buy the room. This is what glow is for." },
     { id: "mint", title: "Mint", kind: "form", tag: "mint now · inscribe", blurb: "Not a prelist. One click: price to the seller now, eternal burn to write the star, art bytes as the child. Same content cannot mint twice." },
     { id: "scroll", title: "Scroll", kind: "form", tag: "open claim", blurb: "Open scroll. Anyone claims each until max. The 1 ₭ fee is the sybil tax. Locked: ₭ leaves only through claim." },
@@ -142,18 +142,22 @@
   }
   function byId(id) {
     for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return LIST[i];
-    return LIST[0];
+    return undefined;
   }
   function field(id, ph, v, mode) {
     return '<input class="input" id="' + id + '" placeholder="' + esc(ph) + '" value="' + esc(v || "") + '"'
       + (mode ? ' inputmode="' + mode + '"' : "") + ' autocomplete="off" style="min-height:44px">';
   }
-  function labeled(id, title, hint, ph, v) {
+  function labeled(id, title, hint, ph, v, mode) {
     return '<div class="lawknob">'
       + '<label for="' + id + '">' + esc(title) + "</label>"
       + '<p class="hint">' + esc(hint) + "</p>"
-      + field(id, ph, v, "numeric")
+      + field(id, ph, v, mode)
       + "</div>";
+  }
+  function lockedNote() {
+    return '<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px">'
+      + '<input type="checkbox" id="f-locked" checked> locked — no collect, ₭ leaves only through claim</label>';
   }
   function paintLiving(host, onChange) {
     var flags = host._flags || [];
@@ -196,6 +200,7 @@
     if (!host) return;
     var me = opts.me || "";
     host._id = id;
+    host._flags = null;
     if (id === "code") {
       host._kind = "code";
       host.innerHTML = "";
@@ -229,20 +234,32 @@
         + field("f-allow", "list addresses, comma-separated (list gate)", "")
         + '<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px">'
         + '<input type="checkbox" id="f-locked" checked> locked — no collect, ₭ leaves only through claim</label>';
+    } else if (id === "list") {
+      html = labeled("f-each", "Each · ₭ per claim", "What each sealed address receives. The 1 ₭ network fee is the sybil tax on top.", "e.g. 1", "1", "numeric")
+        + labeled("f-max", "Max claims", "How many names this list will pay. Usually the same as the number of addresses.", "e.g. 2", "2", "numeric")
+        + '<input type="hidden" id="f-gate" value="list">'
+        + labeled("f-allow", "Addresses · one claim each", "Comma or space. Sealed in the paper — a guest list, not a later airdrop.", "tb1… / bc1…, …", "")
+        + lockedNote();
+    } else if (id === "stamp") {
+      html = labeled("f-each", "Each · ₭ per claim", "What you pay the person you name. You stamp after the seal — the journal sees the claim.", "e.g. 1", "1", "numeric")
+        + labeled("f-max", "Max claims", "How many names you may stamp. When taken equals max the scroll is spent.", "e.g. 10", "10", "numeric")
+        + '<input type="hidden" id="f-gate" value="stamp">'
+        + lockedNote();
     } else if (id === "raffle") {
-      html = labeled("f-price", "Ticket · ₭", "How much each person puts in the pot. Example: 5 means every seat costs 5 ₭ (they also pay the eternal 1 ₭ network fee). The pot is the prize.", "e.g. 5", "5")
-        + labeled("f-period", "Wait · Bitcoin seals", "How many Bitcoin seals after the first ticket before a draw is due. 100 is a long window. 2 is a quick lab round. Nobody can take the prize before this.", "e.g. 100", "100")
-        + labeled("f-seats", "Seats · 2 to 8", "How many tickets this window accepts. When it is full, enter closes until someone delivers the prize. After a pay-out the seats empty and the next window opens.", "e.g. 8", "8");
+      html = labeled("f-price", "Ticket · ₭", "How much each person puts in the pot. Example: 5 means every seat costs 5 ₭ (they also pay the eternal 1 ₭ network fee). The pot is the prize.", "e.g. 5", "5", "numeric")
+        + labeled("f-period", "Wait · Bitcoin seals", "How many Bitcoin seals after the first ticket before a draw is due. 100 is a long window. 2 is a quick lab round. Nobody can take the prize before this.", "e.g. 100", "100", "numeric")
+        + labeled("f-seats", "Seats · 2 to 8", "How many tickets this window accepts. When it is full, enter closes until someone delivers the prize. After a pay-out the seats empty and the next window opens.", "e.g. 8", "8", "numeric");
     } else if (id === "mint") {
-      html = labeled("f-price", "Price · ₭", "Service payment in the same act as the birth — not only 1 ₭. 0 is an airdrop. The minter also burns to write the bytes. No extra contract-call fee.", "e.g. 5", "5")
-        + labeled("f-max", "Editions · 1 to 256", "How many children this face will father. When taken equals max the blessing dies. The family tree is the collection.", "e.g. 8", "8")
+      html = labeled("f-price", "Price · ₭", "Service payment in the same act as the birth — not only 1 ₭. 0 is an airdrop. The minter also burns to write the bytes. No extra contract-call fee.", "e.g. 5", "5", "numeric")
+        + labeled("f-max", "Editions · 1 to 256", "How many children this face will father. When taken equals max the blessing dies. The family tree is the collection.", "e.g. 8", "8", "numeric")
         + labeled("f-pay", "Pay mint price to", "Empty = living owner of the face. Or any address on this network — a normal service payment sealed in the paper.", "empty = living owner", "")
         + '<div class="lawknob"><label for="f-shelf">Art URL · secret · this node only</label><p class="hint">Run test compiles the paper without this. Seal needs a real https URL — the grey hint is not a value. Never published. Unguessable paths.</p>'
         + '<input class="input" id="f-shelf" placeholder="paste https://…" autocomplete="off" style="min-height:44px"></div>';
     } else if (id === "cut") {
-      html = labeled("f-supply", "Supply · max units", "How many luz ✧ this star will ever have. 100000 is Radiola's default (one percent = 1000). Empty + infinite = no cap.", "e.g. 100000", "100000")
+      html = labeled("f-supply", "Supply · max units", "How many luz ✧ this star will ever have. 100000 is Radiola's default (one percent = 1000). Empty + infinite = no cap.", "e.g. 100000", "100000", "numeric")
         + '<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px">'
         + '<input type="checkbox" id="f-infinite"> infinite — no max, supply stays open</label>'
+        + rainKnob()
         + '<div class="lawknob" id="f-founders-box">'
         + '<label>Founders · optional</label>'
         + '<p class="hint">Address + amount at seal. Empty = you hold the whole supply. What is not listed stays with you. At most 8. Σ cannot exceed supply. This table is in the signed paper — not a later airdrop.</p>'
@@ -260,19 +277,52 @@
         + '<div id="f-choices"></div>'
         + '<button type="button" class="btn" id="f-choice-add" style="min-height:44px;margin-top:8px">add an alternative</button>'
         + '</div>';
+    } else {
+      host._kind = "empty";
+      host.innerHTML = '<p class="note">This paper has no desk — reload. Do not seal.</p>';
+      return;
     }
     host.innerHTML = '<div class="lawfields">' + html + "</div>";
-    if (id === "cut") mountFounders(host, opts.onChange);
+    if (id === "cut") {
+      mountFounders(host, opts.onChange);
+      mountRain(host, opts.onChange);
+    }
     if (id === "poll") mountChoices(host, opts.onChange, ["Yes", "No"]);
     if (opts.onChange) {
       host.oninput = opts.onChange;
       var locked = host.querySelector("#f-locked");
       var gate = host.querySelector("#f-gate");
       var inf = host.querySelector("#f-infinite");
+      var rain = host.querySelector("#f-rain");
       if (locked) locked.addEventListener("change", opts.onChange);
       if (gate) gate.addEventListener("change", opts.onChange);
       if (inf) inf.addEventListener("change", opts.onChange);
+      if (rain) rain.addEventListener("change", opts.onChange);
     }
+  }
+  function rainKnob() {
+    return '<button type="button" class="btn lawrain" id="f-rain-btn" aria-pressed="false">rain · off — book only</button>'
+      + '<input type="checkbox" id="f-rain" hidden>'
+      + '<p class="hint">Off by default. Tap to open a ₭ pot that rains on holders. No collect. Harvest is not a door yet. ₭ has no decimals.</p>';
+  }
+  function mountRain(host, onChange) {
+    var btn = host.querySelector("#f-rain-btn");
+    var box = host.querySelector("#f-rain");
+    if (!btn || !box) return;
+    function sync() {
+      var on = !!box.checked;
+      btn.setAttribute("aria-pressed", on ? "true" : "false");
+      btn.classList.toggle("on", on);
+      btn.textContent = on
+        ? "rain · on — ₭ deposits fall on every holder"
+        : "rain · off — book only";
+    }
+    btn.addEventListener("click", function () {
+      box.checked = !box.checked;
+      sync();
+      if (onChange) onChange();
+    });
+    sync();
   }
   function mountFounders(host, onChange) {
     var add = host.querySelector("#f-founder-add");
@@ -344,19 +394,20 @@
   function read(host, id, extra) {
     extra = extra || {};
     if (id === "code") return { source: String(extra.source == null ? "" : extra.source) };
-    if (host && host._flags) return { living: { flags: host._flags.map(function (f) { return { name: f.name, on: !!f.on, motion: f.motion }; }) } };
+    if (host && host._kind === "living" && host._flags) return { living: { flags: host._flags.map(function (f) { return { name: f.name, on: !!f.on, motion: f.motion }; }) } };
     if (id === "escrow") return { form: { kind: "escrow", buyer: val("f-buyer"), seller: val("f-seller"), lock: val("f-lock") } };
     if (id === "tunnel") return { form: { kind: "tunnel", dest: val("f-dest") } };
     if (id === "vest") return { form: { kind: "vest", beneficiary: val("f-ben"), total: val("f-total"), duration: val("f-dur") } };
-    if (id === "scroll") {
+    if (id === "scroll" || id === "list" || id === "stamp") {
       var allow = val("f-allow").split(/[\s,]+/).filter(Boolean);
       var box = document.getElementById("f-locked");
+      var gate = val("f-gate") || (id === "list" ? "list" : id === "stamp" ? "stamp" : "open");
       return {
         form: {
           kind: "scroll",
           each: val("f-each"),
           max: val("f-max"),
-          gate: val("f-gate") || "open",
+          gate: gate,
           locked: !!(box && box.checked),
           allow: allow,
         },
@@ -370,13 +421,14 @@
     }
     if (id === "cut") {
       var infBox = document.getElementById("f-infinite");
+      var rainBox = document.getElementById("f-rain");
       var founders = readFounders(host);
-      return { form: { kind: "cut", supply: val("f-supply"), infinite: !!(infBox && infBox.checked), ...(founders.length ? { founders: founders } : {}) } };
+      return { form: { kind: "cut", supply: val("f-supply"), infinite: !!(infBox && infBox.checked), rain: !!(rainBox && rainBox.checked), ...(founders.length ? { founders: founders } : {}) } };
     }
     if (id === "poll") {
       return { form: { kind: "poll", title: val("f-title"), choices: readChoices(host) } };
     }
-    return { living: { flags: cloneFlags("being") } };
+    return { form: { kind: "" } };
   }
   function fingerprint(host, id, extra) {
     return id + "|" + JSON.stringify(read(host, id, extra));
@@ -453,6 +505,8 @@
     read: read,
     readFounders: readFounders,
     mountFounders: mountFounders,
+    rainKnob: rainKnob,
+    mountRain: mountRain,
     readChoices: readChoices,
     mountChoices: mountChoices,
     fingerprint: fingerprint,

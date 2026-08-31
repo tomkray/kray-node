@@ -147,6 +147,8 @@
 .lawtabs{display:flex;gap:var(--s2);flex-wrap:wrap;margin:var(--s4) 0}
 .lawtab{min-height:44px}
 .lawtab.on{border-color:var(--ink);color:var(--ink);background:var(--surface-2)}
+.lawrain{width:100%;min-height:44px;padding:12px 16px;text-align:left;transition:min-height .15s ease}
+.lawrain.on{min-height:64px;border-color:var(--ink);color:var(--ink);background:var(--surface-2);font-weight:600}
 .lawfields{display:flex;flex-direction:column;gap:var(--s4);margin-top:var(--s4)}
 .lawfields .input{min-height:44px}
 .lawknob{display:flex;flex-direction:column;gap:var(--s2)}
@@ -349,7 +351,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="/kray.js?v=txt9" defer></script>
-<script src="/contract-exam.js" defer></script>
+<script src="/contract-exam.js?v=rain2" defer></script>
 <script>
 (function(){
   "use strict";
@@ -551,8 +553,10 @@
   }
   function livingFlagsFromLaw(law){
     if(!law || !law.state) return [];
-    return Object.keys(law.state).filter(function(k){ return k!=='owner' && k!=='poll' && k!=='luz' && k!=='capped' && /^(0|1)$/.test(String(law.state[k])); })
-      .map(function(k){ return { name:k, on: String(law.state[k])==='1' }; });
+    var rules=law.rules||[];
+    return Object.keys(law.state).filter(function(k){
+      return rules.indexOf('toggle_'+k)>=0 || rules.indexOf('once_'+k)>=0;
+    }).map(function(k){ return { name:k, on: String(law.state[k])==='1' }; });
   }
   function flagRow(f, canCall, rule, verb){
     return '<div class="lawflag"><span class="fn">'+esc(f.name)+'</span>'
@@ -647,6 +651,8 @@
       }).catch(function(){ return me||null; });
     }
     function paint(book, me){
+      var keepTo=document.getElementById('luz-to'), keepAmt=document.getElementById('luz-amt');
+      var draft={ to:keepTo?keepTo.value:'', amt:keepAmt?keepAmt.value:'', focus: document.activeElement&&(document.activeElement.id==='luz-to'||document.activeElement.id==='luz-amt')?document.activeElement.id:'' };
       if(!book || book.unportioned){ host.innerHTML=''; return; }
       if(book.infinite){
         host.innerHTML='<p class="note">This paper is <b>infinite</b> — no genesis units. There is no holder rank until a later mint door exists.</p>';
@@ -696,6 +702,10 @@
           +'<div class="lawout" id="luz-out"></div></div>';
       }
       host.innerHTML=h;
+      var toEl=document.getElementById('luz-to'), amtEl=document.getElementById('luz-amt');
+      if(toEl) toEl.value=draft.to;
+      if(amtEl) amtEl.value=draft.amt;
+      if(draft.focus){ var fe=document.getElementById(draft.focus); if(fe) try{ fe.focus(); fe.selectionStart=fe.selectionEnd=fe.value.length; }catch(_){ } }
       var btn=document.getElementById('luz-send');
       if(btn){
         btn.addEventListener('click', function(){
@@ -736,6 +746,11 @@
     if(!host) return;
     var law=s.law;
     function paint(mine, seals, glow){
+      var typing=document.activeElement && host.contains(document.activeElement) && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+      var keepAmt=document.getElementById('lawamt'), keepTicket=document.getElementById('lawticket');
+      var draft={ amt:keepAmt?keepAmt.value:'', ticket:keepTicket?keepTicket.value:'', focus: typing?document.activeElement.id:'' };
+      var fp=[law&&law.address, law&&law.codeHash, law&&law.balance, (law&&law.rules||[]).join(), JSON.stringify(law&&law.state||{}), !!mine, seals||0, glow||0].join('|');
+      if(typing && host.getAttribute('data-law-fp')===fp) return;
       if(law && law.address){
         var flags=livingFlagsFromLaw(law);
         var rules=law.rules||[];
@@ -745,7 +760,7 @@
         var myGlow=Number(glow||0);
         var h='<dl class="rows">'
           +'<dt>pot</dt><dd><b>'+esc(law.address)+'</b><br><span style="color:var(--ink-4)">keyless — transfer of this star never drains it</span></dd>'
-          +'<dt>holds</dt><dd><b>'+kray(law.balance||'0')+'</b> <span style="color:var(--ink-4)">— send ₭ here to add value</span></dd>'
+          +'<dt>holds</dt><dd><b>'+kray(law.balance||'0')+'</b> <span style="color:var(--ink-4)">'+(rules.indexOf('deposit')>=0?'— send ₭ here to add value':'— book only, no pot door')+'</span></dd>'
           +(law.state && law.state.each ? '<dt>each</dt><dd><b>'+kray(law.state.each)+'</b>'+(law.state.max?' · taken '+esc(String(law.state.taken||'0'))+' / '+esc(String(law.state.max)):'')+'</dd>' : '')
           +(drop ? '<dt>mint</dt><dd><b>'+esc(String(drop.taken))+' / '+esc(String(drop.max))+'</b> editions · price <b>'+kray(drop.price)+'</b>'
             +(drop.open ? (drop.room ? ' · open' : ' · sold out') : ' · paused')
@@ -761,7 +776,7 @@
               : ' · window due — still gathering')
             +'</dd>' : '')
           +(wheel ? '<dt>seats</dt><dd>'+(raffleSeats(law.faces, wheel.seats, wheel.taken) || '<span style="color:var(--ink-4)">empty — the last window closed, the next sit restarts the clock</span>')+'</dd>' : (law.faces && law.faces.some(Boolean) ? '<dt>roster</dt><dd>'+law.faces.filter(Boolean).map(function(a){ return '<b>'+esc(a)+'</b>'; }).join('<br>')+'</dd>' : ''))
-          +'<dt>rules</dt><dd>'+esc(rules.join(', ')||'—')+'</dd>'
+          +'<dt>rules</dt><dd>'+esc(rules.filter(function(r){ return r!=='hold'; }).join(', ')||'book only')+'</dd>'
           +(law.codeHash ? '<dt>codeHash</dt><dd><b>'+esc(law.codeHash)+'</b><br><span style="color:var(--ink-4)">the 32 bytes the seal signed — a stranger re-derives it from the source</span></dd>' : '')
           +'</dl>';
         if(drop) h+='<p class="raffnote">'+drop.note+'</p>';
@@ -842,6 +857,7 @@
           });
         }
         if(rules.indexOf('deposit')>=0){
+          h+='<p class="note">These ₭ stay in the pot. No collect. Harvest is not a door yet — holders cannot take a share until that rule exists.</p>';
           h+='<input class="input" id="lawamt" placeholder="₭ to deposit" inputmode="numeric" style="min-height:44px;max-width:180px">';
           h+='<button class="btn" data-lawcall="deposit" data-arg="amount">deposit — fund the pot</button>';
         }
@@ -858,6 +874,11 @@
         }
         h+='<div class="lawout" id="lawout"></div>';
         host.innerHTML=h;
+        host.setAttribute('data-law-fp', fp);
+        var amtEl=document.getElementById('lawamt'), ticketEl=document.getElementById('lawticket');
+        if(amtEl) amtEl.value=draft.amt;
+        if(ticketEl) ticketEl.value=draft.ticket;
+        if(draft.focus){ var fe=document.getElementById(draft.focus); if(fe) try{ fe.focus(); fe.selectionStart=fe.selectionEnd=fe.value.length; }catch(_){ } }
         host.querySelectorAll('[data-lawcall]').forEach(function(btn){
           btn.addEventListener('click', function(){
             if(btn.getAttribute('data-lawcall')==='mint'){ mintChild(s); return; }
@@ -960,11 +981,12 @@
             +'<input class="input" id="f-shelf" placeholder="paste https://…" autocomplete="off"></div>'
             +'</div>';
         } else if(desk==='cut'){
-          body='<p class="note">The token law on this star (KRC-77). Sealed supply — a max, or infinite. Anyone may deposit ₭. No collect: the owner cannot drain the pot. Shares live on the book, not in this paper. Burns 1 ₭.</p>'
+          body='<p class="note">The token law on this star (KRC-77). Sealed supply — a max, or infinite. Rain is a choice: ₭ in the pot falls on holders, or the paper is book-only. No collect. Shares live on the book. Burns 1 ₭.</p>'
             +'<div class="lawfields">'
             +'<div class="lawknob"><label for="f-supply">Supply · max units</label><p class="hint">How many luz ✧ this star will ever have. 100000 is Radiola\'s default. Empty + infinite = no cap.</p>'
             +'<input class="input" id="f-supply" placeholder="e.g. 100000" value="100000" inputmode="numeric"></div>'
             +'<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px"><input type="checkbox" id="f-infinite"> infinite — no max, supply stays open</label>'
+            +(window.KrayContractPapers&&KrayContractPapers.rainKnob?KrayContractPapers.rainKnob():'<button type="button" class="btn lawrain" id="f-rain-btn" aria-pressed="false">rain · off — book only</button><input type="checkbox" id="f-rain" hidden><p class="hint">Off by default. Tap to open a ₭ pot that rains on holders. No collect. Harvest is not a door yet.</p>')
             +'<div class="lawknob" id="f-founders-box"><label>Founders · optional</label>'
             +'<p class="hint">Address + amount at seal. Empty = you hold the whole supply. What is not listed stays with you. At most 8. Σ cannot exceed supply.</p>'
             +'<div id="f-founders"></div>'
@@ -1040,6 +1062,20 @@
         if(desk==='cut' && window.KrayContractPapers && KrayContractPapers.mountFounders){
           KrayContractPapers.mountFounders(document.getElementById('f-founders-box')||host, function(){ examFp=''; if(seal) seal.disabled=true; });
         }
+        if(desk==='cut' && window.KrayContractPapers && KrayContractPapers.mountRain){
+          KrayContractPapers.mountRain(host, function(){ examFp=''; if(seal) seal.disabled=true; });
+        } else if(desk==='cut'){
+          var rainBtn=document.getElementById('f-rain-btn'), rainBox=document.getElementById('f-rain');
+          if(rainBtn && rainBox){
+            rainBtn.addEventListener('click', function(){
+              rainBox.checked=!rainBox.checked;
+              rainBtn.classList.toggle('on', rainBox.checked);
+              rainBtn.setAttribute('aria-pressed', rainBox.checked?'true':'false');
+              rainBtn.textContent=rainBox.checked?'rain · on — ₭ deposits fall on every holder':'rain · off — book only';
+              examFp=''; if(seal) seal.disabled=true;
+            });
+          }
+        }
         if(desk==='poll' && window.KrayContractPapers && KrayContractPapers.mountChoices){
           KrayContractPapers.mountChoices(document.getElementById('f-choices-box')||host, function(){ examFp=''; if(seal) seal.disabled=true; }, ['Yes','No']);
         }
@@ -1055,7 +1091,7 @@
             var founders=(window.KrayContractPapers&&KrayContractPapers.readFounders)
               ? KrayContractPapers.readFounders(document.getElementById('f-founders-box')||host)
               : [];
-            return { form:{ kind:'cut', supply:String((document.getElementById('f-supply')||{}).value||'').trim(), infinite:!!(document.getElementById('f-infinite')&&document.getElementById('f-infinite').checked), ...(founders.length?{founders:founders}:{}) }, star:String(s.star) };
+            return { form:{ kind:'cut', supply:String((document.getElementById('f-supply')||{}).value||'').trim(), infinite:!!(document.getElementById('f-infinite')&&document.getElementById('f-infinite').checked), rain:!!(document.getElementById('f-rain')&&document.getElementById('f-rain').checked), ...(founders.length?{founders:founders}:{}) }, star:String(s.star) };
           }
           if(desk==='poll'){
             var choices=(window.KrayContractPapers&&KrayContractPapers.readChoices)
@@ -1615,6 +1651,11 @@
     } else if(kind==='cut'){
       form.supply=String((document.getElementById('f-supply')||{}).value||'').trim();
       form.infinite=!!(document.getElementById('f-infinite')&&document.getElementById('f-infinite').checked);
+      form.rain=!!(document.getElementById('f-rain')&&document.getElementById('f-rain').checked);
+      var founders=(window.KrayContractPapers&&KrayContractPapers.readFounders)
+        ? KrayContractPapers.readFounders(document.getElementById('f-founders-box')||document.getElementById('lawbody'))
+        : [];
+      if(founders.length) form.founders=founders;
     } else if(kind==='poll'){
       form.title=String((document.getElementById('f-title')||{}).value||'').trim();
       form.choices=(window.KrayContractPapers&&KrayContractPapers.readChoices)

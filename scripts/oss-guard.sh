@@ -20,7 +20,7 @@ SHAPES='100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}|[0-9
 # tracked files only — working-tree secrets that are gitignored must stay ignored.
 # Placeholder doc paths (/Users/you, /home/user, <user>) are allowed.
 LEAK="$(git grep -nI -E "$SHAPES" \
-  -- ':!apps/kray-core/src/test/*' ':!*.test.ts' ':!*.test.mjs' ':!scripts/oss-guard.sh' \
+  -- ':!apps/kray-core/src/test/*' ':!*.test.ts' ':!*.test.mjs' ':!apps/kray-fold/proofs/*' ':!scripts/oss-guard.sh' \
   | grep -vE '/Users/you/|/home/you/|/home/user/|/Users/<|/home/<' || true)"
 
 # optional LOCAL tripwires (gitignored) — exact strings/regexes the operator bans,

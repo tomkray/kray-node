@@ -46,7 +46,7 @@ function main() {
   ok(empty.cuts.empty() && empty.cuts.conserves(), 'empty CutBook conserves')
 
   const paper = compileCut({ supply: '100000' })
-  ok(isCutPaper(paper) && !paper.rules.some((r) => r.name === 'collect'), 'Cut paper has deposit, no drain')
+  ok(isCutPaper(paper) && !paper.rules.some((r) => r.name === 'collect'), 'Cut paper is Luz — no drain')
 
   const seeds = [3, 11, 23, 47, 101]
   let sends = 0, refused = 0, frozenSends = 0

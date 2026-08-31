@@ -4504,6 +4504,7 @@ function readContractCode(b, from, opts) {
         kind: 'luz',
         supply: f.supply != null && String(f.supply) !== '' ? String(f.supply) : undefined,
         infinite: !!f.infinite,
+        ...(f.rain === true ? { rain: true } : {}),
         ...(Array.isArray(f.founders) ? { founders: f.founders } : {}),
       })
     }
@@ -4624,6 +4625,7 @@ function prepareMessage(action, b, nonceOverride) {
       if (!s) throw new Error(`star #${star} does not exist`)
       if (!s.contentHash) throw new Error('a baptism-only star has no bytes to eternize — carve the body first')
       if (s.eternal) throw new Error(`star #${star} is already eternal — carved at ${s.eternal}`)
+      if (s.owner !== from) throw new Error(`only the owner of star #${star} may eternize`)
       const taken = node.ledger.stars.starOfEternal(id)
       if (taken != null) throw new Error(`that carving is already eternal on star #${taken} — one binding, forever`)
       return { message: eternizeMessage(NET, from, BigInt(star), id, nonce), nonce }

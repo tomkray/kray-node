@@ -72,6 +72,8 @@
 .music-crop-box{position:absolute;box-sizing:border-box;border:2px solid var(--ink);box-shadow:0 0 0 9999px rgba(0,0,0,.5);pointer-events:none}
 #m-cropok{min-height:44px;width:100%}
 #i-lawwrite > label{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.lawrain{width:100%;min-height:44px;padding:12px 16px;text-align:left;transition:min-height .15s ease}
+.lawrain.on{min-height:64px;border-color:var(--ink);color:var(--ink);background:var(--surface-2);font-weight:600}
 </style>
 </head>
 <body data-page="inscribe">
@@ -293,7 +295,7 @@
   function kWhole(v){ try{ return BigInt(String(v==null?'0':v).replace(/[^0-9]/g,'')||'0').toLocaleString(); }catch(_){ return String(v); } }
 </script>
 
-<script src="/contract-exam.js"></script>
+<script src="/contract-exam.js?v=rain2"></script>
 <script src="/inscribe-batch.js"></script>
 <!-- INSCRIBE write surface (verbatim) -->
 <script>
@@ -519,7 +521,7 @@
       ? (paper.blurb + (lawKind==='code'
         ? ' Click the source box — paste or type. A file drop is optional.'
         : ' The paper below is compiled from the numbers. Run test. Then seal.'))
-      : '';
+      : 'This paper is missing from the exam script — hard-reload the page.';
   }
   function paintLawSurface(){
     var write=$('i-lawwrite'), prev=$('i-lawprevwrap'), ta=$('i-lawcode'), drop=$('i-lawfile');

@@ -1,0 +1,5 @@
+# Exam sleeves / MPEG relics stay on the lab disk. Law is the MD.
+*.png
+*.mp3
+stamped*.md
+stamped/

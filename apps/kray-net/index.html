@@ -129,11 +129,12 @@
     }
 
     function card(w) {
-      var hash = w.url ? w.url.replace('/content/', '') : ''
-      var t = thumbFor(w.url, w.category, w.contentType)
-      var label = w.name ? esc(w.name) : esc(w.category || 'work')
-      var href = hash ? '/render/' + esc(hash) : '#'
-      return '<a class="ex-card" href="' + href + '" target="_blank" rel="noopener" title="' + esc(hash) + '" data-cat="' + esc(w.category || 'file') + '">' +
+      var law = w.category === 'law'
+      var hash = (!law && w.url) ? w.url.replace('/content/', '') : ''
+      var t = thumbFor(law ? '' : w.url, w.category, w.contentType)
+      var label = w.name ? esc(w.name) : esc(law ? 'law' : (w.category || 'work'))
+      var href = law ? '/star/' + esc(w.star) + '#lawcard' : (hash ? '/render/' + esc(hash) : '/star/' + esc(w.star))
+      return '<a class="ex-card" href="' + href + '" target="_blank" rel="noopener" title="' + esc(law ? ('living law on star #' + w.star) : hash) + '" data-cat="' + esc(w.category || 'file') + '">' +
         '<span class="thumb' + (t.img ? '' : ' noimg') + '">' + t.html + '</span>' +
         '<span class="meta"><b>' + esc((window.KRAY && KRAY.starMark) ? KRAY.starMark(w.star) : ('★ ' + w.star)) + '</b> ' + label + '</span>' +
         '</a>'
@@ -198,9 +199,9 @@
     ]).then(function (r) {
       var head = r[0], sup = r[1], atlas = r[2], lib = r[3]
       var root = head.cascadeRoot || ''
-      WORKS = lib.works || []
+      WORKS = (lib.works || []).concat(lib.laws || [])
       ENTRIES = lib.entries || []
-      WORKS.forEach(function (w) { if (w.url) BYHASH[w.url.replace('/content/', '')] = w })
+      WORKS.forEach(function (w) { if (w.url && w.category !== 'law') BYHASH[w.url.replace('/content/', '')] = w })
 
       $('stats').innerHTML =
         stat('network', esc(head.network || '—')) +
