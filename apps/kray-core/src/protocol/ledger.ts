@@ -109,6 +109,19 @@ const RUNE_ANCESTRY_MANDATORY_SEQ: Record<string, number> = {
   main: 0,     // born strict — zero events at ratification
 }
 
+/** THE MINT-WITNESS LAW (2026-08-31) — at/after this pin, a rune ancestry may TERMINATE at a mint
+ *  of the focused rune when the entry carries the writer's mint witness (rune-ancestry.ts). Every
+ *  byte-provable fact stays byte-proven (burial, Mint tag, BIP-34 height, the window and amount
+ *  from the etch's own terms); cap-legality — global state no light verifier can decide — is the
+ *  writer's statement, journaled in the event, so replay is deterministic (A3). The law WIDENS
+ *  acceptance only: every bundle valid before stays byte-identically valid, which is why pinning
+ *  it at 0 cannot fork any existing journal — refused events were never journaled. */
+const MINT_WITNESS_SEQ: Record<string, number> = {
+  regtest: Number.MAX_SAFE_INTEGER,   // the bench keeps the old law; the lab pin opts in
+  signet: 0,
+  main: 0,
+}
+
 /**
  * Ӿ TRANSFER ACTIVATION (slice 2 — the transferable book joins the anchored root). DORMANT on every network
  * until the Creator ratifies a real FUTURE seq: below it, `x-send` is refused (HALT) and the Ӿ root folds
@@ -400,7 +413,7 @@ export class KrayLedger {
    *  be re-derived from these bytes. Historical events fall back to the bitmap. */
   readonly atlasBytes?: (hash: string) => Uint8Array | null
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -421,6 +434,7 @@ export class KrayLedger {
     this.proofMandatorySeq = proofMandatorySeq ?? (PROOF_MANDATORY_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.runeAncestrySeq = runeAncestrySeq ?? (RUNE_ANCESTRY_MANDATORY_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.uniqueRelicRefuseSeq = uniqueRelicRefuseSeq ?? (UNIQUE_RELIC_REFUSE_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.mintWitnessSeq = mintWitnessSeq ?? (MINT_WITNESS_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     // main pin 0 is the law itself (not a signaling): start at 10_000. Donate never
     // reads the rate — an empty-of-stars journal keeps its cascade.
     if (this.sizeProportionSeq === 0) {
@@ -476,6 +490,7 @@ export class KrayLedger {
   private readonly sizeProportionSeq: number        // 1 ₭/10 KB + 10 MB ceiling: below it, genesis 1 ₭/MB + 21 MB (A3)
   private readonly proofMandatorySeq: number        // PROOF MANDATORY: at/after it, an L1-peg event must EMBED its SPV proof (A3 below)
   private readonly runeAncestrySeq: number          // THE KEYSTONE: at/after it, a rune-deposit AND a rune-settle must EMBED the ancestry bundle (byte-pure input state)
+  private readonly mintWitnessSeq: number           // THE MINT-WITNESS LAW: at/after it, an ancestry may terminate at a witnessed mint of the focused rune
   private readonly uniqueRelicRefuseSeq: number     // THE UNIQUE-RELIC LAW: at/after it, a taken name/bytes refuse BEFORE fire (A3 below — cursed-burn still applies)
   /** THE JOURNAL'S ACCUMULATED TRUTH — outpoint → balances of ONE rune, re-derived by earlier
    *  proven deposits. Scoped per rune (the etch-root shortcut is exact only for the focused rune,
@@ -1714,6 +1729,7 @@ export class KrayLedger {
             runeId: parseRuneKey(e.runeId), outpoint: e.outpoint, to: e.to, amount: BigInt(e.amount),
             net: this.network, minConfirmations: donationProofMinConf(toBtcNet(this.network)),
             pool: e.pool === true,
+            allowMintWitness: e.seq >= this.mintWitnessSeq,
           }, known)
           if (!v.ok) throw new Error(`ledger: the rune deposit's own SPV proof does not verify on replay — ${v.reason}`)
           provenVaultBalance = v.provenVaultBalance
@@ -1901,6 +1917,7 @@ export class KrayLedger {
             runeId: srid, l1Txid: e.l1Txid, l1Address: pex.l1Address, amount: pex.amount,
             net: this.network, minConfirmations: donationProofMinConf(toBtcNet(this.network)),
             deliveryVout: settleDelivery ? Number(settleDelivery.split(':')[1]) : undefined,
+            allowMintWitness: e.seq >= this.mintWitnessSeq,
           }, known)
           if (!v.ok) throw new Error(`ledger: the rune settle's own SPV proof does not verify on replay — ${v.reason}`)
           settleOutputs = v.provenOutputs

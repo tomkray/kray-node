@@ -26,13 +26,32 @@
  *     cleanly at a PREMINE (which the etch transaction alone proves) or at an
  *     outpoint the network has ALREADY proven.
  *
+ * ── THE MINT-WITNESS LAW (2026-08-31, activation-pinned) ────────────────────
+ * A mint of the focused rune CAN terminate the walk when the caller allows it
+ * (the reducer's pin) and the entry carries a MINT WITNESS. Everything that is
+ * byte-provable stays byte-proven right here, no shortcut:
+ *   · the mint tx is real and buried (phase 1, like every entry)
+ *   · its runestone's Mint tag names the focused rune (decoded from bytes)
+ *   · its block HEIGHT is Bitcoin's own statement — the witness carries the
+ *     block's coinbase + merkle proof against the SAME header (BIP-34), the
+ *     identical mechanism the etch identity already uses
+ *   · the mint WINDOW (heightStart/End, offsetStart/End) is checked against
+ *     the terms decoded from the focused rune's OWN etch, which therefore must
+ *     ride in the same bundle with its full etch identity witness
+ *   · the amount is the etch terms' amount — never a number anyone reports
+ * The ONE bit no light verifier can decide — that this mint was within cap —
+ * is the writer's witnessed statement, journaled in the event itself, so a
+ * replay is deterministic (A3) and the trust widening is explicit, bounded,
+ * and named. A witness on an out-of-window mint, a witness with a foreign
+ * coinbase, or a bundle missing the etch all refuse (`mint-unproven`).
+ *
  * Being unable to prove something and saying so is worth more than a number
  * that might be wrong: an L2 credited from a guess is an L2 that is insolvent
  * without knowing it.
  */
 import { createHash } from 'node:crypto'
 import { MIN_BLOCK_WORK, bip34Height, checkProofOfWork, parseHeader, parseTx, verifyTxOutProof, type TxInput } from '../anchor/spv.ts'
-import { allocate, decipher, type RuneBalance, type RuneId } from './runestone.ts'
+import { allocate, decipher, type RuneBalance, type RuneId, type Terms } from './runestone.ts'
 
 /** One transaction as a claimant presents it: the bytes plus Bitcoin's witness. */
 export interface ProvenTx {
@@ -50,6 +69,12 @@ export interface ProvenTx {
    *  and never a number someone reports. Required whenever `etchedId` is claimed. */
   coinbaseTx?: string
   coinbaseProof?: string
+  /** THE MINT WITNESS — the block's coinbase + proof (the same BIP-34 mechanism as the
+   *  etch identity), present when the WRITER witnessed this mint's cap-legality in its
+   *  full index and journals that statement. Only honoured when the caller's law allows
+   *  it (`allowMintWitness`); everything else about the mint is still re-proven from
+   *  bytes (burial, the Mint tag, the height window from the etch's own terms). */
+  mintWitness?: { coinbaseTx: string; coinbaseProof: string }
 }
 
 export interface AncestryOptions {
@@ -69,12 +94,16 @@ export interface AncestryOptions {
    *  legitimate root of the ancestry FOR ITS OWN RUNE — and for that rune only.
    *  Without this focus, every unknown input is refused, as it must be. */
   rune?: RuneId
+  /** THE MINT-WITNESS LAW GATE — the reducer's activation pin decides this, never the
+   *  claimant. Absent/false keeps the walk byte-identical to the born-strict law:
+   *  a mint of the focused rune refuses `needs-index`, witness or no witness. */
+  allowMintWitness?: boolean
 }
 
 export type AncestryRefusal =
   | 'tx-missing' | 'tx-unproven' | 'tx-shallow' | 'txid-mismatch'
   | 'input-unknown' | 'needs-index' | 'too-deep' | 'malformed' | 'no-such-output'
-  | 'etch-unproven' | 'etch-mismatch'
+  | 'etch-unproven' | 'etch-mismatch' | 'mint-unproven'
 
 export interface AncestryVerdict {
   ok: boolean
@@ -109,7 +138,12 @@ export function parentCanHoldFocusedRune(parentHeight: number, etchBlock: bigint
 /** The canonical bytes of a bundle — so its hash names it, forever, and two
  *  nodes hash the identical proof to the identical value. */
 export function bundleHash(bundle: ProvenTx[]): string {
-  const canonical = JSON.stringify(bundle.map((t) => [t.rawTx, t.txoutproof, t.headers, t.etchedId ? `${t.etchedId.block}:${t.etchedId.tx}` : '']).sort())
+  // a mint witness extends its OWN row only — bundles without one hash exactly as before
+  const canonical = JSON.stringify(bundle.map((t) => {
+    const row: unknown[] = [t.rawTx, t.txoutproof, t.headers, t.etchedId ? `${t.etchedId.block}:${t.etchedId.tx}` : '']
+    if (t.mintWitness) row.push(t.mintWitness.coinbaseTx, t.mintWitness.coinbaseProof)
+    return row
+  }).sort())
   return createHash('sha256').update(canonical, 'utf8').digest('hex')
 }
 
@@ -127,7 +161,7 @@ export function bundleHash(bundle: ProvenTx[]): string {
 export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], opts: AncestryOptions): AncestryVerdict {
   const known = opts.known ?? new Map<string, RuneBalance[]>()
   const maxDepth = opts.maxDepth ?? 64
-  const byTxid = new Map<string, { tx: ProvenTx; parsed: ReturnType<typeof parseTx> }>()
+  const byTxid = new Map<string, { tx: ProvenTx; parsed: ReturnType<typeof parseTx>; mintHeight?: number }>()
   let verified = 0
 
   // 1 · every transaction in the bundle must BE what it claims and be buried
@@ -185,7 +219,24 @@ export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], op
         if (h === null || BigInt(h) !== tx.etchedId.block) return { ok: false, reason: 'etch-mismatch', at: parsed.txidDisplay }
       } catch (_) { return { ok: false, reason: 'etch-unproven', at: parsed.txidDisplay } }
     }
-    byTxid.set(parsed.txidDisplay, { tx, parsed })
+    // ── THE MINT WITNESS' HEIGHT — verified exactly like the etch identity: the block's
+    // coinbase, proven at index 0 of the SAME header this tx is buried under, carries the
+    // height as its BIP-34 push. A foreign coinbase, a wrong position, or an unreadable
+    // height refuses here, before the walk ever reaches the mint. ──
+    let mintHeight: number | undefined
+    if (tx.mintWitness) {
+      try {
+        const cb = parseTx(tx.mintWitness.coinbaseTx)
+        const cbProof = verifyTxOutProof(tx.mintWitness.coinbaseProof)
+        if (cbProof.header.hashDisplay !== proof.header.hashDisplay) return { ok: false, reason: 'mint-unproven', at: parsed.txidDisplay }
+        const cbIdx = cbProof.provenTxids.indexOf(cb.txidDisplay)
+        if (cbIdx < 0 || cbProof.positions[cbIdx] !== 0) return { ok: false, reason: 'mint-unproven', at: parsed.txidDisplay }
+        const h = bip34Height(tx.mintWitness.coinbaseTx)
+        if (h === null) return { ok: false, reason: 'mint-unproven', at: parsed.txidDisplay }
+        mintHeight = h
+      } catch (_) { return { ok: false, reason: 'mint-unproven', at: parsed.txidDisplay } }
+    }
+    byTxid.set(parsed.txidDisplay, { tx, parsed, mintHeight })
     verified++
   }
 
@@ -194,6 +245,24 @@ export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], op
   const resolving = new Set<string>()
   let refusal: AncestryVerdict | null = null
   let targetBurned: RuneBalance[] = []
+
+  // THE FOCUSED RUNE'S TERMS, from its own etch in this bundle — the etch identity was
+  // byte-proven in phase 1 (BIP-37 index + BIP-34 coinbase height), so its runestone's
+  // terms are bytes, never a report. Lazily resolved once; null = no proven etch here.
+  let etchTermsCache: Terms | null | undefined
+  const focusedEtchTerms = (): Terms | null => {
+    if (etchTermsCache !== undefined) return etchTermsCache
+    etchTermsCache = null
+    if (opts.rune !== undefined) {
+      for (const { tx, parsed } of byTxid.values()) {
+        if (!tx.etchedId || tx.etchedId.block !== opts.rune.block || tx.etchedId.tx !== opts.rune.tx) continue
+        const art = decipher(parsed.outputScripts.map((b) => Uint8Array.from(b)))
+        if (art && art.kind === 'runestone' && art.etching) etchTermsCache = art.etching.terms ?? null
+        break
+      }
+    }
+    return etchTermsCache
+  }
 
   const resolveTx = (id: string, depth: number): Map<number, RuneBalance[]> | null => {
     if (depth > maxDepth) { refusal = { ok: false, reason: 'too-deep', at: id }; return null }
@@ -249,16 +318,37 @@ export function proveOutpoint(txid: string, vout: number, bundle: ProvenTx[], op
     // rune adds nothing of the focused one (allocation pools are per rune id, independent),
     // so the focused answer stays exact with mintAmount unknown — refusing there would make
     // every wallet that ever minted anything unable to prove an unrelated deposit.
+    // THE MINT-WITNESS LAW: when the reducer's pin allows it AND this entry carries the
+    // witness, the mint terminates the walk instead — with every byte-provable fact still
+    // proven: the height from the witnessed coinbase (phase 1), the window and the amount
+    // from the focused rune's OWN etch terms in this same bundle. Cap-legality alone is
+    // the writer's journaled statement. Anything short of all of that refuses.
+    let mintAmount: bigint | undefined
     if (artifact !== null && artifact.mint !== undefined) {
       const mintsTheFocus = opts.rune === undefined
         || (artifact.mint.block === opts.rune.block && artifact.mint.tx === opts.rune.tx)
-      if (mintsTheFocus) { refusal = { ok: false, reason: 'needs-index', at: id }; return null }
+      if (mintsTheFocus) {
+        const witnessed = opts.allowMintWitness === true && tx.mintWitness !== undefined && entry.mintHeight !== undefined
+        if (!witnessed) { refusal = { ok: false, reason: 'needs-index', at: id }; return null }
+        const terms = focusedEtchTerms()
+        if (!terms) { refusal = { ok: false, reason: 'mint-unproven', at: id }; return null }
+        const h = BigInt(entry.mintHeight!)
+        const etchBlock = opts.rune!.block
+        const inWindow =
+          (terms.heightStart === undefined || h >= terms.heightStart) &&
+          (terms.heightEnd === undefined || h < terms.heightEnd) &&           // ord: end exclusive
+          (terms.offsetStart === undefined || h >= etchBlock + terms.offsetStart) &&
+          (terms.offsetEnd === undefined || h < etchBlock + terms.offsetEnd)
+        if (!inWindow) { refusal = { ok: false, reason: 'mint-unproven', at: id }; return null }
+        mintAmount = terms.amount ?? 0n
+      }
     }
 
     const alloc = allocate(artifact, {
       outputScripts: parsed.outputScripts.map((b) => Uint8Array.from(b)),
       inputs,
       etchedId: tx.etchedId,
+      ...(mintAmount !== undefined ? { mintAmount } : {}),
     })
     if (depth === 0) targetBurned = alloc.burned
     for (const [vout, bal] of alloc.outputs) memo.set(outpointKey(id, vout), bal)

@@ -60,10 +60,19 @@ system's immutability follows:
   SETTLE (same activation, same window) embeds the payout's ancestry too, and
   the walk stops at the journal's own accumulated truth (deposits + earlier
   settles' consolidation change), refusing a short delivery and any burn of
-  the focused rune. One honest limit remains, stated not hidden: a mint OF THE
-  FOCUSED RUNE still refuses `needs-index` (the cap is global state no light
-  verifier can know). The law states the destination; this bullet states,
-  honestly, exactly how far the code has walked.
+  the focused rune. THE MINT-WITNESS LAW (2026-08-31, `MINT_WITNESS_SEQ` —
+  signet and main born at 0; regtest stays MAX, lab pin opts in) closes the
+  last honest limit without a guess: a mint OF THE FOCUSED RUNE may terminate
+  the walk when the entry carries the writer's mint witness (the block's
+  coinbase + BIP-37 proof against the SAME header — the etch-identity
+  mechanism). Every byte-provable fact stays byte-proven: burial, the Mint
+  tag, the BIP-34 height, the window and the amount from the etch's OWN terms
+  in the same bundle. Cap-legality — global state no light verifier can
+  decide — is the writer's statement, journaled in the event, so replay is
+  deterministic (A3). A naked mint, a foreign coinbase, a shut window, or a
+  bundle missing the etch still refuse (`needs-index` / `mint-unproven`). The
+  law widens acceptance only: every bundle valid before stays valid, so
+  pinning it at 0 cannot fork a journal — refused events were never written.
 - **Proofs from bytes, never from trust.** SPV re-derivation, BIP-34 coinbase
   heights, BIP-37 merkle paths, taproot control blocks, runestones — all parsed
   from raw bytes and refused loudly on any mismatch. HALT beats a lie applied.

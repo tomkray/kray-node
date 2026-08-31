@@ -837,6 +837,18 @@ async function attachEtchWitness(entry, txid, runeIdStr) {
   entry.coinbaseTx = await btcRpc('getrawtransaction', [blk.tx[0]])
   entry.coinbaseProof = await btcRpc('gettxoutproof', [[blk.tx[0]], info.blockhash])
 }
+// THE MINT WITNESS (2026-08-31) — the same coinbase mechanism, attached to a transaction that
+// MINTS the focused rune. It journals the writer's statement that its own ord indexed this mint
+// as effective (within cap); the reducer re-proves everything else from bytes — burial, the Mint
+// tag, the BIP-34 height, the window and amount from the etch's terms riding in the same bundle.
+async function attachMintWitness(entry, txid) {
+  const info = await btcRpc('getrawtransaction', [txid, true])
+  const blk = await btcRpc('getblock', [info.blockhash, 1])
+  entry.mintWitness = {
+    coinbaseTx: await btcRpc('getrawtransaction', [blk.tx[0]]),
+    coinbaseProof: await btcRpc('gettxoutproof', [[blk.tx[0]], info.blockhash]),
+  }
+}
 function runestoneOfRaw(rawHex) {
   try {
     const parsed = parseTx(rawHex)
@@ -857,6 +869,7 @@ async function assembleRuneAncestry(depositTxid, runeIdStr, { maxTx = RUNE_ANCES
   const rid = parseRuneKey(runeIdStr)
   const bundle = []
   const seen = new Set()
+  let witnessedMint = false
   async function pushProof(txid) {
     if (bundle.length >= maxTx) {
       throw new Error(`the rune's ancestry needs more than ${maxTx} transactions to prove — consolidate the runes nearer the etch (or through an already-credited outpoint) and deposit again`)
@@ -884,6 +897,14 @@ async function assembleRuneAncestry(depositTxid, runeIdStr, { maxTx = RUNE_ANCES
       bundle.push(entry)
       return
     }
+    // a MINT of the focused rune — witness it (ord already indexed it as effective, or the runes
+    // would never have reached the vault and the amount check downstream would refuse). Its inputs
+    // are STILL walked below: a tx can mint AND move focused runes in one runestone, and the
+    // reducer re-derives inputs + mintAmount together.
+    if (art && art.mint !== undefined && BigInt(art.mint.block) === rid.block && BigInt(art.mint.tx) === rid.tx) {
+      await attachMintWitness(entry, txid)
+      witnessedMint = true
+    }
     bundle.push(entry)
     for (const vin of (info.vin || [])) {
       if (!vin.txid) continue // coinbase
@@ -900,6 +921,10 @@ async function assembleRuneAncestry(depositTxid, runeIdStr, { maxTx = RUNE_ANCES
     }
   }
   await walk(depositTxid)
+  // a witnessed mint needs the rune's ETCH in the same bundle — the terms (amount, window)
+  // are read from its bytes by the reducer, never reported. The walk only reaches the etch
+  // through rune-carrying parents; a pure mint chain never does, so fetch it explicitly.
+  if (witnessedMint && etchTxid && !seen.has(etchTxid)) await walk(etchTxid)
   return bundle
 }
 

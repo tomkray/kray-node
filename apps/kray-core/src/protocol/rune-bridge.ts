@@ -104,8 +104,11 @@ export interface RuneConsensusProof {
   /** THE KEYSTONE: the SPV-proven ancestry bundle (deposit tx included) that re-derives the
    *  input rune state from bytes — no indexer's word. Mandatory from seq 0 on signet/main.
    *  `etchedId` rides as the canonical "block:tx" string (the journal is JSON — no bigint);
-   *  an etch entry must also carry the block's coinbase + proof (the BIP-34 identity witness). */
-  ancestry?: Array<{ rawTx: string; txoutproof: string; headers: string[]; etchedId?: string; coinbaseTx?: string; coinbaseProof?: string }>
+   *  an etch entry must also carry the block's coinbase + proof (the BIP-34 identity witness).
+   *  THE MINT-WITNESS LAW (2026-08-31): a mint entry may carry `mintWitness` (coinbase + proof,
+   *  the same BIP-34 mechanism) — the writer's journaled statement that the mint was within
+   *  cap; honoured only at/after the reducer's activation pin. */
+  ancestry?: Array<{ rawTx: string; txoutproof: string; headers: string[]; etchedId?: string; coinbaseTx?: string; coinbaseProof?: string; mintWitness?: { coinbaseTx: string; coinbaseProof: string } }>
 }
 
 /** The journaled (JSON-safe) bundle → the walker's shape. A malformed etchedId throws → refuse. */
@@ -115,6 +118,7 @@ const parseAncestry = (list: NonNullable<RuneConsensusProof['ancestry']>): Prove
     ...(t.etchedId ? { etchedId: parseRuneIdStr(t.etchedId) } : {}),
     ...(t.coinbaseTx ? { coinbaseTx: t.coinbaseTx } : {}),
     ...(t.coinbaseProof ? { coinbaseProof: t.coinbaseProof } : {}),
+    ...(t.mintWitness ? { mintWitness: t.mintWitness } : {}),
   }))
 
 const parseRuneIdStr = (s: string): RuneId => { const [b, t] = String(s).split(':'); return { block: BigInt(b), tx: BigInt(t) } }
@@ -128,7 +132,7 @@ const parseInputRunes = (list: Array<{ id: string; amount: string }>): Array<{ i
  *  the focused rune, so one rune's memo must never answer for another). */
 export function verifyRuneDepositProof(
   proof: RuneConsensusProof,
-  expect: { runeId: RuneId; outpoint: string; to: string; amount: bigint; net: string; minConfirmations: number; minWork?: bigint; pool?: boolean },
+  expect: { runeId: RuneId; outpoint: string; to: string; amount: bigint; net: string; minConfirmations: number; minWork?: bigint; pool?: boolean; allowMintWitness?: boolean },
   known?: Map<string, RuneBalance[]>,
 ): { ok: boolean; reason?: string; provenVaultBalance?: bigint } {
   try {
@@ -177,6 +181,7 @@ export function verifyRuneDepositProof(
     if (proof.ancestry) {
       const walk = proveDeposit(buried.txid, vaultScriptHex, expect.runeId, parseAncestry(proof.ancestry), {
         minConfirmations: expect.minConfirmations, net: expect.net, known, rune: expect.runeId,
+        allowMintWitness: expect.allowMintWitness === true,
         // a bundle of N txs can never need a walk deeper than N — self-scaling, still bounded
         // by the door's assembly cap; the walker's own cycle guard stays in force
         maxDepth: proof.ancestry.length,
@@ -214,6 +219,8 @@ export function verifyRuneSettleProof(
     minConfirmations: number; minWork?: bigint
     /** the loaf's delivery output (from the event's `outpoint`) — absent on a solo settle */
     deliveryVout?: number
+    /** THE MINT-WITNESS LAW gate — the reducer's activation pin, mirrored on the payout leg */
+    allowMintWitness?: boolean
   },
   known?: Map<string, RuneBalance[]>,
 ): { ok: boolean; reason?: string; provenOutputs?: Array<{ vout: number; amount: bigint }> } {
@@ -245,6 +252,7 @@ export function verifyRuneSettleProof(
       if (scripts[vout] !== destScriptHex) return { ok: false, reason: `delivery output ${vout} does not pay the SIGNED destination — refused` }
       const walk = proveOutpoint(buried.txid, vout, bundle, {
         minConfirmations: expect.minConfirmations, net: expect.net, known, rune: expect.runeId,
+        allowMintWitness: expect.allowMintWitness === true,
         maxDepth: bundle.length,
       })
       if (!walk.ok) return { ok: false, reason: `the ancestry bundle does not prove the payout — ${walk.reason}${walk.at ? ' at ' + walk.at : ''}` }
