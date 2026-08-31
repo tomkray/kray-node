@@ -871,9 +871,13 @@
         return;
       }
       if(!mine){
+        host.removeAttribute('data-desk-live');
         host.innerHTML='<p class="note">This being has no law yet. The owner seals clauses here — flags that turn on and off, forever replayable.</p>';
         return;
       }
+      // Already hanging the paper — do not rebuild (or focus) on wallet/poll ticks.
+      // A rebuild reset the desk to Code and stole the viewport down to LAW.
+      if(host.getAttribute('data-desk-live')==='1') return;
       var LIVING_PRESET={
         being:[{name:'alive',on:true,motion:'toggle'},{name:'open',on:true,motion:'toggle'},{name:'agent',on:false,motion:'toggle'}],
         pass:[{name:'alive',on:true,motion:'toggle'},{name:'valid',on:true,motion:'once'}],
@@ -1084,8 +1088,9 @@
         if(desk==='raffle' && runBtn) runBtn.click();
         if(desk==='code'){
           var codeTa=document.getElementById('f-code');
-          if(codeTa){ codeTa.disabled=false; codeTa.removeAttribute('readonly'); setTimeout(function(){ codeTa.focus(); }, 0); }
+          if(codeTa){ codeTa.disabled=false; codeTa.removeAttribute('readonly'); }
         }
+        host.setAttribute('data-desk-live','1');
         if(seal) seal.addEventListener('click', function(){
           if(!examFp || examFp!==JSON.stringify(deskExamBody())){ setLawOut('run the test first — a stale exam cannot seal'); return; }
           if(desk==='mint'){
