@@ -252,8 +252,14 @@ export const MIN_BLOCK_WORK: Record<string, bigint> = {
   // 2^74 ≈ 1.9e22 → difficulty ≈ 4.4e12, which mainnet passed in 2022 and is
   // ~25× below today. Forging one such header costs ~5 hours at 1 EH/s.
   main: 1n << 74n,
-  // signet's real blocks carry ~2.06e8 ≈ 2^27.6 of work; this sits ~12× below.
-  signet: 1n << 24n,
+  // Signet's powLimit (0x1e0377ae) is the EASIEST header Bitcoin Signet itself
+  // accepts — workOfTarget of that target is 4,838,420. The floor MUST be that
+  // work, not a recent-typical 2^24 (16,777,216) that sat ABOVE honest
+  // historical blocks. The DOG etch at height 244701 carries 13,408,187 of
+  // work; the 2^24 floor refused it as tx-unproven and made every mint-ancestry
+  // deposit of that rune un-proveable. A header easier than powLimit already
+  // fails checkProofOfWork. Pinned equal to workOfTarget(POW_LIMIT.signet).
+  signet: 4_838_420n,
   test: 0n, // the 20-minute rule legitimately drops to difficulty 1
   regtest: 0n, // trivial by design
 }

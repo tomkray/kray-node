@@ -54,7 +54,7 @@ record via a third-party explorer the user picks. Recompute-then-match ≫ read-
 explorer's `confirmed` boolean): `parseTx` (segwit-stripped `sha256d` txid), `parseHeader`,
 `verifyTxOutProof` (BIP-37 merkle rebuild + the **CVE-2012-2459** duplicate-node refusal verbatim),
 `extractKraySeal` (OP_RETURN branch), `targetFromBits`/`workOfTarget`/`checkProofOfWork` with `POW_LIMIT`
-+ `MIN_BLOCK_WORK` copied **exactly** (main `1<<74n`, signet `1<<24n`, test/regtest `0n`), and
++ `MIN_BLOCK_WORK` copied **exactly** (main `1<<74n`, signet `workOfTarget(powLimit)` = `4838420n`, test/regtest `0n`), and
 `proveTxBuried(rawTx, txoutproof, headersHex, {net, minConfirmations, minWork})` → `{ok, confirmations, work, powMeaningful}`.
 
 **The guarantee that it never breaks the math:** `apps/kray-core/src/test/kray-spv-parity.test.ts` feeds

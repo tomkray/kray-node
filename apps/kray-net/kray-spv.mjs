@@ -129,7 +129,7 @@ export async function extractKraySeal(rawTxHex) {
 }
 
 // ── proof of work (weight, never a count) ────────────────────────────────────────────────────────
-export const MIN_BLOCK_WORK = { main: 1n << 74n, signet: 1n << 24n, test: 0n, regtest: 0n }
+export const MIN_BLOCK_WORK = { main: 1n << 74n, signet: 4_838_420n, test: 0n, regtest: 0n }
 export const POW_LIMIT = {
   main: 0x00000000ffff0000000000000000000000000000000000000000000000000000n,
   test: 0x00000000ffff0000000000000000000000000000000000000000000000000000n,

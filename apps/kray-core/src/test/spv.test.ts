@@ -9,7 +9,7 @@
  * chain, missing depth, a proof for a different tx, malformed bytes.
  */
 import { createHash } from 'node:crypto'
-import { MIN_BLOCK_WORK, checkProofOfWork, targetFromBits, workOfTarget, parseTx, verifySealProof, verifyTxOutProof, extractKraySeal, sha256d, toDisplayHex } from '../anchor/spv.ts'
+import { MIN_BLOCK_WORK, POW_LIMIT, checkProofOfWork, targetFromBits, workOfTarget, parseTx, verifySealProof, verifyTxOutProof, extractKraySeal, sha256d, toDisplayHex } from '../anchor/spv.ts'
 import { KrayAnchor } from '../anchor/anchor.ts'
 
 let pass = 0
@@ -160,8 +160,22 @@ function main() {
       `mainnet's work floor is ${MIN_BLOCK_WORK.main / d1Work} times a difficulty-1 block — forging one now costs hours at an exahash, not microseconds`)
     ok(MIN_BLOCK_WORK.test === 0n && MIN_BLOCK_WORK.regtest === 0n,
       'testnet and regtest are exempt on purpose: testnet\'s 20-minute rule legitimately drops to difficulty 1, and regtest work means nothing at all')
+    ok(MIN_BLOCK_WORK.signet === workOfTarget(POW_LIMIT.signet),
+      `signet's floor (${MIN_BLOCK_WORK.signet}) IS workOfTarget(powLimit) — Bitcoin Signet's own minimum, never a recent-typical`)
     ok(MIN_BLOCK_WORK.signet < 206_097_345n,
-      `signet's floor (${MIN_BLOCK_WORK.signet}) sits below the work a REAL signet block carries (206,097,345), so honest proofs pass`)
+      `signet's floor (${MIN_BLOCK_WORK.signet}) sits below the work a REAL recent signet block carries (206,097,345), so honest proofs pass`)
+    // THE HISTORICAL ETCH THAT 2^24 REFUSED — DOG•GO•TO•THE•MOON at Signet 244701.
+    // Its header is Bitcoin's (hash meets nBits, nBits inside powLimit) and its
+    // work (13,408,187) sits between powLimit-work and the old 2^24 floor.
+    // A floor that refuses an honest etch makes every mint-ancestry deposit of
+    // that rune un-proveable; the live door named it `tx-unproven at 163c303c…`.
+    {
+      const dogEtch = '0000002011303bd3010218b13caeb1e3785f20f48add937dc8144ea1c689dfbe6b000000cbbadc62f80e9b8088aee9ffce6c8e6cdb452501970d9e24899d19700693189bb49105685340011eb41a2600'
+      const dog = checkProofOfWork(dogEtch, 'signet')
+      ok(dog.ok && dog.work === 13_408_187n, 'the DOG etch header is a real Signet block (PoW ok, work 13,408,187)')
+      ok(dog.work >= MIN_BLOCK_WORK.signet, 'that honest historical work CLEARS the floor — a mint-ancestry deposit can bury the etch')
+      ok(dog.work < (1n << 24n), 'the old 2^24 floor sat ABOVE this block — that was the hole, not a missing rite')
+    }
     const asSignet = verifySealProof(proof, { cascadeRoot: ROOT, blockNumber: HEIGHT, minConfirmations: 2, net: 'signet' })
     ok(!asSignet.ok, 'regtest headers judged as SIGNET → REFUSED: their work cannot reach a real network\'s floor, so the floor cannot be dodged by mislabelling the network')
   }
