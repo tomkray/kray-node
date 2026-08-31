@@ -630,11 +630,18 @@
     </details>
   </div>
 
-  <!-- ── CONTRACTS — an account with no key; only its own rules move it ── -->
+  <!-- ── LAW — one mouth. Papers hang on a star (inscribe LAW). The v1 pot
+       (no face) stays folded: same ids, same JS, not a second studio. ── -->
   <div class="card tick" id="ctpanel">
-    <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-anchor"/></svg><h2>Contracts</h2></div>
-    <p class="sub">A contract here is an account with <b>no key</b> — only its own rules move it. The <b>star page</b> or the write studio LAW tab hangs a being or a form on a face (v2, burns 1 ₭) — raffle and mint live there (mint needs the face as parent of every child). This box seals a <b>v1 pot</b> (no star, no burn): a form (escrow / tunnel / vest / locked scroll) or raw IR. The language is <b>total</b>: no loops. A stamp, unlocked scroll, raffle, or mint needs a star.</p>
+    <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-anchor"/></svg><h2>Law</h2></div>
+    <p class="sub">A paper hangs on a <b>star you own</b> — KRC-77 Luz, mint, raffle, being, exam. That mouth is one place. The write studio.</p>
+    <div class="actions">
+      <a class="btn primary" href="/inscribe?tab=law">Write studio · Law →</a>
+    </div>
     <div class="kv" id="ct-kv">—</div>
+    <details class="brlink" id="ct-pot">
+      <summary>Advanced · v1 pot (no star)</summary>
+      <p class="sub" style="margin-top:var(--s3)">Account with no key and no face. Escrow, tunnel, vest, locked scroll, or raw IR. Luz, raffle, mint need a star — use Law above.</p>
     <div class="sendform" style="grid-template-columns:1fr 1fr;margin-top:var(--s4)">
       <select class="input" id="ct-kind" disabled>
         <option value="escrow">escrow — buyer / seller / lock</option>
@@ -664,6 +671,7 @@
     </div>
     <div class="out" id="ct-callout"></div>
     <p class="note">A call costs the eternal fee and is signed over the contract, the rule and every argument — change one argument and the signature stops verifying. The reducer runs the rule itself and demands that the payments recorded in the journal are exactly the ones the code produces, or the node halts. Code is law here in the literal sense: nobody, including this node, can pay out what the rules did not say.</p>
+    </details>
   </div>
 
   <!-- ── BAPTISMS ── -->
