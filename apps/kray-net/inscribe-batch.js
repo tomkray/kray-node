@@ -211,8 +211,16 @@
     return /\.json$/i.test((file && file.name) || '')
   }
 
+  function isMdFile(file) {
+    return /\.md$/i.test((file && file.name) || '')
+  }
+
+  function isDocFile(file) {
+    return isJsonFile(file) || isMdFile(file)
+  }
+
   function stemOf(name) {
-    return String(name || '').replace(/\.json$/i, '').replace(/\.[^.]+$/, '')
+    return String(name || '').replace(/\.(json|md)$/i, '').replace(/\.[^.]+$/, '')
   }
 
   function isCatalogName(name) {
@@ -237,42 +245,51 @@
     return null
   }
 
-  async function jsonDoc(file, skipped) {
+  function sealedBytes(txt) {
+    try { JSON.parse(txt); return new TextEncoder().encode(txt).length }
+    catch (_) { return new TextEncoder().encode(JSON.stringify(txt)).length }
+  }
+
+  async function readDoc(file, skipped) {
     var path = pathOf(file)
     var txt
     try { txt = await readText(file) } catch (_) {
-      skipped.push({ path: path, why: 'could not read json' })
+      skipped.push({ path: path, why: 'could not read document' })
       return { file: file, loose: true }
     }
-    var bytes = new TextEncoder().encode(txt).length
-    try { JSON.parse(txt) } catch (_) {
+    var parsed = null
+    try { parsed = JSON.parse(txt) } catch (_) { parsed = null }
+    if (parsed === null && isJsonFile(file)) {
       skipped.push({ path: path, why: 'json not valid — sealed as its own star' })
       return { file: file, loose: true }
     }
+    var bytes = sealedBytes(txt)
     if (bytes > DOC_CAP) {
-      skipped.push({ path: path, why: 'json over ' + DOC_CAP + ' bytes — sealed as its own star' })
+      skipped.push({ path: path, why: 'document over ' + DOC_CAP + ' bytes — sealed as its own star' })
       return { file: file, loose: true }
     }
-    return { file: file, raw: txt, parsed: JSON.parse(txt) }
+    return { file: file, raw: txt, parsed: parsed, prose: parsed === null }
   }
 
   async function pairFiles(files, skipped) {
     var contents = []
-    var jsons = []
+    var docs = []
     var catalogs = Object.create(null)
     ;(files || []).forEach(function (f) {
-      if (isJsonFile(f)) {
+      if (isDocFile(f)) {
         var base = (pathOf(f).split('/').pop() || f.name)
         if (isCatalogName(base)) catalogs[folderOf(pathOf(f))] = f
-        else jsons.push(f)
+        else docs.push(f)
       } else contents.push(f)
     })
+    docs.sort(function (a, b) { return (isMdFile(a) ? 1 : 0) - (isMdFile(b) ? 1 : 0) })
     var byPath = Object.create(null)
     var byStem = Object.create(null)
-    jsons.forEach(function (f) {
+    docs.forEach(function (f) {
       var p = pathOf(f)
       byPath[p] = f
-      byStem[folderOf(p) + '|' + stemOf(f.name).toLowerCase()] = f
+      var k = folderOf(p) + '|' + stemOf(f.name).toLowerCase()
+      if (!byStem[k] || isJsonFile(f)) byStem[k] = f
     })
     var used = Object.create(null)
     var catalogCache = Object.create(null)
@@ -281,16 +298,16 @@
       jobs.push((async function () {
         var p = pathOf(c)
         var fold = folderOf(p)
-        var side = byPath[p + '.json'] || byStem[fold + '|' + stemOf(c.name).toLowerCase()]
+        var side = byPath[p + '.json'] || byPath[p + '.md'] || byStem[fold + '|' + stemOf(c.name).toLowerCase()]
         var meta = null
         var sidecarName = ''
         if (side) {
           used[pathOf(side)] = 1
-          var doc = await jsonDoc(side, skipped)
+          var doc = await readDoc(side, skipped)
           if (doc.raw) { meta = doc.raw; sidecarName = side.name }
         }
         if (!meta && catalogs[fold]) {
-          if (!catalogCache[fold]) catalogCache[fold] = await jsonDoc(catalogs[fold], skipped)
+          if (!catalogCache[fold]) catalogCache[fold] = await readDoc(catalogs[fold], skipped)
           var cat = catalogCache[fold]
           if (cat && Array.isArray(cat.parsed)) {
             var row = matchCatalogRow(cat.parsed, c.name)
@@ -305,7 +322,7 @@
     })
     var pairs = await Promise.all(jobs)
     var loose = []
-    jsons.forEach(function (f) { if (!used[pathOf(f)]) loose.push(f) })
+    docs.forEach(function (f) { if (!used[pathOf(f)]) loose.push(f) })
     Object.keys(catalogs).forEach(function (fold) {
       var attached = pairs.some(function (p) { return folderOf(pathOf(p.file)) === fold && p.sidecar === catalogs[fold].name })
       if (!attached) loose.push(catalogs[fold])
@@ -505,7 +522,7 @@
             : '<span class="ibatch-fb">' + fbGlyph(it.type) + '</span>'
         html += '<div class="ibatch-card' + (faceFirst && row.i === 0 ? ' face' : '') + (it.blocked ? ' blocked' : '') + '" data-i="' + row.i + '">'
           + thumb
-          + (it.blocked ? '<span class="ibatch-tag">OVER</span>' : (faceFirst && row.i === 0 ? '<span class="ibatch-tag face">FACE</span>' : (it.sidecar ? '<span class="ibatch-tag">JSON</span>' : '')))
+          + (it.blocked ? '<span class="ibatch-tag">OVER</span>' : (faceFirst && row.i === 0 ? '<span class="ibatch-tag face">FACE</span>' : (it.sidecar ? '<span class="ibatch-tag">' + (/\.md$/i.test(it.sidecar) ? 'MD' : 'JSON') + '</span>' : '')))
           + '<div class="ibatch-nm" title="' + esc(it.path) + (it.sidecar ? ' + ' + esc(it.sidecar) : '') + '">'
           + (nextN != null ? '#' + (nextN + row.i) + ' · ' : '') + esc(it.name) + '</div>'
           + '<div class="ibatch-sz">' + Number(it.size).toLocaleString() + ' B · ' + (function () {
@@ -541,24 +558,25 @@
   }
 
   /**
-   * Seat JSON documents onto an existing tray (photo.json ↔ photo.png, or a
-   * metadata.json / collection.json catalog). One unmatched JSON fills the box.
+   * Seat JSON or Markdown documents onto an existing tray (photo.json /
+   * photo.md ↔ photo.png, or a metadata.json catalog). One unmatched
+   * document fills the box. Markdown is prose — the seal wraps it as a JSON string.
    */
   async function attachDocs(queue, rawFiles) {
     var skipped = []
     var org = organize(rawFiles || [])
     org.skipped.forEach(function (s) { skipped.push(s) })
-    var jsons = (org.files || []).filter(isJsonFile)
-    if (!jsons.length) return { attached: 0, box: '', skipped: skipped, note: 'that drop had no JSON' }
+    var docs = (org.files || []).filter(isDocFile)
+    if (!docs.length) return { attached: 0, box: '', skipped: skipped, note: 'that drop had no JSON or Markdown' }
     var q = queue || []
     if (!q.length) {
-      if (jsons.length === 1) {
-        var one = await jsonDoc(jsons[0], skipped)
-        return { attached: 0, box: prettyDoc(one.raw || ''), skipped: skipped, note: one.raw ? 'document loaded into the box' : 'could not read that JSON' }
+      if (docs.length === 1) {
+        var one = await readDoc(docs[0], skipped)
+        return { attached: 0, box: prettyDoc(one.raw || ''), skipped: skipped, note: one.raw ? 'document loaded into the box' : 'could not read that document' }
       }
-      return { attached: 0, box: '', skipped: skipped, note: 'drop the images first, then these JSON sidecars — or upload one JSON into the box' }
+      return { attached: 0, box: '', skipped: skipped, note: 'drop the images first, then these JSON / MD sidecars — or upload one document into the box' }
     }
-    var fake = q.map(function (it) { return it.file }).concat(jsons)
+    var fake = q.map(function (it) { return it.file }).concat(docs)
     var plan = await pairFiles(fake, skipped)
     var attached = 0
     plan.pairs.forEach(function (pair) {
@@ -570,13 +588,13 @@
       attached++
     })
     var box = ''
-    if (!attached && jsons.length === 1) {
-      var solo = await jsonDoc(jsons[0], skipped)
+    if (!attached && docs.length === 1) {
+      var solo = await readDoc(docs[0], skipped)
       box = prettyDoc(solo.raw || '')
     }
     var note = attached
-      ? ('seated ' + attached + ' JSON document' + (attached === 1 ? '' : 's') + ' on matching files')
-      : (box ? 'document loaded into the box' : 'no name matched — use photo.json next to photo.png, or metadata.json / collection.json')
+      ? ('seated ' + attached + ' document' + (attached === 1 ? '' : 's') + ' on matching files')
+      : (box ? 'document loaded into the box' : 'no name matched — use photo.json or photo.md next to photo.png, or metadata.json / collection.json')
     return { attached: attached, box: box, skipped: skipped, note: note }
   }
 

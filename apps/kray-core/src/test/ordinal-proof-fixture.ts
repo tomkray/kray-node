@@ -74,6 +74,27 @@ export function segwitTx(
   return Buffer.concat(parts).toString('hex')
 }
 
+/** Same envelope plus tag 13 (rune etch) — the Signet WebP+rune parents. */
+export function ordEnvelopeWithRune(contentType: string, content: Buffer, runePayload: Buffer): Buffer {
+  const parts: Buffer[] = [
+    Buffer.from([0x00, 0x63]), push(Buffer.from('ord', 'ascii')),
+    push(Buffer.from([0x01])), push(Buffer.from(contentType, 'latin1')),
+    push(Buffer.from([0x0d])), push(runePayload),
+    Buffer.from([0x00]), push(content), Buffer.from([0x68]),
+  ]
+  return Buffer.concat(parts)
+}
+
+export function revealWithRuneEnvelope(
+  ins: { txid: string; vout: number }[],
+  outs: { value: bigint; script: Buffer }[],
+  content: Buffer,
+): string {
+  const script = revealScript(ordEnvelopeWithRune('image/webp', content, Buffer.from('abcdef')))
+  const witnesses: Buffer[][] = ins.map((_, i) => (i === 0 ? [script, REVEAL_CONTROL] : []))
+  return segwitTx(ins, outs, witnesses)
+}
+
 /** One-input reveal that carries an `ord` envelope on a taproot script-path spend. */
 export function revealWithEnvelope(
   ins: { txid: string; vout: number }[],
@@ -122,13 +143,16 @@ export type AuthorHeldOrigin = {
 }
 
 /** Linear two-hop: reveal → transfer → holder paying `authorScriptHex`. */
-export function authorHeldOriginProof(authorScriptHex: string, opts?: { confirmations?: number; salt?: string }): AuthorHeldOrigin {
+export function authorHeldOriginProof(authorScriptHex: string, opts?: { confirmations?: number; salt?: string; revealPaysAuthor?: boolean }): AuthorHeldOrigin {
   const conf = opts?.confirmations ?? 1
   const tag = opts?.salt ?? 'origin'
   const other = p2trFill(0x11)
   const author = Buffer.from(authorScriptHex, 'hex')
   const coin = createHash('sha256').update('fixture-coin|' + tag).digest('hex')
-  const reveal = revealWithEnvelope([{ txid: coin, vout: 0 }], [{ value: 10_000n, script: other }], Buffer.from(tag, 'utf8'))
+  // Default: reveal pays a filler (origin sat-walk). Eternize needs the
+  // reveal itself paid to the eternizer — pass revealPaysAuthor for that bag.
+  const birth = opts?.revealPaysAuthor ? author : other
+  const reveal = revealWithEnvelope([{ txid: coin, vout: 0 }], [{ value: 10_000n, script: birth }], Buffer.from(tag, 'utf8'))
   const rid = txidOf(reveal)
   const mid = rawTx([{ txid: rid, vout: 0 }], [{ value: 9_000n, script: other }])
   const midId = txidOf(mid)

@@ -45,7 +45,10 @@ function revealTx(script: Buffer): string {
   const stack = [script, Buffer.concat([Buffer.from([0xc0]), Buffer.alloc(32, 0xef)])]
   const vin = Buffer.concat([varint(1), Buffer.alloc(32, 0x11), Buffer.from('00000000', 'hex'), varint(0), Buffer.from('ffffffff', 'hex')])
   const spk = Buffer.concat([Buffer.from([0x51, 0x20]), Buffer.alloc(32, 0xcd)])
-  const vout = Buffer.concat([varint(1), Buffer.alloc(8), varint(spk.length), spk])
+  // the reveal output must CARRY the inscribed sat (a 0-value output holds no sat —
+  // the landing law in proveInscription refuses it, honestly, as ord treats it as lost)
+  const value = Buffer.alloc(8); value.writeBigUInt64LE(10_000n)
+  const vout = Buffer.concat([varint(1), value, varint(spk.length), spk])
   const witness = Buffer.concat([varint(stack.length), ...stack.map(witItem)])
   return Buffer.concat([Buffer.from('02000000', 'hex'), Buffer.from('0001', 'hex'), vin, vout, witness, Buffer.from('00000000', 'hex')]).toString('hex')
 }
@@ -122,6 +125,22 @@ function bury(rawTx: string, confirmations: number): { bundle: ProvenTx[]; txid:
   const { bundle, txid } = bury(rawTx, 6)
   const v = proveInscription(txid, 3, bundle, { minConfirmations: 6, net: 'regtest' })
   ok(!v.ok && v.reason === 'no-inscription', 'index 3 with no envelope is no-inscription')
+}
+
+// ── 6 · a WebP + rune etch (tag 13) still exists — same numbering as ord ──
+{
+  const body = Buffer.from('RIFF')
+  const runeEnv = Buffer.concat([
+    Buffer.from([0x00, 0x63]), push(Buffer.from('ord')),
+    push(Buffer.from([0x01])), push(Buffer.from('image/webp')),
+    push(Buffer.from([0x0d])), push(Buffer.from('abcdef')),
+    Buffer.from([0x00]), push(body), Buffer.from([0x68]),
+  ])
+  const rawTx = revealTx(scriptWith(runeEnv))
+  const { bundle, txid } = bury(rawTx, 6)
+  const v = proveInscription(txid, 0, bundle, { minConfirmations: 6, net: 'regtest' })
+  ok(v.ok && v.inscriptionId === `${txid}i0` && v.contentType === 'image/webp' && v.contentHash === sha256hex(body),
+    'a rune-tagged envelope is still the inscription at i0')
 }
 
 console.log(`\n✓ ${pass} checks passed — AN L1 INSCRIPTION, PROVEN FROM BYTES: the reveal is exactly its bytes, buried in a block that cost work to the required depth, and its envelope decodes to the claimed id and content — or it refuses and says which. Existence proven, ownership not claimed. ⌘`)

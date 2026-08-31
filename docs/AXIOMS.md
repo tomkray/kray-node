@@ -130,6 +130,9 @@ Reputation-free.
 
 An inscribed or named star can never again be spent as gas. Content is
 byte-unique in the whole universe; the first writer wins; no re-inscription.
+A second claim on the same name or the same bytes is not a star — at/after
+the unique-relic pin it is refused before any fire (the Buy fractal); below
+the pin a cursed birth may still burn, so history replays byte-identically (A3).
 
 ## A6 · Zero dependency, moored to Bitcoin
 

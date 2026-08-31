@@ -5,15 +5,17 @@
  * The eternal door: a star's exact bytes carved as a Bitcoin ordinal inscription,
  * SPV-proven from raw transactions inside the reducer, bound once, forever.
  * Broken here: wrong bytes, missing proof, tampered burial, wrong fee, bodyless
- * star, missing star, wrong index, double binding. Proven here: a stranger may
- * pay the seal (eternity is a fact, not a right), ownership never moves, the
- * cascade folds the binding, and a cold replay re-proves the carving byte-exact.
+ * star, missing star, wrong index, double binding, a stranger's injected seal,
+ * a clone paid to another key.
+ * Proven here: only the owner may eternize, the reveal paid that eternizer,
+ * ownership never moves, the cascade folds the binding, and a cold replay
+ * re-proves the carving byte-exact.
  */
 import { createHash } from 'node:crypto'
 import * as btc from '@scure/btc-signer'
 import { KrayLedger } from '../protocol/ledger.ts'
 import {
-  NETWORKS, _generateKeyPair, _signKrayWallet, _hexToBytes,
+  NETWORKS, _generateKeyPair, _signKrayWallet, _hexToBytes, scriptOfAddress,
   nameMessageV2, inscribeMessageV2, eternizeMessage,
 } from '../protocol/scheme.ts'
 import { sha256hex, TREASURY, type KrayEvent } from '../protocol/kray-primitives.ts'
@@ -40,13 +42,19 @@ function main() {
   const BODY = 'the-first-song — carved on the stone, alive in the cascade'
   const bodyHashHex = sha256hex(BODY)
   const coin = sha256hex('eternize-fixture-coin')
-  const reveal = revealWithEnvelope([{ txid: coin, vout: 0 }], [{ value: 10_000n, script: p2trFill(0x22) }], Buffer.from(BODY, 'utf8'))
+  const aScript = Buffer.from(scriptOfAddress(A.addr, 'regtest'), 'hex')
+  const eveScript = Buffer.from(scriptOfAddress(Eve.addr, 'regtest'), 'hex')
+  const reveal = revealWithEnvelope([{ txid: coin, vout: 0 }], [{ value: 10_000n, script: aScript }], Buffer.from(BODY, 'utf8'))
   const ID = `${txidOf(reveal)}i0`
   const BUNDLE: ProvenTx[] = [proven(reveal, 1)]
   // a second carving with DIFFERENT bytes — proven, buried, and still worthless for star #0
   const liar = revealWithEnvelope([{ txid: sha256hex('liar-coin'), vout: 0 }], [{ value: 10_000n, script: p2trFill(0x33) }], Buffer.from('a louder copy', 'utf8'))
   const LIAR_ID = `${txidOf(liar)}i0`
   const LIAR_BUNDLE: ProvenTx[] = [proven(liar, 1)]
+  // SAME bytes, paid to Eve — a clone. Bitcoin allows it; the book does not bind it.
+  const clone = revealWithEnvelope([{ txid: sha256hex('clone-coin'), vout: 0 }], [{ value: 10_000n, script: eveScript }], Buffer.from(BODY, 'utf8'))
+  const CLONE_ID = `${txidOf(clone)}i0`
+  const CLONE_BUNDLE: ProvenTx[] = [proven(clone, 1)]
 
   const L = new KrayLedger(undefined, NET)
   const journal: KrayEvent[] = []
@@ -106,14 +114,19 @@ function main() {
   tryBad(eternizeEv(A, '0', ID, [{ ...BUNDLE[0], headers: [] }]), /not proven/i, 'a tampered burial (stripped headers) is refused')
   tryBad(eternizeEv(A, '0', `${txidOf(reveal)}i1`, BUNDLE), /not proven/i, 'a wrong envelope index is refused — the id names ONE carving')
   tryBad(eternizeEv(A, '0', 'not-an-ordinal-id', BUNDLE), /inscription id/i, 'a malformed id is refused at the shape gate')
+  tryBad(eternizeEv(Eve, '0', ID, BUNDLE), /only the owner/i, 'a stranger cannot inject the seal — even with the true carving and 1 ₭')
+  tryBad(eternizeEv(A, '0', CLONE_ID, CLONE_BUNDLE), /not paid to the eternizer/i,
+    'a clone of the same bytes paid to another key cannot bind — only the eternizer\'s birth script')
+  tryBad(eternizeEv(Eve, '0', CLONE_ID, CLONE_BUNDLE), /only the owner/i,
+    'the clone holder is still not the owner — two holes, two refusals')
 
-  // ── the door opens: a STRANGER pays the seal (eternity is a fact, not a right) ──
+  // ── the door opens: the OWNER pays the seal ──
   const before = snap()
-  const evBalance = L.balanceOf(Eve.addr)
-  push(eternizeEv(Eve, '0', ID, BUNDLE))
+  const ownerBalance = L.balanceOf(A.addr)
+  push(eternizeEv(A, '0', ID, BUNDLE))
   ok(L.stars.star(0n)?.eternal === ID, 'star #0 now wears its eternal binding — the L1 carving id')
-  ok(L.stars.star(0n)?.owner === A.addr, 'ownership never moved — Eve bought availability, not the star')
-  ok(L.balanceOf(Eve.addr) === evBalance - 1n, 'Eve paid the eternal 1-₭ seal')
+  ok(L.stars.star(0n)?.owner === A.addr, 'ownership never moved — the seal buys availability, not the star')
+  ok(L.balanceOf(A.addr) === ownerBalance - 1n, 'the owner paid the eternal 1-₭ seal')
   ok(L.balanceOf(TREASURY).toString() === (BigInt(before.treasury) + 1n).toString(), 'the seal funds the guardians — 1 ₭ to the Treasury')
   ok(L.cascadeRoot() !== before.root, 'the cascade root folds the binding — the network remembers')
   ok(L.stars.starOfEternal(ID)?.toString() === '0', 'the desk index answers: this carving is eternal on star #0')

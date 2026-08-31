@@ -13,7 +13,7 @@ import { createHash } from 'node:crypto'
 import { krayOutspendGate, kraySatpointGate, liveHolderGate, parseSatpoint, proveParentControl } from '../protocol/ordinal-ancestry.ts'
 import { parseTx, checkProofOfWork, sha256d } from '../anchor/spv.ts'
 import type { ProvenTx } from '../protocol/rune-ancestry.ts'
-import { revealWithEnvelope, segwitTx, revealScript, ordEnvelope, REVEAL_CONTROL } from './ordinal-proof-fixture.ts'
+import { revealWithEnvelope, revealWithRuneEnvelope, segwitTx, revealScript, ordEnvelope, REVEAL_CONTROL } from './ordinal-proof-fixture.ts'
 
 let pass = 0
 function ok(cond: boolean, label: string): void {
@@ -86,6 +86,16 @@ const O = (conf = 6) => ({ minConfirmations: conf, net: 'regtest' })
   const bareHold = rawTx([{ txid: bareId, vout: 0 }], [{ value: 8_000n, script: AUTHOR }])
   const noEnv = proveParentControl(txidOf(bareHold), 0, 0n, AUTHOR_HEX, `${bareId}i0`, [proven(bare, 6), proven(bareHold, 6)], O())
   ok(!noEnv.ok && noEnv.reason === 'no-inscription', 'a reveal with no ord envelope is not a parent')
+
+  // Live Signet bug: a WebP + rune etch (tag 13) is still an inscription. The
+  // old lantern used inscriptionAt (strict) and painted no-inscription / yellow
+  // Bless while a plain SVG (tag 1 only) went green. Control counts as ord does.
+  const runeReveal = revealWithRuneEnvelope([{ txid: 'cc'.repeat(32), vout: 0 }], [{ value: 10_000n, script: OTHER }], Buffer.from('RIFF'))
+  const runeId = txidOf(runeReveal)
+  const runeHold = rawTx([{ txid: runeId, vout: 0 }], [{ value: 9_000n, script: AUTHOR }])
+  const runeHoldId = txidOf(runeHold)
+  const runeV = proveParentControl(runeHoldId, 0, 0n, AUTHOR_HEX, `${runeId}i0`, [proven(runeReveal, 6), proven(runeHold, 6)], O())
+  ok(runeV.ok && runeV.hops === 1, 'a WebP+rune etch (tag 13) still fathers after a send-to-self')
 
   // a shallow burial → refused
   const shallow = proveParentControl(t2id, 0, 0n, AUTHOR_HEX, `${rid}i0`, [proven(reveal, 6), proven(t1, 6), proven(t2, 2)], O(6))

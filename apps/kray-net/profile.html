@@ -453,12 +453,12 @@
     </div>
     <div id="i-metaform" style="margin-top:var(--s4)">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;margin:0 0 var(--s3)">
-        <div class="flab" style="margin:0">Document · optional JSON, sealed with the relic. Prose becomes a JSON string. Not the contract.</div>
-        <button type="button" class="btn" id="i-metapick" style="min-height:44px;flex:none" disabled>Upload JSON</button>
+        <div class="flab" style="margin:0">Document · optional JSON or Markdown, sealed with the relic. Prose becomes a JSON string. Not the contract.</div>
+        <button type="button" class="btn" id="i-metapick" style="min-height:44px;flex:none" disabled>Upload JSON / MD</button>
       </div>
-      <textarea class="input" id="i-metadata" rows="8" placeholder="{ }" spellcheck="false" disabled style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px"></textarea>
-      <input type="file" id="i-metafile" accept=".json,application/json,text/json" multiple hidden>
-      <div class="imeta" id="i-docbytes" style="margin-top:var(--s2)">0 / 8,192 bytes · empty is absence · or upload one JSON / a sidecar batch</div>
+      <textarea class="input" id="i-metadata" rows="8" placeholder="{ }  or  # Title" spellcheck="false" disabled style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px"></textarea>
+      <input type="file" id="i-metafile" accept=".json,.md,application/json,text/json,text/markdown,text/x-markdown,text/plain" multiple hidden>
+      <div class="imeta" id="i-docbytes" style="margin-top:var(--s2)">0 / 8,192 bytes · empty is absence · or upload one JSON / Markdown / a sidecar batch</div>
     </div>
     <div data-iparent style="margin-top:var(--s4)">
       <div class="flab">Parent · optional — give this star a lineage (cascaded provenance)</div>
@@ -1795,7 +1795,7 @@
       refreshMeta()
       if(box){ box.className='out'; box.textContent=got.note || ''; }
     }).catch(function(e){
-      if(box){ box.className='out err'; box.textContent='✗ '+((e&&e.message)||'JSON refused'); }
+      if(box){ box.className='out err'; box.textContent='✗ '+((e&&e.message)||'document refused'); }
     })
   }
   on('i-metapick','click',function(e){ e.preventDefault(); if(me===ADDR && $('i-metafile')) $('i-metafile').click(); });

@@ -21,7 +21,7 @@ import { StarRegistry } from './starmap.ts'
 import { NAME_MAX_BYTES } from './star-lore.ts'
 import { AnchoringPot, DEFAULT_POT_TARGET_SATS, MINT_CAP_SATS, WINDOW_PER_SEAL_SATS } from './pot.ts'
 import {
-  isSupportedScheme, toBtcNet, verifySignature, isAddressOnNetwork,
+  isSupportedScheme, toBtcNet, scriptOfAddress, verifySignature, isAddressOnNetwork,
   transferMessage, xSendMessage, cutSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, BODY_HASH_RE, ORIGIN_COHORT_MAX,
@@ -253,6 +253,24 @@ const SAME_INSTANT_ORDER_ACTIVATION_SEQ: Record<string, number> = {
   main: 0,
 }
 
+/**
+ * THE UNIQUE-RELIC LAW (ratified 2026-08-31): a second claim on the same name, the same
+ * content hash, or the same body hash is REFUSED before any fire — the Buy fractal
+ * (A5: first writer wins; a lost uniqueness race is not a star and does not burn).
+ * Below the seq a cursed birth still burns (A3 — journals that already scarred a
+ * paid-to-try attempt replay byte-identically). The official door already 409s
+ * without burning; at/after this pin the reducer speaks the same sentence.
+ *
+ * Pins: regtest and living signet stay MAX so goldens and any cursed scar replay
+ * exact (lab injects `KRAY_LAB_UNIQUE_RELIC_SEQ`; the rite pins signet at tip+margin
+ * after a disposable replay of THAT journal). main is empty genesis — born active (0).
+ */
+const UNIQUE_RELIC_REFUSE_SEQ: Record<string, number> = {
+  regtest: Number.MAX_SAFE_INTEGER,
+  signet: Number.MAX_SAFE_INTEGER,
+  main: 0,
+}
+
 /** ADR-3 eligibility opening — hard cap on the producedRoots lookback map (cascade root → {seq, inclusionRoot}).
  *  The seal case prunes below the last anchor seq, but a long PRE-activation run has no seals to prune, so this
  *  cap (evict-oldest) bounds memory regardless. Far larger than any real confirmation latency in events, so it
@@ -381,7 +399,7 @@ export class KrayLedger {
    *  be re-derived from these bytes. Historical events fall back to the bitmap. */
   readonly atlasBytes?: (hash: string) => Uint8Array | null
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -401,6 +419,7 @@ export class KrayLedger {
     this.sizeProportionSeq = sizeProportionSeq ?? (SIZE_PROPORTION_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.proofMandatorySeq = proofMandatorySeq ?? (PROOF_MANDATORY_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.runeAncestrySeq = runeAncestrySeq ?? (RUNE_ANCESTRY_MANDATORY_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.uniqueRelicRefuseSeq = uniqueRelicRefuseSeq ?? (UNIQUE_RELIC_REFUSE_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     // main pin 0 is the law itself (not a signaling): start at 10_000. Donate never
     // reads the rate — an empty-of-stars journal keeps its cascade.
     if (this.sizeProportionSeq === 0) {
@@ -456,6 +475,7 @@ export class KrayLedger {
   private readonly sizeProportionSeq: number        // 1 ₭/10 KB + 10 MB ceiling: below it, genesis 1 ₭/MB + 21 MB (A3)
   private readonly proofMandatorySeq: number        // PROOF MANDATORY: at/after it, an L1-peg event must EMBED its SPV proof (A3 below)
   private readonly runeAncestrySeq: number          // THE KEYSTONE: at/after it, a rune-deposit AND a rune-settle must EMBED the ancestry bundle (byte-pure input state)
+  private readonly uniqueRelicRefuseSeq: number     // THE UNIQUE-RELIC LAW: at/after it, a taken name/bytes refuse BEFORE fire (A3 below — cursed-burn still applies)
   /** THE JOURNAL'S ACCUMULATED TRUTH — outpoint → balances of ONE rune, re-derived by earlier
    *  proven deposits. Scoped per rune (the etch-root shortcut is exact only for the focused rune,
    *  so one rune's memo must never answer for another). Re-built identically on every replay from
@@ -600,6 +620,24 @@ export class KrayLedger {
     // THE SAME-INSTANT LAW — checked BEFORE any mutation: at the live door this refuses the act (the
     // gate re-instants it); on a forged journal the same throw HALTs every follower at this event.
     this.assertSameInstantOrder(e, this._pendingInclusionKey)
+  }
+
+  /** THE UNIQUE-RELIC LAW — A5 spoken at the reducer, same sentence as the door's 409.
+   *  Below the pin this is a no-op (cursed-burn remains the historical scar). At/after it a
+   *  taken name, content hash, or body hash throws BEFORE stars.applyLive / burn / nonce. */
+  private assertUniqueRelicFree(e: KrayEvent): void {
+    if (e.seq < this.uniqueRelicRefuseSeq) return
+    if (e.kind === 'name' && typeof e.name === 'string' && this.stars.isNameTaken(e.name)) {
+      throw new Error('ledger: that name is already taken — a name is written once, forever')
+    }
+    if (e.kind === 'inscribe' || e.kind === 'origin') {
+      if (e.contentHash && this.stars.isContentTaken(e.contentHash)) {
+        throw new Error('ledger: that exact content is already inscribed — every byte is unique in the universe')
+      }
+      if (e.bodyHash && this.stars.isBodyTaken(e.bodyHash)) {
+        throw new Error('ledger: that exact work is already inscribed — the skeleton is unique in the universe')
+      }
+    }
   }
 
   /** THE SAME-INSTANT LAW (docs/SAME-INSTANT-ORDER-DECISION.md). At/after the activation seq every
@@ -1560,6 +1598,9 @@ export class KrayLedger {
             throw new Error('ledger: that exact work is already inscribed — the skeleton is unique in the universe')
           }
         }
+        // THE UNIQUE-RELIC LAW — every birth/add, not only a mint child. Below the pin this
+        // returns; at/after it a same-tick loser keeps every ₭ (the Buy fractal).
+        this.assertUniqueRelicFree(e)
         // L1 ORDINAL PARENT — proveParentControl from Bitcoin bytes (enforced twice:
         // the HTTP door attaches/verifies the bag; the reducer re-proves on every
         // apply and replay). A signed origins list without a bag is not a parent.
@@ -2337,8 +2378,12 @@ export class KrayLedger {
         if (!est) throw new Error(`ledger: star #${e.star} does not exist`)
         if (!est.contentHash) throw new Error('ledger: a star with no content has no bytes to eternize — carve the body first')
         if (est.eternal) throw new Error(`ledger: star #${e.star} is already eternal — one binding, forever`)
+        // OWNER-ONLY (Creator, 2026-08-31). A stranger who carves the same bytes on L1
+        // first, or injects a line into their own node, still cannot bind: requireSig
+        // binds `from` to a real key; this line requires that key to BE the holder.
+        // A private journal that skips this is not the book — followers re-prove.
+        if (est.owner !== e.from) throw new Error(`ledger: only the owner of star #${e.star} may eternize`)
         // THE PROOF — the reveal's carved bytes must BE this star's bytes, buried under real work.
-        // Anyone may prove (a fan can eternize an artist's star): eternity is a fact, not a right.
         if (!Array.isArray(e.eternalProof) || e.eternalProof.length === 0) throw new Error('ledger: eternize carries its own SPV bundle — no proof, no eternity')
         const [revealTxid, idxStr] = e.l1InscriptionId.split('i')
         const verdict = proveInscription(revealTxid, Number(idxStr), e.eternalProof as ProvenTx[], {
@@ -2346,6 +2391,15 @@ export class KrayLedger {
         })
         if (!verdict.ok) throw new Error(`ledger: the L1 carving is not proven (${verdict.reason}) — refused`)
         if (verdict.contentHash !== est.contentHash) throw new Error('ledger: the carved bytes are not this star\'s bytes — byte-for-byte or nothing')
+        // PAID TO THE ETERNIZER — the reveal output that received the sat must be
+        // `from`'s script (the owner who seals, this instant). Owner changes later;
+        // this line does not chase them. A clone born to another key cannot bind.
+        let eternizerScript: string
+        try { eternizerScript = scriptOfAddress(e.from, toBtcNet(this.network)).toLowerCase() }
+        catch { throw new Error('ledger: cannot derive the eternizer script from `from`') }
+        if (!verdict.paidScriptHex || verdict.paidScriptHex.toLowerCase() !== eternizerScript) {
+          throw new Error('ledger: the L1 carving was not paid to the eternizer — a clone in another wallet cannot bind')
+        }
         // ── validated → mutate, atomically: 1 ₭ → Treasury, the star gains its eternal binding ──
         this.commitNonce(e)
         this.balances.set(e.from, this.balanceOf(e.from) - efee)

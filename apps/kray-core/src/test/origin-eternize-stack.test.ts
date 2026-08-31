@@ -5,11 +5,13 @@
  * The flow the Creator asked to prove end-to-end (docs/ETERNIZE.md § stack):
  *   1 · Alice holds an L1 ordinal (two-hop blessing) whose carved bytes ARE the body.
  *   2 · The trunk star is born via origin: paternity proven from the SPV bag.
- *   3 · A fan eternizes the SAME star against the SAME inscription id, reusing the
- *       SAME ProvenTx (bundle[0] of the blessing) — one bag of bytes, two facts.
+ *   3 · The OWNER eternizes the SAME star against the SAME inscription id
+ *       (reveal paid to Alice). A fan with the true bag and 1 ₭ is refused.
  *   4 · A child star derives from the trunk (KRAY lineage, own body).
  *   5 · The trunk sells; owner moves; origin + eternal survive untouched.
- *   6 · A cold replay re-proves BOTH proofs from the journal, byte-exact.
+ *   6 · A second trunk: born → sold → buyer cannot wear Alice's stone;
+ *       they carve to themselves, then eternize.
+ *   7 · A cold replay re-proves BOTH proofs from the journal, byte-exact.
  * Broken in-stack: eternizing the child against the father's id (different bytes),
  * a second binding, a stranger's blessing theft after the eternize.
  */
@@ -21,7 +23,7 @@ import {
   inscribeMessageV3, sendStarMessage, eternizeMessage,
 } from '../protocol/scheme.ts'
 import { sha256hex, TREASURY, type KrayEvent } from '../protocol/kray-primitives.ts'
-import { authorHeldOriginProof } from './ordinal-proof-fixture.ts'
+import { authorHeldOriginProof, revealHeldOriginProof } from './ordinal-proof-fixture.ts'
 import type { ProvenTx } from '../protocol/rune-ancestry.ts'
 
 const NET = 'regtest'
@@ -72,7 +74,7 @@ function main() {
   const SONG = 'genesis-song'   // the ordinal's carved content AND the trunk star's body
   const chSong = sha256hex(SONG)
   const sizeSong = Buffer.byteLength(SONG, 'utf8')
-  const held = authorHeldOriginProof(scriptOfAddress(A.addr, NET), { confirmations: 1, salt: SONG })
+  const held = authorHeldOriginProof(scriptOfAddress(A.addr, NET), { confirmations: 1, salt: SONG, revealPaysAuthor: true })
   const revealProven = held.proof.bundle[0]   // the SAME ProvenTx will serve the eternize
 
   // ── 2 · trunk born via origin — paternity proven from the bag ──
@@ -83,12 +85,14 @@ function main() {
   ok(L.stars.star(0n)?.origins?.[0]?.l1InscriptionId === held.parentId, 'trunk is born of the L1 father — blessing proven in the reducer')
   ok(L.stars.star(0n)?.eternal === undefined, 'origin did NOT fill the eternal slot — separate facts, separate acts')
 
-  // ── 3 · the fan eternizes the trunk against the SAME id, reusing the SAME proven reveal ──
+  // ── 3 · a fan with the true bag is refused; the OWNER seals ──
+  tryBad(eternizeEv(Fan, '0', held.parentId, [revealProven]), /only the owner/i,
+    'a fan cannot inject the seal — even with the true carving and 1 ₭')
   const rootBefore = L.cascadeRoot()
-  push(eternizeEv(Fan, '0', held.parentId, [revealProven]))
+  push(eternizeEv(A, '0', held.parentId, [revealProven]))
   ok(L.stars.star(0n)?.eternal === held.parentId, 'eternal slot filled with the SAME id as origin — dual citizenship on one star')
   ok(L.stars.star(0n)?.origins?.[0]?.l1InscriptionId === held.parentId, 'origin untouched by the eternize — the slots never fight')
-  ok(L.stars.star(0n)?.owner === A.addr, 'the fan paid the seal; Alice keeps the star')
+  ok(L.stars.star(0n)?.owner === A.addr, 'Alice sealed her own star — ownership never moved')
   ok(L.cascadeRoot() !== rootBefore, 'the cascade folds the second fact')
 
   // ── 4 · a child derives from the trunk — its own body, KRAY lineage ──
@@ -121,15 +125,22 @@ function main() {
   // ── 6 · a second trunk proves order-independence: born → sold → THEN eternized ──
   const SONG2 = 'second-anthem'
   const ch2 = sha256hex(SONG2)
-  const held2 = authorHeldOriginProof(scriptOfAddress(A.addr, NET), { confirmations: 1, salt: SONG2 })
+  const held2 = authorHeldOriginProof(scriptOfAddress(A.addr, NET), { confirmations: 1, salt: SONG2, revealPaysAuthor: true })
   push(sign(A, {
     kind: 'inscribe', hash: 'trunk2', contentHash: ch2, contentType: 'text/plain', size: Buffer.byteLength(SONG2),
     origins: [held2.parentId], originProofs: [held2.proof],
   }, (n) => inscribeMessageV3(NET, A.addr, ch2, 'text/plain', Buffer.byteLength(SONG2), [], [held2.parentId], n)))
   push(sign(A, { kind: 'transfer-star', hash: 'sale2', to: B.addr, star: '2', fee: '1' },
     (n) => sendStarMessage(NET, A.addr, B.addr, 2n, n)))
-  push(eternizeEv(Fan, '2', held2.parentId, [held2.proof.bundle[0]]))
-  ok(L.stars.star(2n)?.eternal === held2.parentId, 'eternize lands AFTER the sale too — anyone, anytime, once')
+  tryBad(eternizeEv(A, '2', held2.parentId, [held2.proof.bundle[0]]), /only the owner/i,
+    'after the sale the previous holder cannot eternize — the mouth travels with the face')
+  tryBad(eternizeEv(Fan, '2', held2.parentId, [held2.proof.bundle[0]]), /only the owner/i,
+    'a fan still cannot inject the seal after the sale')
+  tryBad(eternizeEv(B, '2', held2.parentId, [held2.proof.bundle[0]]), /not paid to the eternizer/i,
+    'the buyer cannot bind Alice\'s birth stone — that reveal paid the previous eternizer, not B')
+  const stoneB = revealHeldOriginProof(scriptOfAddress(B.addr, NET), { confirmations: 1, salt: SONG2 })
+  push(eternizeEv(B, '2', stoneB.parentId, [stoneB.proof.bundle[0]]))
+  ok(L.stars.star(2n)?.eternal === stoneB.parentId, 'eternize lands AFTER the sale — the new owner carves to themselves, once')
 
   // ── 7 · the cold replay re-proves the blessing AND the carving from the journal alone ──
   const R = new KrayLedger(undefined, NET)
@@ -138,7 +149,7 @@ function main() {
   ok(R.stars.star(0n)?.eternal === held.parentId && R.stars.star(0n)?.origins?.[0]?.l1InscriptionId === held.parentId,
     'replay carries origin + eternal on the trunk')
   ok(R.stars.childrenOfOrigin(held.parentId).map(String).join(',') === '0', 'the L1 father still indexes his daughter')
-  ok(R.stars.starOfEternal(held.parentId)?.toString() === '0' && R.stars.starOfEternal(held2.parentId)?.toString() === '2',
+  ok(R.stars.starOfEternal(held.parentId)?.toString() === '0' && R.stars.starOfEternal(stoneB.parentId)?.toString() === '2',
     'replay rebuilds the eternal index — the desk detects a taken carving on any node')
   ok(R.conserves() && L.conserves(), 'Σ conserves on both walks')
 

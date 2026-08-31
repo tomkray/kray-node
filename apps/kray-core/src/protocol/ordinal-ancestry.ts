@@ -31,13 +31,15 @@
  *     main, the KRAY API outspend/satpoint KrayScan already uses. A sold parent
  *     — confirmed or only in the mempool — cannot father a new child.
  *
- * The reveal MUST carry an `ord` envelope at the claimed index (`inscriptionAt`).
- * No pointer → the inscription sat is the first sat of the outputs (offset 0).
- * Pointer (tag 2) → land on that sat. `iN` without a pointer is refused
+ * The reveal MUST carry an `ord` envelope at the claimed index
+ * (`inscriptionAtLoose` — same numbering as `ord`). A rune etch (tag 13), a
+ * parent tag, or metadata still IS an inscription; only delegate / content-
+ * encoding rewrite the body and stay refused. No pointer → sat 0. Pointer
+ * (tag 2) → land on that sat. `iN` without a pointer is refused
  * (sequential assignment is not guessed).
  */
 import { MIN_BLOCK_WORK, checkProofOfWork, parseHeader, parseTx, verifyTxOutProof } from '../anchor/spv.ts'
-import { inscriptionAt, pointerSatOf, satpointInOutputs } from './inscription.ts'
+import { inscriptionAtLoose, pointerSatOf, satpointInOutputs } from './inscription.ts'
 import type { ProvenTx } from './rune-ancestry.ts'
 import { scriptOfAddress, toBtcNet } from './scheme.ts'
 
@@ -230,7 +232,7 @@ export function proveParentControl(
     const revealRaw = rawByTxid.get(revealTxid)
     if (!reveal || !revealRaw) return { ok: false, reason: 'reveal-missing' }
     let decoded
-    try { decoded = inscriptionAt(revealRaw, revealIndex) } catch (_) { return { ok: false, reason: 'malformed' } }
+    try { decoded = inscriptionAtLoose(revealRaw, revealIndex) } catch (_) { return { ok: false, reason: 'malformed' } }
     if (!decoded) return { ok: false, reason: 'no-inscription' }
     const pointer = pointerSatOf(decoded.tags)
     if (pointer === null && revealIndex !== 0) return { ok: false, reason: 'bad-parent-id' }

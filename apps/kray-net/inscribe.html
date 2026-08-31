@@ -113,7 +113,7 @@
       <div data-ipane="media" hidden>
         <div class="field">
           <label>File · Single or Batch. We place each one. You check the ₭, then sign.</label>
-          <div class="drop" id="e-drop"><b>Drop here</b><span>Any file — size quotes the ticket at once. Batch = the folder as a collection. JSON sits on its pair.</span>
+          <div class="drop" id="e-drop"><b>Drop here</b><span>Any file — size quotes the ticket at once. Batch = the folder as a collection. JSON or MD sits on its pair.</span>
             <div class="ibatch-pick">
               <button type="button" class="btn" id="e-pick"><small>Single</small><span>one file</span></button>
               <button type="button" class="btn" id="e-pickdir"><small>Batch</small><span>folder</span></button>
@@ -219,12 +219,12 @@
       <div class="card tick" id="i-metaform" hidden style="margin-top:var(--s5);padding:var(--s5)">
         <div class="field" style="margin:0">
           <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:var(--s3);flex-wrap:wrap;margin:0 0 var(--s3)">
-            <label for="i-metadata" style="margin:0">Document · optional JSON, sealed with the relic. Prose becomes a JSON string. Not the contract.</label>
-            <button type="button" class="btn" id="i-metapick" style="min-height:44px;flex:none">Upload JSON</button>
+            <label for="i-metadata" style="margin:0">Document · optional JSON or Markdown, sealed with the relic. Prose becomes a JSON string. Not the contract.</label>
+            <button type="button" class="btn" id="i-metapick" style="min-height:44px;flex:none">Upload JSON / MD</button>
           </div>
-          <textarea class="input" id="i-metadata" rows="8" placeholder="{ }" spellcheck="false" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px"></textarea>
-          <input type="file" id="i-metafile" accept=".json,application/json,text/json" multiple hidden>
-          <div class="imeta" id="i-docbytes" style="margin-top:var(--s2)">0 / 8,192 bytes · empty is absence · or upload one JSON / a sidecar batch</div>
+          <textarea class="input" id="i-metadata" rows="8" placeholder="{ }  or  # Title" spellcheck="false" style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px"></textarea>
+          <input type="file" id="i-metafile" accept=".json,.md,application/json,text/json,text/markdown,text/x-markdown,text/plain" multiple hidden>
+          <div class="imeta" id="i-docbytes" style="margin-top:var(--s2)">0 / 8,192 bytes · empty is absence · or upload one JSON / Markdown / a sidecar batch</div>
         </div>
       </div>
 
@@ -956,7 +956,7 @@
       out.textContent=got.note || ''
     }).catch(function(e){
       out.className='iout err'
-      out.textContent='✗ '+((e&&e.message)||'JSON refused')
+      out.textContent='✗ '+((e&&e.message)||'document refused')
     })
   }
   var pick=$('e-pick'), pickdir=$('e-pickdir');

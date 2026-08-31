@@ -14,10 +14,9 @@
  *   · the envelope at index N decodes to this content-type and this content
  *   · therefore inscriptionId = <reveal_txid>iN and contentHash = sha256(content)
  *
- * NOT PROVEN HERE (see docs/ORIGIN.md): which satoshi the inscription rode, or
- * who holds it now. That is ordinal sat-tracking. An origin binding pairs this
- * existence proof with the binder's SIGNED consent and names ownership as
- * asserted, never as proven.
+ * ALSO EXPOSED (for eternize, not for current custody): `paidScriptHex` —
+ * the reveal output that received the inscribed sat at birth. Who holds
+ * the sat *now* is still not proven here (see docs/ORIGIN.md).
  *
  * Fail-closed: a missing tx, an unproven one, a shallow burial, a header nobody
  * paid for, or an envelope that is not there — all refuse and say which. Reuses
@@ -25,7 +24,7 @@
  * mechanism, not two.
  */
 import { MIN_BLOCK_WORK, checkProofOfWork, parseHeader, parseTx, verifyTxOutProof } from '../anchor/spv.ts'
-import { inscriptionAt } from './inscription.ts'
+import { inscriptionAtLoose, pointerSatOf, satpointInOutputs } from './inscription.ts'
 import type { ProvenTx } from './rune-ancestry.ts'
 
 export type InscriptionRefusal =
@@ -43,6 +42,8 @@ export interface InscriptionVerdict {
   content?: Buffer
   /** how many blocks the proof shows burying the reveal */
   confirmations?: number
+  /** scriptPubKey hex of the reveal output that received the inscription sat */
+  paidScriptHex?: string
 }
 
 export interface InscriptionProofOptions {
@@ -96,8 +97,16 @@ export function proveInscription(
 
   // 2 · the envelope at the claimed index — decoded from the reveal's own witness
   let decoded
-  try { decoded = inscriptionAt(tx.rawTx, index) } catch (_) { return { ok: false, reason: 'tx-malformed' } }
+  try { decoded = inscriptionAtLoose(tx.rawTx, index) } catch (_) { return { ok: false, reason: 'tx-malformed' } }
   if (!decoded) return { ok: false, reason: 'no-inscription' }
+
+  // WHICH OUTPUT received the inscribed sat at birth (pointer, or sat 0).
+  // Eternize requires this script to BE the eternizer's — not "whoever owns
+  // the star later". A clone paid to another key cannot bind.
+  const abs = pointerSatOf(decoded.tags) ?? 0n
+  const land = satpointInOutputs(entry.p.outputValues, abs)
+  if (!land) return { ok: false, reason: 'no-inscription' }
+  const paidScriptHex = entry.p.outputScripts[land.vout].toString('hex')
 
   return {
     ok: true,
@@ -107,5 +116,6 @@ export function proveInscription(
     size: decoded.size,
     content: decoded.content,
     confirmations: tx.headers.length,
+    paidScriptHex,
   }
 }

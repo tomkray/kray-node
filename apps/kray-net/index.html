@@ -120,9 +120,15 @@
     var WORKS = [], ENTRIES = [], BYHASH = {}
 
     function isImageType(ct) { return !!ct && /^image\//i.test(ct) }
+    function coverSrc(url) {
+      var m = String(url || '').match(/\/(?:content|cover|render)\/([0-9a-f]{64})/i)
+      return m ? '/cover/' + m[1].toLowerCase() : null
+    }
     function thumbFor(url, category, ct) {
       var img = (category === 'image' || category === 'vector' || isImageType(ct))
-      if (img && url) return { html: '<img loading="lazy" src="' + esc(url) + '" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.outerHTML=\'<span class=&quot;glyph&quot;>' + (GLYPH[category] || '◇') + '</span>\'">', img: true }
+      var music = (category === 'audio' || /^audio\//i.test(String(ct || '')))
+      var src = img && url ? url : (music ? coverSrc(url) : null)
+      if (src) return { html: '<img loading="lazy" src="' + esc(src) + '" alt="" onerror="this.parentNode.classList.add(\'noimg\');this.outerHTML=\'<span class=&quot;glyph&quot;>' + (GLYPH[category] || '◇') + '</span>\'">', img: true }
       var letter = url && (/^text\//i.test(ct) || /json|javascript|xml|markdown|csv|yaml|html|x-python|x-java/i.test(ct))
       if (letter) return { html: '<div class="kv-hyd" data-kvurl="' + esc(url) + '" data-kvct="' + esc(ct || '') + '"></div>', img: true }
       return { html: '<span class="glyph">' + (GLYPH[category] || '◇') + '</span>', img: false }
@@ -225,7 +231,7 @@
       ;(lib.shelves || []).forEach(function (sh) {
         var c = shelf[sh.id] || 0
         if (!c) return
-        tabs.push('<button class="ex-tab" data-cat="' + esc(sh.id) + '">' + esc(sh.glyph || GLYPH[sh.id] || '◇') + ' ' + esc(sh.label || sh.id) + ' (' + c + ')</button>')
+        tabs.push('<button class="ex-tab" data-cat="' + esc(sh.id) + '">' + esc(sh.glyph || GLYPH[sh.id] || '◇') + ' ' + esc(sh.id === 'audio' ? 'Music' : (sh.label || sh.id)) + ' (' + c + ')</button>')
       })
       $('shelves').innerHTML = tabs.join('')
       $('shelves').addEventListener('click', function (e) {

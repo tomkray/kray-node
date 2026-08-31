@@ -1,5 +1,12 @@
 # The Atemporality Audit — is KRAY.NETWORK sound to be lived for long life?
 
+> **↑ 2026-08-29 — THE KEYSTONE IS NOW CLOSED.** The one load-bearing condition this 2026-08-14
+> verdict names below — *proof-of-burn living in consensus, not at the door* — has since been wired
+> and proven, ratified in the twin rebirth (both books reborn strict at genesis). The 2026-08-14
+> record is kept intact as history; the update, with receipts and the 30-year doctrine, is in
+> **"UPDATE — the keystone is CLOSED"** just below the path. *Math-proven, anyone-can-verify is now
+> true for the peg itself.*
+
 > **Status: VERDICT (2026-08-14).** A council of nine wisdom-lenses (Satoshi · Lamport · Merkle ·
 > Nash · Shannon · Newton · Szabo · Turing · da Vinci) audited every mechanism against the real
 > code, then two grand adversaries tried to refute the strongest claims, and a chair delivered the
@@ -111,6 +118,65 @@ into the consensus reducer and into the anchored root — the one keystone.
 4. **Align `AXIOMS.md` to the code** — say exactly what is re-proven on replay today vs door-only.
 5. **Two one-liners:** a post-apply `conserves()` assert with HALT (makes A1 literally true); re-label
    `backed()`'s comment as "bookkeeping consistency," not "the peg."
+
+---
+
+## UPDATE — the keystone is CLOSED, and the 30-year doctrine (2026-08-29)
+
+**The one load-bearing condition above is now MET: the peg lives in consensus.** Ratified in the twin
+rebirth (2026-08-28) — signet and mainnet reborn at 0 events, both `PROOF_MANDATORY_SEQ = 0`, **born
+strict at genesis** (`ledger.ts:87-91`). The reducer refuses any `donate` / `rune-deposit` /
+`rune-settle` that does not embed its own L1 SPV proof, and re-verifies that proof **FROM BYTES on every
+apply and replay** (`verifyDonationProof`, `ledger.ts:857-890`; rune paths `:1611`, `:1791`); a
+self-anchoring keyless burn re-derives its expected script by *mathematics* (BIP-341 pay-to-contract on
+the NUMS point), never by a claim. The rune peg is re-proven to its own etch, ancestry re-run link by
+link under weighed Bitcoin work (`RUNE_ANCESTRY_MANDATORY`, `rune-ancestry.ts`). **The cascade root now
+commits the CAUSE, not just the result.** Proven: `donate-consensus-proof` 8/8, `rune-consensus-proof`
+17/17, `donate-proof-gate` 5/5 ("a forgeable proof mints nothing"). Because both books were reborn clean
+at 0, the journal can **never** contain a proofless mint — the closure is total, not grandfathered. The
+2026-08-14 "one aspiration" is retired, and the Supreme Law's prose (*re-proven on every replay*) is now
+literally true for the L1 peg it once only aspired to.
+
+### The five pillars of the 30-year life — each is the removal of one *living* dependency
+
+> Atemporality = remove every living human — writer, guardian, operator — and the network still stands,
+> re-derivable from Bitcoin + the bytes alone, unattackable, forever. The only dependency is **Bitcoin +
+> mathematics**: *KRAY cannot fail in a way Bitcoin would not.*
+
+1. **The peg in consensus — ✅ CLOSED (this update).** A stranger re-derives every ₭ from a real burned
+   satoshi, no operator trusted. Mainnet is born with it. *(Removes: trusting the writer's word on supply.)*
+2. **The pen is a role, not a machine — DESIGNED, and DORMANT by design (NOT a gate for ignition).**
+   Bitcoin decides who wrote the window; every replica computes the rule identically; a signed act
+   survives writer-death (inbox); censorship is a Bitcoin-checkable fact (ADR-3 3a–3d live). Slice 3e
+   (the silence clock + successor race, `succession.ts`) is a **proven pure rule wired into no live path
+   — and it stays dormant until the 30-year door**, because turning it on changes behaviour and
+   "same but better" holds only while it sleeps. Destination LOCKED (`MULTI-WRITER-OBJECTIVE.md`), for
+   LATER — real value ignites under the single writer first. *(Removes: the single writer — later.)*
+3. **Custody becomes covenant — timelock floor today, covenant endgame.** The depositor's unilateral
+   timelock escape means value is never permanently locked even if every key vanishes; the honest ceiling
+   is *can't-steal-only-censor*. The endgame is a covenant-enforced vault (no living signer) the day
+   Bitcoin gains the opcodes. Kept honest until then by `verify-guardian-keys.sh` + `docs/GUARDIAN-KEYS.md`.
+   *(Removes: the living guardian/owner keys.)*
+4. **Quantum-agility — built, must be TIMED.** ML-DSA (FIPS-204) + Lamport recovery are real, not stubs;
+   SHA-256 survives Grover (still 128-bit). This is the one pillar that cannot be done late — the
+   migration must stay robust and activatable *before* a quantum computer can forge secp256k1. Keep it warm.
+   *(Removes: the mortality of the signature curve.)*
+5. **Availability + re-implementability — bounded and spec'd.** Integrity is eternal on Bitcoin; content
+   is hash-addressed; capacity is bounded in consensus — **≤ 10 MB per star** since the 2026-08-25
+   proportion ceiling (`MAX_INSCRIPTION_PROPORTION`; the genesis-era 21 MB stays frozen only so old
+   stars replay byte-identically, A3), and the retarget steers the average to ~1 MB/seal (~52 GB/yr) —
+   so many honest replicas can hold the whole book forever; and A3 grow-only + the axioms as a language-independent spec
+   let any future runtime re-derive it byte-identically. Consensus must never depend on Node.js.
+   *(Removes: the rot of the bytes and the runtime.)*
+
+**Two doors, kept separate:** *ignition* (real value, one writer) needs only Pillar 1 — a clean pack, the
+born-strict peg, and a **new vault + new guardians**; pillars 2–5 are the **locked 30-year destination**,
+sequenced only after real value flows — never a gate for ignition, never this-week's work. Near the
+irreversible door: converge, not expand.
+
+*The keystone rail is laid; ignition needs only the new vault + new guardians.* ⛓₭
+
+---
 
 <a name="the-custody-study"></a>
 ## Appendix — the custody multiplier (separate study, consolidated 2026-08-14)
