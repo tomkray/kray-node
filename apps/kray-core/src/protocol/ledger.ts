@@ -135,16 +135,16 @@ const DONATION_SCRIPT_LAW_SEQ: Record<string, number> = {
   main: 0,
 }
 
-/** RUNE-BOOK OPEN (Porta 2, 2026-09-01) — at/after this seq, rune-* and amm-* may apply.
+/** RUNE-BOOK OPEN (Porta 2) — at/after this seq, rune-* and amm-* may apply.
  *  Below it the bakery is dark: the event is refused before the case runs.
- *  Main is MAX (₭-only ignition — BOOK-AND-APPS §1; empty, perfect from the first act).
- *  Signet and regtest stay 0 so the test universes can rehearse the bakery.
- *  Unknown net → MAX (fail-closed). Lowering main is a later house act, not an env lantern.
+ *  Creator-ratified open on main at 0 (2026-09-01): the federation was already
+ *  wired; the pin was the only gate. Empty genesis → A3-safe. Signet/regtest
+ *  stay 0. Unknown net → MAX (fail-closed). Lab pin may darken a bench.
  *  Exported so the HTTP door asks the same table the reducer uses (no second pin). */
 export const RUNE_BOOK_OPEN_SEQ: Record<string, number> = {
   regtest: 0,
   signet: 0,
-  main: Number.MAX_SAFE_INTEGER,
+  main: 0,
 }
 
 export const RUNE_BOOK_KINDS = new Set([
@@ -536,7 +536,7 @@ export class KrayLedger {
   private readonly runeAncestrySeq: number          // THE KEYSTONE: at/after it, a rune-deposit AND a rune-settle must EMBED the ancestry bundle (byte-pure input state)
   private readonly mintWitnessSeq: number           // THE MINT-WITNESS LAW: at/after it, an ancestry may terminate at a witnessed mint of the focused rune
   private readonly donationScriptSeq: number        // DONATION-SCRIPT LAW: at/after it, expected burn script is NUMS / refuse classic — not env (A3 below)
-  private readonly runeBookOpenSeq: number          // PORTA 2: below it, rune-* / amm-* refuse (main dark; signet/regtest open)
+  private readonly runeBookOpenSeq: number          // PORTA 2: below it, rune-* / amm-* refuse (all nets born open at 0)
   private readonly digitLawSeq: number              // DIGIT LAW: at/after it, set / isqrt / args refuse past 78 digits
   private readonly uniqueRelicRefuseSeq: number     // THE UNIQUE-RELIC LAW: at/after it, a taken name/bytes refuse BEFORE fire (A3 below — cursed-burn still applies)
   /** THE JOURNAL'S ACCUMULATED TRUTH — outpoint → balances of ONE rune, re-derived by earlier

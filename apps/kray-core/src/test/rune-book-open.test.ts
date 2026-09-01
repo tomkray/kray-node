@@ -1,9 +1,9 @@
 /**
- * PORTA 2 — RUNE BOOK OPEN: main is dark; signet and regtest stay open.
+ * PORTA 2 — RUNE BOOK OPEN: all named nets born open at 0; MAX is a lab pin.
  *   node src/test/rune-book-open.test.ts
  *
  * Below the pin, rune-* and amm-* refuse before the case. ₭ donate is not
- * a rune-book kind. Signet/regtest default 0 = living benches do not fork (A3).
+ * a rune-book kind. Creator ratified main = 0 (2026-09-01) — empty genesis.
  */
 import { createHash } from 'node:crypto'
 import * as btc from '@scure/btc-signer'
@@ -30,14 +30,22 @@ const pinned = (net: string, open: number) =>
   new KrayLedger(undefined, net, undefined, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, open)
 
 function main() {
-  console.log('\n╔═ PORTA 2 — RUNE BOOK OPEN: main dark, benches live ═╗\n')
+  console.log('\n╔═ PORTA 2 — RUNE BOOK OPEN: named nets born open; MAX is a pin ═╗\n')
 
-  rejects(() => new KrayLedger(undefined, 'main').applyLive(deposit(1)), DARK, 'P2-01 default main refuses rune-deposit')
-  rejects(() => new KrayLedger(undefined, 'main').applyLive(amm(1)), DARK, 'P2-02 default main refuses amm-add')
+  rejects(
+    () => new KrayLedger(undefined, 'main').applyLive(deposit(1)),
+    /proof-mandatory activation a rune deposit/,
+    'P2-01 default main enters the rune case — the book is open (proof-mandatory is the next gate)',
+  )
+  rejects(
+    () => new KrayLedger(undefined, 'main').applyLive(amm(1)),
+    /amm-add|insufficient|nonce|not on this L2|fee/,
+    'P2-02 default main enters the amm case — not the dark-book sentence',
+  )
   rejects(
     () => new KrayLedger(undefined, 'main').applyLive({ seq: 1, kind: 'rune-exit', hash: 'e', from: 'x', runeId: '840000:1', amount: '1', l1Address: 'bc1q', fee: '1', nonce: 0 } as unknown as KrayEvent),
-    DARK,
-    'P2-03 default main refuses rune-exit',
+    /rune-exit needs|l1Address|insufficient|nonce|supported signature/,
+    'P2-03 default main enters rune-exit — the book is open',
   )
 
   rejects(
@@ -52,11 +60,7 @@ function main() {
   )
 
   rejects(() => pinned('regtest', MAX).applyLive(deposit(1)), DARK, 'P2-06 injected MAX on regtest is dark (lab pin)')
-  rejects(
-    () => pinned('main', 0).applyLive(deposit(1)),
-    /proof-mandatory activation a rune deposit/,
-    'P2-07 main forced open still hits proof-mandatory — dark is the first gate, not a rewrite of the peg',
-  )
+  rejects(() => pinned('main', MAX).applyLive(deposit(1)), DARK, 'P2-07 injected MAX on main is dark — the pin is still a real gate')
 
   const sk = createHash('sha256').update('rbook|a').digest()
   const A = btc.p2tr(_hexToBytes(_generateKeyPair(sk).publicKeyHex), undefined, NETWORKS.regtest).address!
@@ -64,11 +68,11 @@ function main() {
   L.applyLive({ seq: 1, kind: 'donate', hash: 'k', to: A, amount: '10' } as KrayEvent)
   ok(L.balanceOf(A) === 10n && L.conserves(), 'P2-08 a ₭ donate still applies on the open bench')
 
-  ok(!new KrayLedger(undefined, 'main').runeBookIsOpen(1), 'P2-09 default main door/reducer share dark')
+  ok(new KrayLedger(undefined, 'main').runeBookIsOpen(1), 'P2-09 default main door/reducer share open')
   ok(new KrayLedger(undefined, 'signet').runeBookIsOpen(1), 'P2-10 default signet door/reducer share open')
   ok(new KrayLedger(undefined, 'regtest').runeBookIsOpen(1), 'P2-11 default regtest door/reducer share open')
 
   if (fail) { console.error(`\n✗ ${fail} failed, ${pass} passed`); process.exit(1) }
-  console.log(`\n╚═ ${pass} passed — Porta 2 is dark on main; signet/regtest replay unchanged. ₭\n`)
+  console.log(`\n╚═ ${pass} passed — Porta 2 is open on named nets; MAX is a lab pin. ₭\n`)
 }
 main()

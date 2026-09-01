@@ -265,9 +265,10 @@ const NODE_VERSION = (() => {
 })()
 const POT_ADDRESS = process.env.KRAY_POT_ADDRESS || null
 const POT_SCRIPT_HEX = POT_ADDRESS ? scriptOfAddress(POT_ADDRESS, toBtcNet(NET)) : null
-// ── MINT RUNE service fee — the SAME platform taproot key kray-space charges on mainnet, as a
+// ── PLATFORM service fee — the SAME taproot key kray-space charges on mainnet, as a
 // scriptPubKey (5120 + witness program): the program is HRP-independent, so one script is that key's
-// address on main, signet AND regtest. Flat 546 sats per mint — the same figure as the mainnet door.
+// address on main, signet AND regtest. Flat 546 sats per mint AND per rune withdraw
+// (not deposit, not rehome). Same figure as the mainnet door.
 const MINT_SERVICE_FEE_SATS = 546n
 const MINT_SERVICE_FEE_SCRIPT_HEX = scriptOfAddress('bc1pe3nvklfghzyepcjme5tyrv28kkmruypq0tmykgcdatkkreufyrhqaxf9p2', 'bitcoin')
 // ADR-4 slice 4c — the door's ingress gate is UN-LOWERABLE below the per-network consensus floor: it may
@@ -7972,16 +7973,17 @@ const server = createServer(async (req, res) => {
         if (!fCardinal.length) return err(res, 400, 'the funding utxo must be a pure-BTC output ord confirms carries no rune or inscription — fund the fee with plain sats (if ord is unreachable, try again shortly)')
         const dust = dustFromEnv(process.env, 'p2tr')
         const feeRate = Math.max(1, Math.min(500, Number(b.feeRate) || 1))
-        const vsizeEst = estimatePayoutVsize(fed, vaultUtxos.length, 4)
+        const vsizeEst = estimatePayoutVsize(fed, vaultUtxos.length, 5)
         const feeSats = BigInt(Math.ceil(feeRate * vsizeEst))
         const funding = {
           txid: String(b.funding.txid).toLowerCase(), vout: Number(b.funding.vout),
           amountSats: BigInt(Math.round(Number(ftxo.value) * 1e8)), scriptHex: fScript, internalKey: pub,
         }
-        // The initiator's SOLO baseline — one dest, one postage, the historic shape. This is also
-        // the floor the loaf may never push the initiator below (their sats change and fee terms
-        // must be AT LEAST as good riding a loaf as clicking alone, or the riders are trimmed).
-        const soloSatsChange = vaultUtxos.reduce((t, u) => t + u.amountSats, 0n) + funding.amountSats - dust * 2n - feeSats
+        // The initiator's SOLO baseline — one dest, one postage, the historic shape plus the
+        // stated 546-sat withdraw service output. This is also the floor the loaf may never
+        // push the initiator below (their sats change and fee terms must be AT LEAST as good
+        // riding a loaf as clicking alone, or the riders are trimmed).
+        const soloSatsChange = vaultUtxos.reduce((t, u) => t + u.amountSats, 0n) + funding.amountSats - dust * 2n - feeSats - MINT_SERVICE_FEE_SATS
         const initiatorDestScript = scriptOfAddress(lock.l1Address, toBtcNet(NET))
         let loafDests = null       // [{ from, amount, l1Address, destScriptHex, seq }] — dests[0] = the initiator
         let loafUtxos = vaultUtxos
@@ -8023,12 +8025,12 @@ const server = createServer(async (req, res) => {
             let sel
             try { sel = selectRuneCoins(live.coins, need) } catch { break }
             const tUtxos = sel.selected.map((c2) => ({ txid: c2.txid, vout: c2.vout, amountSats: c2.amountSats }))
-            const tVsize = estimatePayoutVsize(fed, tUtxos.length, trial.length + 3)
+            const tVsize = estimatePayoutVsize(fed, tUtxos.length, trial.length + 4)
             const tFee = BigInt(Math.ceil(feeRate * tVsize))
             const tVaultSats = tUtxos.reduce((t2, u) => t2 + u.amountSats, 0n)
             // the initiator-no-worse law: riders ride on the pot's own sats surplus, never on the
             // initiator's pocket — their sats change must stay ≥ the solo build's. Else stop here.
-            const tSatsChange = tVaultSats + funding.amountSats - dust * BigInt(trial.length + 1) - tFee
+            const tSatsChange = tVaultSats + funding.amountSats - dust * BigInt(trial.length + 1) - tFee - MINT_SERVICE_FEE_SATS
             if (tSatsChange < soloSatsChange) break
             members = trial
             loafUtxos = tUtxos; loafTotalRunes = sel.totalRunes; loafFeeSats = tFee; loafVsize = tVsize
@@ -8040,6 +8042,7 @@ const server = createServer(async (req, res) => {
           destScriptHex: initiatorDestScript, destPostage: dust, changePostage: dust,
           satsChangeScriptHex: ownScript, feeSats: loafFeeSats, dust,
           changeScriptHex: (pool && pool.scriptHex) || undefined,
+          serviceFee: { scriptHex: MINT_SERVICE_FEE_SCRIPT_HEX, sats: MINT_SERVICE_FEE_SATS },
           ...(loafDests ? { dests: loafDests.map((d2) => ({ destScriptHex: d2.destScriptHex, exitAmount: BigInt(d2.amount) })) } : {}),
         }
         const planUtxos = loafDests ? loafUtxos : vaultUtxos
@@ -8068,7 +8071,8 @@ const server = createServer(async (req, res) => {
             amount: lock.amount.toString(), l1Address: lock.l1Address,
             postage: dust.toString(), feeSats: loafFeeSats.toString(), feeRate, vsizeEst: loafVsize,
             fundingSats: funding.amountSats.toString(),
-            satsChange: (payout.outputs[payout.changeVout + 1] ? payout.outputs[payout.changeVout + 1].amountSats.toString() : '0'),
+            serviceFee: MINT_SERVICE_FEE_SATS.toString(),
+            satsChange: (payout.outputs[payout.changeVout + 2] ? payout.outputs[payout.changeVout + 2].amountSats.toString() : '0'),
             runeChange: (loafTotalRunes - (loafDests ? loafDests.reduce((t2, d2) => t2 + BigInt(d2.amount), 0n) : BigInt(lock.amount))).toString(),
             vaultOutpoints: planUtxos.map((u) => `${u.txid}:${u.vout}`),
             fundingIndex: planUtxos.length,

@@ -210,6 +210,37 @@ async function main() {
     ...loafPlan, dests: [loafPlan.dests![0], { destScriptHex: hex(dest2.script!), exitAmount: 700n }],
   }), /exceeds what the vault/, 'ATTACK: loaf sum larger than the pot → REFUSED')
 
+  // ── 8 · STATED WITHDRAW SERVICE FEE — after the pad, changeVout does not move ──
+  const svcPay = btc.p2tr(keypair().pk, undefined, NETWORKS.regtest)
+  const svcHex = hex(svcPay.script!)
+  const withFee = buildExitPayout(params, vaultUtxo, funding, {
+    ...plan, serviceFee: { scriptHex: svcHex, sats: 546n },
+  })
+  ok(withFee.changeVout === payout.changeVout, 'service fee does not move changeVout — the runestone pointer stays lawful')
+  ok(withFee.unsignedTxHex !== payout.unsignedTxHex, 'a stated service fee is a different tx — historic withdraws without it stay byte-identical')
+  ok(withFee.outputs.length === 5, 'withdraw with fee: dest, runestone, pad, service, sats change')
+  ok(withFee.outputs[3].script === svcHex && withFee.outputs[3].amountSats === 546n, 'output after the pointer pad is the stated 546-sat P2TR service fee')
+  ok(withFee.outputs[4].amountSats === 546n + 20_000n - 330n - 330n - 546n - 2_000n, 'sats equation with fee: inputs == dest + pad + service + STATED miner fee + change')
+  {
+    const scripts = withFee.outputs.map((o) => Uint8Array.from(Buffer.from(o.script!, 'hex')))
+    const art = decipher(scripts)
+    ok(!!art && art.kind !== 'cenotaph', 'service-fee payout deciphers cleanly — the extra P2TR is sats-only')
+    const alloc = allocate(art, { outputScripts: scripts, inputs: [{ id: RUNE, amount: 700n }] })
+    const at = (o: number) => (alloc.outputs.get(o) ?? []).reduce((t, b) => t + b.amount, 0n)
+    ok(at(0) === 100n && at(2) === 600n && alloc.burned.length === 0, 'allocation unchanged: dest still gets the lock, pad the remainder, service gets zero runes')
+  }
+  const noFeeAgain = buildExitPayout(params, vaultUtxo, funding, plan)
+  ok(noFeeAgain.unsignedTxHex === payout.unsignedTxHex, 'absent serviceFee rebuilds the HISTORIC payout bytes — pot-signer / guardian tests stay aligned')
+  rejects(() => buildExitPayout(params, vaultUtxo, funding, {
+    ...plan, serviceFee: { scriptHex: '0014' + '00'.repeat(20), sats: 546n },
+  }), /plain P2TR/, 'ATTACK: a non-taproot service script → REFUSED')
+  rejects(() => buildExitPayout(params, vaultUtxo, funding, {
+    ...plan, serviceFee: { scriptHex: svcHex, sats: 100n },
+  }), /clear the dust/, 'ATTACK: sub-dust service fee → REFUSED (it would never relay)')
+  rejects(() => buildExitPayout(params, vaultUtxo, { ...funding, amountSats: 2_500n }, {
+    ...plan, serviceFee: { scriptHex: svcHex, sats: 546n },
+  }), /funding utxo is short/, 'ATTACK: funding that cannot cover postage + service + fee → REFUSED with the numbers named')
+
   console.log(`\n  exit-payout: ${pass} proofs passed — the bakery tab pays out, user-funded, owner-first, guardians as co-signers only\n`)
 }
 

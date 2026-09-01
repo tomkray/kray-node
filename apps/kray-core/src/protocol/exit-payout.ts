@@ -22,8 +22,12 @@
  *                      consolidation vault so L2 recipients can later withdraw
  *                      from the shared pool — same remainder law as a
  *                      pre-signed settlement.
- *            [3]       sats change → the exiter (omitted when < dust; the
+ *            [3]       optional stated service fee → platform P2TR (withdraw
+ *                      only; absent → historic 4-output shape, byte-identical)
+ *            [last]    sats change → the exiter (omitted when < dust; the
  *                      remainder then rides as fee, stated by omission)
+ *                      changeVout stays destCount+1 so the runestone pointer
+ *                      does not move when the service output is present.
  *
  * Fee logic lives in the CALLER (the node door quotes; the user picks the
  * rate): here outputs are stated exactly and the fee is what inputs exceed
@@ -83,6 +87,12 @@ export interface ExitPayoutPlan {
    * When longer, dests[0] MUST equal destScriptHex/exitAmount (the initiator).
    */
   dests?: Array<{ destScriptHex: string; exitAmount: bigint }>
+  /**
+   * Optional stated platform fee on THIS payout only (withdraw door).
+   * Absent → historic bytes. Present → one P2TR output after the pointer pad,
+   * before sats change. changeVout does not move. Guardians rebuild from plan.
+   */
+  serviceFee?: { scriptHex: string; sats: bigint }
 }
 
 export interface ExitPayout {
@@ -172,6 +182,18 @@ export function buildExitPayout(
   }
   const destCount = dests.length
   const changeVout = destCount + 1
+  let serviceSats = 0n
+  let serviceScriptHex: string | null = null
+  if (plan.serviceFee) {
+    serviceScriptHex = plan.serviceFee.scriptHex.toLowerCase()
+    if (!/^5120[0-9a-f]{64}$/.test(serviceScriptHex)) {
+      throw new Error('exit-payout: the service fee script must be a plain P2TR output (5120…) — a wrong pad is a theft')
+    }
+    if (plan.serviceFee.sats < plan.dust) {
+      throw new Error('exit-payout: the service fee must clear the dust or it would not relay')
+    }
+    serviceSats = plan.serviceFee.sats
+  }
   const runestoneHex = destCount === 1
     ? settlementRunestoneHex(plan.runeId, dests[0].exitAmount, 0, 2)
     : batchSettlementRunestoneHex(plan.runeId, dests.map((d, i) => ({ amount: d.exitAmount, output: i })), changeVout)
@@ -181,7 +203,12 @@ export function buildExitPayout(
     // the pointer pad ALWAYS exists (even at 0 remainder): a missing pad is a CENOTAPH
     { script: changeScriptHex, amountSats: plan.changePostage },
   ]
-  let outSum = plan.destPostage * BigInt(destCount) + plan.changePostage
+  // service fee sits AFTER the pointer pad so changeVout (and the runestone
+  // pointer) stay lawful. Absent → historic output list, byte-identical.
+  if (serviceScriptHex) {
+    outputs.push({ script: serviceScriptHex, amountSats: serviceSats })
+  }
+  let outSum = plan.destPostage * BigInt(destCount) + plan.changePostage + serviceSats
   const satsChange = inSum - outSum - plan.feeSats
   if (satsChange < 0n) throw new Error(`exit-payout: the funding utxo is short — inputs carry ${inSum} sats, outputs + fee need ${outSum + plan.feeSats}`)
   if (satsChange >= plan.dust) {

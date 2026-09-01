@@ -5,7 +5,7 @@
  * A catalog, not a lock. It freezes WHICH activation seqs exist and their
  * per-network values. A new *_SEQ that is not in GOLDEN fails. A GOLDEN name
  * that vanished fails. A polarity change fails. RUNE_BOOK_OPEN_SEQ is the
- * Porta 2 pin (main dark); this harness still only catalogs, it does not apply.
+ * Porta 2 pin (all nets open at 0); this harness still only catalogs, it does not apply.
  *
  * Bitcoin nSequence (SEQUENCE_RBF / SEQUENCE_FINAL_RBF) is not activation law.
  */
@@ -28,7 +28,7 @@ const GOLDEN: Record<string, Golden> = {
   RUNE_ANCESTRY_MANDATORY_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: MAX, signet: 0, main: 0 } },
   MINT_WITNESS_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: MAX, signet: 0, main: 0 } },
   DONATION_SCRIPT_LAW_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: MAX, signet: 0, main: 0 } },
-  RUNE_BOOK_OPEN_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: 0, signet: 0, main: MAX } },
+  RUNE_BOOK_OPEN_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: 0, signet: 0, main: 0 } },
   X_TRANSFER_ACTIVATION_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: MAX, signet: 0, main: 0 } },
   X_FEELESS_ACTIVATION_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: MAX, signet: 0, main: 0 } },
   TK_FOLD_ACTIVATION_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: MAX, signet: 0, main: 0 } },
@@ -164,7 +164,7 @@ function main() {
   const sizeWired = /SIZE_PROPORTION_ACTIVATION_SEQ\[/.test(ledger)
   ok(sizeWired, 'SIZE_PROPORTION_ACTIVATION_SEQ is read in the ledger (imported table, same ctor law)')
 
-  console.log(`\n╚═ ${pass} passed${fail ? `, ${fail} FAILED` : ''} — catalog; RUNE_BOOK_OPEN_SEQ.main is MAX (Porta 2 dark). ₭\n`)
+  console.log(`\n╚═ ${pass} passed${fail ? `, ${fail} FAILED` : ''} — catalog; RUNE_BOOK_OPEN_SEQ is 0 on every named net (Porta 2 open). ₭\n`)
   process.exit(fail ? 1 : 0)
 }
 main()
