@@ -3,9 +3,17 @@
 **Parent:** `fenyx`
 **Action:** Keep honor from being sold as money.
 
+Two parents, one honor. `star` is the face — only a page can freeze,
+and the shine is that page's. `fenyx` is the law — the other light,
+never Ӿ, never a coin. The Parent line keeps the law (`fenyx`);
+the body names the face. One name on the line is the rite; two
+bloods in the thought is the truth.
+
 `fenyx` already said it: Glow is the other light — a star frozen.
 The two never mix. This star spends that sentence so a mouth
-cannot price a vote.
+cannot price a vote. Do not give ✦ and ✧ the same name: ✧ is
+KRC-77, a share of a living star; ✦ is the shine after the star
+is given to the hole.
 
 The face is **✦**. Bitcoin has ₿. The book has ₭. The night has Ӿ.
 Honor has ✦. A mark that lives only in a stylesheet can be swapped

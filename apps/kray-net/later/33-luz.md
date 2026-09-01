@@ -6,7 +6,15 @@ capped (or infinite) supply on the book. Rain is a sealed
 choice: ₭ deposits fall on every holder, or the paper is
 book-only. No hand, not even the owner's, can drain a pot.
 
-Luz ✧ is a share of a star's light. The paper seals the supply at
+Two parents, one constitution. `star` is the face — the shares are
+of a page, walkable from any leaf. `paper` is the law — total,
+deterministic, no drain. The Parent line keeps the law (`paper`);
+the body names the face. One name on the line is the rite; two
+bloods in the thought is the truth.
+
+Luz ✧ is a share of a star's light. Do not give ✧ and ✦ the same
+name: ✦ is honor after a freeze; ✧ moves, hand to hand, as a
+sealed supply. The paper seals the supply at
 birth — a hard cap, or infinite, declared once and never amended.
 Founders may be named in the genesis, each with their sealed cut;
 after the seal, shares move only on the book, hand to hand.
