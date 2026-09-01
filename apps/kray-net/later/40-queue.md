@@ -4,11 +4,11 @@
 **Action:** Kill the bought place in line — order by the mathematics
 of the bytes, never by the size of the fee.
 
-In every other network the line can be bought. Users watch the
-pending acts, and whoever pays a fatter fee jumps ahead; bots are
-built for exactly this — they see your trade waiting and front-run
-it, profiting from a place they purchased. The line punishes the
-honest and rewards the deepest pocket. This star ends that game.
+Wherever a place in line is priced by auction, the place can be
+bought: whoever pays more jumps ahead, and a watcher who sees an
+act still waiting can purchase the spot in front of it. That is
+not the flaw of any one book — it is what an auction is, in any
+age. This star is the other choice, taken whole.
 
 The fee is one ₭ for everyone, exact — `fee === MIN_FEE`, never a
 floor. Paying more is not priority; it is refused. There is no

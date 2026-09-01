@@ -18,7 +18,7 @@ every act in this book pays, taken as fire because the page is
 permanent: the coin dies the way the satoshi died to mint it.
 Paid once, the page is paid for every reader in every century. No
 landlord ever returns. Do not give this fire and `fenyx` the same
-name: ₭ dying into Ӿ is honor; ₭ dying into a star is memory.
+name: ₭ dying into Ӿ is the night; ₭ dying into a star is memory.
 
 The body is bytes and only bytes. The journal carries the hash;
 the atlas carries the content; a stranger recomputes SHA-256 and
