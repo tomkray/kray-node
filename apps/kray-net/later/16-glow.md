@@ -11,12 +11,21 @@ The face is **✦**. Bitcoin has ₿. The book has ₭. The night has Ӿ.
 Honor has ✦. A mark that lives only in a stylesheet can be swapped
 by whoever ships the next page. This one does not.
 
-Glow is **soulbound**. It is born from proven work: validate,
-hold the library, show up in the window the book already named.
-One star, one vote. A whale cannot buy the top. Splitting one
-machine into many names does not grow the share — the split is
-linear in work, the same rule Bitcoin uses for hashrate.
-Reputation-free. Identity is cheap. Work is not.
+Glow is **soulbound**. It is born one way: a star is frozen —
+given to the keyless black hole, irreversibly — and its shine is
+engraved into the address that gave it. One frozen star, one
+glow, forever: the star's light becomes the giver's reputation,
+a history of proven sacrifice any stranger can recount from the
+journal. A whale cannot buy the top: glow never moves, so there
+is nothing to buy. Splitting one hand into many names does not
+grow the share — every glow still costs a real star given to the
+fire, so the split is linear in sacrifice. Identity is cheap.
+Sacrifice is not.
+
+The frozen star does not vanish: it stays readable in the atlas
+forever. So a reputation is never only a count — anyone can see
+WHAT was given, and judge the light by the worth of what feeds
+it. Junk frozen for numbers wears its darkness in public.
 
 Glow is not ₭. ₭ is the receipt of a satoshi that died, and the
 fee the book burns. Glow is not Ӿ. Ӿ is the night after ₭ dies
