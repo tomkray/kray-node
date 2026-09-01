@@ -11,7 +11,7 @@
 import { createHash } from 'node:crypto'
 import { chooseCanonical, provenWeight, type HeadClaim } from '../protocol/consensus.ts'
 import { KrayAnchor } from '../anchor/anchor.ts'
-import { sha256d, toDisplayHex, checkProofOfWork } from '../anchor/spv.ts'
+import { sha256d, toDisplayHex, checkProofOfWork, parseHeader } from '../anchor/spv.ts'
 
 let pass = 0
 function ok(cond: boolean, label: string): void {
@@ -163,6 +163,68 @@ function main() {
     ok(wC.provenAnchors === 1, 'and it counts as ONE proven anchor, because Bitcoin produced one block')
     ok(chooseCanonical(honest, copier).winner === 'a' || chooseCanonical(honest, copier).why.includes('same history'),
       'so a copier never outranks the history it copied from')
+  }
+
+  // ── ATO A · ONE HEADER, ONE PAYMENT (F1 outside the containing-block skip) ─
+  // totalWork used to add each proof's full v.work. Shared later headers were
+  // paid twice. And if the union ran AFTER `countedBlocks.has(headers[0])`,
+  // two proofs with the same containing block and a longer burial made
+  // totalWork order-dependent (A3).
+  {
+    const unionWork = (hexes: string[]) => {
+      const seen = new Set<string>()
+      let w = 0n
+      for (const hex of hexes) {
+        const key = parseHeader(Buffer.from(hex, 'hex')).hashDisplay
+        if (seen.has(key)) continue
+        seen.add(key)
+        w += checkProofOfWork(hex, 'regtest').work
+      }
+      return w
+    }
+
+    const short = seal(9, R('f1-same'), 3)
+    const extras: string[] = []
+    let prev = sha256d(Buffer.from(short.proof.headers[short.proof.headers.length - 1], 'hex'))
+    for (let i = 0; i < 2; i++) {
+      const h = buildHeader(prev, Buffer.alloc(32, 0x41 + i), 400 + i)
+      extras.push(h.toString('hex'))
+      prev = sha256d(h)
+    }
+    const long = { ...short, proof: { ...short.proof, headers: [...short.proof.headers, ...extras] } }
+    const sl = provenWeight(head({ anchors: [short, long] }))
+    const ls = provenWeight(head({ anchors: [long, short] }))
+    const oneLong = provenWeight(head({ anchors: [long] }))
+    ok(sl.totalWork === ls.totalWork && sl.totalWork === oneLong.totalWork,
+      `F1 same headers[0], longer burial: totalWork is order-invariant and equals the long proof alone (${sl.totalWork})`)
+    ok(sl.provenAnchors === 1 && ls.provenAnchors === 1, 'same containing block still counts as ONE proven anchor')
+    ok(sl.work === oneLong.work && ls.work === oneLong.work, 'heaviest-single follows the longer burial in either order')
+
+    const a0 = seal(4, R('overlap-a'), 2)
+    const txB = buildRawTx(KrayAnchor.payload(8, R('overlap-b')))
+    const txidB = sha256d(Buffer.from(txB, 'hex'))
+    const a0last = Buffer.from(a0.proof.headers[a0.proof.headers.length - 1], 'hex')
+    const b0 = buildHeader(sha256d(a0last), txidB, 800)
+    const s1 = buildHeader(sha256d(b0), Buffer.alloc(32, 7), 801)
+    const s2 = buildHeader(sha256d(s1), Buffer.alloc(32, 8), 802)
+    const proofB = {
+      rawTx: txB,
+      txoutproof: Buffer.concat([b0, Buffer.from([1, 0, 0, 0]), Buffer.from([1]), txidB, Buffer.from([1]), Buffer.from([0x01])]).toString('hex'),
+      headers: [b0, s1, s2].map((x) => x.toString('hex')),
+    }
+    const proofA = { ...a0.proof, headers: [...a0.proof.headers, b0.toString('hex'), s1.toString('hex'), s2.toString('hex')] }
+    const ancA = { height: 4, cascadeRoot: R('overlap-a'), txid: a0.txid, proof: proofA }
+    const ancB = { height: 8, cascadeRoot: R('overlap-b'), txid: toDisplayHex(txidB), proof: proofB }
+    const ab = provenWeight(head({ anchors: [ancA, ancB] }))
+    const ba = provenWeight(head({ anchors: [ancB, ancA] }))
+    const wA = provenWeight(head({ anchors: [ancA] }))
+    const wB = provenWeight(head({ anchors: [ancB] }))
+    const union = unionWork([...proofA.headers, ...proofB.headers])
+    ok(ab.totalWork === union && ba.totalWork === union,
+      `overlapping burial: totalWork is the union (${union}), not work(A)+work(B) (${wA.totalWork + wB.totalWork})`)
+    ok(ab.totalWork === ba.totalWork, 'and the union does not depend on anchor order')
+    ok(ab.provenAnchors === 2 && ba.provenAnchors === 2, 'two containing blocks still count as two proven anchors')
+    ok(ab.totalWork < wA.totalWork + wB.totalWork, 'shared later headers are not paid twice')
   }
 
   console.log(`\n✓ ${pass} checks passed — CONSENSUS WITHOUT A VOTE: the canonical history is the one BITCOIN ATTENDED MOST — summed proof of work across every proven anchor, each unit of it bought with a real transaction in a real block, measured from raw bytes by every follower independently. The ladder is ranked by PRICE, so the one value an attacker can declare for free (the KRAY height inside an anchor) sits at the bottom and only ever breaks ties among histories Bitcoin priced identically. A forged anchor weighs nothing and marks its author; a taller unwitnessed chain never outranks a witnessed one; every tie breaks identically on every machine on earth. The operator no longer decides which past is real — Bitcoin does, and anyone can check. ₿₭`)

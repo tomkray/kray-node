@@ -1,9 +1,5 @@
 # FENYX
 
-**Baptize: `fenyx`**
-**Action:** Remember the fire — what dies, what remains, why the night
-is not empty.
-
 ## The hybrid
 
 Two parents, one spelling, one money.

@@ -15,6 +15,7 @@
 import { callerInt } from './star-law.ts'
 import { isContractPotAddress, validateContract, type ContractCode, type Expr, type LuzGenesisRow, type PollPaper } from './contract.ts'
 import { BLACK_HOLE, STAR_OFFER, TREASURY } from './kray-primitives.ts'
+import { isPublicHostname } from './public-host.ts'
 
 const ADDR_RE = /^[a-z0-9]{8,90}$/i
 const WHOLE = /^(0|[1-9]\d*)$/
@@ -656,14 +657,7 @@ export const isLuzPaper = isCutPaper
 export const compileLuz = compileCut
 
 function assertPublicHost(host: string): void {
-  const h = String(host || '').toLowerCase().replace(/^\[|\]$/g, '')
-  if (!h || h === 'localhost' || h === '0.0.0.0' || h.endsWith('.local') || h === 'metadata.google.internal') {
-    throw new Error('form: art URL must be a public http(s) host')
-  }
-  if (h === '::1' || /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h) || /^169\.254\./.test(h)) {
-    throw new Error('form: art URL must be a public http(s) host')
-  }
-  if (/^172\.(1[6-9]|2\d|3[01])\./.test(h)) throw new Error('form: art URL must be a public http(s) host')
+  if (!isPublicHostname(host)) throw new Error('form: art URL must be a public http(s) host')
 }
 
 /** Artist's art source. `{n}` = taken (0-based next edition), `{i}` = taken+1. Not consensus. */

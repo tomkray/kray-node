@@ -1,7 +1,5 @@
 # CONSENSUS
 
-**Baptize: `consensus`**
-**Action:** Think the thought that two honest nodes never disagree.
 **Security of the consciousness.** A mind that can be whispered into a fork
 is not a mind. It is a rumor.
 

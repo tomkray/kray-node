@@ -37,13 +37,13 @@ import { RuneBook, parseRuneKey, canonicalRuneKey } from '../economics/rune-book
 import { settleFromBeats } from '../economics/settlement.ts'
 import { hitCount, custodyFromHex, verifyCustody, type AtlasOracle } from '../economics/custody.ts'
 import { assertPresenceClaims, assertPresenceEra, foldClaimsByAddress, readPresenceTip } from '../economics/presence-window.ts'
-import { validateContract, canonicalCode, runCall, contractAddress, isContractPotAddress, type ContractCode } from './contract.ts'
+import { validateContract, canonicalCode, runCall, contractAddress, isContractPotAddress, MAX_LIT_DIGITS, type ContractCode } from './contract.ts'
 import { isMintPaper, isCutPaper, isPollPaper, resolveLuzGenesis } from './star-forms.ts'
 import { CutBook } from './cut-book.ts'
 import { PollBook } from './poll-book.ts'
 import { sha256hex, MIN_FEE, TREASURY, BLACK_HOLE, STAR_OFFER, MAX_INSCRIPTION_BYTES, MAX_INSCRIPTION_PROPORTION, starBurnOf, BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, SEAL_CONTENT_BUDGET, RETARGET_WINDOW_SEALS, retargetBytesPerKray, donationProofMinConf, SIZE_PROPORTION_ACTIVATION_SEQ, STAR_RE, type KrayEvent, type SettlementRow } from './kray-primitives.ts'
 import { verifyDonationProof } from '../anchor/spv.ts'   // ADR-1: pure/offline SPV re-verify (no network) — safe in the reducer
-import { selfAnchorScriptHex } from './self-anchor.ts'   // ADR-1 extended: re-derive a self-anchor burn script from (pot key, sealed payload) — pure, offline
+import { selfAnchorScriptHex, BURN_INTERNAL_KEY } from './self-anchor.ts'   // ADR-1 extended: re-derive a self-anchor burn script from (pot key, sealed payload) — pure, offline. NUMS is the book.
 import { KrayAnchor } from '../anchor/anchor.ts'         // KrayAnchor.payload — the one canonical anchor payload codec (static, offline)
 import { verifyRuneDepositProof, verifyRuneSettleProof } from './rune-bridge.ts'   // ADR-1 extended to the rune peg — same purity, same law
 import { proveInscription } from './inscription-proof.ts'   // ADR-1 extended to ETERNIZE — the L1 carving re-proven from raw bytes, offline
@@ -121,6 +121,36 @@ const MINT_WITNESS_SEQ: Record<string, number> = {
   signet: 0,
   main: 0,
 }
+
+/** DONATION-SCRIPT LAW (Ato B, 2026-09-01) — at/after this seq a proven donate's expected
+ *  burn script is NOT the node's env. Self-anchor derives from the BIP-341 NUMS constant
+ *  already in the book (`BURN_INTERNAL_KEY`). A classic fixed-pot donate is refused: that
+ *  script was never in the journal (N1). Below the seq the ADR-1 opt-in skip remains
+ *  (regtest benches only). Signet is a test universe — same pin as main (0). Main is
+ *  empty genesis and must be perfect from the first donate. Env potScriptHex /
+ *  potInternalKeyHex stay door hints below the pin. */
+const DONATION_SCRIPT_LAW_SEQ: Record<string, number> = {
+  regtest: Number.MAX_SAFE_INTEGER,
+  signet: 0,
+  main: 0,
+}
+
+/** RUNE-BOOK OPEN (Porta 2, 2026-09-01) — at/after this seq, rune-* and amm-* may apply.
+ *  Below it the bakery is dark: the event is refused before the case runs.
+ *  Main is MAX (₭-only ignition — BOOK-AND-APPS §1; empty, perfect from the first act).
+ *  Signet and regtest stay 0 so the test universes can rehearse the bakery.
+ *  Unknown net → MAX (fail-closed). Lowering main is a later house act, not an env lantern.
+ *  Exported so the HTTP door asks the same table the reducer uses (no second pin). */
+export const RUNE_BOOK_OPEN_SEQ: Record<string, number> = {
+  regtest: 0,
+  signet: 0,
+  main: Number.MAX_SAFE_INTEGER,
+}
+
+export const RUNE_BOOK_KINDS = new Set([
+  'rune-deposit', 'rune-send', 'rune-exit', 'rune-cancel', 'rune-lodge', 'rune-rehome', 'rune-settle',
+  'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap',
+])
 
 /**
  * Ӿ TRANSFER ACTIVATION (slice 2 — the transferable book joins the anchored root). DORMANT on every network
@@ -275,13 +305,24 @@ const SAME_INSTANT_ORDER_ACTIVATION_SEQ: Record<string, number> = {
  * without burning; at/after this pin the reducer speaks the same sentence.
  *
  * Pins: regtest stays MAX so goldens and any cursed scar replay exact (lab injects
- * `KRAY_LAB_UNIQUE_RELIC_SEQ`). signet ratified at 80 (tip 68 + margin on 2026-08-31;
- * every recorded event replays below the pin — dormant, byte-identical, proven by a
- * disposable replay of that journal). main is empty genesis — born active (0).
+ * `KRAY_LAB_UNIQUE_RELIC_SEQ`). Signet is a test universe — born active like main (0).
+ * The old living-journal pin (80) is retired. Main is empty genesis — perfect from
+ * the first name / the first bytes.
  */
 const UNIQUE_RELIC_REFUSE_SEQ: Record<string, number> = {
   regtest: Number.MAX_SAFE_INTEGER,
-  signet: 80,
+  signet: 0,
+  main: 0,
+}
+
+/** DIGIT LAW (N2 residual, 2026-09-01) — at/after this seq a contract `set`,
+ *  `isqrt` operand, or call argument may not exceed MAX_LIT_DIGITS (78).
+ *  Newton is unchanged. Signet is a test universe — born active like main (0).
+ *  Main is empty genesis — perfect from the first paper. Regtest stays MAX
+ *  so goldens that square state still replay; the lab injects 0. */
+const DIGIT_LAW_SEQ: Record<string, number> = {
+  regtest: Number.MAX_SAFE_INTEGER,
+  signet: 0,
   main: 0,
 }
 
@@ -413,7 +454,7 @@ export class KrayLedger {
    *  be re-derived from these bytes. Historical events fall back to the bitmap. */
   readonly atlasBytes?: (hash: string) => Uint8Array | null
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -435,6 +476,9 @@ export class KrayLedger {
     this.runeAncestrySeq = runeAncestrySeq ?? (RUNE_ANCESTRY_MANDATORY_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.uniqueRelicRefuseSeq = uniqueRelicRefuseSeq ?? (UNIQUE_RELIC_REFUSE_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.mintWitnessSeq = mintWitnessSeq ?? (MINT_WITNESS_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.donationScriptSeq = donationScriptSeq ?? (DONATION_SCRIPT_LAW_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.runeBookOpenSeq = runeBookOpenSeq ?? (RUNE_BOOK_OPEN_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.digitLawSeq = digitLawSeq ?? (DIGIT_LAW_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     // main pin 0 is the law itself (not a signaling): start at 10_000. Donate never
     // reads the rate — an empty-of-stars journal keeps its cascade.
     if (this.sizeProportionSeq === 0) {
@@ -491,6 +535,9 @@ export class KrayLedger {
   private readonly proofMandatorySeq: number        // PROOF MANDATORY: at/after it, an L1-peg event must EMBED its SPV proof (A3 below)
   private readonly runeAncestrySeq: number          // THE KEYSTONE: at/after it, a rune-deposit AND a rune-settle must EMBED the ancestry bundle (byte-pure input state)
   private readonly mintWitnessSeq: number           // THE MINT-WITNESS LAW: at/after it, an ancestry may terminate at a witnessed mint of the focused rune
+  private readonly donationScriptSeq: number        // DONATION-SCRIPT LAW: at/after it, expected burn script is NUMS / refuse classic — not env (A3 below)
+  private readonly runeBookOpenSeq: number          // PORTA 2: below it, rune-* / amm-* refuse (main dark; signet/regtest open)
+  private readonly digitLawSeq: number              // DIGIT LAW: at/after it, set / isqrt / args refuse past 78 digits
   private readonly uniqueRelicRefuseSeq: number     // THE UNIQUE-RELIC LAW: at/after it, a taken name/bytes refuse BEFORE fire (A3 below — cursed-burn still applies)
   /** THE JOURNAL'S ACCUMULATED TRUTH — outpoint → balances of ONE rune, re-derived by earlier
    *  proven deposits. Scoped per rune (the etch-root shortcut is exact only for the focused rune,
@@ -896,6 +943,9 @@ export class KrayLedger {
     if (this.halted) throw new Error(`ledger: HALTED — ${this.halted}`)
     if (e.seq <= this.lastAppliedSeq) return
     this.maybeSnapSizeProportion(e.seq)
+    if (RUNE_BOOK_KINDS.has(e.kind) && e.seq < this.runeBookOpenSeq) {
+      throw new Error('ledger: the rune book is not open on this network yet (dormant until the ratified activation seq)')
+    }
     if (this.producedRoots.size === 0) this._recordProducedRoot(0)   // capture the genesis root before the first event
     this._pendingInclusionKey = null   // ADR-3 3a: reset per act; a signed kind re-sets it inside requireSig
     switch (e.kind) {
@@ -941,9 +991,25 @@ export class KrayLedger {
           if (!Number.isInteger(e.anchorBlock) || (e.anchorBlock as number) < 0 || (e.anchorBlock as number) > 0xffffffff) throw new Error('ledger: a self-anchoring donation needs anchorBlock as a uint32 KRAY block number')
           if (!/^[0-9a-f]{64}$/.test(String(e.anchorRoot || ''))) throw new Error('ledger: a self-anchoring donation needs anchorRoot as 32-byte lowercase hex')
         }
-        const expectedBurnScript = (e.proof && claimsSeal)
-          ? (this.potInternalKeyHex ? selfAnchorScriptHex(this.potInternalKeyHex, KrayAnchor.payload(e.anchorBlock!, e.anchorRoot!)) : undefined)
-          : (e.proof ? this.potScriptHex : undefined)
+        const scriptLaw = e.seq >= this.donationScriptSeq
+        let expectedBurnScript: string | undefined
+        if (e.proof && claimsSeal) {
+          if (scriptLaw) {
+            if (this.potInternalKeyHex && this.potInternalKeyHex !== BURN_INTERNAL_KEY) {
+              throw new Error('ledger: at/after donation-script law a self-anchor burn is NUMS — a configured spendable key is refused')
+            }
+            expectedBurnScript = selfAnchorScriptHex(BURN_INTERNAL_KEY, KrayAnchor.payload(e.anchorBlock!, e.anchorRoot!))
+          } else {
+            expectedBurnScript = this.potInternalKeyHex
+              ? selfAnchorScriptHex(this.potInternalKeyHex, KrayAnchor.payload(e.anchorBlock!, e.anchorRoot!))
+              : undefined
+          }
+        } else if (e.proof) {
+          if (scriptLaw) {
+            throw new Error('ledger: at/after donation-script law a proven donate must name its self-anchor seal — a fixed-pot script is not in the journal')
+          }
+          expectedBurnScript = this.potScriptHex
+        }
         if (e.proof && expectedBurnScript) {
           const v = verifyDonationProof(e.proof, { potScriptHex: expectedBurnScript, minConfirmations: donationProofMinConf(toBtcNet(this.network)), net: toBtcNet(this.network) })
           if (!v.ok) throw new Error(`ledger: the donation's own SPV proof does not verify on replay — ${v.reason}`)
@@ -2274,6 +2340,10 @@ export class KrayLedger {
         const args: Record<string, bigint> = {}
         for (const [kk, val] of Object.entries(e.callArgs ?? {})) {
           if (!/^-?\d+$/.test(val)) throw new Error(`ledger: argument "${kk}" must be a whole number`)
+          if (e.seq >= this.digitLawSeq) {
+            const digits = val.startsWith('-') ? val.length - 1 : val.length
+            if (digits > MAX_LIT_DIGITS) throw new Error(`ledger: argument "${kk}" exceeds ${MAX_LIT_DIGITS} digits`)
+          }
           args[kk] = BigInt(val)
         }
         const clock = e.clock
@@ -2639,7 +2709,18 @@ export class KrayLedger {
       glow: BigInt(this.glowOf(from)),
       args,
       addressToInt: (a: string) => BigInt('0x' + sha256hex(a).slice(0, 16)),
+      digitLaw: seq >= this.digitLawSeq,
     }
+  }
+
+  /** Porta 2 — door and reducer share this pin (lab inject included). */
+  runeBookIsOpen(seq: number): boolean {
+    return seq >= this.runeBookOpenSeq
+  }
+
+  /** Digit law — true when set / isqrt / args are capped at MAX_LIT_DIGITS. */
+  digitLawActive(seq: number): boolean {
+    return seq >= this.digitLawSeq
   }
 
   /** a contract's public view — its creator, current state, and the sealed IR (or null if unknown) */

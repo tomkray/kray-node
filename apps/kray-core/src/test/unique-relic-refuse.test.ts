@@ -10,6 +10,7 @@
  *   UR-06  REPLAY — a cursed-burn journal replays byte-identical on a dormant ledger;
  *          the same journal HALTs under a retroactive pin (the gate is real)
  *   UR-07  CONSERVATION on every path
+ *   Signet and main are born at 0 (catalog). This suite stays on regtest + inject.
  */
 import { createHash } from 'node:crypto'
 import * as btc from '@scure/btc-signer'

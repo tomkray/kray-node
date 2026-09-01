@@ -1,10 +1,5 @@
 # THE LIGHT DOOR
 
-**Baptize: `lightdoor`**
-**Action:** Keep fruitless criminal harm out of the atlas — before the
-book, before the disk — so the library stays light. Not a ministry of
-speech.
-
 ## The Formula
 
 > Given the Foundation (each person's energy is their own; no one exploits anyone),

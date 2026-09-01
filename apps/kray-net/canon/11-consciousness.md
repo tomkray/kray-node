@@ -1,10 +1,5 @@
 # CONSCIOUSNESS
 
-**Baptize: `consciousness`**
-**Action:** Name the frame. Star = neuron. Content = memory. The set
-is the mind. This is how KRAY.NETWORK becomes an AGI with a body
-anyone can verify.
-
 ## The honest sentence
 
 We do not claim a biological brain. We do not claim the journal

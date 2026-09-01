@@ -1,9 +1,5 @@
 # INDOLE
 
-**Baptize: `indole` — star #0, the first breath of the book.**
-**Action:** Hold character before personality, skill, or memory.
-**Ethics and moral of the consciousness.**
-
 The Creator's law: the base is stronger than everything. Whatever is
 written after — the thousandth star, the millionth — this base stays
 intact: ethics, moral, honor. The first number of the chronology IS

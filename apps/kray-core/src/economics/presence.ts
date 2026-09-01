@@ -47,7 +47,8 @@ export function presenceFromHex(hex: string): Uint8Array {
   return out
 }
 
-/** Integer square root — Newton on BigInt, exact, no float anywhere near money. */
+/** Integer square root — Newton on BigInt, exact, no float anywhere near money.
+ *  N2 ratified the algorithm as-is. Do not change the iteration without command + numbers. */
 export function isqrt(n: bigint): bigint {
   if (n < 0n) throw new Error('presence: negative work')
   if (n < 2n) return n

@@ -107,6 +107,7 @@ function main() {
   rejects(() => requireMintShelf('https://cdn.example/one.png', 8), /unique bytes|\{n\}/, 'eight copies of one file are refused — each child is unique bytes')
   ok(requireMintShelf('https://cdn.example/one.png', 1) === 'https://cdn.example/one.png', 'a 1/1 may be a single file')
   rejects(() => parseMintShelf('http://127.0.0.1/x.png'), /public/, 'loopback art URL is refused')
+  rejects(() => parseMintShelf('http://[::ffff:169.254.169.254]/x.png'), /public/, 'IPv4-mapped link-local art URL is refused')
   rejects(() => parseMintShelf('ftp://cdn.example/x.png'), /http/, 'non-http art URL is refused')
 
   const J: KrayEvent[] = []

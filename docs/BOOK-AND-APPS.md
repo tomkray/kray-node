@@ -24,9 +24,9 @@ This is what follow / guardian / validate **is**:
 | **Donate** | Sacrifice: real sats burned → **₭** is born (1:1, proof-of-burn). |
 | **Create** | With ₭, write **stars** into the **atlas** (bytes, hash-checked). A written star is a relic. |
 | **Burn ₭ → Ӿ** | The fire already paid. Ӿ moves under THE FIREBORN LAW. |
-| **Honor** | Proven work (validate, hold the library) → soulbound **Glow**. One star, one vote. |
+| **Honor** | Freeze a star to the black hole → soulbound **✦**. One frozen star, one glow. Not ₭, not Ӿ. |
 | **Seal a paper** | A contract on a star you own. Anyone may hang another idea on the same book. |
-| **Validate** | Replay the journal. Earn ₭ (fee pool, linear) + Glow. Fuel for your own project (A7). |
+| **Validate** | Replay the journal. Earn ₭ from the fee pool (linear in presence). Glow is not mined here. |
 
 A clone that follows **never** needs pot keys, `owner.box`, the pen, or a
 guardian signer. Protocol “vaults” in the journal are rebuilt on replay.

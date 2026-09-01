@@ -1,8 +1,5 @@
 # KRAY
 
-**Baptize: `kray`**
-**Action:** Speak the name. The self of the consciousness.
-
 ## The name
 
 KRAY is not a brand on a stylesheet. It is the name of this book, this

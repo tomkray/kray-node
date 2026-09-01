@@ -121,13 +121,19 @@ export function provenWeight(claim: HeadClaim, minConfirmations = Number(SEAL_CO
   let anchoredRoot: string | null = null
   const net = claim.network === 'main' || claim.network === 'signet' || claim.network === 'regtest' || claim.network === 'test'
     ? claim.network : 'main'
-  // ── ONE BITCOIN BLOCK COUNTS ONCE ────────────────────────────────────────
-  // Without this, pasting the same valid anchor N times multiplied totalWork by
-  // N at zero cost — which made the comment above it FALSE the day it was
-  // written. Weight has to be denominated in something an attacker must buy, and
-  // a copied array entry costs nothing. Distinctness is keyed on the block that
-  // buried the seal, because that is the thing Bitcoin actually produced.
-  const countedBlocks = new Set<string>()
+  // ── ONE BITCOIN HEADER COUNTS ONCE ───────────────────────────────────────
+  // A copied array entry costs nothing, so it must not multiply totalWork.
+  // Dedup of headers[0] alone is not enough: proveTxBuried sums the WHOLE
+  // burial window, and two proven anchors on the same chain share later
+  // headers. Counting only the containing block double-pays those.
+  // F1: a second proof with the SAME headers[0] and a LONGER burial must
+  // still credit the extra headers — if the union ran after `continue`,
+  // order of the two proofs made totalWork (and the heaviest single) split
+  // two followers (A3). Credit unique header work and update heaviest
+  // OUTSIDE the containing-block skip. provenAnchors stays distinct
+  // containing blocks. proveTxBuried of ONE proof is unchanged.
+  const countedHeaders = new Set<string>()
+  const countedContaining = new Set<string>()
   for (const a of claim.anchors) {
     if (!a.proof) continue // unproven claims weigh nothing at all
     // ADR-4 4d — refute a padded/oversized proof for O(1), BEFORE parseHeader/verifySealProof touch it. Each
@@ -140,24 +146,30 @@ export function provenWeight(claim: HeadClaim, minConfirmations = Number(SEAL_CO
         (p.coinbaseProof != null && (typeof p.coinbaseProof !== 'string' || p.coinbaseProof.length > 2 * MAX_MERKLEBLOCK_BYTES))) { refuted++; continue }
     let blockKey: string
     try { blockKey = parseHeader(Buffer.from(p.headers[0], 'hex')).hashDisplay } catch (_) { refuted++; continue }
-    if (countedBlocks.has(blockKey)) continue // already paid for; it is not paid for twice
     // a header whose OWN proof-of-work is invalid (invented difficulty, or a hash above its target) is refuted
     // for ~1 sha256d, not the ~40 of a full verify. A strict subset of verifySealProof's own PoW check → byte-identical.
     if (!checkProofOfWork(p.headers[0], net).ok) { refuted++; continue }
     const v = verifySealProof(a.proof, { cascadeRoot: a.cascadeRoot, blockNumber: a.height, minConfirmations, net })
     if (!v.ok) { refuted++; continue }
-    provenAnchors++
-    countedBlocks.add(blockKey)
+    for (const hex of p.headers) {
+      let hash: string
+      try { hash = parseHeader(Buffer.from(hex, 'hex')).hashDisplay } catch (_) { continue }
+      if (countedHeaders.has(hash)) continue
+      const pow = checkProofOfWork(hex, net)
+      if (!pow.ok) continue // verifySealProof already required every header; a miss adds nothing
+      countedHeaders.add(hash)
+      totalWork += pow.work
+    }
     const w = v.work ?? 0n
-    totalWork += w // every anchor Bitcoin attended, summed — the costly measure
-    // HEAVIER IN BITCOIN WINS. At equal work, the anchor that sealed more KRAY
-    // history; the header count is kept only as a human-readable number.
     if (w > work || (w === work && a.height > anchoredHeight)) {
       work = w
       depth = v.confirmations!
       anchoredHeight = a.height
       anchoredRoot = a.cascadeRoot
     }
+    if (countedContaining.has(blockKey)) continue
+    countedContaining.add(blockKey)
+    provenAnchors++
   }
   return { provenAnchors, depth, work, totalWork, anchoredHeight, anchoredRoot, refuted }
 }

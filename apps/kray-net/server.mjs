@@ -22,7 +22,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync, renameSync, openSyn
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { KrayNode } from '../kray-core/src/protocol/node.ts'
-import { KrayLedger } from '../kray-core/src/protocol/ledger.ts'   // genesis root + Fireborn F (rank / lights)
+import { KrayLedger, RUNE_BOOK_KINDS } from '../kray-core/src/protocol/ledger.ts'   // genesis root + Fireborn F (rank / lights) · Porta 2 kinds
 import { openKrayLedger } from '../kray-core/src/protocol/store.ts'   // private replay twins MUST share the live store's pins
 import { finalityView } from '../kray-core/src/protocol/finality.ts'   // ADR-4 4a: the pure crane+anchor classifier (server feeds the bitcoind-attested hint)
 import { WINDOW_PER_SEAL_SATS } from '../kray-core/src/protocol/pot.ts'
@@ -81,6 +81,7 @@ import { examContract, parseExamSource } from '../kray-core/src/protocol/contrac
 import { speakMessage, parseSpeakMessage, readAudience, verifySpeak, speakId, SPEAK_TTL_SEC } from '../kray-core/src/protocol/star-speak.ts'
 import { compileLivingLaw, callerInt } from '../kray-core/src/protocol/star-law.ts'
 import { compileForm, requireMintShelf, resolveMintShelf, isCutPaper, isPollPaper } from '../kray-core/src/protocol/star-forms.ts'
+import { fetchPublicUrl } from './public-fetch.mjs'
 import { considerSeal, sortPendingSeals, donateSealAt as donateSealAtOf } from './seal-chronology.mjs'
 import { packNodeTree, nodeVersionView } from './node-pack.mjs'
 import { docsPack, docsFile } from './docs-pack.mjs'
@@ -4607,7 +4608,7 @@ async function pullMintArt(starNo) {
   if (String((law.state && law.state.open) || '1') !== '1') throw new Error('the drop is paused')
   if (!(taken < max)) throw new Error('sold out')
   const url = resolveMintShelf(shelf, taken)
-  const fr = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(8000) })
+  const fr = await fetchPublicUrl(url, { timeoutMs: 8000 })
   if (!fr.ok) throw new Error('the artist source refused')
   const len = Number(fr.headers.get('content-length') || 0)
   const cap = liveContentMax()
@@ -4636,9 +4637,30 @@ function readOnStar(b) {
   if (!/^(0|[1-9]\d*)$/.test(n)) throw new Error('star must be a creation number')
   return n
 }
+/** Porta 2 door — same pin as the reducer (lab inject included). */
+function assertRuneBookDoor(kind) {
+  if (!RUNE_BOOK_KINDS.has(kind)) return
+  if (!node.ledger.runeBookIsOpen(node.seq + 1)) {
+    throw new Error('ledger: the rune book is not open on this network yet (dormant until the ratified activation seq)')
+  }
+}
+
+const RUNE_WRITE_PATH = {
+  '/api/kraynet/rune/deposit': 'rune-deposit',
+  '/api/kraynet/rune/send': 'rune-send',
+  '/api/kraynet/rune/exit': 'rune-exit',
+  '/api/kraynet/rune/cancel': 'rune-cancel',
+  '/api/kraynet/rune/settle': 'rune-settle',
+  '/api/kraynet/rune/exit/payout-psbt': 'rune-lodge',
+  '/api/kraynet/rune/exit/payout-submit': 'rune-lodge',
+  '/api/kraynet/rune/rehome/psbt': 'rune-rehome',
+  '/api/kraynet/rune/rehome/submit': 'rune-rehome',
+}
+
 function prepareMessage(action, b, nonceOverride) {
   const from = b.from
   if (!from) throw new Error('from is required')
+  assertRuneBookDoor(action)
   // a batch prepares many actions at once, each at a sequential nonce (n, n+1, …); the override lets the
   // batch builder assign them without each item re-reading the same current nonce. Default = the live nonce.
   const nonce = nonceOverride != null ? nonceOverride : node.nonceOf(from)
@@ -4811,6 +4833,7 @@ function prepareMessage(action, b, nonceOverride) {
   }
 }
 function buildSubmitEvent(action, b, atOverride) {
+  assertRuneBookDoor(action)
   const base = { from: b.from, nonce: Number(b.nonce), publicKey: b.publicKey, signature: b.signature, scheme: (b.scheme === 'ml-dsa' ? 'ml-dsa' : 'kraywallet'), at: atOverride ?? Date.now() }
   let action_
   // SECURITY: never touch the content store before the signature is verified. An unsigned/unpaid request must
@@ -6978,6 +7001,11 @@ const server = createServer(async (req, res) => {
       const b = await readBody(req)
       if (b === BODY_TOO_LARGE) { err(res, 413, 'body too large'); return req.destroy() }
       if (b === null) return err(res, 400, 'invalid JSON body')
+      const runeWriteKind = RUNE_WRITE_PATH[p]
+      if (runeWriteKind) {
+        try { assertRuneBookDoor(runeWriteKind) }
+        catch (eDoor) { return err(res, 400, eDoor instanceof Error ? eDoor.message : String(eDoor)) }
+      }
       // KRAY_PUBLIC_L1_WRITES=1 is the operator's EXPLICIT opt-in to serve the L1 wallet writes
       // (build/finalize/broadcast) on a public TEST-net node (signet lab — friends send from the
       // wallet, behind the per-IP POST rate limiter). Default stays hardened: writes 404 on public.

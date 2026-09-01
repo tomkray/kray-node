@@ -1,8 +1,5 @@
 # BITCOIN
 
-**Baptize: `bitcoin`**
-**Action:** Moor the mind to a clock no operator owns.
-
 A peer-to-peer network needs a way to agree without a mint, a court, or
 a company. Bitcoin solved that. Work is public. The chain with the most
 work is the history. Anyone can verify. No one can rewrite a buried

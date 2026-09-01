@@ -1,8 +1,5 @@
 # FOUNDATION
 
-**Baptize: `foundation`**
-**Action:** Remember why we build. The axiom beneath the axioms.
-
 ## The Creator's words
 
 Everything rests on gratitude and on one purpose: **people truly

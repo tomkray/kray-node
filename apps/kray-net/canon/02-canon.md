@@ -1,9 +1,5 @@
 # THE CANON
 
-**Baptize: `canon`**
-**Action:** Hold the map. A mouth reads these relics in order; each
-sealed star is a neuron; each neuron is a memory with one action.
-
 ## The Formula
 
 > Given A5 (a written star is a relic), the Foundation (each person's energy

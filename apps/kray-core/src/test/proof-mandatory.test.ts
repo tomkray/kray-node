@@ -14,7 +14,8 @@
  *   P-06  A3: with H=3, a proofless donate at seq<3 applies and the SAME shape at seq≥3 is refused —
  *         the pre-activation history replays byte-identically
  *   P-07  THE TABLE ITSELF: a DEFAULT signet ledger (no injection) refuses a proofless donate — born strict
- *   P-08  THE TABLE ITSELF: a DEFAULT main ledger refuses a proofless donate AND a proofless rune-deposit
+ *   P-08  THE TABLE ITSELF: a DEFAULT main ledger refuses a proofless donate;
+ *         a rune-deposit is refused by Porta 2 (RUNE_BOOK_OPEN_SEQ.main is MAX)
  *   P-09  THE BENCH LIFT LAW: KRAY_LAB_PROOF_MANDATORY_SEQ lifts a TRUSTED_DEV signet bench
  *         (openKrayLedger), and the SAME env is DEAD on main — nothing lifts born-strict there
  */
@@ -104,8 +105,8 @@ function main() {
   )
   rejects(
     () => new KrayLedger(undefined, 'main').applyLive({ seq: 1, kind: 'rune-deposit', hash: 'p8b', runeId: '840000:1', outpoint: outpoint('p8b'), to: bc1, amount: '10' } as unknown as KrayEvent),
-    /proof-mandatory activation a rune deposit/,
-    'P-08 a DEFAULT main ledger refuses a proofless rune-deposit',
+    /rune book is not open/,
+    'P-08 a DEFAULT main ledger refuses a rune-deposit — Porta 2 is dark (RUNE_BOOK_OPEN_SEQ.main is MAX)',
   )
 
   // P-09 · THE BENCH LIFT LAW — the ONE named env exception (store.ts): a TRUSTED_DEV signet

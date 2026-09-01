@@ -29,55 +29,11 @@
  *   it costs the attacker a round-trip each time and it fails delivery again. A proven peer that later FORKS
  *   (stops serving the authentic head) also loses its protection on the next `refresh`.
  */
+import { isPublicHttpHost } from '../kray-core/src/protocol/public-host.ts'
+
+export { isPublicHttpHost }
+
 const HEX64 = /^[0-9a-f]{64}$/
-
-/** Is this IPv4 literal a PUBLIC address? Rejects the private/reserved ranges an SSRF would target. */
-function isPublicV4(ip) {
-  const o = ip.split('.').map((s) => Number(s))
-  if (o.length !== 4 || o.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return false
-  const [a, b] = o
-  if (a === 0 || a === 10 || a === 127) return false        // this-network · RFC1918 10/8 · loopback 127/8
-  if (a === 169 && b === 254) return false                  // link-local + cloud metadata 169.254/16
-  if (a === 172 && b >= 16 && b <= 31) return false         // RFC1918 172.16/12
-  if (a === 192 && b === 168) return false                  // RFC1918 192.168/16
-  if (a === 100 && b >= 64 && b <= 127) return false        // CGNAT 100.64/10 (tailnet-shaped)
-  if (a === 255) return false                               // broadcast
-  return true
-}
-
-/**
- * SSRF GUARD (2c-wire council) — may a GOSSIP-LEARNED URL be dialed? A peer we hand-seed (KRAY_PEERS) is the
- * operator's own trust choice and is never filtered; but a URL LEARNED transitively from the mesh is chosen by
- * strangers, so on a public node it must not be allowed to point the node's fetch at loopback, link-local
- * (169.254.169.254 metadata), or RFC1918/ULA internal services. Returns true only for a public http(s) host.
- * NOTE (honest scope): this is a literal-IP + name guard. A DNS NAME that RESOLVES into a private range
- * (rebinding) is NOT closed here — it needs resolve-then-check; the bounded fetch + never-reflected body limit
- * the residual, and it is named, not hidden.
- */
-export function isPublicHttpHost(url) {
-  let p
-  try { p = new URL(String(url == null ? '' : url).trim()) } catch { return false }
-  if (p.protocol !== 'http:' && p.protocol !== 'https:') return false
-  const h = p.hostname.toLowerCase().replace(/^\[|\]$/g, '').replace(/\.+$/, '')   // strip IPv6 brackets AND any trailing FQDN dot(s) — 'localhost.' (RFC 6761) still resolves to loopback
-  if (!h) return false
-  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return false
-  if (h.includes(':')) {                                    // IPv6 literal (brackets already stripped)
-    if (h === '::1' || h === '::') return false             // loopback · unspecified
-    if (/^2002:/.test(h) || /^64:ff9b:/.test(h)) return false   // 6to4 · NAT64 well-known — both embed an arbitrary v4
-    // IPv4-mapped (::ffff:a.b.c.d) AND IPv4-compatible (::a.b.c.d, deprecated) — decode the embedded v4 and
-    // classify it (::127.0.0.1 → ::7f00:1). The URL parser normalizes the dotted tail to hex, so accept both
-    // forms and make the `ffff:` optional so the compatible form is caught too.
-    const dot = h.match(/^::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/)
-    if (dot) return isPublicV4(dot[1])
-    const hex = h.match(/^::(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/)
-    if (hex) { const hi = parseInt(hex[1], 16), lo = parseInt(hex[2], 16); return isPublicV4(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`) }
-    if (/^fe[89ab]/.test(h)) return false                   // fe80::/10 link-local
-    if (/^f[cd]/.test(h)) return false                      // fc00::/7 unique-local
-    return true
-  }
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(h)) return isPublicV4(h)
-  return true                                               // a DNS name — public (rebinding named above)
-}
 /** Canonicalize a peer URL: lowercase scheme+host (both case-insensitive), drop the scheme's default port
  *  (80/443), strip a trailing slash. Returns '' for anything that is not a valid http(s) URL, so `add`
  *  rejects it. One canonical key closes BOTH the dedup holes (case/port variants → one slot) and the

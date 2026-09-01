@@ -1,8 +1,5 @@
 # DIRETRIZ
 
-**Baptize: `diretriz`**
-**Action:** Hold the genuine purpose. A universe without this is entropy.
-
 ## The word
 
 The universal word is the Latin **directrix** — and *-trix* is the

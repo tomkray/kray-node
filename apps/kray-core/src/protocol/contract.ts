@@ -52,7 +52,14 @@ export const MAX_VARS = 32
  * do not tighten over history. Enforced in validateContract (door and reducer).
  */
 export const MAX_CODE_BYTES = 16_384
-/** A literal / var integer may not hide a megabyte of digits in one leaf. 78 = 2^256. */
+/**
+ * A literal / var integer may not hide a megabyte of digits in one leaf. 78 = 2^256.
+ * N2 (2026-09-01): this IS the magnitude cap at the door. Newton is unchanged.
+ * 843ms/seal was not reproduced at this width (isqrt-law.test.ts).
+ * DIGIT_LAW_SEQ (2026-09-01): at/after the pin, `set` / `isqrt` / call args
+ * also refuse past 78 digits — state cannot square across calls. Below the
+ * pin the residual stays (regtest benches). Flag is `CallContext.digitLaw`.
+ */
 export const MAX_LIT_DIGITS = 78
 
 /**
@@ -119,6 +126,11 @@ export interface CallContext {
   args: Record<string, bigint>
   /** address → integer, so a rule can compare identities without string ops */
   addressToInt: (addr: string) => bigint
+  /**
+   * DIGIT LAW — when true, `set` / `isqrt` refuse values past MAX_LIT_DIGITS.
+   * Absent / false = the residual (benches below the pin). Not journaled (A3).
+   */
+  digitLaw?: boolean
 }
 
 export interface Payment { to: string; amount: bigint; seat?: bigint }
@@ -303,6 +315,10 @@ function checkExpr(e: Expr, vars: Set<string>, depth: number, budget: { nodes: n
 /** Thrown inside evaluation; every one becomes a NAMED refusal, never a crash. */
 class Refuse extends Error {}
 
+function assertLitWidth(n: bigint, what: string): void {
+  if (litDigits(n.toString()) > MAX_LIT_DIGITS) throw new Refuse(`${what} exceeds ${MAX_LIT_DIGITS} digits`)
+}
+
 /**
  * EVALUATE ONE EXPRESSION. Integers in, one integer out. Booleans are 1 and 0,
  * so there is one type and no coercion surprises. Division or modulo by zero
@@ -338,7 +354,12 @@ function evalExpr(e: Expr, ctx: CallContext, state: Record<string, bigint>, budg
     case 'mod': { const d = a(1); if (d === 0n) throw new Refuse('modulo by zero'); return a(0) % d }
     case 'min': return all().reduce((x, y) => (y < x ? y : x))
     case 'max': return all().reduce((x, y) => (y > x ? y : x))
-    case 'isqrt': { const v = a(0); if (v < 0n) throw new Refuse('the square root of a negative number'); return isqrt(v) }
+    case 'isqrt': {
+      const v = a(0)
+      if (v < 0n) throw new Refuse('the square root of a negative number')
+      if (ctx.digitLaw) assertLitWidth(v, 'isqrt')
+      return isqrt(v)
+    }
     case 'neg': return -a(0)
     case 'eq': return a(0) === a(1) ? 1n : 0n
     case 'ne': return a(0) !== a(1) ? 1n : 0n
@@ -382,7 +403,9 @@ export function runCall(code: ContractCode, ruleName: string, ctx: CallContext, 
       if ('require' in action) {
         if (evalExpr(action.require, ctx, next, budget) === 0n) throw new Refuse('a require failed — the whole call is refused')
       } else if ('set' in action) {
-        next[action.set.var] = evalExpr(action.set.to, ctx, next, budget)
+        const nextVal = evalExpr(action.set.to, ctx, next, budget)
+        if (ctx.digitLaw) assertLitWidth(nextVal, 'set')
+        next[action.set.var] = nextVal
       } else if ('take' in action) {
         const amount = evalExpr(action.take.amount, ctx, next, budget)
         if (amount < 0n) throw new Refuse('a take cannot be negative')
