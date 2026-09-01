@@ -128,12 +128,18 @@ There is always exactly ONE Bitcoin-anchored chain.
 
 ## A4 · Honor gates money
 
-Governance voice is capped by earned, soulbound Glow. One star, one vote. No
-whale buys the top; the core reward split is strictly **LINEAR in proven work**
-— share ∝ work — which is the only sybil-neutral rule (N·f(W/N) = f(W) holds only
-for a linear f; a concave √ curve would reward splitting one machine into many
-fake identities). It is Bitcoin's own rule: hashrate share is reward share.
-Reputation-free.
+Glow ✦ is born one way: an address freezes a star to the keyless black hole
+and receives one glow. Soulbound — never transferred, never bought. Voice
+in a poll is that count (`glowOf`). One frozen star, one unit of honor.
+A whale cannot buy the top: there is nothing to buy. Splitting one hand
+into many names does not grow the share — every glow still costs a real
+star given to the fire (linear in sacrifice, the same Cauchy fact).
+The frozen star stays in the atlas; the count is not the whole reputation —
+anyone can see what was given.
+
+The validator **fee-pool** is a different pipe: 1-₭ fees already in the book,
+share ∝ proven presence — never a second mint of ✦. Do not give those two
+the same name.
 
 ## A5 · Written stars are relics
 
@@ -157,9 +163,10 @@ A validator's KRAY is not a trophy; it is what gives LIFE to their project.
 The cycle that builds the network:
 
 1. **Validate** — do work, earn KRAY from the **linear fee-pool settlement**
-   (A4 keeps it sybil-neutral): the 1-₭ fees collected from every action are
-   distributed to the validators who proved presence, share ∝ work — conserved
-   ₭ that already exists, never freshly emitted — plus soulbound Glow.
+   (A4 names the split, not the honor): the 1-₭ fees collected from every action
+   are distributed to the validators who proved presence, share ∝ work —
+   conserved ₭ that already exists, never freshly emitted. Glow is not mined
+   here; it is only born when a star is frozen (A4).
 2. **Create** — the validator has a real project with real off-chain
    accounting: credits, drops, claims, receipts. Today that ledger lives in
    the VACUUM — a Supabase, a local script, a private database nobody else

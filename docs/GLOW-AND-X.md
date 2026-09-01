@@ -38,16 +38,13 @@ mint, no emission; the light is simply the energy that remains.
 - **The math (a pure function of the cascade):** `glow(A) = |{ stars A sent to the black hole }|`. A stranger
   re-derives it from the freeze events already in the journal. Grounded (each glow = one irreversible frozen
   star), provable, and un-transferable *by construction* — no event ever moves glow between addresses.
-- **Open decision:** reconcile with today's `glow.ts` (glow already minted by the protocol for beat-work — and
-  it already feeds the **honocracy** governance voice: `voice = base + w_g·√Glow + w_k·√(min(KRAY, C·Glow+K0))`,
-  where honor is the primary term and money is capped by honor, so a whale can never buy a maximum position).
-  Does the frozen-star rule **unify** with it (glow = reputation from *all* proven sacrifice: securing +
-  freezing) or become a distinct, permanent source? The entities + the Creator settle this before wiring.
-- **BUILT (2026-08-22):** the **raw** frozen-star glow is now real and proven in the bytes — `glow-star.ts`
-  (`frozenStarGlow`, `glowOf`, symbol `✦`): a pure derivation over the already-proven freeze events, soulbound
-  and permanent by construction, `glow-star.test.ts` **8/8**. This is the honest *raw count* — nothing more
-  claimed. The quality layer below rides on top; the honocracy wiring (feeding ✦ glow into the voice) is the
-  next careful slice.
+- **CLOSED (2026-08-31):** glow is **only** the freeze. Beat-work / `glow.ts` / a √ honocracy
+  formula that minted honor from validating is **not** the birth. The reducer engraves
+  `glow += 1` on `transfer-star` to `BLACK_HOLE` and nowhere else. Poll weight is
+  `glowOf(from)` — that raw count. A later quality layer (dark glow, peer vote) may
+  *read* the atlas; it must not mint a second ✦.
+- **BUILT:** `glowOf` / `glow-star.ts` — pure derivation over freeze events, soulbound
+  by construction. The later star `16-glow` and whitepaper §7 say the same sentence.
 
 ### The farming vector → DARK GLOW (the Creator's refinement — quality is socially judged)
 

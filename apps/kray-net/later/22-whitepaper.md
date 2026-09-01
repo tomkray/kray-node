@@ -126,7 +126,7 @@ star market (a listing is a signed offer, a sale moves star and
 payment atomically or not at all); a rune Layer-2 (real Bitcoin runes
 cross in with SPV proof and cross out to the signed owner); contracts
 (law written in stars, executed by the reducer); Glow — soulbound
-honor earned by proven work, never bought; and tenants — real
+honor: freeze a star to the black hole, one ✦, never bought; and tenants — real
 projects that seal their own history onto this book, paying the same
 1 ₭ everyone pays. Every leaf folds into the same cascade root. One
 anchor seals it all.
