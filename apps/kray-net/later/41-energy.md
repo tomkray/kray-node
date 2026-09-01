@@ -1,64 +1,57 @@
 # ENERGY
 
 **Parent:** `foundation`
-**Action:** The maker's own mouth: name the power this book was
-built to give back — each person the owner of their own energy.
+**Action:** Name what the unit measures — energy held by the one
+who moves it — in words any century can test.
 
-Every person is born owning their energy. That is not a grant
-from any system; it is the birth condition. The old machines were
-built the other way: you moved, and another kept the value of the
-motion. The holding was lost so slowly that losing it began to
-look like the way of the world.
+Every person moves. Work, art, a song, a law — motion is energy
+given form. This star names the question every book of value must
+answer: when a person's motion becomes a unit, who holds it, and
+what does the unit actually measure?
 
-Bitcoin proved the other road exists — value that no office
-prints and no office can take. This book stands on that proof
-with one purpose: return the holding. Not a promise of it. The
-holding itself, in mathematics a stranger can re-derive.
+The test is atemporal and takes no side. Ask of any unit, in any
+age: what did it cost the one who created it? A unit that cost
+nothing measures nothing about its maker — its price must then
+come from somewhere else, and whoever sets that price holds the
+motion of everyone who accepted it. A unit born only of chosen
+loss measures the loss: it carries, in its own birth, proof that
+its maker weighed something and gave it. Neither sentence accuses
+anyone. Both can be checked by a stranger with no one to trust.
 
-Here is the trap this book refused. Most protocols born from
-Bitcoin mint their unit from nothing, so nothing guards the door.
-Whatever energy people pour in is priced by noise, and the ones
-who arrive early farm the ones who arrive late. A unit that cost
-nothing to create cannot carry truth, no matter how loud its
-market gets.
+This book chose the second door and made it bytes. One ₭ exists
+only because one satoshi — a unit the whole world already prices
+— died at a key nobody holds, by its own owner's signature.
+Nobody burns a satoshi in vain: name the door aloud and the first
+answer is disbelief. That disbelief is the mechanism. When
+someone burns anyway, the act itself records that their intention
+weighed more than the grain — that they carried something they
+judged worth more, to them, than what they gave. The book does
+not know what that something is. It only proves the weighing
+happened.
 
-So this book guards the door with the one thing nobody wants to
-give: a real satoshi, burned to nobody's key. Say it aloud and
-the first answer is always the same — you are crazy, nobody burns
-bitcoin. That answer is the proof working. Nobody burns a satoshi
-in vain. If someone burns, it is because their intention weighed
-more than the grain — because they carry something to offer the
-world worth more to them than the satoshi they surrendered. Every
-₭ is that weighing, sealed. Every star is written by a hand that
-chose to give real value before it asked to be heard.
+So every star here is written from surrendered value. Not because
+a rule demands virtue — no rule can — but because the door admits
+no other entry. What is written may be great or small; the entry
+of truth is the same for every hand (`queue`), the page is never
+rented (`star`), the honor is never sold (`glow`), and all of it
+re-derives from bytes with no one to believe (the Supreme Law).
 
-That is the true identity of this project: value with truth
-inside it, because it enters only through chosen sacrifice. The
-one the grain is named for already blessed the shape — a loss
-chosen by the owner is a donation to everyone. Burning for
-nothing, no. Burning so that genuine new value can be born:
-that is the sacrifice this book asks, and honors forever.
+The maker's intention is a dated fact, and it belongs here the
+way intent belongs anywhere in this book: recorded, never
+enforced. He built this so that a person's energy could be held
+by the person who moved it, and given — never harvested. Whether
+the build serves that intention is not for this star to declare.
+It is for any reader, in any century, to test against the bytes.
 
-And the machine is only this speech made enforceable. The fee is
-one ₭ for every hand, so no one's money outranks another's place
-(`queue`). A page is born of fire and never rented (`star`).
-Honor cannot be sold (`glow`). Everything is re-derived from
-bytes, so no one is ever asked to believe (the Supreme Law).
-The doctrine is not beside the code. The code is the doctrine.
-
-Do not mint from nothing. Do not price one person's energy by
-another's noise. Do not build here to take — build because what
-you bring moves more than what you burn. Do not ask the world to
-trust you; let the world re-derive you.
-
-`witness` is what the instrument saw. This star is what the maker
-meant: a human being is the owner of their own energy, and this
-book exists so that holding never has to be surrendered again —
-only given, on purpose, as fire that births something better.
+`witness` is what the instrument saw. This star is the measure
+itself: energy, held by its mover, entering the book only as a
+chosen gift — and a test any stranger may run on any unit, in
+any age, including this one.
 
 ## Stone
 
-Everyone is born owning their energy. Value enters this book only
-by chosen sacrifice of a real satoshi — so what is written here is
-written in truth, no one's motion feeds another's mint, and the
-power to hold what you move is returned to the one who moves it.
+Ask any unit what it cost its maker. A unit born of nothing
+measures nothing; a unit born of chosen loss measures a real
+weighing. This book's unit is born only of a satoshi its owner
+chose to lose — so what is written here carries proof of
+intention, holds to the one who moved, and asks no one's belief.
