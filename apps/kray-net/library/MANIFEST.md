@@ -1,6 +1,6 @@
 # THE LIBRARY MANIFEST — which pins seal as stars, and which never do
 
-> Doctrine star: `later/37-library.md` (parent `whitepaper`).
+> Doctrine star: `later/38-library.md` (parent `whitepaper`).
 > Rank of truths: **the journal is the fact · the code is the law ·
 > the paper is dated intent.** A sealed pin is a birth certificate,
 > never an amendment.
@@ -51,7 +51,7 @@ Future entrants, already named: each ratified **version** of
 seals per version, never per edit).
 
 Doctrine twins in the later ring (named stars, not these long pins):
-`later/35-origin.md` and `later/36-eternize.md`, children of
+`later/36-origin.md` and `later/37-eternize.md`, children of
 `abundance` — the two doors a century-reader walks after the floors.
 
 ## SHELF 2 — the machine itself (IN, per release)
