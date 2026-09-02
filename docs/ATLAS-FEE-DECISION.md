@@ -1,5 +1,9 @@
 # The Atlas Fee — the Creator's decision brief (storage-side of the Space Trinity)
 
+> **Post-reset note (v1.0.0 genesis, 2026-08-26):** the old chain crossed this law at Signet seq 165;
+> on the reborn signet and on mainnet it is **born active at seq 0** (`ATLAS_FEE_ACTIVATION_SEQ` in
+> `ledger.ts`). The rite is history; the law is unchanged.
+
 > **Status: RATIFIED (the Creator, 2026-08-23) — branch A BUILT, additive.** The wall-toll lives in
 > `ledger.ts` (`ATLAS_FEE_ACTIVATION_SEQ` + the inscribe/origin charge beside the untouched burn) and
 > the door quotes it (`atlasFee` in every prepare answer, from `Ledger.atlasFeeOf`). Proven by breaking
@@ -52,7 +56,7 @@ atlasFee(size) = max(1, ceil(size / bytesPerKrayNow))   otherwise
   components together. A flood doubles BOTH the fire and the wall-toll against the flooder.
 - **Activation-gated per network** (`ATLAS_FEE_ACTIVATION_SEQ`, MAX until ratified): below the seq
   the fee is absent and history replays byte-identically (A3); mainnet may be born activated.
-- Genesis-rate example: a 21 MB star costs 21 ₭ burned + 21 ₭ to the wall = 42 ₭; a 1-byte poem
+- Live-rate example: a 10 MB star costs 1,000 ₭ burned + 1,000 ₭ to the wall = 2,000 ₭; a 1-byte poem
   costs 1 ₭ burned + 1 ₭ to the wall; a name stays exactly 1 ₭.
 
 ## The adversary's refutations (each one answered in the design)

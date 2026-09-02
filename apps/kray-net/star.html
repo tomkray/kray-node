@@ -1926,8 +1926,8 @@
   function sn(v){ return (window.KRAY&&KRAY.starMark)?KRAY.starMark(v):('★ '+Number(v).toLocaleString()); }
   function burnAmt(size, listed){
     if(listed!=null && listed!=='') return String(listed);
-    // the ERA'S rate, not a frozen constant — KRAY.burnOf reads the live retarget (seeded in kray.js)
-    return String((window.KRAY&&KRAY.burnOf)?KRAY.burnOf(size):Math.max(1,Math.ceil(Number(size||0)/1000000)));
+    // the ERA'S rate (live books: 1 ₭ / 10 KB). Never invent the retired 1 ₭/MB schedule.
+    return String((window.KRAY&&KRAY.burnOf)?KRAY.burnOf(size):Math.max(1,Math.ceil(Number(size||0)/10000)));
   }
   function prettySize(n){
     if(n==null || n==='') return '';

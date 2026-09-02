@@ -156,11 +156,14 @@
   }
   function kray(v){ return '<span title="'+kWhole(v)+' ₭ — ₭ is 1=1, no decimal">'+kWhole(v)+' ₭</span>'; }
   // ₭ destroyed into a star. Prefer the node's historical index (era-aware).
-  // Fallback is the genesis schedule only — never the live rate, or a Signet
-  // star that burned 1 ₭/MB would be re-priced after the proportion snap.
+  // Fallback is the live born rate (1 ₭ / 10 KB). Signet and main are pin 0 —
+  // do not invent the retired 1 ₭/MB schedule.
   function burnOf(t){
     if(t.burn!=null && t.burn!=='') return t.burn;
-    if(t.kind==='inscribe'||t.kind==='origin'||t.kind==='name') return String(Math.max(1, Math.ceil(Number(t.size||0)/1000000)));
+    if(t.kind==='inscribe'||t.kind==='origin'||t.kind==='name') {
+      if(window.KRAY&&KRAY.burnOf) return String(KRAY.burnOf(t.size||0));
+      return String(Math.max(1, Math.ceil(Number(t.size||0)/10000)));
+    }
     return null;
   }
   function addr(a, who, t){

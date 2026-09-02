@@ -52,7 +52,7 @@ proofs move from the door into the reducer.
 - **The linear split is the unique sybil-neutral curve.** `N·f(W/N)=f(W)` ⇒ only linear; splitting one
   machine into N identities pays exactly what one does; a whale gains nothing pretending to be small.
   **Sybil/whale capture: refuted.** Beat PoW is `2^zeros` bound to beacon+address+block, one block once.
-- **Capacity is bounded in consensus, forever.** 21 MB/seal hard content budget ⇒ ≤ ~1.1 TB/yr worst,
+- **Capacity is bounded in consensus, forever.** 10 MB/seal hard content budget ⇒ ≤ ~0.53 TB/yr worst,
   ~52.5 GB/yr average — below the world's disks eternally. **Atlas bloat: hunted, not found.**
 - **The contract VM is total and deterministic.** No loops/recursion/jumps, bounded nodes+depth, BigInt
   only. **Sandbox escape / value creation: hunted, not found.** HTML/SVG stars render only in a caged
@@ -259,7 +259,7 @@ full BFT problem pending a written ADR." The reviewer independently rediscovered
   replication / erasure-coding / peer-discovery, and replay reads the whole journal from line 1 (no
   snapshot/pruning yet). At scale and under operator-death this is the real gap.
 - **(15,17,19,22,28,29) Hygiene & process.** Receipts, per-action `.v1` versioning, per-account nonces,
-  the 1-₭-fee + size-burn + 21 MB/seal spam bound, and real adversarial suites (chaos-fuzz, the 7-level
+  the 1-₭-fee + size-burn + 10 MB/seal spam bound, and real adversarial suites (chaos-fuzz, the 7-level
   assault, reducer-guards) all EXIST. MISSING: a standalone multi-language receipt verifier;
   activation-height protocol versioning; signed-action expiration; and a formal property-based/bounty
   adversarial phase.

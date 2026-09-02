@@ -99,6 +99,151 @@
     return base.replace(/\.[^.]+$/, '').toLowerCase().replace(/^\d+[-_.]/, '')
   }
 
+  // Same door as star-lore isValidName: identity is NFKC + lower; only [a-z0-9]{1,64}.
+  // The reducer still re-checks — this is the tray, not a second law.
+  var NAME_INVISIBLE = /[\u0000-\u001f\u007f\u00ad\u200b-\u200f\u2028-\u202e\u2060-\u2064\ufeff]/
+  function foldBaptism(raw) {
+    return String(raw || '').normalize('NFKC').toLowerCase().normalize('NFKC').replace(/\s+/g, ' ').trim()
+  }
+  function isBaptismName(raw) {
+    var s = String(raw || '')
+    if (NAME_INVISIBLE.test(s)) return false
+    if (typeof TextEncoder !== 'undefined' && new TextEncoder().encode(s).length > 64) return false
+    return /^[a-z0-9]{1,64}$/.test(foldBaptism(s))
+  }
+  function guessBaptism(path) {
+    var k = stemKey(path)
+    return isBaptismName(k) ? k : ''
+  }
+  function ownFlag(it, key) {
+    return !!(it && Object.prototype.hasOwnProperty.call(it, key) && it[key])
+  }
+  function baptismState(item) {
+    var raw = ''
+    if (item && Object.prototype.hasOwnProperty.call(item, 'baptism') && item.baptism != null) raw = String(item.baptism).trim()
+    else if (item) raw = guessBaptism(item.path)
+    if (!raw) return { raw: '', name: '', ok: true, empty: true }
+    if (!isBaptismName(raw)) return { raw: raw, name: raw, ok: false, empty: false }
+    return { raw: raw, name: foldBaptism(raw), ok: true, empty: false }
+  }
+  function baptismPlan(queue) {
+    var seen = Object.create(null)
+    var plan = []
+    var bad = []
+    var dup = []
+    ;(queue || []).forEach(function (it, i) {
+      var st = baptismState(it)
+      if (st.empty) return
+      if (!st.ok) { bad.push(st.raw); return }
+      if (seen[st.name]) { dup.push(st.name); return }
+      seen[st.name] = 1
+      plan.push({ i: i, item: it, name: st.raw, canon: st.name })
+    })
+    return { plan: plan, bad: bad, dup: dup }
+  }
+  function assertBaptismPlan(queue) {
+    var p = baptismPlan(queue)
+    if (p.bad.length) throw new Error('“' + p.bad[0] + '” is not a name — one word, letters and digits')
+    if (p.dup.length) throw new Error('baptism “' + p.dup[0] + '” is on two files — a name is unique forever')
+    return p.plan
+  }
+  function baptismCount(queue) {
+    return baptismPlan(queue).plan.length
+  }
+  function spineGuessOnly(queue) {
+    var guesses = []
+    ;(queue || []).forEach(function (it) {
+      var g = guessBaptism(it.path)
+      if (g) guesses.push(g)
+    })
+    if (!guesses.length) return false
+    return guesses.every(function (g) { return SPINE.indexOf(g) >= 0 })
+  }
+  function baptismTaken(queue) {
+    return (queue || []).filter(function (it) { return ownFlag(it, 'taken') })
+  }
+  function dropTaken(queue) {
+    var kept = []
+    var dropped = []
+    ;(queue || []).forEach(function (it) {
+      if (ownFlag(it, 'taken')) dropped.push(it)
+      else kept.push(it)
+    })
+    return { queue: kept, dropped: dropped }
+  }
+  var nameCache = Object.create(null)
+  function lookupName(canon, fresh) {
+    var key = foldBaptism(canon)
+    if (!key) return Promise.resolve(null)
+    var now = Date.now()
+    var row = nameCache[key]
+    if (!fresh && row && now - row.at < 8000) return Promise.resolve(row.hit)
+    var url = '/api/kraynet/name/' + encodeURIComponent(key) + (fresh ? ('?t=' + now) : '')
+    return fetch(url).then(function (r) {
+      if (r.status === 404) {
+        nameCache[key] = { at: Date.now(), hit: null }
+        return null
+      }
+      if (!r.ok) return null
+      return r.json().then(function (j) {
+        var hit = (j && j.star != null) ? { star: String(j.star), name: j.name || key } : null
+        nameCache[key] = { at: Date.now(), hit: hit }
+        return hit
+      })
+    }).catch(function () { return null })
+  }
+  function takenLine(hit) {
+    if (!hit) return ''
+    return 'already baptized · #' + Number(hit.star).toLocaleString()
+  }
+  function takenTitle(hit) {
+    if (!hit) return ''
+    return 'already baptized — star #' + Number(hit.star).toLocaleString() + ' · a name is written once, forever'
+  }
+  function paintTaken(card, hit) {
+    if (!card) return
+    card.classList.toggle('taken', !!hit)
+    var el = card.querySelector('.ibatch-taken')
+    if (!el) return
+    if (!hit) {
+      el.textContent = ''
+      el.removeAttribute('title')
+      return
+    }
+    el.textContent = takenLine(hit)
+    el.title = takenTitle(hit)
+  }
+  function scheduleNameProbe(item, card, onChange) {
+    if (item._probe) clearTimeout(item._probe)
+    item._probe = setTimeout(function () {
+      var st = baptismState(item)
+      if (st.empty || !st.ok) {
+        item.taken = null
+        paintTaken(card, null)
+        if (onChange) onChange()
+        return
+      }
+      lookupName(st.name).then(function (hit) {
+        if (foldBaptism(item.baptism) !== st.name) return
+        item.taken = hit
+        paintTaken(card, hit)
+        if (onChange) onChange()
+      })
+    }, 400)
+  }
+  async function assertNamesFree(queue) {
+    var plan = assertBaptismPlan(queue)
+    for (var i = 0; i < plan.length; i++) {
+      var hit = await lookupName(plan[i].canon, true)
+      if (hit) {
+        plan[i].item.taken = hit
+        throw new Error('“' + plan[i].name + '” is already baptized on star #' + hit.star + ' — a name is written once, forever')
+      }
+      plan[i].item.taken = null
+    }
+    return plan
+  }
+
   function bySpine(a, b) {
     var ia = SPINE.indexOf(stemKey(a))
     var ib = SPINE.indexOf(stemKey(b))
@@ -342,6 +487,35 @@
     return ''
   }
 
+  var PREVIEW_CHARS = 800
+  function looksText(type, path) {
+    type = String(type || '')
+    if (/^text\//.test(type) || type === 'application/json' || type === 'application/javascript') return true
+    return /\.(md|markdown|mdown|txt|json|html|htm|css|js|mjs|cjs|csv)$/i.test(path || '')
+  }
+  function clipPreview(s) {
+    s = String(s || '').replace(/\r\n/g, '\n')
+    if (s.length <= PREVIEW_CHARS) return s
+    return s.slice(0, PREVIEW_CHARS) + '\n…'
+  }
+  function previewOfBytes(u8, type, path) {
+    if (!u8 || !looksText(type, path)) return ''
+    var n = Math.min(u8.length, 64)
+    var nul = 0
+    for (var i = 0; i < n; i++) if (u8[i] === 0) nul++
+    if (nul > 2) return ''
+    var slice = u8.length > 2400 ? u8.subarray(0, 2400) : u8
+    try {
+      return clipPreview(new TextDecoder('utf-8').decode(slice))
+    } catch (_) { return '' }
+  }
+  function thumbOf(it) {
+    if (it.url && /^image\//.test(it.type || '')) return '<img src="' + esc(it.url) + '" alt="">'
+    if (it.url && /^video\//.test(it.type || '')) return '<video src="' + esc(it.url) + '" muted playsinline></video>'
+    if (it.preview) return '<pre class="ibatch-src" title="' + esc(it.path || it.name || '') + '">' + esc(it.preview) + '</pre>'
+    return '<span class="ibatch-fb">' + fbGlyph(it.type) + '</span>'
+  }
+
   function stageItem(file) {
     var type = mimeOf(file)
     var path = pathOf(file)
@@ -356,6 +530,7 @@
       url: previewUrl(file, type),
       meta: null,
       sidecar: '',
+      baptism: guessBaptism(path),
       blocked: file.size > liveCeil() ? 'over' : ''
     }
   }
@@ -390,8 +565,10 @@
           size: file.size,
           sha: hex32(h),
           url: url,
+          preview: previewOfBytes(u8, type, path),
           meta: null,
           sidecar: '',
+          baptism: guessBaptism(path),
         }
       })
     })
@@ -435,7 +612,7 @@
   }
 
   function burnOf(size, rate) {
-    if (window.KRAY && typeof KRAY.starFire === 'function') return KRAY.starFire(size, rate)
+    if (typeof window !== 'undefined' && window.KRAY && typeof window.KRAY.starFire === 'function') return window.KRAY.starFire(size, rate)
     rate = Number(rate)
     if (!Number.isFinite(rate) || rate <= 0) return 1
     var s = Number(size)
@@ -491,6 +668,8 @@
       ? Math.trunc(Number(opts.nextStar)) : null
     var spineHits = 0
     ;(queue || []).forEach(function (it) { if (SKELETON.indexOf(stemKey(it.path)) >= 0) spineHits++ })
+    var baptize = !!opts.baptize
+    var namesN = baptize ? baptismCount(queue) : 0
     var plan = parent
       ? 'children of star #' + esc(parent.replace(/[^0-9,]/g, ''))
       : (origin && queue.length > 1
@@ -498,9 +677,17 @@
         : (faceFirst ? 'first file is the face · the rest hang on it' : (origin ? 'one L1 child · one blessing'
           : (spineHits ? 'spine order — first card is the next number on the book (not the alphabet)'
             : 'each file is its own root star · this tray order is the birth order'))))
+    var takenN = baptize ? baptismTaken(queue).length : 0
+    if (baptize) {
+      plan += ' · then baptize on that same number — two signed acts, never one fused message'
+      if (faceFirst && spineHits) plan += ' · first-as-face adds a KRAY parent the twelve do not have'
+      if (takenN) plan += ' · ' + takenN + ' name' + (takenN === 1 ? '' : 's') + ' already live — ✕ drops that card, the rest can seal'
+    }
     var costHint = atlasOn
-      ? fire.toLocaleString() + ' fire + ' + atlas.toLocaleString() + ' atlas · to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's') + ' · look over the tray, then sign once'
-      : 'to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's') + ' · look over the tray, then sign once'
+      ? fire.toLocaleString() + ' fire + ' + atlas.toLocaleString() + ' atlas · to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's')
+        + (namesN ? ' + ' + namesN + ' name' + (namesN === 1 ? '' : 's') : '') + ' · look over the tray, then sign'
+      : 'to born ' + sum.n + ' star' + (sum.n === 1 ? '' : 's')
+        + (namesN ? ' + ' + namesN + ' name' + (namesN === 1 ? '' : 's') : '') + ' · look over the tray, then sign'
     var html = '<div class="ibatch-review">'
       + '<div class="ibatch-cost"><b>' + total.toLocaleString() + ' ₭</b><span>' + costHint + '</span></div>'
       + '<p class="ibatch-plan">' + esc(plan)
@@ -510,24 +697,32 @@
       + ' · ' + Number(sum.bytes).toLocaleString() + ' bytes</p>'
       + (opts.skipped ? '<p class="ibatch-skip">' + esc(opts.skipped) + '</p>' : '')
       + '</div>'
-      + '<div class="ibatch-head"><b>Verify</b><span>✕ removes one · drop more anytime · this order is the number</span></div>'
+      + '<div class="ibatch-head"><b>Verify</b><span>✕ removes one · drop more anytime · this order is the number'
+      + (baptize ? ' · the word is the baptism' : '')
+      + (takenN ? ' · red cards already live' : '') + '</span>'
+      + (takenN && opts.onDropTaken
+        ? '<button type="button" class="ibatch-drop-taken" data-drop-taken>Drop ' + takenN + ' already baptized</button>'
+        : '') + '</div>'
     groups.forEach(function (g) {
-      html += '<div class="ibatch-fold">' + esc(g.folder) + ' · ' + g.items.length + '</div><div class="ibatch-grid">'
+      html += '<div class="ibatch-fold">' + esc(g.folder) + ' · ' + g.items.length + '</div><div class="ibatch-grid' + (baptize ? ' named' : '') + '">'
       g.items.forEach(function (row) {
         var it = row.item
-        var thumb = (it.url && /^image\//.test(it.type || ''))
-          ? '<img src="' + esc(it.url) + '" alt="">'
-          : (it.url && /^video\//.test(it.type || ''))
-            ? '<video src="' + esc(it.url) + '" muted playsinline></video>'
-            : '<span class="ibatch-fb">' + fbGlyph(it.type) + '</span>'
-        html += '<div class="ibatch-card' + (faceFirst && row.i === 0 ? ' face' : '') + (it.blocked ? ' blocked' : '') + '" data-i="' + row.i + '">'
+        var st = baptismState(it)
+        var thumb = thumbOf(it)
+        html += '<div class="ibatch-card' + (faceFirst && row.i === 0 ? ' face' : '') + (ownFlag(it, 'blocked') ? ' blocked' : '') + (!st.empty && !st.ok ? ' badname' : '') + (ownFlag(it, 'taken') ? ' taken' : '') + '" data-i="' + row.i + '">'
           + thumb
-          + (it.blocked ? '<span class="ibatch-tag">OVER</span>' : (faceFirst && row.i === 0 ? '<span class="ibatch-tag face">FACE</span>' : (it.sidecar ? '<span class="ibatch-tag">' + (/\.md$/i.test(it.sidecar) ? 'MD' : 'JSON') + '</span>' : '')))
+          + (ownFlag(it, 'blocked') ? '<span class="ibatch-tag">OVER</span>' : (faceFirst && row.i === 0 ? '<span class="ibatch-tag face">FACE</span>' : (it.sidecar ? '<span class="ibatch-tag">' + (/\.md$/i.test(it.sidecar) ? 'MD' : 'JSON') + '</span>' : (baptize && !st.empty && st.ok ? '<span class="ibatch-tag">NAME</span>' : ''))))
           + '<div class="ibatch-nm" title="' + esc(it.path) + (it.sidecar ? ' + ' + esc(it.sidecar) : '') + '">'
           + (nextN != null ? '#' + (nextN + row.i) + ' · ' : '') + esc(it.name) + '</div>'
+          + (baptize
+            ? '<label class="ibatch-nl"><span>baptism</span><input class="ibatch-baptism" data-bn="' + row.i + '" maxlength="64" spellcheck="false" autocomplete="off" value="' + esc(st.raw) + '" placeholder="—"></label>'
+              + '<p class="ibatch-taken"' + (ownFlag(it, 'taken') ? ' title="' + esc(takenTitle(it.taken)) + '">' + esc(takenLine(it.taken)) : '>') + '</p>'
+            : '')
           + '<div class="ibatch-sz">' + Number(it.size).toLocaleString() + ' B · ' + (function () {
             var piece = burnOf(it.size, opts.rate)
-            return (atlasOn ? piece * 2 : piece).toLocaleString() + ' ₭'
+            var n = atlasOn ? piece * 2 : piece
+            if (baptize && !st.empty && st.ok) n += 1
+            return n.toLocaleString() + ' ₭'
           }()) + (it.sidecar ? ' · +doc' : '') + '</div>'
           + '<button type="button" class="ibatch-x" data-rm="' + row.i + '" aria-label="remove">✕</button>'
           + '</div>'
@@ -541,6 +736,30 @@
         e.stopPropagation()
         if (onRemove) onRemove(Number(btn.getAttribute('data-rm')))
       })
+    })
+    host.querySelectorAll('[data-drop-taken]').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault()
+        e.stopPropagation()
+        if (opts.onDropTaken) opts.onDropTaken()
+      })
+    })
+    host.querySelectorAll('[data-bn]').forEach(function (inp) {
+      var i = Number(inp.getAttribute('data-bn'))
+      var card = inp.closest('.ibatch-card')
+      inp.addEventListener('input', function () {
+        if (!queue[i]) return
+        queue[i].baptism = inp.value
+        queue[i].taken = null
+        var st = baptismState(queue[i])
+        if (card) {
+          card.classList.toggle('badname', !st.empty && !st.ok)
+          paintTaken(card, null)
+        }
+        if (opts.onBaptism) opts.onBaptism()
+        scheduleNameProbe(queue[i], card, opts.onBaptism)
+      })
+      if (queue[i] && baptize) scheduleNameProbe(queue[i], card, opts.onBaptism)
     })
   }
 
@@ -630,6 +849,7 @@
         it.sha = hashed.sha
         it.type = it.type || hashed.type
         if (!it.url && hashed.url) it.url = hashed.url
+        if (hashed.preview) it.preview = hashed.preview
         if (hashed.size) it.size = hashed.size
       } catch (_) {
         it.blocked = it.blocked || 'unreadable'
@@ -653,13 +873,15 @@
       host.innerHTML = '<video src="' + esc(item.url) + '" controls muted playsinline></video>'
     } else if (/^audio\//.test(type) && item.url) {
       host.innerHTML = '<audio src="' + esc(item.url) + '" controls></audio><p class="imeta">' + esc(item.name || '') + '</p>'
+    } else if (item.preview) {
+      host.innerHTML = '<pre class="ibatch-src">' + esc(item.preview) + '</pre><p class="imeta">' + esc(item.name || '') + ' · ' + esc(type) + '</p>'
     } else {
       host.innerHTML = '<div class="ibatch-fb">' + fbGlyph(type) + '</div><p class="imeta">' + esc(item.name || '') + ' · ' + esc(type) + '</p>'
     }
   }
 
   function blockedOf(queue) {
-    return (queue || []).filter(function (it) { return it && it.blocked })
+    return (queue || []).filter(function (it) { return ownFlag(it, 'blocked') })
   }
 
   function wavesOf(queue) {
@@ -701,9 +923,7 @@
     })
   }
 
-  async function sealWave(from, slice, extra, signOne, opts, onProgress, label) {
-    for (var i = 0; i < slice.length; i++) await ensureB64(slice[i])
-    var items = bodiesOf(slice, extra)
+  async function postBatch(from, items, signOne, opts, onProgress, label, hints) {
     onProgress(label + 'preparing ' + items.length + '…')
     var pr = await fetch('/api/kraynet/prepare-batch', {
       method: 'POST',
@@ -715,7 +935,7 @@
     var signed = []
     var pub = opts.publicKey
     for (var s = 0; s < prep.items.length; s++) {
-      onProgress(label + 'sign ' + (s + 1) + '/' + prep.items.length + ' — ' + (slice[s] && slice[s].name || 'file'))
+      onProgress(label + 'sign ' + (s + 1) + '/' + prep.items.length + ' — ' + ((hints && hints[s]) || (items[s] && items[s].name) || 'act'))
       var sig = await signOne(prep.items[s].message)
       if (!pub) {
         var p = await opts.getPublicKey()
@@ -748,6 +968,11 @@
     return res
   }
 
+  async function sealWave(from, slice, extra, signOne, opts, onProgress, label) {
+    for (var i = 0; i < slice.length; i++) await ensureB64(slice[i])
+    return postBatch(from, bodiesOf(slice, extra), signOne, opts, onProgress, label, slice.map(function (it) { return it.name }))
+  }
+
   async function seal(opts) {
     var from = opts.from
     var queue = (opts.queue || []).slice()
@@ -755,6 +980,8 @@
     var onProgress = opts.onProgress || function () {}
     if (!from || !queue.length) throw new Error('a batch needs files')
     if (blockedOf(queue).length) throw new Error('a file is over this node\'s ceiling — compress or split before you seal')
+    var wantNames = !!opts.baptize && extra.star == null
+    if (wantNames) await assertNamesFree(queue)
     var confirmed = false
     async function signOne(msg) {
       if (!confirmed) {
@@ -769,14 +996,39 @@
     var results = []
     var applied = 0
     var leftover = -1
+    var leftoverKind = ''
     var done = 0
+    var bornPairs = []
+    var named = 0
+    var unnamed = []
+
+    function doneState() {
+      return {
+        ok: applied > 0,
+        applied: applied,
+        named: named,
+        failed: results.length - applied,
+        results: results,
+        leftover: leftover,
+        leftoverKind: leftoverKind,
+        unnamed: unnamed,
+        parent: extra.parent || null,
+      }
+    }
 
     async function runSlice(slice, tag) {
       var res = await sealWave(from, slice, extra, signOne, opts, onProgress, tag)
-      var localFail = (res.results || []).findIndex(function (r) { return !r.ok })
-      ;(res.results || []).forEach(function (r) { results.push(r) })
+      var rows = res.results || []
+      var localFail = rows.findIndex(function (r) { return !r.ok })
+      rows.forEach(function (r, i) {
+        results.push(r)
+        if (r && r.ok && r.star != null && slice[i]) bornPairs.push({ item: slice[i], star: String(r.star) })
+      })
       applied += res.applied || 0
-      if (localFail >= 0) leftover = done + localFail
+      if (localFail >= 0) {
+        leftover = done + localFail
+        leftoverKind = 'content'
+      }
       done += slice.length
       return res
     }
@@ -795,7 +1047,7 @@
     if (faceFirst) {
       onProgress('collection face — first file becomes the parent…')
       var face = await runSlice([queue[0]], 'face · ')
-      if (leftover >= 0) return { ok: applied > 0, applied: applied, failed: results.length - applied, results: results, leftover: leftover }
+      if (leftover >= 0) return doneState()
       var born = (face.results || []).filter(function (r) { return r.ok && r.star != null })[0]
       if (!born) throw new Error('the collection face did not receive a star number')
       extra.parent = String(born.star)
@@ -809,7 +1061,31 @@
       await runSlice(waves[w], 'wave ' + (w + 1) + '/' + waves.length + ' · ')
       if (hasOrigin && extra.originProofs) delete extra.originProofs
     }
-    return { ok: applied > 0, applied: applied, failed: results.length - applied, results: results, leftover: leftover, parent: extra.parent || null }
+    if (leftover >= 0 || !wantNames) return doneState()
+
+    var nameItems = []
+    var nameHints = []
+    bornPairs.forEach(function (row) {
+      var st = baptismState(row.item)
+      if (st.empty || !st.ok) return
+      nameItems.push({ action: 'name', name: st.raw, star: row.star })
+      nameHints.push(st.raw)
+    })
+    if (!nameItems.length) return doneState()
+    onProgress('baptism — same numbers, second signed act…')
+    var nameRes = await postBatch(from, nameItems, signOne, opts, onProgress, 'name · ', nameHints)
+    var nameRows = nameRes.results || []
+    var nameFail = nameRows.findIndex(function (r) { return !r.ok })
+    nameRows.forEach(function (r) { results.push(r) })
+    named += nameRes.applied || 0
+    if (nameFail >= 0) {
+      leftoverKind = 'name'
+      leftover = nameFail
+      unnamed = nameItems.slice(nameFail).map(function (it) {
+        return { star: it.star, name: it.name, error: (nameRows[nameFail] && nameRows[nameFail].error) || 'refused' }
+      })
+    }
+    return doneState()
   }
 
   global.KrayInscribeBatch = {
@@ -840,5 +1116,18 @@
     seal: seal,
     pathOf: pathOf,
     mimeOf: mimeOf,
+    stemKey: stemKey,
+    guessBaptism: guessBaptism,
+    isBaptismName: isBaptismName,
+    baptismCount: baptismCount,
+    baptismPlan: baptismPlan,
+    baptismState: baptismState,
+    baptismTaken: baptismTaken,
+    dropTaken: dropTaken,
+    looksText: looksText,
+    clipPreview: clipPreview,
+    previewOfBytes: previewOfBytes,
+    lookupName: lookupName,
+    spineGuessOnly: spineGuessOnly,
   }
 })(typeof window !== 'undefined' ? window : globalThis)

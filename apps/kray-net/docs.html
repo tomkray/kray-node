@@ -126,6 +126,7 @@ main .cascade b{color:var(--btc);font-weight:500}
       <a href="#blackhole">The black hole</a>
       <a href="#xmoney">Ӿ — the fireborn money</a>
       <a href="#api">API reference</a>
+      <a href="#integrate">Integrate a wallet</a>
       <h4>The mathematics</h4>
       <a href="#cascade">The cascade root</a>
       <a href="#anchor">The Bitcoin anchor</a>
@@ -244,7 +245,7 @@ main .cascade b{color:var(--btc);font-weight:500}
       <section id="inscribe">
         <div class="shead"><span class="n">06</span><h2>Write a star</h2><span class="sub">Everything Ordinals does, radically simpler — and byte-unique in the whole universe.</span></div>
         <p>To inscribe is to burn. The live <strong>size-proportion law</strong> prices the sealed body: <strong>1 ₭ per 10,000 B (10 KB)</strong> (<code>ceil(size / 10&nbsp;000)</code>, floor <strong>1 ₭</strong>), ceiling <strong>10 MB</strong> (10,000,000 bytes). A 1-byte poem and a 10 KB file both burn 1 ₭; 183 KB burns 19 ₭; 4.43 MB burns 443 ₭. A baptism or a hanging law stays the 1 ₭ floor (no body). When this node has the atlas wall on, a sized file pays that same amount again to the treasury. Other signed acts (send, call, bridge…) pay the eternal <strong>1 ₭ fee</strong> — never taken from a star. The studio is <a href="/inscribe">/inscribe</a>. Your profile can write the same acts.</p>
-        <p class="note" id="size-law-live">This node quotes the live numbers below. Main is born in this law. Signet journals before seq 274 still replay the genesis 1 ₭ / MB · 21 MB path (A3) — the door never re-prices a sealed star.</p>
+        <p class="note" id="size-law-live">This node quotes the live numbers below. Signet and main are born in this law (10 MB · 1 ₭ / 10 KB from seq 0). The door never re-prices a sealed star.</p>
         <table class="dtable" id="size-law-table">
           <tr><th>Law</th><th>Live quote</th></tr>
           <tr><td><strong>Fire</strong></td><td><span data-size-rate>1 ₭ / 10,000 B (10 KB)</span> — <code>max(1, ceil(size / bytesPerKrayBurn))</code></td></tr>
@@ -457,6 +458,9 @@ main .cascade b{color:var(--btc);font-weight:500}
           <tr><td><code>POST /api/kraynet/speak</code></td><td>verify a hold proof. 0 ₭. Not journaled.</td></tr>
         </table>
         <p class="note">Writes require a taproot address of the running network; anything else is refused with <code>401</code> before reaching a handler. Every client is rate-limited; the machine running the node is not throttled against itself.</p>
+        <div class="card btc tick" id="integrate"><div class="label">Integrate a wallet</div>
+          <p>Putting KRAY.NETWORK inside your wallet or product — the way KrayWallet (extension and mobile) runs it in production — takes one HTTP base and a BIP-340 signer. No API key, no SDK, CORS open. The full guide covers the read endpoints, the prepare → verify → sign → submit arc, the donate mint with the local NUMS audit (including a live test vector), the rune bridge and Guardian mining, plus the integrator's fail-closed checklist: <a href="/docs/INTEGRATE.md">INTEGRATE.md</a> · <a href="https://github.com/tomkray/kray-network/blob/main/docs/INTEGRATE.md" rel="noopener">mirror on GitHub</a>.</p>
+        </div>
       </section>
 
       <hr class="rule">

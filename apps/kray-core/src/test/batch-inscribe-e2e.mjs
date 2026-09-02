@@ -93,6 +93,42 @@ async function main() {
   const r3 = await jpost('/api/kraynet/submit-batch', { from: solo.a, items: p3.items.map((it, i) => ({ ...pitems[i], nonce: it.nonce, publicKey: solo.x, signature: solo.sign(it.message) })) })
   ok(r3.applied === 3 && await bal(solo.a) === b1 - 3n, 'a 3-item batch burns exactly 3 ₭ and mints 3 stars — identical to 3 one-by-one submits')
 
+  // ── NEURON PAIR · body then baptism on the SAME number (two signed acts; never a fused message) ──
+  const pair = id('pair')
+  await jpost('/api/kraynet/donate', { to: pair.a, sats: '100' })
+  const word = ('neuron' + Date.now().toString(36)).replace(/[^a-z0-9]/g, '').slice(0, 16)
+  const body = 'pair body ' + word
+  const pIns = await jpost('/api/kraynet/prepare-batch', { from: pair.a, items: [{ action: 'inscribe', content: body, contentType: 'text/plain' }] })
+  const rIns = await jpost('/api/kraynet/submit-batch', { from: pair.a, items: pIns.items.map((it) => ({ action: 'inscribe', content: body, contentType: 'text/plain', nonce: it.nonce, publicKey: pair.x, signature: pair.sign(it.message) })) })
+  const star = rIns.results && rIns.results[0] && rIns.results[0].star
+  ok(rIns.applied === 1 && star != null, `content born as star #${star}`)
+  const pNm = await jpost('/api/kraynet/prepare-batch', { from: pair.a, items: [{ action: 'name', name: word, star: String(star) }] })
+  const rNm = await jpost('/api/kraynet/submit-batch', { from: pair.a, items: pNm.items.map((it) => ({ action: 'name', name: word, star: String(star), nonce: it.nonce, publicKey: pair.x, signature: pair.sign(it.message) })) })
+  const st = await jget('/api/kraynet/star/' + star)
+  ok(rNm.applied === 1 && String(st.name || '').toLowerCase() === word && !!st.contentHash,
+    'one star holds the body AND the baptism — two signed acts, same number, no fused message')
+
+  const named = await jget('/api/kraynet/name/' + encodeURIComponent(word))
+  const missing = await jget('/api/kraynet/name/' + encodeURIComponent('zznope' + Date.now().toString(36)))
+  ok(named && String(named.star) === String(star), 'GET /name/:canon resolves the living baptism')
+  ok(!!missing.error || missing.__down, 'GET /name/:canon is 404 when the word is free')
+
+  const thief = id('thief')
+  await jpost('/api/kraynet/donate', { to: thief.a, sats: '50' })
+  const kThief = await bal(thief.a)
+  const pSteal = await jpost('/api/kraynet/prepare-batch', { from: thief.a, items: [{ action: 'name', name: word }] })
+  const rSteal = pSteal.items
+    ? await jpost('/api/kraynet/submit-batch', { from: thief.a, items: pSteal.items.map((it) => ({ action: 'name', name: word, nonce: it.nonce, publicKey: thief.x, signature: thief.sign(it.message) })) })
+    : pSteal
+  const stealRefused = !!(rSteal.error || (rSteal.results && rSteal.results[0] && rSteal.results[0].ok === false))
+  const after = await jget('/api/kraynet/star/' + star)
+  ok(String(after.name || '').toLowerCase() === word, 'the first writer still holds the name — a second wallet cannot steal it')
+  const kThiefAfter = await bal(thief.a)
+  ok(stealRefused || kThiefAfter === kThief - 1n,
+    stealRefused
+      ? 'submit-batch refused the taken name (unique-relic pin)'
+      : 'lab regtest below the pin still curse-burns 1 ₭ — Signet/main refuse before fire')
+
   console.log(`\n╚═ ${pass} passed${fail ? `, ${fail} FAILED` : ''} — a collection minted in one batch, each act signed + fee-paid, forgery refused, nothing half-applied. ⛓₭\n`)
   process.exit(fail ? 1 : 0)
 }

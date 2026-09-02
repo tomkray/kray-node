@@ -123,6 +123,7 @@
           </div>
         </div>
         <label class="ibatch-coll"><input type="checkbox" id="e-coll" checked> Hang this drop as one collection (KRAY parent above, or the first file as the face). An L1 blessing + batch = every file is an L1 child under one SHA-256 cohort.</label>
+        <label class="ibatch-coll"><input type="checkbox" id="e-baptize"> Baptize each file on the same number (second signed act · 1 ₭). <code>01-indole.md</code> → <code>indole</code>. You can edit the word. Empty = content only. Not the JSON document.</label>
         <div id="e-batch" class="ibatch" hidden></div>
         <div id="e-preview" class="iprev" hidden></div>
       </div>
@@ -308,7 +309,7 @@
   var $=function(id){return document.getElementById(id);};
   var panel=$('inspanel'); if(!panel) return;
   var acct=$('i-acct'), meta=$('i-meta'), out=$('i-out'), go=$('i-go'), golabel=$('i-golabel');
-  var tab = 'name', me=null, pub=null, busy=false, postType='text/plain', DOC_CAP=8192, nextBorn=null;
+  var tab = 'name', me=null, pub=null, busy=false, postType='text/plain', DOC_CAP=8192, nextBorn=null, baptizeTouched=false;
   var lawKind='code';
   var lawExamFp='';
   function short(a){return a.slice(0,8)+'…'+a.slice(-5);}
@@ -378,14 +379,19 @@
     if(tab==='media' && fileQueue.length && B) return B.burnsOf(fileQueue, eraRateI());
     return fireOfI(currentBytesI());
   }
+  function baptizeOn(){
+    return !!( $('e-baptize') && $('e-baptize').checked && TARGET==null );
+  }
   function quoteI(){
     if(tab==='name' || tab==='law') return {bytes:0, fire:1, atlas:0, total:1, ready:!!eraRateI(), empty:false};
     var bytes=currentBytesI();
     var empty=(tab==='media' && !fileQueue.length && !fileB64) || (tab==='music' && !musicLandedBytes()) || (tab==='post' && !bytes);
     if(empty) return {bytes:bytes||0, fire:0, atlas:0, total:0, ready:!!eraRateI(), empty:true};
     var fire=burnNowI();
+    var names=0;
+    if(tab==='media' && TARGET==null && baptizeOn() && B && B.baptismCount) names=B.baptismCount(fileQueue);
     var atlas=(window.kraynetAtlasFeeOn && bytes>0) ? fire : 0;
-    return {bytes:bytes, fire:fire, atlas:atlas, total:fire+atlas, ready:!!eraRateI(), empty:false};
+    return {bytes:bytes, fire:fire+names, atlas:atlas, total:fire+names+atlas, names:names, ready:!!eraRateI(), empty:false};
   }
   function costTextI(q){
     if(!q || q.empty) return '—';
@@ -485,6 +491,18 @@
     }
     if(tab==='media' && !fileQueue.length && !fileB64){ golabel.textContent='Drop a file — then seal'; return; }
     if(tab==='post' && q.empty){ golabel.textContent='Type the bytes — then seal'; return; }
+    if(tab==='media' && baptizeOn() && B && B.baptismTaken && B.baptismTaken(fileQueue).length){
+      var takenN=B.baptismTaken(fileQueue).length;
+      var hit=B.baptismTaken(fileQueue)[0].taken;
+      golabel.textContent=takenN===1
+        ? 'Already baptized — star #'+Number(hit.star).toLocaleString()+' · ✕ drops that card'
+        : takenN+' names already live · ✕ each card or drop them all';
+      return;
+    }
+    if(tab==='media' && fileQueue.length>=1 && q.names){
+      golabel.textContent='Looks right — seal '+fileQueue.length+' star'+(fileQueue.length===1?'':'s')+' + '+q.names+' name'+(q.names===1?'':'s')+' · '+costTextI(q);
+      return;
+    }
     if(tab==='media' && fileQueue.length>1){ golabel.textContent='Looks right — seal '+fileQueue.length+' stars · '+costTextI(q); return; }
     golabel.textContent = (useOrdinal() ? 'Mint child — burns ' : (tab==='music'?'Inscribe music — burns ':'Inscribe — burns '))+costTextI(q);
   }
@@ -513,7 +531,16 @@
     return tab==='media' ? !!(fileQueue.length || fileB64) : currentContent().trim().length>0;
   }
   function queueBlocked(){ return !!(B && B.blockedOf && B.blockedOf(fileQueue).length); }
-  function paintGo(){ go.disabled = busy || !(me && hasPayload()) || (tab==='media' && queueBlocked()) || (tab==='music' && musicOver()); }
+  function baptismBlocked(){
+    if(!baptizeOn() || !fileQueue.length) return false;
+    if(B.baptismTaken && B.baptismTaken(fileQueue).length) return true;
+    if(!B || !B.baptismState) return false;
+    return fileQueue.some(function(it){
+      var st=B.baptismState(it);
+      return st && !st.empty && !st.ok;
+    });
+  }
+  function paintGo(){ go.disabled = busy || !(me && hasPayload()) || (tab==='media' && queueBlocked()) || (tab==='music' && musicOver()) || baptismBlocked(); }
   function paintLawHint(){
     var paper = window.KrayContractPapers && KrayContractPapers.byId(lawKind);
     var el=$('i-lawhint');
@@ -850,6 +877,13 @@
   }
   function paintFileQueue(){
     if(!B) return;
+    if(!fileQueue.length) baptizeTouched=false;
+    var box=$('e-baptize');
+    if(box){
+      box.disabled=TARGET!=null;
+      if(TARGET!=null) box.checked=false;
+      else if(!baptizeTouched && fileQueue.length && B.spineGuessOnly) box.checked=B.spineGuessOnly(fileQueue);
+    }
     B.paint($('e-batch'), fileQueue, function(i){
       if(!fileQueue[i]) return;
       B.revoke(fileQueue[i]);
@@ -867,9 +901,21 @@
         parent: (($('i-parent')||{}).value||''),
         origin: !!(($('i-oparent')||{}).value||'').trim(),
         faceFirst: !!( $('e-coll') && $('e-coll').checked ),
+        baptize: baptizeOn(),
         skipped: lastSkip,
         rate: eraRateI(),
-        nextStar: nextBorn
+        nextStar: nextBorn,
+        onBaptism: function(){ paintGolabel(); paintGo(); },
+        onDropTaken: function(){
+          if(!B.dropTaken) return;
+          var got=B.dropTaken(fileQueue);
+          if(!got.dropped.length) return;
+          got.dropped.forEach(B.revoke);
+          fileQueue=got.queue;
+          syncSoloFromQueue();
+          paintFileQueue();
+          refreshMeta();
+        }
       };
     })());
     syncSoloFromQueue();
@@ -1127,7 +1173,8 @@
     }
     if(tab==='media'){
       if(fileQueue.length>1){
-        meta.textContent = 'Ready to verify · '+fileQueue.length+' stars · '+costTextI(quoteI())+' · sign once';
+        var qv=quoteI();
+        meta.textContent = 'Ready to verify · '+fileQueue.length+' stars'+(qv.names?' + '+qv.names+' names':'')+' · '+costTextI(qv)+(qv.names?' · body then baptism, same numbers':' · sign once');
       } else if(fileQueue.length===1){
         var one=fileQueue[0];
         meta.textContent = one.name+' · '+one.size.toLocaleString()+' bytes · '+one.type+' — burns '+costTextI(quoteI())+' to born, sealed byte-exact';
@@ -1177,7 +1224,13 @@
     el.style.color = n>DOC_CAP ? 'var(--crit)' : '';
   }
   ['i-content','i-name','i-parent','i-oparent','i-metadata','i-lawstar','i-lawcode'].forEach(function(id){ var e=$(id); if(e) e.addEventListener('input',function(){ refreshMeta(); if(tab==='media') paintFileQueue(); }); });
-  if($('e-coll')) $('e-coll').addEventListener('change',function(){ if(tab==='media') paintFileQueue(); paintGolabel(); });
+  if($('e-coll')) $('e-coll').addEventListener('change',function(){ if(tab==='media') paintFileQueue(); paintGolabel(); paintGo(); });
+  if($('e-baptize')) $('e-baptize').addEventListener('change',function(){
+    baptizeTouched=true;
+    if(tab==='media') paintFileQueue();
+    paintGolabel();
+    paintGo();
+  });
   var lawstar=$('i-lawstar');
   if(lawstar) lawstar.addEventListener('input', function(){ if(lawKind!=='code') compileFromKnobs(); });
 
@@ -1578,7 +1631,7 @@
         }
       }
       if(tab==='media' && queueBlocked()) throw new Error('a file is over this node\'s ceiling — compress or split before you seal');
-      if(tab==='media' && fileQueue.length>1 && B){
+      if(tab==='media' && fileQueue.length && B && (fileQueue.length>1 || baptizeOn())){
         var extra={};
         if(body.meta!=null) extra.meta=body.meta;
         if(body.parents) extra.parents=body.parents;
@@ -1590,6 +1643,7 @@
         var batch=await B.seal({
           from:me, queue:fileQueue, extra:extra,
           faceFirst: !!( $('e-coll') && $('e-coll').checked ),
+          baptize: baptizeOn(),
           sign:function(msg){ return (window.krayWallet.signMessageWithConfirmation||window.krayWallet.signMessage).call(window.krayWallet, msg); },
           signQuiet:function(msg){ return window.krayWallet.signMessage(msg); },
           getPublicKey:function(){ return window.krayWallet.getPublicKey(); },
@@ -1597,16 +1651,25 @@
           onProgress:function(t){ out.className='iout'; out.textContent=t; }
         });
         var applied=batch.applied||0;
-        var first=(batch.results||[]).filter(function(r){ return r.ok && r.star!=null; })[0];
-        var leftover = batch.leftover!=null && batch.leftover>=0 ? batch.leftover : (batch.results||[]).findIndex(function(r){ return !r.ok; });
+        var named=batch.named||0;
+        var first=(batch.results||[]).filter(function(r){ return r.ok && r.star!=null && r.action!=='name'; })[0];
+        var leftoverKind=batch.leftoverKind||'';
+        var leftover = leftoverKind==='content' && batch.leftover!=null && batch.leftover>=0 ? batch.leftover : -1;
         out.className=applied?'iout ok':'iout err';
-        var links=(batch.results||[]).filter(function(r){ return r.ok && r.star!=null; }).slice(0,8).map(function(r){
+        var links=(batch.results||[]).filter(function(r){ return r.ok && r.star!=null && r.action!=='name'; }).slice(0,8).map(function(r){
           return '<a href="/star/'+esc(String(r.star))+'" target="_blank" rel="noopener">#'+Number(r.star).toLocaleString()+'</a>';
         }).join(' · ');
-        out.innerHTML=(applied?'✓ collection · '+applied+' star'+(applied===1?'':'s'):'✗ nothing sealed')
+        var nameNote = named ? ' · '+named+' baptized on the same number' : '';
+        var nameFail = leftoverKind==='name' && (batch.unnamed||[]).length
+          ? ' · content sealed · baptism stopped — '+(batch.unnamed||[]).slice(0,4).map(function(u){
+            return '<a href="/baptize?star='+esc(String(u.star))+'">#'+esc(String(u.star))+' “'+esc(u.name)+'”</a>';
+          }).join(' · ')
+          : '';
+        out.innerHTML=(applied?'✓ collection · '+applied+' star'+(applied===1?'':'s')+nameNote:'✗ nothing sealed')
           +(batch.parent?' · parent #'+esc(String(batch.parent)):'')
           +(links?' · '+links:'')
           +(first?' · <a href="/star/'+esc(String(first.star))+'">open</a>':'')
+          +nameFail
           +(leftover>=0?' · stopped at file '+(leftover+1)+' — '+esc((batch.results[leftover]&&batch.results[leftover].error)||'refused')+' · remainder stays in the tray':'');
         if(leftover>=0){
           fileQueue.slice(0, leftover).forEach(B.revoke);
@@ -1666,6 +1729,7 @@
     var tgt=$('i-target');
     if(tgt){ tgt.textContent='Adding content to star #'+Number(TARGET).toLocaleString()+' — it keeps its number and name; the content becomes its inscription. A law is a different tab, a different signature.'; tgt.style.display='flex'; }
     var nameTab=panel.querySelector('.itabs .chip[data-itab="name"]'); if(nameTab) nameTab.style.display='none';
+    var baptLab=$('e-baptize'); if(baptLab && baptLab.closest) { var wrap=baptLab.closest('label'); if(wrap) wrap.hidden=true; }
     var mediaTab=panel.querySelector('.itabs .chip[data-itab="media"]'); if(mediaTab) mediaTab.click(); // default to a CONTENT tab, never Baptism
     var ls=$('i-lawstar'); if(ls && !ls.value) ls.value=TARGET;
   }

@@ -144,8 +144,8 @@ async function relayPending(limit = 50) {
 // (slowloris) peer can never hang the sequential fallback loop — and a response-body BYTE CEILING — so a
 // peer cannot OOM the follower with a giant body before verification even runs. A follower is a client:
 // bounds, not proofs. Authenticity still lives in the replay + root + --from head + Bitcoin anchor.
-const FETCH_TIMEOUT_MS = parseInt(process.env.KRAY_FOLLOW_FETCH_TIMEOUT_MS || '15000', 10) || 15000
-const MAX_RESPONSE_BYTES = 64 * 1024 * 1024   // a chunk may carry a ~21MB inscription (base64 ~28MB) — 64MB gives headroom
+const FETCH_TIMEOUT_MS = parseInt(process.env.KRAY_FOLLOW_FETCH_TIMEOUT_MS || '180000', 10) || 180000
+const MAX_RESPONSE_BYTES = 64 * 1024 * 1024   // a chunk may carry a 10 MB inscription (base64 ~14 MB) — 64 MB gives headroom
 // one bounded fetch, shared byte-for-byte with the node's gossip (apps/kray-net/bounded-fetch.mjs) — the
 // discipline (timeout + streamed byte ceiling) is written once and proven once (bounded-fetch.test.mjs).
 const fetchBoundedJson = (url) => boundedJson(url, { timeoutMs: FETCH_TIMEOUT_MS, maxBytes: MAX_RESPONSE_BYTES })

@@ -9,7 +9,7 @@
  * call, so the discipline is written once and proven once.
  *
  *   · gossip head/peers → small ceiling (a head is 64 hex + a little JSON; a "head" of 64MB is an attack)
- *   · chunk pull        → large ceiling (a chunk may carry a ~21MB inscription; 64MB gives headroom)
+ *   · chunk pull        → large ceiling (a chunk may carry a 10 MB inscription; 64 MB gives headroom)
  */
 
 /**
