@@ -6,9 +6,10 @@ A stranger clones this repository to **follow** and **validate**.
 |---|---|---|
 | **`follow/`** | Door 2 — full node of one public history | **Yes** |
 | **`guardian/`** | Door 1 — measure, prime, mine | **Yes** |
-| **`pot-signer.mjs`** | Pot signs off the public process (no keys) | **Yes** |
+| **`pot-signer.mjs`** | Pot signs off the public process (no keys) | **Yes** — this file only |
 | **`oss-guard.sh`** | Public-tree leak check | **Yes** |
 | `exam/` · `lab/` | Private workshop | **No** |
+| `operator/` | Writer-disk run layer | **No** |
 
 Any assistant: [`docs/RUN-NODE.md`](../docs/RUN-NODE.md) first — quiz, then
 preflight this machine, then one recipe.

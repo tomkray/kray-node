@@ -19,9 +19,18 @@ SHAPES='100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}|[0-9
 
 # tracked files only — working-tree secrets that are gitignored must stay ignored.
 # Placeholder doc paths (/Users/you, /home/user, <user>) are allowed.
+# Proof fixtures used to be excluded — that hid /Users/… paths in fold artifacts.
+# Tests may still use RFC1918 / CGNAT as hostile examples.
 LEAK="$(git grep -nI -E "$SHAPES" \
-  -- ':!apps/kray-core/src/test/*' ':!*.test.ts' ':!*.test.mjs' ':!apps/kray-fold/proofs/*' ':!scripts/oss-guard.sh' \
+  -- ':!apps/kray-core/src/test/*' ':!*.test.ts' ':!*.test.mjs' ':!scripts/oss-guard.sh' \
   | grep -vE '/Users/you/|/home/you/|/home/user/|/Users/<|/home/<' || true)"
+
+# A public-door file must never point at the operator house. The house itself
+# is gitignored; a leftover `import './operator/…'` is a map of the private tree.
+OP_IMPORT="$(git grep -nI -E "import ['\"](\\.\\./)*operator/" -- ':!scripts/oss-guard.sh' || true)"
+if [[ -n "$OP_IMPORT" ]]; then
+  LEAK="${LEAK}"$'\n'"${OP_IMPORT}"
+fi
 
 # optional LOCAL tripwires (gitignored) — exact strings/regexes the operator bans,
 # kept off the public tree by design
@@ -57,5 +66,15 @@ do
     exit 1
   fi
 done
+
+# House folders a stranger clone must never carry
+HOUSE="$(git ls-files 'scripts/exam/' 'scripts/lab/' 'scripts/operator/' 'ops/' \
+  'apps/kray-net/later/desk/' 'docs/OPERATOR-SHIP.md' 'docs/KRAYOS-MIND.md' \
+  'docs/HANDOFF-*.md' || true)"
+if [[ -n "$HOUSE" ]]; then
+  echo "✗ oss-guard: tracked private-house path:"
+  echo "$HOUSE"
+  exit 1
+fi
 
 echo "  oss-guard: clean"
