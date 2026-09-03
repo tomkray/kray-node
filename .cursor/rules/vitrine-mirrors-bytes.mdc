@@ -1,0 +1,22 @@
+---
+description: The vitrine paints only what the node journal and cascade prove. Never a second arithmetic.
+alwaysApply: true
+---
+
+# Vitrine mirrors the truth machine
+
+The node journal + Merkle + cascade root are the only money. A vitrine, explorer
+page, or wallet chrome is a **mirror**. It never computes a second ₭ amount.
+
+- **Paint** `SettlementRow[2]` (and every other journal field) from the sealed
+  event / `/api/kraynet/receipt/<seq>` / `/api/kraynet/tx` after the node has
+  attached the journal column. A fold that reconstitutes the fee pool may add
+  work, blocks, custody — it must **never replace** `paid`.
+- **Forbidden:** HTML that splits a pool, guesses atlas fees, or shows 0 when
+  the receipt says a positive payout. If two node doors disagree, the sealed
+  event wins — the fold is not the book.
+- **Never** invent a convenience total that a cold follower cannot re-derive
+  from the journal alone. If the cascade is irrefutable, the vitrine is the
+  same sentence or it is a lie.
+
+This is not optional and is never "later." Chrome that flees the bytes is a hole.

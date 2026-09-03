@@ -17,12 +17,17 @@ Do not start `server.mjs` as if this clone were the public writer.
 Do not ask for pot vault keys.
 
 1. Read `docs/RUN-NODE.md` **end to end** (quiz, disk inventory, fees).
-2. Interactive quiz: universe · role · proofs · earn? Teach out loud:
+   Solo human (no assistant): `docs/RUN-NODE-TUTORIAL.md`. Skill:
+   `.cursor/skills/kraynet-run/SKILL.md`.
+2. Interactive quiz **Q1–Q6** (+ **Q2b** if follow): universe · role ·
+   custody hand · proofs · earn · updates · optional mind. Teach out loud:
    follow = journal **+** atlas (images/files). Protocol vaults = replay.
    Pot keys = never. 3× = `/validate` Hold the library — never export
-   the wallet key into the node.
+   the wallet key into the node. Signet `:4480` · mainnet `:4481` · lab
+   `:4477`. Writer **live** on both public books.
 3. Run `node scripts/follow/preflight.mjs --universe … --role …` and obey
-   it. Confront Node, existing `follower/`, ports, writer reachability.
+   it. Confront Node, existing `follower/` / `follower-main/`, ports,
+   writer reachability.
 4. One recipe. After follow: `CURRENT`, journal file, `content/` count,
    local `/api/kraynet/head`. No Postgres. Then offer Bitcoin Core on
    **the same universe**. Never block beat 1 on bitcoind. Never mix

@@ -1,0 +1,23 @@
+---
+description: Run a KRAY node — quiz, then preflight this machine, then one recipe. Never invent a writer.
+alwaysApply: false
+---
+
+# Run a node (stranger / any LLM)
+
+When the human wants to **run / start / follow / full-node / guardian /
+Signet / mainnet** a KRAY node:
+
+1. Read `docs/RUN-NODE.md`.
+2. Ask the `docs/RUN-NODE.md` quiz (Q1–Q6 + Q2b if follow: universe ·
+   role · custody hand · proofs · earn · updates · optional mind).
+   Do not start first. Signet `:4480` · mainnet `:4481` · lab `:4477`.
+   Both public writers are live. Solo walkthrough:
+   `docs/RUN-NODE-TUTORIAL.md`.
+3. Run `node scripts/follow/preflight.mjs --universe … --role …` and obey it.
+4. “Full node” = follow, not `server.mjs`.
+5. This clone is never the public writer. No vault. No second pen.
+6. Earn 3× = `/validate` → Hold the library. Never export a wallet key
+   into `KRAY_MINER_SK` or the node.
+
+Skill: `.cursor/skills/kraynet-run/SKILL.md`.

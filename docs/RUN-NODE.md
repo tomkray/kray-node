@@ -167,10 +167,12 @@ the book is harder to capture.
 **Honest decentralization (do not overclaim):** anyone may **verify**
 (follow) and anyone may **earn** (guardian). The **pen** that appends the
 public journal is still **one writer** (A3). Two writers fork the book.
-But the pen’s hand is bound by mathematics every follower checks: since
-Signet seq **155** every seal commits its inclusion window (omitting a
-deadline-carrying act is provably CENSORED, from Bitcoin bytes), and
-since seq **175** acts landing in the **same millisecond** must stand in
+But the pen’s hand is bound by mathematics every follower checks: from
+**block zero** (born active on today’s signet and mainnet after the
+v1.0.0 genesis reset; the old chain crossed it at seq 155) every seal
+commits its inclusion window (omitting a deadline-carrying act is
+provably CENSORED, from Bitcoin bytes), and from the same block zero
+(old-chain crossing seq 175) acts landing in the **same millisecond** must stand in
 the one order arithmetic derives (`sha256` of the signed bytes) — not
 even the writer chooses. Succession primitives exist; they are not the
 live pen yet. That is the truth — a people-first network with a
@@ -183,7 +185,7 @@ After they answer, say this in **their language**, short, no jargon first:
 | They chose | Say this |
 |---|---|
 | Signet | The public practice network. Safe. Live today. |
-| Mainnet | Real Bitcoin. Same program, empty book. The public writer is not on yet. |
+| Mainnet | Real Bitcoin. Same program, a different book. Writer live. Follow `:4481`. |
 | Local lab | A private toy book on this computer. Nobody else sees it. |
 | Follow | This computer keeps a **verified copy** of the book **and every star file** (images, songs…). One command. No extra database. No pot keys. It does **not** pay you until you also mine. |
 | Custody mirror | Your mirror also serves the **rune book** — the page a custody guardian reads before co-signing a pot withdraw. Same follow command, always-on box. No key today; on mainnet, guardian operators are chosen from mirrors like yours. |
@@ -211,8 +213,8 @@ After a pull, re-run preflight, then the same follow command. Optional
 
 ### Q6 · Hear the book? (optional — never blocks follow)
 
-The node is the **body**. A mouth is an **app** (`docs/BOOK-AND-APPS.md`,
-`docs/KRAYOS-MIND.md`). Follow is already complete when the head is green.
+The node is the **body**. A mouth is an **app** (`docs/BOOK-AND-APPS.md`).
+Follow is already complete when the head is green.
 Do **not** install Ollama, a vendor key, or a “module” as part of the
 follow command. Do **not** delay beat 1 for a mouth.
 
@@ -472,29 +474,30 @@ data, and keys stay.
 - ADR-2 **2a** (availability) **is live in the follower**: the mirror can
   serve `/api/kraynet/chunks`, and you may pull the journal in pieces.
 - ADR-3 primitives (inbox / order / inclusion / censorship / succession)
-  are **activation-gated**: live on Signet from seq 155 (Article XIV,
-  ratified 2026-08-23; mainnet born activated at seq 0). Below the
-  activation seq a replay sees them dormant — byte-identical history.
+  are **activation-gated**: born active at **seq 0** on today’s signet
+  and mainnet (Article XIV, ratified 2026-08-23; crossed live on the old
+  Signet chain at seq 155, retired with the v1.0.0 genesis reset). Below
+  an activation seq a replay sees them dormant — byte-identical history.
   They still never make a follower the writer by themselves. Since
   activation every seal commits its window, so omitting a deadline-
   carrying act is provably CENSORED; wiring that verdict into
   succession is still a manual, evidence-backed act.
-- **Ӿ transfers** are live from the same Signet seq 155 (mainnet seq 0):
+- **Ӿ transfers** are live from seq 0 on both nets (old-chain pin 155):
   the transferable light minted from burned ₭ can move between addresses.
-- **The atlas fee** is live from Signet seq 165 (mainnet seq 0): a sized
+- **The atlas fee** is live from seq 0 on both nets (old-chain pin 165): a sized
   inscribe/origin pays `max(1, ceil(size / rate))` ₭ to the TREASURY
   beside the untouched 1 ₭ burn — the validators who hold the atlas are
   funded by the bytes they carry. The door quotes it before you sign.
-- **THE SAME-INSTANT LAW** is live from Signet seq 175 (mainnet seq 0):
+- **THE SAME-INSTANT LAW** is live from seq 0 on both nets (old-chain pin 175):
   acts the writer stamps into one millisecond must stand in the journal
   in the one order arithmetic derives — `orderWindow` over the sha256 of
   the bytes each author signed. Your replay ENFORCES it: a journal that
   lies about same-instant order HALTs this follower at the forged line.
-- **THE FIREBORN LAW** is live from Signet seq 245 (mainnet seq 0): the
+- **THE FIREBORN LAW** is live from seq 0 on both nets (old-chain pin 245): the
   x-send fee is prescribed (0 ₭ with tank + 3.5 s gap; else 1 ₭). Your
   replay re-derives every tank. A forged counter is a different root.
-- **THE TK-FOLD** is live from Signet seq 255 (first breath seq 256;
-  mainnet born active at 0): each `fold-seal` is re-verified on replay
+- **THE TK-FOLD** is live from seq 0 on both nets (old-chain pin 255,
+  first breath 256): each `fold-seal` is re-verified on replay
   by the vendored WASM. You do not forge proofs. You check them. A
   lying fold HALTs this follower at that line.
 
@@ -585,8 +588,8 @@ ledger; beats in `economics/beat-pow.ts`; pay on seal in the writer
 
 Every public action (send, inscribe, swap, …) burns exactly **1 ₭** as the
 fee. That ₭ already existed. It goes into the **fee pool** (the treasury).
-Nobody prints extra ₭ for validators. Since Signet seq **165** (mainnet
-seq 0) a **sized** inscribe/origin also pays the **atlas fee** —
+Nobody prints extra ₭ for validators. From **seq 0** on both nets
+(old-chain pin 165) a **sized** inscribe/origin also pays the **atlas fee** —
 `max(1, ceil(size / rate))` ₭, quoted by the door before you sign — into
 the same treasury: the people who hold the library are paid by the bytes
 they carry. Creative burns themselves (the fire) still pay nobody.
@@ -646,8 +649,8 @@ as the next 1 ₭ fee (inscribe, send, …).
 - Follow **without** mining = a verified copy, **zero** fee share.
 - Quiet network = small pool. Pay waits for a seal **and** proven beats.
 - Demo miner key = they are not earning to themselves.
-- A beat is valid only on the **live KRAY tip** (`GET /beat/challenge`.block). Extra block indices do not multiply work. At seal, one best beat per address is paid if it still sits within 128 heights of the tip. `presenceTip` is a whole number or the event HALTs (a string is not the old path). New settlements (seq ≥ 121) must carry it — including `settleFromBeats` (omit seq = live era). One p2tr is one row (bech32 case and trailing space fold). Since the ADR-3 activation (Signet seq 155) every seal commits its inclusion window into the anchored root — omission of a deadline-carrying act is provable; and since THE SAME-INSTANT LAW (Signet seq 175) the order of acts inside one millisecond is arithmetic every follower re-checks, not the writer's hand. Across distinct instants time orders — the `at` rides the anchored bytes.
-- **ADR-3 inclusion is ACTIVE on Signet (seq 155).** The writer still assembles the beat set (durable `presence-beats.json`, then the journal at seal), but every seal now commits its window — a follower re-derives pay from the journal's claims AND can prove omission of a deadline-carrying act (CENSORED, from Bitcoin bytes). Call fee inclusion **evidence-backed, not auto-enforced**: the verdict's wiring into succession is still a human act, so do not oversell it as automatic.
+- A beat is valid only on the **live KRAY tip** (`GET /beat/challenge`.block). Extra block indices do not multiply work. At seal, one best beat per address is paid if it still sits within 128 heights of the tip. `presenceTip` is a whole number or the event HALTs (a string is not the old path). New settlements (seq ≥ 121) must carry it — including `settleFromBeats` (omit seq = live era). One p2tr is one row (bech32 case and trailing space fold). Since the ADR-3 activation (born active at seq 0 on both nets; old-chain pin 155) every seal commits its inclusion window into the anchored root — omission of a deadline-carrying act is provable; and since THE SAME-INSTANT LAW (seq 0; old-chain pin 175) the order of acts inside one millisecond is arithmetic every follower re-checks, not the writer's hand. Across distinct instants time orders — the `at` rides the anchored bytes.
+- **ADR-3 inclusion is ACTIVE from seq 0 on both nets (old-chain pin 155).** The writer still assembles the beat set (durable `presence-beats.json`, then the journal at seal), but every seal now commits its window — a follower re-derives pay from the journal's claims AND can prove omission of a deadline-carrying act (CENSORED, from Bitcoin bytes). Call fee inclusion **evidence-backed, not auto-enforced**: the verdict's wiring into succession is still a human act, so do not oversell it as automatic.
 - Custody **3×** is a launch placeholder (`custody.ts`). Streaming bytes at challenge time, and one disk behind many salted addresses, are expensive — not killed. The bonus only shows when the field is mixed.
 
 ## 5 · Prove (optional, same clone)
@@ -665,5 +668,5 @@ A **follower** is a full node of **this** history: it re-derives the book and
 refuses a lie. A **guardian** proves “I was here” and is paid from the **1 ₭
 fee pool** on each Bitcoin seal, to **their wallet address** — 1× light, up
 to 3× when `/validate` holds the library on the beat. A **writer** is one machine plus secrets — this clone
-is never that machine. Signet is the live lab; mainnet is a different empty
-universe.
+is never that machine. Signet is the live lab; mainnet is the same
+software on a different live book (real ₿). Never mix the two.

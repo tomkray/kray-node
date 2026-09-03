@@ -15,12 +15,22 @@ consensus flags and activation sequences — a tag never replaces a proof):
 
 ## [Unreleased] — 2026-09-03 · public door = the book
 
-- **DOOR: the pen and the writer kit stay off this clone.** Follow never
-  installs a pot-signer. Creator DeFi / market mouths are not this door.
-  `apps/kray-core` is untouched — every journaled AMM / vault event still
-  replays. `POT-CUSTODY.md` is the math law, not a ceremony.
-- **DESK:** `later/`, `works/`, and `PARENTS.md` stay off this clone. The
-  twelve (`canon/`) still ship. Draco/Basis stay: they decode 3D stars.
+- **WIZARD:** the clone's LLM door now ships `.cursor/skills/kraynet-run`
+  and `.cursor/rules/kraynet-run.mdc`. Quiz Q1–Q6 (+ Q2b) names Signet,
+  live mainnet (`:4481`), lab, atlas, custody hand, and `/mind`. Tutorial
+  covers the same map. `KRAYOS-MIND.md` is not cited (it is not on the
+  public tree). Mainnet is no longer described as an empty book.
+- **DOOR: the pen and the writer kit stay off git.** `scripts/pot-signer.mjs`,
+  `scripts/operator/`, and `networks/mainnet/origin-vitrine/` are writer-disk
+  only. `oss-guard` fails if they are tracked. The `/validate` zip no longer
+  packs the pen or the Creator DeFi / market mouths. Follow still replays
+  every AMM / vault event — `apps/kray-core` is untouched.
+- **DOCS:** `POT-CUSTODY.md` is the math law. Ceremony and host topology live
+  in gitignored `POT-CUSTODY-OPS.md`. No machine nickname in public recipes.
+- **DESK:** `later/`, `works/`, and `PARENTS.md` stay on this disk. They are
+  the living chronology and the inscription workbook — not what a follower
+  clones. `canon/` (the twelve) still ships. Draco/Basis stay: they decode
+  3D stars, they are not a second product.
 
 ## [Unreleased] — 2026-08-28 · THE TWIN REBIRTH — born strict (MAJOR: new genesis on signet + main)
 
@@ -56,7 +66,7 @@ the point of a rebirth, and why this entry is MAJOR).
   signet-actions via the lab env) — the peg law is pinned in its own exam,
   never silently weakened elsewhere.
 
-## [Unreleased] — 2026-08-28 · audit remedies (no consensus change)
+## [2026-08-28] — audit remedies (no consensus change)
 
 External audit of the 27–28 Aug window returned "OK to keep, with additive repairs".
 Every repair below is a case/pin/text — the reducer, the cascade law, and the anchor

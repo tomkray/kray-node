@@ -196,6 +196,49 @@ sha256 fail-closed.)
 | Windows: TLS / certificate error on bare `node …` | Node 24 on Windows needs the system CA store | use the doors: `scripts\follow\signet.cmd` (they pass `--use-system-ca`; never disable TLS) |
 | the follow crashed once | almost always transient | do **not** delete `follower/` — just run Step 3 again; it resumes |
 
+## Another universe: Bitcoin mainnet
+
+This walkthrough is **Signet** (the recommended first day). Mainnet is
+the same program, a different live book, real ₿. Writer:
+`https://www.kray.network`. If that is what you chose:
+
+```bash
+node scripts/follow/preflight.mjs --universe main --role follow
+bash scripts/follow/mainnet.sh          # Windows: scripts\follow\mainnet.cmd
+```
+
+Your explorer is then `http://127.0.0.1:4481/`. Journal + atlas land in
+`follower-main/`. Never mix Signet follow with mainnet Bitcoin Core
+(or the reverse). The quiz law for assistants is still
+[`RUN-NODE.md`](RUN-NODE.md).
+
+## Optional · custody-ready mirror (follow only)
+
+The same follow already serves the rune book a custody guardian reads
+before co-signing a pot withdraw. No extra command. Keep the box
+always-on. Check:
+
+```bash
+curl -s http://127.0.0.1:4480/api/kraynet/runes/of/bc1ptest
+```
+
+(Use `:4481` on mainnet.) Serving the book is not holding a pot key.
+
+## Optional · hear the book (`/mind`)
+
+After Step 4 is green, open `http://127.0.0.1:4480/mind` (mainnet
+`:4481`, lab `:4477`). A local model or a pasted key. The key never
+hits the node. Follow does not need this. The mouth does not write
+the journal.
+
+## Optional · guardian, browser, or a private lab
+
+| Want | Door |
+|---|---|
+| Earn (3×) | Step 5 — `/validate` + Hold the library |
+| Always-on miner | `docs/RUN-NODE.md` § Guardian — dedicated key only, never your wallet |
+| Private empty book | `docs/RUN-NODE.md` § Local empty writer — `:4477`, play ₭, not the public net |
+
 ## The safety rails (read once, remember forever)
 
 - **Never** download `vault-keys.env`, `owner.box`, `node-hot.env`, or anything called "the pot keys". A follower needs no keys.

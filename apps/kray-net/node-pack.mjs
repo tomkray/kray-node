@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process'
 
 const SKIP_DIR = new Set([
   '.git', 'node_modules', 'follower', 'follower-main', 'ops', 'devnet', 'devnet-wallet',
-  'guardian-atlas', 'logs', '.cursor', 'archive',
+  'guardian-atlas', 'logs', 'archive',
   // workshop — stays on the operator working tree, never the public clone or zip
   'exam', 'lab',
   // operator run-layer (cloudflared, launchd, writer wrappers) — gitignored AND unzipped
@@ -52,8 +52,24 @@ const SKIP_FILE = new Set([
   '.kray-api.json',
 ])
 
+/** Public LLM door — clone + /validate zip must carry the quiz wizard. */
+const PACK_CURSOR = new Set([
+  '.cursor/skills/kraynet-run/SKILL.md',
+  '.cursor/skills/kraynet-dev/SKILL.md',
+  '.cursor/rules/kraynet-run.mdc',
+  '.cursor/rules/houses.mdc',
+  '.cursor/rules/vitrine-mirrors-bytes.mdc',
+])
+
 export function shouldPackPath(rel) {
   const p = String(rel || '').replace(/\\/g, '/')
+  if (p === '.cursor' || p.startsWith('.cursor/')) {
+    if (PACK_CURSOR.has(p)) return true
+    for (const allowed of PACK_CURSOR) {
+      if (allowed === p || allowed.startsWith(`${p}/`)) return true
+    }
+    return false
+  }
   const parts = p.split('/').filter(Boolean)
   const base = (parts[parts.length - 1] || '').toLowerCase()
   // operator handoff (house names, deploy rite) — disk only

@@ -18,6 +18,7 @@ Files stay at this root so every citation (`docs/AXIOMS.md`, `/docs` HTML, clone
 | --- | --- | --- |
 | [`AXIOMS.md`](AXIOMS.md) | The Supreme Law (`signature ‖ Merkle proof ‖ Bitcoin anchor`) and axioms A0–A10 every decision derives from. | normative |
 | [`FOLDER-LAW.md`](FOLDER-LAW.md) | The names of this tree. Three houses: official / writer disk / workshop. Locked now. Mainnet ignited = rename forbidden. | normative |
+| [`BOOK-AND-APPS.md`](BOOK-AND-APPS.md) | Follow is the book. Rune bridge / DeFi / pen are apps on it. `/mind` is optional after the head is green. | normative |
 | [`CONSENSUS-CONSTITUTION.md`](CONSENSUS-CONSTITUTION.md) | The rigid invariants: each article is [ENFORCED] or an honest [NAMED PATH]. | normative |
 | [`BRIDGE.md`](BRIDGE.md) | The rune vacuum: a Bitcoin L1 rune becomes a proven L2 asset, with the road back always open. | normative |
 | [`CONTRACTS.md`](CONTRACTS.md) | The IR tutorial served at `/docs/contracts.md` — paste into any LLM. Total paper, no loops, cannot mint ₭. | normative |
@@ -30,14 +31,17 @@ Files stay at this root so every citation (`docs/AXIOMS.md`, `/docs` HTML, clone
 | [`SECURITY.md`](SECURITY.md) | The security posture: invariants that hold, open items tracked out loud, responsible disclosure. | normative |
 | [`POT-CUSTODY.md`](POT-CUSTODY.md) | Who may hold the bakery pot owner key; follower ≠ cofre; no live host map. | normative |
 | [`anchor-spec.md`](anchor-spec.md) | The 49-byte OP_RETURN anchor commitment, byte by byte — verify KRAY with nothing but a Bitcoin node. | normative |
+| [`INTEGRATE.md`](INTEGRATE.md) | Put KRAY.NETWORK inside any wallet or product — the arc KrayWallet (extension + mobile) runs in production. | normative |
+| [`GLOW-AND-X.md`](GLOW-AND-X.md) | The two lights — ✦ glow (soulbound, from the freeze) and Ӿ (fungible, from the burn) — built and live. | normative |
+| [`BYTES-TO-BITCOIN.md`](BYTES-TO-BITCOIN.md) | The map of the one pipeline: intent → canonical bytes → hash → cascade root → 49 bytes on Bitcoin. | normative |
 
 ## Run
 
 | doc | one-line purpose | status |
 | --- | --- | --- |
-| [`RUN-NODE.md`](RUN-NODE.md) | Any clone / any LLM: quiz → preflight this machine → follow, guardian, or lab. “Full node” = follow. | normative |
+| [`RUN-NODE.md`](RUN-NODE.md) | Any clone / any LLM: quiz Q1–Q6 (+ Q2b) → preflight this machine → follow (Signet `:4480` / mainnet `:4481` / lab `:4477`). “Full node” = follow. | normative |
+| [`RUN-NODE-TUTORIAL.md`](RUN-NODE-TUTORIAL.md) | The copy-paste tutorial for a person walking alone — no assistant, no prior node experience. | normative |
 | [`KRAYNET-RUN.md`](KRAYNET-RUN.md) | Boot, env, API, and the hermetic proof suite for the same binary. | normative |
-| [`MAINNET-READINESS.md`](MAINNET-READINESS.md) | The plan of record for donor → proof → anchor → validator working exactly as it will on mainnet. | normative |
 | [`../networks/README.md`](../networks/README.md) | Official map: `networks/signet/` vs `networks/mainnet/`. | normative |
 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) | Clone, prove, follow. The official tree is the validator door. | normative |
 
@@ -50,7 +54,10 @@ Files stay at this root so every citation (`docs/AXIOMS.md`, `/docs` HTML, clone
 | [`KRAYNET-MIGRATION.md`](KRAYNET-MIGRATION.md) | The standing plan to replace the wallet's centralized l2kray with the proven KRAYNET, mode by mode. | design |
 | [`PHASE-3-TRUSTLESS-CUSTODY.md`](PHASE-3-TRUSTLESS-CUSTODY.md) | The three levers that dissolve the pot's single owner; lever 1 has since gone live as the burn. | design |
 | [`RAFFLE-DESIGN.md`](RAFFLE-DESIGN.md) | The validator raffle worked out to the byte — including the bug that reshapes the whole idea. | design |
-| Mind (`/mind`) | Product mouth. Linker: `GET /docs/pack.json` (twelve + public docs). The book is memory. No persona hardness. See [`BOOK-AND-APPS.md`](BOOK-AND-APPS.md). | design |
+| [`MULTI-WRITER-OBJECTIVE.md`](MULTI-WRITER-OBJECTIVE.md) | The locked destination: the pen as a role, not a machine. No consensus change in the file. | design |
+| [`ETERNIZE.md`](ETERNIZE.md) | The eternal door — consensus built, world door HELD (`ETERNIZE_OPEN = false`). | design |
+| [`RESIDUAL-VECTORS.md`](RESIDUAL-VECTORS.md) | The ledger of residual advantage vectors after the fairness audit — nothing left behind. | design |
+| [`VISIBLE-MIRRORS-DECISION.md`](VISIBLE-MIRRORS-DECISION.md) | Visible mirrors on `/network` — PARKED by the Creator; nothing built. | design |
 | [`anchor-stealth.md`](anchor-stealth.md) | The stealth pay-to-contract anchor proposal — since realized in code as `self-anchor.ts`. | design |
 
 ## History
@@ -65,6 +72,13 @@ Files stay at this root so every citation (`docs/AXIOMS.md`, `/docs` HTML, clone
 | [`KRAYNET-MODEL.md`](KRAYNET-MODEL.md) | The founding blueprint — fungible fuel, stars born from fire — captured before code moved, since built. | historical |
 | [`KRAYNET-BUILD.md`](KRAYNET-BUILD.md) | The executed phased build plan. | historical |
 | [`SIGNET.md`](SIGNET.md) | The pre-launch signet study of 2026-07-30; the network went live on public signet on 2026-08-06. | historical |
+| [`MAINNET-READINESS.md`](MAINNET-READINESS.md) | The fulfilled plan of record for ignition — mainnet has since gone live at `www.kray.network`. | historical |
+| [`ACTIONS-MAP.md`](ACTIONS-MAP.md) | The pre-Ӿ map of every ledger action (28 kinds then; the union is 46 today — the reducer is the living map). | historical |
+| [`ATLAS-FEE-DECISION.md`](ATLAS-FEE-DECISION.md) | The ratified atlas-fee brief (old-chain pin 165; born active at 0 post-reset). | historical |
+| [`PEN-ACTIVATION-DECISION.md`](PEN-ACTIVATION-DECISION.md) | The ADR-3 activation rite (old-chain pin 155; born active at 0 post-reset). | historical |
+| [`SAME-INSTANT-ORDER-DECISION.md`](SAME-INSTANT-ORDER-DECISION.md) | THE SAME-INSTANT LAW crossing (old-chain pin 175; born active at 0 post-reset). | historical |
+| [`X-FEELESS-DECISION.md`](X-FEELESS-DECISION.md) | THE FEELESS Ӿ council brief — Fireborn + TK-fold rites (old-chain pins 245/255; born active at 0). | historical |
+| [`TK-FOLD-DESIGN.md`](TK-FOLD-DESIGN.md) | The executed TK-fold design record — Groth16 fold proofs verified in consensus. | historical |
 
 Era filenames (`KRAYNET-V2-BUILD.md`, `KRAYNET-V2-RUN.md`, `anchor-stealth-v2.md`)
 are one-line pointers to the rows above. Cite the canonical name. Do not

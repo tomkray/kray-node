@@ -48,7 +48,8 @@ Houses: [`docs/FOLDER-LAW.md`](docs/FOLDER-LAW.md).
 [`docs/RUN-NODE.md`](docs/RUN-NODE.md) and do, in order:
 
 1. **Quiz** — Signet or mainnet or local lab? Follow (full node), guardian,
-   browser `/validate`, or a private empty writer?
+   browser `/validate`, or a private empty writer? If follow: also the
+   custody-ready mirror hand (Q2b). After the head is green: optional `/mind`.
 2. **Preflight** — confront *this* machine (Node ≥ 24, house, ports, folders
    that already exist) before any start:
 

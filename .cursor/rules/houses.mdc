@@ -1,0 +1,24 @@
+# Three houses — detect which folder this is
+
+This clone is **code**. Origin tells the house:
+
+- `tomkray/kray-node` `main` → **public door** (friends). Never invent a writer.
+- `tomkray/kray-network` `main` → **developer backup**. Edit here; mirror to the public door.
+- A sibling folder with `scripts/exam/` or `scripts/lab/` → **workshop**. Not the vault. Not Signet.
+
+- **Official** = the node anyone clones. Friends clone the public door.
+- **Writer disk** = that same node as the unique writer, plus secrets and the journal. Rsync only. Never reclone.
+- **Workshop** = exam tools. Zero for the live network.
+
+This tree must never grow `scripts/exam/` or `scripts/lab/`.
+Do not commit `/signet/`, `ops/`, or journals.
+Do not `git pull` official `main` onto the writer disk.
+Do not start a second Signet writer.
+Do not mention live IPs or hostnames.
+The Creator's personal things never go public: `later/desk/`, `ops/`,
+hosts, OPERATOR-SHIP, media, chats. Named-path mirror to `kray-node`
+is book only — never the desk.
+A stranger who says “run a node” gets `docs/RUN-NODE.md` (quiz +
+`scripts/follow/preflight.mjs`). Full node = follow. Never a vault.
+
+Law: `docs/AXIOMS.md` · geometry: `docs/FOLDER-LAW.md`.
