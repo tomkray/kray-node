@@ -19,12 +19,12 @@ is, or will be, spent — and exactly how far the code has walked.
 ### I — Conservation is structural. **[ENFORCED]**
 `Σ balances == emitted − burned`, by construction: every reducer branch is balanced (a mint credits
 and raises `emitted` together; a burn debits and raises `burned` together; transfer/reward/settlement
-net to zero). Verifiable at any point via `conserves()` (`ledger.ts:578`). Proven: `donation-once`
-13/13, `mint-cap` 18/18. *(Hardening named: an O(1) running-total assert with HALT inside `applyLive`
-would make "checked on every apply" literal, versus the current structural guarantee + tripwire.)*
+net to zero). Verifiable at any point via `conserves()` (`ledger.ts`), and **checked literally on every
+apply**: `applyLive` runs `conserves()` after each accepted act and HALTs the ledger on the first lie
+(the act never reaches disk). Proven: `donation-once` 13/13, `mint-cap` 18/18.
 
 ### II — No ₭ without a recorded donation, and the per-mint cap is immutable. **[ENFORCED]**
-`MINT_CAP_SATS = 10,000` is a hardcoded constant, not a parameter (`ledger.ts:47`), enforced in the one
+`MINT_CAP_SATS = 10,000` is a hardcoded constant, not a parameter (`economics/pot.ts`), enforced in the one
 reducer every path crosses and re-checked on replay; a hand-forged journal line over the cap makes the
 node **HALT**. Genesis mints nothing; anchor and seal mint/burn zero. No premine.
 
@@ -70,7 +70,7 @@ in this law (pin 0) — both books were reborn empty at the v1.0.0 genesis. The 
 pin 274 guarded a 57-star journal that no longer exists. The byte price still retargets every 1008 seals
 (`retargetBytesPerKray`), integer-deterministic, journal-derived.
 
-### X — The peg is re-proven in consensus when the event carries its proof. **[ENFORCED (machinery) · NAMED PATH (ancestry + absent-proof past)]**
+### X — The peg is re-proven in consensus, and the proof is mandatory. **[ENFORCED — proof + ancestry born strict at seq 0 on signet and main]**
 A donation-burn, a rune deposit and a rune settle may journal their SPV bag IN the event
 (`KRAY_CONSENSUS_BURN_PROOF` / `KRAY_CONSENSUS_RUNE_PROOF`). When the proof is present, the reducer
 re-proves it from bytes on every apply and replay: burial under weighed work, the exact outpoint/txid,
@@ -78,16 +78,21 @@ the runestone allocation, and the credit bound to the unique Taproot spender tha
 bakery pot (the live SPV door is pot-only; the reducer keeps the personal-vault binding only to
 replay pre-pot journals). Present-but-false HALTs. Proven: `donate-consensus-proof`, `rune-consensus-proof`
 (tamper HALTs; cold replay byte-exact). Unset flags default ON after Signet burn-in (2026-08-17).
-**Named residues, stated not hidden:** an event without a proof still takes the door as the gate
-(append-only compatibility); a rune proof's `inputRunes` is ord's attestation — allocation math is
-re-derived, input ancestry is the next slice. Say **"backed by Bitcoin when the event carries its
-proof."** Do not say the peg is trustless while a federation holds the pot (Article XIII).
+**Residues since closed (v1.0.0 rebirth, 2026-08-28/29):** the proofless door is gone — at/after
+`PROOF_MANDATORY_SEQ` (**0 on signet and main**, born strict) the reducer refuses an L1-peg event that
+does not embed its own SPV proof; and input ancestry is no longer "the next slice" — at/after
+`RUNE_ANCESTRY_MANDATORY_SEQ` (**0 on both nets**) a rune-deposit or rune-settle without a proven
+`proof.ancestry` is refused (THE KEYSTONE). `inputRunes` remains ord's attestation, but allocation math
+and ancestry are re-derived. Do not say the peg is trustless while a federation holds the pot
+(Article XIII).
 
 ### XI — Ordering is single-writer today; objective multi-writer ordering is a named path. **[ENFORCED (inclusion evidence) · NAMED PATH (multi-writer ordering)]**
-One writer assigns global order (`store.ts:54`); the reducer only validates. This can neither forge a
-signature nor rewrite an anchored past. Since the Article XIV ratification (Signet seq 155, 2026-08-23;
-mainnet born activated) censorship is no longer invisible: every seal folds the inclusion root, window
-commitment and nonce map into the anchored cascade root (`ledger.ts` activation gates at :238), and a
+One writer assigns global order (`LedgerStore.append` in `store.ts`); the reducer only validates. This
+can neither forge a signature nor rewrite an anchored past. Since the Article XIV ratification (crossed
+live on the old Signet chain at seq 155, 2026-08-23; after the v1.0.0 genesis reset both signet and
+mainnet are **born activated at seq 0** — `INCLUSION_ACTIVATION_SEQ` in `ledger.ts`) censorship is no
+longer invisible: every seal folds the inclusion root, window commitment and nonce map into the
+anchored cascade root, and a
 signed act carrying an opt-in deadline that the chain omits yields a CENSORED verdict re-derivable from
 Bitcoin bytes (`censorship-evidence.ts:259` verifier ↔ `:343` prover). The writer can still delay and
 order within a window. **The remaining named path:** live multi-writer ordering (events ordered by the
@@ -113,18 +118,19 @@ bridge security** — separated in code and in all communication. A withdraw is 
 signed `rune-exit` (dest and amount); the pot key may sign only a rebuilt payout bound to that
 exit (`authorizePotSign`). A donate witnesses the book (Article VI) — it does not unlock a
 withdraw. Named: bilateral proof-of-reserves (assets X ≥ liabilities Y, externally computable),
-the localhost pot-signer (`scripts/pot-signer.mjs` — the consolidation secret off the hot public
-node; see `docs/POT-CUSTODY.md`), split owner key (FROST/Shamir), and a documented withdrawal
+the localhost pot-signer (writer-disk daemon — the consolidation secret off the hot public
+node; see `docs/POT-CUSTODY.md`; the daemon is not this clone), split owner key (FROST/Shamir), and a documented withdrawal
 trust level.
 
 ### XIV — Consensus changes are versioned and deterministically activated. **[ENFORCED (machinery, exercised live)]**
 Messages carry a per-action `.v1`, and rule changes bind to per-network activation constants that every
-replayer applies identically (`ledger.ts:64` `INCLUSION_ACTIVATION_SEQ`, `:83` `X_TRANSFER_ACTIVATION_SEQ`):
-below the seq the fold is absent and history is byte-identical; at/after it every node folds the same
-way — two versions cannot silently produce two roots. Exercised live 2026-08-23: Signet activated the
-inclusion/window/nonce and Ӿ folds at seq 155 (fleet updated before the writer); mainnet is born
-activated at seq 0. Ratification of an activation seq remains the Creator's explicit act, recorded in
-`docs/PEN-ACTIVATION-DECISION.md`.
+replayer applies identically (`INCLUSION_ACTIVATION_SEQ`, `X_TRANSFER_ACTIVATION_SEQ`, … in `ledger.ts`,
+locked by `activation-seq-pin.test.ts`): below the seq the fold is absent and history is byte-identical;
+at/after it every node folds the same way — two versions cannot silently produce two roots. Exercised
+live 2026-08-23 on the old Signet chain (inclusion/window/nonce and Ӿ folds crossed at seq 155, fleet
+updated before the writer). After the v1.0.0 genesis reset (2026-08-26) those old-chain pins are retired:
+the reborn signet and mainnet are **born activated at seq 0**. Ratification of an activation seq remains
+the Creator's explicit act, recorded in `docs/PEN-ACTIVATION-DECISION.md`.
 
 ## The language discipline (binding on all KRAY communication)
 

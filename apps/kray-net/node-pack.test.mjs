@@ -45,9 +45,13 @@ ok(!shouldPackPath('apps/kray-net/kray-v2.css'), 'era leftover kray-v2.css is ex
 ok(!shouldPackPath('networks/signet/vault-keys.env'), 'a secret filename is excluded even under networks/')
 ok(shouldPackPath('scripts/guardian/guardian.mjs'), 'Door 1 guardian ships')
 ok(shouldPackPath('scripts/guardian/swarm.mjs'), 'guardian mining swarm ships (not the exam swarm)')
-ok(shouldPackPath('scripts/operator/pot-signer.mjs'), 'pot-signer (custody) ships')
-ok(shouldPackPath('scripts/operator'), 'the operator DIRECTORY is walkable — or pot-signer never reaches the zip')
-ok(shouldPackPath('scripts/pot-signer.mjs'), 'the stable-door pot-signer shim ships')
+ok(!shouldPackPath('scripts/operator/pot-signer.mjs'), 'pot-signer stays off the zip')
+ok(!shouldPackPath('scripts/operator'), 'the operator house is not walkable')
+ok(!shouldPackPath('scripts/pot-signer.mjs'), 'the stable-door pot-signer stays off the zip')
+ok(!shouldPackPath('apps/kray-net/defi.html'), 'creator DeFi mouth stays off the zip')
+ok(!shouldPackPath('apps/kray-net/market.html'), 'star-market mouth stays off the zip')
+ok(!shouldPackPath('apps/kray-net/markets.html'), 'markets hub stays off the zip')
+ok(!shouldPackPath('apps/kray-net/pool.html'), 'pool desk stays off the zip')
 ok(!shouldPackPath('apps/kray-net/.kray-api.json'), 'writer gateway key .kray-api.json is excluded beside server.mjs')
 ok(!shouldPackPath('.kray-api.json'), 'writer gateway key .kray-api.json is excluded at the root')
 ok(!shouldPackPath('apps/kray-net/guardian.box'), 'any sealed .box is excluded, wherever it sits')
@@ -84,9 +88,8 @@ ok(shouldPackPath('AGENTS.md'), 'house-detection AGENTS.md ships')
 ok(!shouldPackPath('apps/kray-net/HARNESS.md'), 'lab harness doc is excluded')
 ok(!shouldPackPath('archive/kray-network-official/README.md'), 'official worktree extract is excluded')
 
-// ── THE REAL ZIP, not just the path oracle — a false-green here was the audit's exact catch:
-//    shouldPackPath said pot-signer ships while the walk pruned scripts/operator whole. Read the
-//    zip's central directory (names stored as plain utf8) — exact membership, no content noise.
+// ── THE REAL ZIP, not just the path oracle. Read the zip's central directory
+//    (names stored as plain utf8) — exact membership, no content noise.
 {
   const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
   process.env.KRAY_PACK_HEAD_TTL_MS = '0'
@@ -103,8 +106,12 @@ ok(!shouldPackPath('archive/kray-network-official/README.md'), 'official worktre
   }
   ok(names.size === pack.files, `REAL ZIP: central directory parsed — ${names.size} entries match the pack count`)
   const endsWith = (suffix) => [...names].some((n) => n.endsWith(suffix))
-  ok(names.has('scripts/operator/pot-signer.mjs'), 'REAL ZIP: pot-signer.mjs is actually inside — the shim entrypoint is not broken')
-  ok(names.has('scripts/pot-signer.mjs'), 'REAL ZIP: the stable-door shim is inside')
+  ok(!names.has('scripts/operator/pot-signer.mjs'), 'REAL ZIP: operator pot-signer stayed out')
+  ok(!names.has('scripts/pot-signer.mjs'), 'REAL ZIP: stable-door pot-signer stayed out')
+  ok(!names.has('apps/kray-net/defi.html'), 'REAL ZIP: DeFi mouth stayed out')
+  ok(!names.has('apps/kray-net/market.html'), 'REAL ZIP: star-market mouth stayed out')
+  ok(!names.has('apps/kray-net/markets.html'), 'REAL ZIP: markets hub stayed out')
+  ok(!names.has('apps/kray-net/pool.html'), 'REAL ZIP: pool desk stayed out')
   ok(names.has('apps/kray-net/server.mjs'), 'REAL ZIP: the node itself is inside (sanity)')
   ok(!endsWith('.kray-api.json'), 'REAL ZIP: no gateway key anywhere in the archive')
   ok(!endsWith('vault-keys.env'), 'REAL ZIP: no vault keys anywhere in the archive')

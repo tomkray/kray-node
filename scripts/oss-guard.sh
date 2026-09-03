@@ -19,9 +19,18 @@ SHAPES='100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}|[0-9
 
 # tracked files only — working-tree secrets that are gitignored must stay ignored.
 # Placeholder doc paths (/Users/you, /home/user, <user>) are allowed.
+# Proof fixtures used to be excluded — that hid /Users/… paths in fold artifacts.
+# Tests may still use RFC1918 / CGNAT as hostile examples.
 LEAK="$(git grep -nI -E "$SHAPES" \
-  -- ':!apps/kray-core/src/test/*' ':!*.test.ts' ':!*.test.mjs' ':!apps/kray-fold/proofs/*' ':!scripts/oss-guard.sh' \
+  -- ':!apps/kray-core/src/test/*' ':!*.test.ts' ':!*.test.mjs' ':!scripts/oss-guard.sh' \
   | grep -vE '/Users/you/|/home/you/|/home/user/|/Users/<|/home/<' || true)"
+
+# A public-door file must never point at the operator house. The house itself
+# is gitignored; a leftover `import './operator/…'` is a map of the private tree.
+OP_IMPORT="$(git grep -nI -E "import ['\"](\\.\\./)*operator/" -- ':!scripts/oss-guard.sh' || true)"
+if [[ -n "$OP_IMPORT" ]]; then
+  LEAK="${LEAK}"$'\n'"${OP_IMPORT}"
+fi
 
 # optional LOCAL tripwires (gitignored) — exact strings/regexes the operator bans,
 # kept off the public tree by design
@@ -57,5 +66,31 @@ do
     exit 1
   fi
 done
+
+# House folders a stranger clone must never carry
+HOUSE="$(git ls-files 'scripts/exam/' 'scripts/lab/' 'scripts/operator/' 'ops/' \
+  'apps/kray-net/later/desk/' 'docs/OPERATOR-SHIP.md' 'docs/KRAYOS-MIND.md' \
+  'docs/HANDOFF-*.md' 'docs/POT-CUSTODY-OPS.md' 'scripts/pot-signer.mjs' \
+  'networks/mainnet/origin-vitrine/' 'networks/mainnet/origin-local.env.example' \
+  || true)"
+if [[ -n "$HOUSE" ]]; then
+  echo "✗ oss-guard: tracked private-house path:"
+  echo "$HOUSE"
+  exit 1
+fi
+
+# Public door (kray-node) must never carry the Creator's product mouths.
+# Private backup may keep them on disk / in its own history — this check
+# fires only when origin is the stranger clone.
+REMOTE="$(git remote get-url origin 2>/dev/null || true)"
+if [[ "$REMOTE" == *kray-node* ]]; then
+  VIT="$(git ls-files 'apps/kray-net/defi.html' 'apps/kray-net/market.html' \
+    'apps/kray-net/markets.html' 'apps/kray-net/pool.html' || true)"
+  if [[ -n "$VIT" ]]; then
+    echo "✗ oss-guard: tracked creator-vitrine path on the public door:"
+    echo "$VIT"
+    exit 1
+  fi
+fi
 
 echo "  oss-guard: clean"

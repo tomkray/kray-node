@@ -139,7 +139,7 @@ On a running node:
 |---|---|
 | [`apps/kray-core`](apps/kray-core/) | The law: ledger, signatures, conservation, cascade root, SPV, vaults. |
 | [`apps/kray-net`](apps/kray-net/) | One process — writer, JSON API, explorer (`index.html`, `/validate`, `/verify`). |
-| [`scripts/follow/`](scripts/README.md) | Door 2. Public houses: `follow` · `guardian` · pot-signer. |
+| [`scripts/follow/`](scripts/README.md) | Door 2. Public houses: `follow` · `guardian` · `folder`. |
 | [`networks/signet`](networks/signet/) · [`networks/mainnet`](networks/mainnet/) | Public recipes. Live keys stay in gitignored `/signet/` and `/mainnet/`. |
 | [`docs/`](docs/README.md) | Axioms, folder law, constitution, audit dossier — indexed by status. |
 

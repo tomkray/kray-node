@@ -13,6 +13,13 @@ consensus flags and activation sequences — a tag never replaces a proof):
 - **MINOR** — door/features: replay-compatible endpoints or UI.
 - **PATCH** — chrome: docs, canon, cosmetics, no contract touched.
 
+## [Unreleased] — 2026-09-03 · public door = the book
+
+- **DOOR: the pen and the writer kit stay off this clone.** Follow never
+  installs a pot-signer. Creator DeFi / market mouths are not this door.
+  `apps/kray-core` is untouched — every journaled AMM / vault event still
+  replays. `POT-CUSTODY.md` is the math law, not a ceremony.
+
 ## [Unreleased] — 2026-08-28 · THE TWIN REBIRTH — born strict (MAJOR: new genesis on signet + main)
 
 The Creator ratified restarting signet and mainnet from block #0 so the law is

@@ -4,6 +4,7 @@ node_modules/
 .cursor/*
 !.cursor/skills/
 !.cursor/rules/
+.cursor/rules/cheap-context.mdc
 data/
 devnet/
 *.log
@@ -81,6 +82,18 @@ apps/kray-core/src/adapter/
 scripts/exam/
 scripts/lab/
 
+# Operator RUN-LAYER on this disk — never the public door (machine names, tunnels, vault generators)
+scripts/operator/
+scripts/pot-signer.mjs
+scripts/gen-signet-vault-keys.mjs
+scripts/seal-vault-owner.mjs
+scripts/split-signet-custody.mjs
+docs/POT-CUSTODY-OPS.md
+
+# Local fold breaths embed the operator's home path — never source
+apps/kray-fold/proofs/breath-*.json
+apps/kray-fold/proofs/breath-*.groth16.json
+
 # L1 Bitcoin/ord gateway — this machine's oracle, not the ledger strangers clone
 apps/kray-api/
 
@@ -90,9 +103,5 @@ apps/kray-api/
 bin/
 .oss-guard-local
 
-# opsec — never the public door
-scripts/operator/
-.vscode/
-scripts/gen-signet-vault-keys.mjs
-scripts/seal-vault-owner.mjs
-scripts/split-signet-custody.mjs
+# The Creator's desk — scratch drop kit, never shipped, never committed
+apps/kray-net/later/desk/

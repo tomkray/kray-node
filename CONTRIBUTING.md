@@ -52,10 +52,10 @@ PRs that weaken any law are closed, kindly and firmly.
   `/mainnet/`, `data-signet/`, `data-main/`. Never copy one universe into the
   other. See [`networks/README.md`](networks/README.md).
 - **Scripts have houses.** Public work goes in `scripts/follow/` ·
-  `scripts/guardian/` · `scripts/pot-signer.mjs`. See
-  [`scripts/README.md`](scripts/README.md). Explorer chrome is `index.html`,
-  `kray.js`, `kray.css`. Era URL aliases on the writer are compatibility,
-  not names.
+  `scripts/guardian/` · `scripts/folder/`. The pot-signer is writer-disk
+  only — it does not ship. See [`scripts/README.md`](scripts/README.md).
+  Explorer chrome is `index.html`, `kray.js`, `kray.css`. Era URL aliases
+  on the writer are compatibility, not names.
 - No live host map: mesh IPs, private DNS names, SSH public keys, and
   `signet/*.env` / `mainnet/*.env` stay off the public tree. Operator files
   live in gitignored `ops/`. Run `bash scripts/oss-guard.sh` before a

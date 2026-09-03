@@ -44,6 +44,8 @@ const SKIP_FILE = new Set([
   'workshop.md',
   '.oss-guard-local',
   'operator-ship.md', 'krayos-mind.md', 'origin-local.env.example',
+  'pot-signer.mjs', 'pot-custody-ops.md',
+  'defi.html', 'market.html', 'markets.html', 'pool.html',
   // writer-disk gateway key (RPC + ord) — lives beside server.mjs on a writer; never in the zip
   '.kray-api.json',
 ])
@@ -54,10 +56,8 @@ export function shouldPackPath(rel) {
   const base = (parts[parts.length - 1] || '').toLowerCase()
   // operator handoff (house names, deploy rite) — disk only
   if (parts[0] === 'docs' && base.startsWith('handoff-')) return false
-  // bakery on disk (rsync leftover) — never zip. pot-signer.mjs is the one public app.
-  // The directory itself ('operator') must stay walkable, or the walk prunes it whole
-  // and pot-signer.mjs never reaches the zip (the shim entrypoint would ship broken).
-  if (parts.includes('operator') && base !== 'pot-signer.mjs' && base !== 'operator') return false
+  // bakery on disk (rsync leftover) — never zip. Follow never installs the pen.
+  if (parts.includes('operator')) return false
   // sealed key boxes (owner.box, guardian boxes) — never in the zip, wherever they sit
   if (base.endsWith('.box')) return false
   if (SKIP_FILE.has(base) || base.endsWith('.log') || base.endsWith('.redb')) return false

@@ -87,12 +87,12 @@ application ops, not follow.
 
 ---
 
-## 4. Operator reminder (Creator)
+## 4. What ignition is not
 
-Pen, two rooms, Cloudflare, `ORIGIN-WRITER` are **how the first apps
-stay live on the unique writer**. They must not be explained as “what
-the network is.” The book can breathe with the writer up and the pen
-boxed and quiet until someone uses the bridge.
+The unique writer lights **this book**. The pen and the first product
+mouths are how the first apps stay live — they are not what a stranger
+clones, and they are not “the network.” The book can breathe with the
+writer up and the pen boxed and quiet until someone uses the bridge.
 
 **Discarded branch:** calling ignition “launch the L2 rune / DeFi stack.”
 Ignition launches the book. The apps ride it.
