@@ -26,7 +26,7 @@ import {
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, BODY_HASH_RE, ORIGIN_COHORT_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
-  runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, eternizeMessage, quantumCommitMessage, quantumMigrateMessage,
+  runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, eternizeMessage, setFaceMessage, setProfileMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES, quantumCommitMessage, quantumMigrateMessage,
 } from './scheme.ts'
 import { parseOriginProofs, verifyOriginProofs } from './ordinal-ancestry.ts'
 import { emptyLane, laneRoot, laneTotal, applyFoldDiffs, foldDiffsHash, parseLaneAmount, type FoldDiffs } from './tk-fold.ts'
@@ -391,11 +391,11 @@ export class KrayLedger {
    *  Re-derived on replay from the journal prefix — never an oracle. v2 calls
    *  expose it as ctx.beacon; v1 calls keep 0 (A3). */
   private lastSealTxid = ''
-  private bytesPerKrayNow = BYTES_PER_KRAY_BURN  // genesis 1 ₭/MB; snaps to 10_000 at proportion activation
+  private bytesPerKrayNow = BYTES_PER_KRAY_BURN  // constructor snaps to 10 KB on signet/main (pin 0); 1 ₭/MB only below the pin (regtest)
   private proportionSnapped = false
   /** The live byte price (bytes per 1 ₭) — wallets read it to price a star BEFORE signing. */
   get bytesPerKray(): number { return this.bytesPerKrayNow }
-  /** Live star ceiling for the NEXT act (10 MB after proportion; 21 MB below). */
+  /** Live star ceiling for the NEXT act: 10 MB on signet/main; 21 MB only below the pin (regtest A3). */
   get inscriptionCeiling(): number {
     return (this.lastAppliedSeq + 1) >= this.sizeProportionSeq ? MAX_INSCRIPTION_PROPORTION : MAX_INSCRIPTION_BYTES
   }
@@ -426,6 +426,13 @@ export class KrayLedger {
    *  stores value NOR moves it; it only lets an account migrate to a PQC key later without its exposed ECC key.
    *  Folds into the cascade root APPEND-ONLY, so a history with no commitment hashes byte-identically. */
   private readonly quantumCommits = new Map<string, string>()
+  /** CITIZEN FACE — address → star number (decimal string). One owned star as the profile face.
+   *  Folds into the cascade by presence (A3): empty book ⇒ field absent ⇒ genesis root untouched.
+   *  Losing the star (send / buy / accept) clears the binding — paint never shows a face you do not hold. */
+  private readonly faces = new Map<string, string>()
+  /** CITIZEN MOUTH — address → bio / site URL / banner star / banner click. Feeless (quantum-commit pattern).
+   *  Folds by presence (A3). Losing the banner star clears only the banner binding. */
+  private readonly profiles = new Map<string, { description: string; url: string; bannerStar: string; bannerUrl: string }>()
   /** accounts already rescued through the quantum escape hatch — one rescue per account, ever (also folds into
    *  the cascade root append-only, and blocks any replay of a migration). */
   private readonly migratedAccounts = new Set<string>()
@@ -492,7 +499,7 @@ export class KrayLedger {
   }
   /** Declared inscription weight. Live law (main; Signet at/after the pin): an INTEGER in
    *  the closed interval 0 ≤ size ≤ cap. Omit is a hole (would price as 0 and pay 1 ₭).
-   *  Genesis era: size optional, finite ≥ 0, old 21 MB cap — Signet replay (A3). */
+   *  Below the pin (regtest): size optional, finite ≥ 0, old 21 MB cap (A3). Live books never take this path. */
   private inscriptionBytesOf(e: KrayEvent): number {
     const cap = this.inscriptionCapAt(e.seq)
     if (e.seq >= this.sizeProportionSeq) {
@@ -531,7 +538,7 @@ export class KrayLedger {
   private readonly sameInstantOrderSeq: number      // THE SAME-INSTANT LAW: below it, same-`at` order is unchecked (A3 — byte-identical history)
   private readonly xFeelessActivationSeq: number    // THE FIREBORN LAW: below it, x-send fee is the eternal 1 ₭ and the tank folds nowhere (A3)
   private readonly tkFoldActivationSeq: number      // THE TK-FOLD (Gate 2): below it, the lane kinds are refused and the lane root folds nowhere (A3)
-  private readonly sizeProportionSeq: number        // 1 ₭/10 KB + 10 MB ceiling: below it, genesis 1 ₭/MB + 21 MB (A3)
+  private readonly sizeProportionSeq: number        // signet/main = 0 (10 MB live). Below pin: 1 ₭/MB + 21 MB (regtest A3 only)
   private readonly proofMandatorySeq: number        // PROOF MANDATORY: at/after it, an L1-peg event must EMBED its SPV proof (A3 below)
   private readonly runeAncestrySeq: number          // THE KEYSTONE: at/after it, a rune-deposit AND a rune-settle must EMBED the ancestry bundle (byte-pure input state)
   private readonly mintWitnessSeq: number           // THE MINT-WITNESS LAW: at/after it, an ancestry may terminate at a witnessed mint of the focused rune
@@ -1217,6 +1224,8 @@ export class KrayLedger {
         this.credit(TREASURY, fee)
         this.stars.applyLive(e)           // move the star (registry no-op guard is belt-and-suspenders)
         this.market.remove(star)          // the owner changed: any live offer from the old owner is void (no stale/reviving listing)
+        this.clearFaceIf(e.from!, star)   // face rides ownership — lose the star, lose the face
+        this.clearProfileBannerIf(e.from!, star) // banner rides ownership — lose the star, lose the banner
         if (e.to === BLACK_HOLE) this.glow.set(e.from!, (this.glow.get(e.from!) ?? 0) + 1)
         break
       }
@@ -1285,6 +1294,8 @@ export class KrayLedger {
         this.credit(TREASURY, fee)
         this.stars.applyLive(e)             // move the star seller → buyer (star-buy case in the registry)
         this.market.remove(star)            // the offer is consumed, once
+        this.clearFaceIf(seller, star)      // seller no longer holds the face star
+        this.clearProfileBannerIf(seller, star)
         break
       }
       case 'star-offer': {
@@ -1357,6 +1368,8 @@ export class KrayLedger {
         this.stars.applyLive(e)
         this.offers.remove(star, bidder)
         this.market.remove(star)
+        this.clearFaceIf(owner, star)       // owner sold the face star via offer accept
+        this.clearProfileBannerIf(owner, star)
         break
       }
       case 'x-send': {
@@ -2495,6 +2508,59 @@ export class KrayLedger {
         this.stars.applyLive(e)
         break
       }
+      case 'set-face': {
+        // CITIZEN FACE — bind one OWNED star as this address's profile mouth (avatar + baptism name).
+        // Pays the eternal 1 ₭. Ownership is re-proven here; losing the star later clears the map.
+        // Additive by presence in the cascade (A3): no faces ⇒ genesis root untouched.
+        this.checkNonce(e)
+        if (typeof e.from !== 'string') throw new Error('ledger: from must be a string')
+        if (typeof e.star !== 'string' || !STAR_RE.test(e.star)) throw new Error('ledger: set-face names one star, by its number')
+        this.requireSig(e, setFaceMessage(this.network, e.from, BigInt(e.star), e.nonce!))
+        const ffee = BigInt(e.fee ?? '0')
+        if (ffee !== MIN_FEE) throw new Error('ledger: set-face costs exactly 1 ₭ — the seal, no more, no less')
+        if (this.balanceOf(e.from) < ffee) throw new Error('ledger: 1 ₭ is needed to set a face')
+        const fst = this.stars.star(BigInt(e.star))
+        if (!fst) throw new Error(`ledger: star #${e.star} does not exist`)
+        if (fst.owner !== e.from) throw new Error(`ledger: only the owner of star #${e.star} may wear it as face`)
+        // ── validated → mutate ──
+        this.commitNonce(e)
+        this.balances.set(e.from, this.balanceOf(e.from) - ffee)
+        this.credit(TREASURY, ffee)
+        this.faces.set(e.from, e.star)
+        break
+      }
+      case 'set-profile': {
+        // CITIZEN MOUTH — bio + site URL + banner (owned image star) + banner click URL.
+        // Feeless like quantum-commit: signature + nonce only; no ₭, no Treasury. Empty fields clear.
+        // Cascade by presence (A3): no mouths ⇒ profileCommitment absent ⇒ genesis root untouched.
+        this.checkNonce(e)
+        if (typeof e.from !== 'string') throw new Error('ledger: from must be a string')
+        const description = typeof e.description === 'string' ? e.description : ''
+        const url = typeof e.url === 'string' ? e.url : ''
+        const bannerStar = typeof e.bannerStar === 'string' ? e.bannerStar : ''
+        const bannerUrl = typeof e.bannerUrl === 'string' ? e.bannerUrl : ''
+        assertProfileText(description, PROFILE_DESC_MAX_BYTES, 'description')
+        assertHttpsOrEmpty(url, 'url')
+        assertHttpsOrEmpty(bannerUrl, 'bannerUrl')
+        this.requireSig(e, setProfileMessage(this.network, e.from, description, url, bannerStar, bannerUrl, e.nonce!))
+        if (e.fee != null && BigInt(e.fee) !== 0n) throw new Error('ledger: set-profile is feeless — fee must be absent or 0')
+        if (bannerStar !== '') {
+          if (!STAR_RE.test(bannerStar)) throw new Error('ledger: set-profile banner names one star, by its number')
+          const bst = this.stars.star(BigInt(bannerStar))
+          if (!bst) throw new Error(`ledger: star #${bannerStar} does not exist`)
+          if (bst.owner !== e.from) throw new Error(`ledger: only the owner of star #${bannerStar} may wear it as banner`)
+          if (!bst.contentHash || !/^image\//i.test(bst.contentType || '')) {
+            throw new Error('ledger: banner must be an owned image star')
+          }
+        } else if (bannerUrl !== '') {
+          throw new Error('ledger: bannerUrl requires a bannerStar')
+        }
+        // ── validated → mutate ──
+        this.commitNonce(e)
+        if (!description && !url && !bannerStar && !bannerUrl) this.profiles.delete(e.from)
+        else this.profiles.set(e.from, { description, url, bannerStar, bannerUrl })
+        break
+      }
       case 'settlement': {
         // THE VALIDATOR PAYOUT, RE-DERIVED FROM ITS BEATS. The event carries the Bitcoin beacon and the beats
         // each validator submitted for the span; the reducer recomputes the WHOLE table via settleFromBeats
@@ -2792,6 +2858,33 @@ export class KrayLedger {
 
   /** the post-quantum recovery commitment registered for an address, or null (opt-in). */
   quantumCommitOf(address: string): string | null { return this.quantumCommits.get(address) ?? null }
+  /** CITIZEN FACE — star number this address chose as its profile face, or null.
+   *  Paint MUST still re-check ownership (belt); the map clears on send / buy / offer-accept. */
+  faceOf(address: string): string | null { return this.faces.get(address) ?? null }
+  /** CITIZEN MOUTH — journal-bound bio / URL / banner, or null when cleared / never set. */
+  profileOf(address: string): { description: string; url: string; bannerStar: string; bannerUrl: string } | null {
+    const p = this.profiles.get(address)
+    return p ? { ...p } : null
+  }
+  private clearFaceIf(address: string, star: bigint): void {
+    const cur = this.faces.get(address)
+    if (cur != null && cur === star.toString()) this.faces.delete(address)
+  }
+  private clearProfileBannerIf(address: string, star: bigint): void {
+    const cur = this.profiles.get(address)
+    if (!cur || cur.bannerStar !== star.toString()) return
+    const next = { ...cur, bannerStar: '', bannerUrl: '' }
+    if (!next.description && !next.url) this.profiles.delete(address)
+    else this.profiles.set(address, next)
+  }
+  private facesRoot(): string {
+    return sha256hex([...this.faces.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([a, s]) => `${a}:${s}`).join('\n'))
+  }
+  private profilesRoot(): string {
+    return sha256hex([...this.profiles.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([a, p]) => `${a}|desc=${p.description}|url=${p.url}|bannerStar=${p.bannerStar}|bannerUrl=${p.bannerUrl}`)
+      .join('\n'))
+  }
   /** has this account been rescued through the quantum escape hatch already? */
   isMigrated(address: string): boolean { return this.migratedAccounts.has(address) }
 
@@ -2893,6 +2986,8 @@ export class KrayLedger {
       ...(!this.market.empty() ? { marketCommitment: this.market.commitment() } : {}),
       ...(!this.offers.empty() ? { offerCommitment: this.offers.commitment() } : {}),
       ...(!this.cuts.empty() ? { cutCommitment: this.cuts.commitment() } : {}),
+      ...(this.faces.size > 0 ? { faceCommitment: this.facesRoot() } : {}),
+      ...(this.profiles.size > 0 ? { profileCommitment: this.profilesRoot() } : {}),
     }
   }
 

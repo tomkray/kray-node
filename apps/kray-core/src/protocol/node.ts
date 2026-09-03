@@ -28,7 +28,7 @@ import { custodyFromHex, hitCount } from '../economics/custody.ts'
 import { readPresenceTip } from '../economics/presence-window.ts'
 
 /** the user-signed actions the submit path accepts (donate/anchor/reward/rune-deposit are system paths) */
-const USER_KINDS = new Set(['transfer', 'transfer-star', 'burn', 'inscribe', 'name', 'origin', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'quantum-commit', 'contract', 'contract-call', 'x-send', 'cut-send', 'lane-enter', 'lane-exit', 'fold-seal', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept'])
+const USER_KINDS = new Set(['transfer', 'transfer-star', 'burn', 'inscribe', 'name', 'origin', 'eternize', 'set-face', 'set-profile', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'quantum-commit', 'contract', 'contract-call', 'x-send', 'cut-send', 'lane-enter', 'lane-exit', 'fold-seal', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept'])
 
 export interface SupplyView { emitted: bigint; burned: bigint; circulating: bigint }
 export interface PotView { held: bigint; target: bigint; deficit: bigint; donated: bigint; spent: bigint; minted: bigint; open: boolean }
@@ -148,6 +148,18 @@ export class KrayNode {
    *  lets the account migrate to that key later without ever relying on its exposed ECC key. */
   quantumCommit(from: string, commit: string, nonce: number, publicKey: string, signature: string, scheme = 'kraywallet', at = 0): KrayEvent {
     return this.store.append({ kind: 'quantum-commit', at, from, quantumCommit: String(commit).toLowerCase(), nonce, publicKey, signature, scheme } as never)
+  }
+  /** CITIZEN MOUTH — feeless bio / site / banner binding. Signature + nonce only. */
+  setProfile(
+    from: string,
+    description: string, url: string, bannerStar: string, bannerUrl: string,
+    nonce: number, publicKey: string, signature: string, scheme = 'kraywallet', at = 0,
+  ): KrayEvent {
+    return this.store.append({
+      kind: 'set-profile', at, from,
+      description, url, bannerStar, bannerUrl,
+      nonce, publicKey, signature, scheme,
+    } as never)
   }
   /** THE QUANTUM ESCAPE HATCH — rescue a compromised account, authorized by a hash-based Lamport signature
    *  (not an ECC key), matching the pre-registered quantum-commit. The reducer verifies it (pure hashing). */

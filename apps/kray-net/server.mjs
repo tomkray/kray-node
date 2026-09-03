@@ -35,7 +35,7 @@ import {
   runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, quantumCommitMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, scriptOfAddress, toBtcNet, normalizeAddr, verifySignature, addressOf,
   _generateKeyPair, isAddressOnNetwork, isSupportedScheme,
 } from '../kray-core/src/protocol/scheme.ts'
-import { eternizeMessage } from '../kray-core/src/protocol/scheme.ts'
+import { eternizeMessage, setFaceMessage, setProfileMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES } from '../kray-core/src/protocol/scheme.ts'
 import { proveInscription } from '../kray-core/src/protocol/inscription-proof.ts'
 import { tkFoldSendMessage, parseLaneAmount } from '../kray-core/src/protocol/tk-fold.ts'   // THE LANE DOOR: the fold's own signing domain
 import { orderWindow, keyFromSignedMessage } from '../kray-core/src/protocol/window-order.ts'   // THE SAME-INSTANT GATE: the objective order
@@ -1864,31 +1864,107 @@ function profileView(addr) {
     url: s.contentHash ? '/content/' + s.contentHash : null,
     held: s.contentHash ? existsSync(join(CONTENT_DIR, s.contentHash)) : false,
   }))
+  // CITIZEN FACE — journal-bound preferred star; only paint if still owned (belt + reducer clear).
+  let face = null
+  try {
+    const faceNo = node.ledger.faceOf(addr)
+    if (faceNo != null) {
+      const fs = node.star(BigInt(faceNo))
+      if (fs && fs.owner === addr) {
+        face = {
+          star: Number(faceNo), name: fs.name || null, ctype: fs.contentType || null,
+          contentHash: fs.contentHash || null,
+          url: fs.contentHash ? '/content/' + fs.contentHash : null,
+          held: fs.contentHash ? existsSync(join(CONTENT_DIR, fs.contentHash)) : false,
+        }
+      }
+    }
+  } catch (_) { /* face must never take the profile door down */ }
+  // CITIZEN MOUTH — journal-bound bio / site / banner; banner only paints if still owned.
+  let mouth = null
+  try {
+    const raw = node.ledger.profileOf(addr)
+    if (raw) {
+      let banner = null
+      if (raw.bannerStar) {
+        const bs = node.star(BigInt(raw.bannerStar))
+        if (bs && bs.owner === addr && bs.contentHash && /^image\//i.test(bs.contentType || '')) {
+          banner = {
+            star: Number(raw.bannerStar), name: bs.name || null, ctype: bs.contentType || null,
+            contentHash: bs.contentHash,
+            url: '/content/' + bs.contentHash,
+            held: existsSync(join(CONTENT_DIR, bs.contentHash)),
+          }
+        }
+      }
+      mouth = {
+        description: raw.description || '',
+        url: raw.url || '',
+        bannerUrl: raw.bannerUrl || '',
+        bannerStar: raw.bannerStar || '',
+        banner,
+      }
+    }
+  } catch (_) { /* mouth must never take the profile door down */ }
   return {
     address: addr, network: NET, node: { height: node.seq },
     balance: bal, plain: bal, nonce: node.nonceOf(addr),
     stars: { total: starNos.length, free: [nextStar], list: starNos.map(String) },
-    starCount: starNos.length, written,
+    starCount: starNos.length, written, face, mouth,
     inscriptions: { total: inscribed.length },
     baptisms,
     freeStar: nextStar, freeStars: [nextStar],            // v2: not a pre-owned star — the next creation number
     supply: node.supply(), pot: node.pot(),
     // THE TWO LIGHTS (re-derived from the anchored journal, see docs/ACTIONS-MAP.md):
     //   ✦ glow — the soulbound count of stars this address froze, engraved on its stone (never transfers);
+    //   glowRank — 1-based standing on /rank/glow (same sort as lightsView); null when glow is 0;
     //   Ӿ      — the transferable token born 1:1 from this address's own ₭ burns (a distinct token, not ₭).
     // x = the lifetime Ӿ this address minted from its own burns (the engraved record, never rewritten);
     // xSpendable = what it can move NOW by x-send (live from the ratified activation seq).
     // fireTank = THE FIREBORN LAW's remaining feeless x-send allowance (F per ₭ burned, lifetime; spendable
     // at/after the feeless activation seq — the door quotes the prescribed fee, never the client).
     // laneX = this address's Ӿ inside the TK-fold compressed lane (Gate 2; 0 until the fold activates).
-    lights: { glow: glowOf(events, addr), glowSymbol: GLOW_SYMBOL, x: node.ledger.xMintedOf(addr).toString(), xSpendable: node.ledger.xBalanceOf(addr).toString(), xSymbol: 'Ӿ', fireTank: node.ledger.fireTankOf(addr).toString(), laneX: node.ledger.laneBalanceOf(addr).toString() },
+    lights: (() => {
+      const glowMap = frozenStarGlow(events)
+      const glow = glowMap.get(addr) || 0
+      let glowRank = null
+      if (glow > 0) {
+        const ordered = [...glowMap.entries()].sort((a, b) => (b[1] !== a[1] ? b[1] - a[1] : a[0] < b[0] ? -1 : 1))
+        const i = ordered.findIndex(([a]) => a === addr)
+        glowRank = i >= 0 ? i + 1 : null
+      }
+      return {
+        glow, glowRank, glowRankTotal: glowMap.size, glowSymbol: GLOW_SYMBOL,
+        x: node.ledger.xMintedOf(addr).toString(), xSpendable: node.ledger.xBalanceOf(addr).toString(), xSymbol: 'Ӿ',
+        fireTank: node.ledger.fireTankOf(addr).toString(), laneX: node.ledger.laneBalanceOf(addr).toString(),
+      }
+    })(),
     // Luz ✧ is additive. The live writer ledger may not carry CutBook yet — never take the
     // profile door down (a 400 here paints 0 ₭ in the wallet, which is a lie).
+    // Each holding also carries the star's sealed face (name / media) so the profile Luz tab
+    // can paint a real book card without a second round-trip — never a second amount.
     luz: (() => {
       try {
         const cuts = node.ledger && node.ledger.cuts
         if (cuts && typeof cuts.holdingsOf === 'function') {
-          return cuts.holdingsOf(addr).map((h) => ({ ...h, name: 'Luz', glyph: '✧' }))
+          return cuts.holdingsOf(addr).map((h) => {
+            let starName = null, ctype = null, contentHash = null, url = null, held = false
+            try {
+              const s = node.star(BigInt(h.star))
+              if (s) {
+                starName = s.name || null
+                ctype = s.contentType || null
+                contentHash = s.contentHash || null
+                url = s.contentHash ? '/content/' + s.contentHash : null
+                held = s.contentHash ? existsSync(join(CONTENT_DIR, s.contentHash)) : false
+              }
+            } catch (_) { /* star face is display-only */ }
+            return {
+              ...h, name: 'Luz', glyph: '✧',
+              starName, ctype, contentHash, url, held,
+              media: !!(ctype && /^(image|video|audio)\//i.test(ctype)),
+            }
+          })
         }
       } catch (_) { /* Luz must never take the profile door down */ }
       return []
@@ -2684,10 +2760,76 @@ async function settleFeePoolOnSeal(txid) {
  *  read-only so the tx page can SHOW who earned what. Single-law: the split itself is settleFromBeats
  *  (the same pure function ledger.ts:459 applies); this helper only reconstitutes the fee pool the
  *  settlement drew from, by folding the journal's own treasury arithmetic up to that seq —
- *  fees credited (transfer, transfer-star, rune-send, rune-exit, contract-call · ledger.ts:237,254,352,382,453)
- *  minus rewards and earlier settlements (ledger.ts:318,485). Returns null (never throws) if the event
- *  is not a settlement or the fold cannot reproduce it — the page then simply shows the raw record. */
-const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept'])
+ *  1-₭ act fees + the atlas wall-toll on sized inscribe/origin (ledger.ts credits TREASURY there)
+ *  minus rewards and earlier settlements. Returns null (never throws) if the event is not a
+ *  settlement or the fold cannot reproduce it — the page then simply shows the raw record.
+ *
+ *  A missing treasury kind here is a VIEW lie, not a consensus hole: the first mainnet settlement
+ *  (seq 49) paid 42 ₭ from atlas fees; omitting inscribe/origin painted "0 earned" over the journal. */
+const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'burn', 'x-send', 'cut-send', 'eternize', 'set-face'])
+/** ₭ this act credited to TREASURY — the fee pool the next settlement splits. View-only. */
+function treasuryCreditOf(e) {
+  if (!e || !e.kind) return 0n
+  if (FEE_POOL_KINDS.has(e.kind)) {
+    try { return BigInt(e.fee || 0) } catch { return 0n }
+  }
+  // THE ATLAS FEE — sized inscribe/origin; names and empty stars stay 0 (same law as the reducer).
+  if ((e.kind === 'inscribe' || e.kind === 'origin') && Number(e.size) > 0) {
+    try { return node.ledger.atlasFeeOf(Number(e.size)) } catch { return 0n }
+  }
+  return 0n
+}
+/** Recorded payout column (address → paid). The reducer already HALTs if this disagrees with the beats. */
+function recordedPaidMap(e) {
+  const m = new Map()
+  if (!Array.isArray(e.payouts)) return m
+  for (const r of e.payouts) {
+    if (!r || r[0] == null) continue
+    try { m.set(String(r[0]), BigInt(r[2] || 0)) } catch { /* skip a malformed row — the view must never throw */ }
+  }
+  return m
+}
+/**
+ * THE VITRINE MIRRORS THE BOOK — paid ₭ on a settlement is SettlementRow[2] in the
+ * sealed event (the reducer HALTs if that column is not what the beats produce).
+ * A fold that reconstitutes the fee pool is enrichment (work / blocks / pool), never
+ * a second money. If the fold and the journal disagree, the journal is the paint.
+ */
+function journalSettlementPaint(e) {
+  if (!e || e.kind !== 'settlement' || !Array.isArray(e.payouts) || !e.payouts.length) return null
+  const rows = []
+  let paid = 0n
+  for (const r of e.payouts) {
+    if (!r || r[0] == null) continue
+    let amt = 0n
+    try { amt = BigInt(r[2] || 0) } catch { amt = 0n }
+    paid += amt
+    rows.push({ address: String(r[0]), paid: amt.toString() })
+  }
+  return rows.length ? { rows, paid } : null
+}
+function paintSettlementView(e, st) {
+  const j = journalSettlementPaint(e)
+  if (!j) return st
+  const byWork = new Map((st && st.payouts ? st.payouts : []).map((p) => [p.address, p]))
+  return {
+    payouts: j.rows.map((r) => {
+      const w = byWork.get(r.address)
+      return {
+        address: r.address,
+        paid: r.paid,
+        work: w ? String(w.work ?? '0') : '0',
+        base: w ? String(w.base ?? '0') : '0',
+        hits: w ? (w.hits || 0) : 0,
+        blocks: w ? (w.blocks || 0) : 0,
+        who: w && w.who ? w.who : undefined,
+      }
+    }),
+    paid: j.paid.toString(),
+    pool: st && st.pool != null ? String(st.pool) : j.paid.toString(),
+    beacon: (st && st.beacon) || e.beacon || null,
+  }
+}
 /** One forward pass over the journal, folding the treasury and handing every settlement's re-derived
  *  table to `onTable(event, lines, poolBefore, paid)` — return false from the callback to stop early. */
 function foldSettlementTables(onTable) {
@@ -2701,11 +2843,18 @@ function foldSettlementTables(onTable) {
           return t !== undefined ? { presenceTip: t, seq: e.seq } : { seq: e.seq }
         } catch { return { seq: e.seq } }
       })())
-      const paid = lines.reduce((t, l) => t + l.paid, 0n)
-      if (onTable(e, lines, pool, paid) === false) return
+      // Prefer the journaled paid column when present — a missed fee-kind must never paint 0 over a paid act.
+      const rec = recordedPaidMap(e)
+      const view = rec.size ? lines.map((l) => (rec.has(l.address) ? { ...l, paid: rec.get(l.address) } : l)) : lines
+      const paid = view.reduce((t, l) => t + l.paid, 0n)
+      if (onTable(e, view, pool, paid) === false) return
       pool -= paid
-    } else if (FEE_POOL_KINDS.has(e.kind)) pool += BigInt(e.fee || 0)
-    else if (e.kind === 'reward') pool -= BigInt(e.amount || 0)
+      if (pool < 0n) pool = 0n   // a view underflow must not poison the next settlement's table
+    } else if (e.kind === 'reward') {
+      try { pool -= BigInt(e.amount || 0) } catch { /* view never throws */ }
+    } else {
+      pool += treasuryCreditOf(e)
+    }
   }
 }
 function settlementTableOf(target) {
@@ -3302,6 +3451,15 @@ function txSummary(e, block) {
   if (e.kind === 'burn') out.burn = String(e.amount ?? '')          // the ₭ destroyed IS the amount on a sporadic burn
   if (e.kind === 'transfer-star' && e.to === 'KRAY_BLACK_HOLE') { out.glowEarned = 1; out.glowTo = e.from ?? null }
   if (e.kind === 'burn-thaw') out.thaw = true                       // the one-shot redemption of the pre-law frozen ₭
+  if (e.kind === 'settlement') {
+    const painted = paintSettlementView(e, null)
+    if (painted) {
+      out.payouts = painted.payouts
+      out.payoutCount = painted.payouts.length
+      out.feesPaid = painted.paid
+      out.beacon = painted.beacon
+    }
+  }
   if (e.kind && String(e.kind).startsWith('amm-') && e.runeId) {
     out.runeId = e.runeId
   }
@@ -3392,6 +3550,12 @@ function txSummary(e, block) {
   if (out.contentHash) {
     out.contentUrl = '/content/' + out.contentHash
     out.contentHeld = existsSync(join(CONTENT_DIR, out.contentHash))
+  }
+  if (e.kind === 'set-profile') {
+    out.description = e.description ?? ''
+    out.url = e.url ?? ''
+    out.bannerStar = e.bannerStar ?? ''
+    out.bannerUrl = e.bannerUrl ?? ''
   }
   // Luz ✧ on a cut-send — same honesty as a rune row: which book, how many, the star's face.
   // Derived from the journal + the star's written bytes. Never a second amount field.
@@ -4684,6 +4848,38 @@ function prepareMessage(action, b, nonceOverride) {
       if (taken != null) throw new Error(`that carving is already eternal on star #${taken} — one binding, forever`)
       return { message: eternizeMessage(NET, from, BigInt(star), id, nonce), nonce }
     }
+    case 'set-face': {
+      // CITIZEN FACE — bind one owned star as this address's profile mouth. Door mirrors the reducer.
+      const star = readOnStar(b)
+      if (star == null) throw new Error('set-face needs the star number')
+      const s = node.ledger.stars.star(BigInt(star))
+      if (!s) throw new Error(`star #${star} does not exist`)
+      if (s.owner !== from) throw new Error(`only the owner of star #${star} may wear it as face`)
+      return { message: setFaceMessage(NET, from, BigInt(star), nonce), nonce, star }
+    }
+    case 'set-profile': {
+      // CITIZEN MOUTH — feeless bio / site / banner. Door mirrors the reducer (no ₭).
+      const description = typeof b.description === 'string' ? b.description : ''
+      const url = typeof b.url === 'string' ? b.url : ''
+      const bannerStar = b.bannerStar != null && String(b.bannerStar) !== '' ? String(b.bannerStar).replace(/[#,\s]/g, '') : ''
+      const bannerUrl = typeof b.bannerUrl === 'string' ? b.bannerUrl : ''
+      assertProfileText(description, PROFILE_DESC_MAX_BYTES, 'description')
+      assertHttpsOrEmpty(url, 'url')
+      assertHttpsOrEmpty(bannerUrl, 'bannerUrl')
+      if (bannerStar !== '') {
+        if (!/^(0|[1-9]\d*)$/.test(bannerStar)) throw new Error('set-profile banner names one star, by its number')
+        const s = node.ledger.stars.star(BigInt(bannerStar))
+        if (!s) throw new Error(`star #${bannerStar} does not exist`)
+        if (s.owner !== from) throw new Error(`only the owner of star #${bannerStar} may wear it as banner`)
+        if (!s.contentHash || !/^image\//i.test(s.contentType || '')) throw new Error('banner must be an owned image star')
+      } else if (bannerUrl !== '') {
+        throw new Error('bannerUrl requires a bannerStar')
+      }
+      return {
+        message: setProfileMessage(NET, from, description, url, bannerStar, bannerUrl, nonce),
+        nonce, description, url, bannerStar, bannerUrl,
+      }
+    }
     case 'x-send': {
       assertNotAmmPot(b.to, 'x-send'); assertNotContractPot(b.to, 'x-send')
       const xAmt = parseLaneAmount(String(b.amount ?? ''))
@@ -4870,6 +5066,20 @@ function buildSubmitEvent(action, b, atOverride) {
       const id = String(b.l1InscriptionId || b.parentId || '').toLowerCase()
       if (!/^[0-9a-f]{64}i\d+$/.test(id)) throw new Error('eternize needs the L1 inscription id (<txid>iN)')
       action_ = { ...base, kind: 'eternize', star, l1InscriptionId: id, eternalProof: parseEternalProof(b.eternalProof), fee: '1' }
+      break
+    }
+    case 'set-face': {
+      const star = readOnStar(b)
+      if (star == null) throw new Error('set-face needs the star number')
+      action_ = { ...base, kind: 'set-face', star, fee: '1' }
+      break
+    }
+    case 'set-profile': {
+      const description = typeof b.description === 'string' ? b.description : ''
+      const url = typeof b.url === 'string' ? b.url : ''
+      const bannerStar = b.bannerStar != null && String(b.bannerStar) !== '' ? String(b.bannerStar).replace(/[#,\s]/g, '') : ''
+      const bannerUrl = typeof b.bannerUrl === 'string' ? b.bannerUrl : ''
+      action_ = { ...base, kind: 'set-profile', description, url, bannerStar, bannerUrl }
       break
     }
     // THE STAR MARKET — native, atomic, trustless. list/edit-price + delist + buy; the eternal 1-₭ fee → validators.
@@ -5778,6 +5988,7 @@ const server = createServer(async (req, res) => {
           'lane-enter': 'money', 'lane-exit': 'money', 'fold-seal': 'money',
           'contract': 'law', 'contract-call': 'law',
           'quantum-commit': 'quantum', 'quantum-migrate': 'quantum',
+          'set-face': 'identity', 'set-profile': 'identity',
           'transfer-star': 'starmove',
           'eternize': 'starmove',   // ⚓ the eternal binding — a star fact, hung beside the moves
           // THE NATIVE STAR MARKET — list / delist / buy are user acts; the constellation
@@ -6045,10 +6256,17 @@ const server = createServer(async (req, res) => {
               sum.otherDiv = (ometa && ometa.divisibility) || 0
               sum.otherThumbnail = ometa && ometa.parent ? '/api/kraynet/rune-thumb/' + encodeURIComponent(sum.otherRuneId) + '?v=2' : null
             }
-            // a SETTLEMENT → re-derive the exact payout table the reducer credited (who earned what, and why)
+            // a SETTLEMENT → the sealed payout column IS the paint (journal row[2]).
+            // The fold may add work/blocks; it must never replace paid with a second arithmetic.
             if (e.kind === 'settlement') {
-              const st = settlementTableOf(e)
-              if (st) { sum.payouts = st.payouts; sum.payoutCount = st.payouts.length; sum.feesPaid = st.paid; sum.pool = st.pool; sum.beacon = st.beacon }
+              const painted = paintSettlementView(e, settlementTableOf(e))
+              if (painted) {
+                sum.payouts = painted.payouts
+                sum.payoutCount = painted.payouts.length
+                sum.feesPaid = painted.paid
+                sum.pool = painted.pool
+                sum.beacon = painted.beacon
+              }
             }
             // a LAW SEAL — the journal event IS the paper. Publish the IR + codeHash on this
             // tx only (not on every later call). A stranger re-derives the hash from these bytes.

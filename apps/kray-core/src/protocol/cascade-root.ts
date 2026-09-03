@@ -36,6 +36,8 @@ export interface CascadeParts {
   marketCommitment?: string // THE STAR MARKET order book — present iff a listing exists (by presence, the AMM pattern; A3)
   offerCommitment?: string  // ESCROWED STAR OFFERS — present iff a live bid exists (A3 grow-only, after market)
   cutCommitment?: string    // Luz / CutBook (KRC-77) — present iff a star has portioned Luz (A3 by presence)
+  faceCommitment?: string   // CITIZEN FACE — address→owned star; present iff at least one face is set (A3 by presence)
+  profileCommitment?: string // CITIZEN MOUTH — address→bio/url/banner; present iff at least one mouth is set (A3 by presence)
 }
 
 /** Re-derive the cascade root from its parts — byte-identical to `ledger.cascadeRoot()`, which IS this. */
@@ -62,5 +64,7 @@ export function cascadeRootFromParts(p: CascadeParts): string {
   if (p.marketCommitment !== undefined) h.update(`market:${p.marketCommitment}\n`, 'utf8')   // STAR MARKET (A3): undefined when no listing exists ⇒ byte-identical to a pre-market history
   if (p.offerCommitment !== undefined) h.update(`offers:${p.offerCommitment}\n`, 'utf8')     // STAR OFFERS (A3): undefined when the book is empty ⇒ byte-identical genesis
   if (p.cutCommitment !== undefined) h.update(`cut:${p.cutCommitment}\n`, 'utf8')           // Luz CutBook (A3): undefined when no star has portioned hair ⇒ byte-identical
+  if (p.faceCommitment !== undefined) h.update(`faces:${p.faceCommitment}\n`, 'utf8')       // CITIZEN FACE (A3): undefined when no face is set ⇒ byte-identical genesis
+  if (p.profileCommitment !== undefined) h.update(`profiles:${p.profileCommitment}\n`, 'utf8') // CITIZEN MOUTH (A3): undefined when no mouth is set ⇒ byte-identical genesis
   return h.digest('hex')
 }

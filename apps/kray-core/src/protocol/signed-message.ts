@@ -28,7 +28,7 @@ import {
   runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage,
   ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, eternizeMessage,
   contractCallMessage, contractCallMessageV2, quantumCommitMessage,
-  laneEnterMessage, laneExitMessage, foldSealMessage,
+  laneEnterMessage, laneExitMessage, foldSealMessage, setFaceMessage, setProfileMessage,
 } from './scheme.ts'
 import { sha256hex, type KrayEvent } from './kray-primitives.ts'
 import { canonicalCode } from './contract.ts'
@@ -104,6 +104,15 @@ export function signedMessageOfEvent(e: KrayEvent, network: string): string | nu
         : contractMessage(network, e.from!, codeHash)
     }
     case 'eternize': return eternizeMessage(network, e.from!, BigInt(e.star!), e.l1InscriptionId!, e.nonce!)
+    case 'set-face': return setFaceMessage(network, e.from!, BigInt(e.star!), e.nonce!)
+    case 'set-profile': return setProfileMessage(
+      network, e.from!,
+      typeof e.description === 'string' ? e.description : '',
+      typeof e.url === 'string' ? e.url : '',
+      typeof e.bannerStar === 'string' ? e.bannerStar : '',
+      typeof e.bannerUrl === 'string' ? e.bannerUrl : '',
+      e.nonce!,
+    )
     case 'contract-call': {
       const args: Record<string, bigint> = {}
       for (const [kk, val] of Object.entries(e.callArgs ?? {})) {

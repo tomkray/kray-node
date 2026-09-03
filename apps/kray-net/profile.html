@@ -10,72 +10,439 @@
 <link rel="stylesheet" href="/kray.css">
 <style>
 /* ============================================================================
-   Profile — CITIZEN HOME. The system lives in /kray.css (Blueprint v2).
-   Here only the citizen-home bits: the sigil, gauges, star/rune chip pickers,
-   the rune-console pedals, the inscription/star grids, the sandboxed viewer.
-   Amber (--btc) is reserved for Bitcoin-sealed things (the rune bridge / vault,
-   a deposit proven on L1, an exit paid to L1, a paid seal). Nothing else.
+   Profile — CITIZEN HOME (redesign). System tokens live in /kray.css (Blueprint v2).
+   This page: identity plate · sticky rail · clear zones · interactive affordances.
+   Amber (--btc) only for Bitcoin-sealed doors. Nothing else.
+   All element IDs and JS hooks stay byte-compatible with the existing script.
    ========================================================================== */
 [hidden]{display:none!important}
 .out:empty{display:none!important}
-/* the page uses .eyebrow as a dim mono kicker/placeholder, not the amber accent */
 .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3)}
 .mono{font-family:var(--mono)}
 .gold{color:var(--ink);font-weight:600}
-/* a rune name is a DOOR — anywhere it appears, clicking it opens that rune's page */
 .rlink{cursor:pointer}.rlink:hover{text-decoration:underline;text-underline-offset:3px}
-/* one JS-injected inline style (tile star link) still asks for --gold; alias it
-   to the v2 accent so it resolves without touching the signing/data JS */
 :root{--gold:var(--ink)}
 
-/* ── the citizen identity head ── */
-.idhead{display:flex;gap:var(--s5);align-items:center;flex-wrap:wrap;padding:var(--s7) 0 var(--s4)}
-.idwho{flex:1;min-width:min(100%,280px)}
-.sigil{width:88px;height:88px;border-radius:var(--r3);border:1px solid var(--line-2);background:var(--surface);flex:0 0 auto}
-.addr{font-family:var(--mono);font-size:13px;color:var(--ink-2);word-break:break-all;margin-top:var(--s2)}
-.copy{cursor:pointer;border:1px solid var(--line-2);border-radius:var(--r1);background:transparent;color:var(--ink-3);font-family:var(--mono);font-size:10.5px;padding:3px 9px;margin-left:8px}
-.copy:hover{color:var(--ink);border-color:var(--ink)}
-.badges{display:flex;gap:var(--s2);margin-top:var(--s3);flex-wrap:wrap}
-.badge{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;border:1px solid var(--line-2);border-radius:var(--r-pill);padding:4px 10px;color:var(--ink-3)}
-.badge.you{color:var(--signal-ink);background:var(--signal);border-color:var(--signal)}
-.status{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:var(--s3);letter-spacing:.04em}
+/* page rhythm */
+.citizen-home{padding-bottom:var(--s10)}
+.citizen-home .pzone{scroll-margin-top:calc(var(--nav-h) + 72px)}
 
-/* ── the monumental balance ── */
-.balanceband{padding:var(--s3) 0 var(--s6);border-bottom:1px solid var(--line);margin-bottom:var(--s6)}
-.balanceband .display{font-size:clamp(40px,9vw,84px);color:var(--ink);line-height:.95}
-.balanceband .display small{font-size:.34em;color:var(--ink-3);font-weight:400}
-.balanceband .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin-top:var(--s3)}
-.pstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3);margin-bottom:var(--s7)}
-@media(max-width:1023px){.pstats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:639px){.pstats{grid-template-columns:minmax(0,1fr)}}
+/* ── CITIZEN PLATE — identity · ₭ hero · lights · dense activity ──
+   Tokens from /kray.css Blueprint v2. Fill the plate — no dead voids. */
+.citizen-plate{
+  position:relative;overflow:hidden;
+  display:grid;grid-template-columns:minmax(0,1.15fr) minmax(280px,1fr);
+  gap:var(--s5);align-items:stretch;
+  margin:var(--s5) 0 var(--s5);
+  padding:var(--s5) var(--s6);
+  background:
+    linear-gradient(135deg,color-mix(in srgb,var(--surface) 55%,transparent) 0%,transparent 42%),
+    var(--panel);
+  border:1px solid var(--line);border-radius:20px;
+  box-shadow:none;min-height:188px;
+  --plate-glow:#e8c547; /* soulbound glow — plate-local; Blueprint keeps --btc for Bitcoin only */
+}
+.citizen-plate::before{content:none}
+.citizen-plate > *{position:relative;z-index:1}
+@media(max-width:900px){.citizen-plate{grid-template-columns:1fr;gap:var(--s4);padding:var(--s4) var(--s5);min-height:0}}
+
+.idhead{
+  display:grid;grid-template-columns:120px minmax(0,1fr);gap:var(--s4);
+  align-items:start;padding:0;min-width:0;height:100%;
+}
+.idwho{min-width:0;display:flex;flex-direction:column;gap:10px;padding-top:2px}
+.idwho > .eyebrow{margin:0;letter-spacing:.14em;font-size:10px;color:var(--ink-4);font-weight:500}
+.sigil{width:120px;height:120px;border-radius:999px;border:2px solid var(--line-2);background:var(--void);flex:0 0 auto;object-fit:cover;display:block;overflow:hidden;transition:border-color .2s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease);box-shadow:0 0 0 4px var(--panel),0 0 0 5px var(--line)}
+.sigil.sigil-sky{background:#020308} /* citizen sacred-geometry fallback — no invert */
+.sigil-btn{padding:0;margin:0;border:0;background:transparent;cursor:default;flex:0 0 auto;position:relative;border-radius:999px;align-self:start;width:120px;height:120px}
+.sigil-btn.mine{cursor:pointer}
+.sigil-btn.mine:hover .sigil,.sigil-btn.mine:hover .sigil-face,
+.sigil-btn.mine:focus-visible .sigil,.sigil-btn.mine:focus-visible .sigil-face{
+  border-color:var(--ink-3);transform:scale(1.02);
+  box-shadow:0 0 0 4px var(--panel),0 0 0 5px var(--ink-3),0 16px 40px -24px rgba(0,0,0,.9);
+}
+.sigil-btn.mine:focus-visible{outline:2px solid var(--signal);outline-offset:4px}
+.sigil-btn.mine::after{
+  content:"Set face";position:absolute;left:50%;bottom:10px;transform:translateX(-50%) translateY(4px);
+  font-family:var(--sans);font-size:10px;letter-spacing:.02em;text-transform:none;font-weight:500;
+  color:var(--signal-ink);background:var(--signal);border-radius:var(--r-pill);
+  padding:3px 8px;opacity:0;pointer-events:none;white-space:nowrap;
+  transition:opacity .2s var(--ease),transform .2s var(--ease);z-index:2;
+}
+.sigil-btn.mine:hover::after,.sigil-btn.mine:focus-visible::after{opacity:1;transform:translateX(-50%) translateY(0)}
+.sigil-face{width:120px;height:120px;border-radius:999px;border:2px solid var(--line-2);background:var(--surface);overflow:hidden;display:flex;align-items:center;justify-content:center;transition:border-color .2s var(--ease),transform .25s var(--ease),box-shadow .25s var(--ease);box-shadow:0 0 0 4px var(--panel),0 0 0 5px var(--line)}
+.sigil-face .kv-nameplate,.sigil-face .kv-mark{width:100%;height:100%}
+.sigil-face img,.sigil-face video{width:100%;height:100%;object-fit:cover;display:block}
+
+/* Twitter-like name row — name hero + star chip */
+.displayname,.id-name{
+  display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px;
+  margin:0;min-width:0;
+}
+.id-title{
+  font-size:clamp(26px,4vw,34px);color:var(--ink);font-weight:700;
+  letter-spacing:-.035em;line-height:1.05;margin:0;
+}
+.star-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--mono);font-size:14px;font-weight:600;line-height:1;
+  color:var(--plate-glow);text-decoration:none;
+  padding:7px 12px 7px 10px;border-radius:var(--r-pill);
+  border:1px solid color-mix(in srgb,var(--plate-glow) 45%,var(--line));
+  background:color-mix(in srgb,var(--plate-glow) 10%,var(--surface));
+  box-shadow:0 0 24px -10px color-mix(in srgb,var(--plate-glow) 55%,transparent);
+  transition:border-color .15s,background .15s,transform .15s,box-shadow .15s;
+}
+.star-chip b{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);font-size:15px;letter-spacing:-.02em}
+.star-chip .star-ico{font-size:15px;line-height:1;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--plate-glow) 50%,transparent))}
+.star-chip:hover{
+  text-decoration:none;color:var(--plate-glow);
+  border-color:var(--plate-glow);background:color-mix(in srgb,var(--plate-glow) 16%,var(--surface));
+  transform:translateY(-1px);box-shadow:0 0 28px -8px color-mix(in srgb,var(--plate-glow) 70%,transparent);
+}
+.displayname .starref{display:none}
+
+/* CITIZEN MOUTH — bio · site · clickable banner under identity */
+.citizen-mouth{display:flex;flex-direction:column;gap:10px;margin-top:4px;min-width:0}
+.citizen-mouth[hidden]{display:none!important}
+.mouth-bio{
+  margin:0;font-size:15px;line-height:1.45;color:var(--ink-2);
+  white-space:pre-wrap;word-break:break-word;max-width:42rem;
+}
+.mouth-link{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:14px;font-weight:500;color:var(--signal);text-decoration:none;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.mouth-link:hover{text-decoration:underline}
+.mouth-banner{
+  display:block;width:100%;max-width:520px;aspect-ratio:3/1;
+  border-radius:12px;overflow:hidden;border:1px solid var(--line);
+  background:var(--void);text-decoration:none;position:relative;
+}
+.mouth-banner img{width:100%;height:100%;object-fit:cover;display:block}
+.mouth-banner:hover{border-color:var(--ink-3)}
+.mouth-edit{
+  align-self:start;margin-top:2px;padding:6px 12px;
+  font-family:var(--sans);font-size:12px;font-weight:600;
+  color:var(--ink-2);background:transparent;border:1px solid var(--line);
+  border-radius:var(--r-pill);cursor:pointer;
+}
+.mouth-edit:hover{border-color:var(--ink-3);color:var(--ink)}
+.mouth-edit[hidden]{display:none!important}
+.mouth-card{max-width:520px}
+.mouth-body{display:flex;flex-direction:column;gap:10px;padding:var(--s4)}
+.mouth-ta{resize:vertical;min-height:72px;font-family:var(--sans);line-height:1.4}
+.mouth-foot{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.mouth-banner-pick{
+  border:2px solid transparent;border-radius:10px;overflow:hidden;cursor:pointer;
+  aspect-ratio:1;background:var(--void);
+}
+.mouth-banner-pick.on{border-color:var(--signal)}
+.mouth-banner-pick img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* Global glow rank — beside the name / star (celestial ladder mark) */
+.id-headline{display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px;min-width:0}
+.rank-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:var(--mono);font-size:13px;font-weight:600;line-height:1;
+  color:var(--ink-2);text-decoration:none;
+  padding:7px 12px 7px 10px;border-radius:var(--r-pill);
+  border:1px solid var(--line-2);background:var(--surface);
+  transition:border-color .15s,background .15s,transform .15s,color .15s,box-shadow .15s;
+}
+.rank-chip .rank-emo{display:inline-flex;align-items:center;justify-content:center;line-height:0}
+.rank-chip .rank-ico{width:16px;height:16px;display:block;flex:0 0 auto;color:inherit}
+.rank-chip.top1 .rank-ico{color:var(--plate-glow);filter:drop-shadow(0 0 6px color-mix(in srgb,var(--plate-glow) 45%,transparent))}
+.rank-chip.top3 .rank-ico{color:var(--plate-glow)}
+.rank-chip .rank-n{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:700;letter-spacing:-.02em}
+.rank-chip .rank-of{color:var(--ink-4);font-weight:500;font-size:11.5px}
+.rank-chip:hover{text-decoration:none;color:var(--ink);border-color:var(--ink-3);background:var(--surface-2);transform:translateY(-1px)}
+.rank-chip.top1{
+  color:var(--plate-glow);border-color:color-mix(in srgb,var(--plate-glow) 50%,var(--line));
+  background:color-mix(in srgb,var(--plate-glow) 12%,var(--surface));
+  box-shadow:0 0 28px -10px color-mix(in srgb,var(--plate-glow) 60%,transparent);
+}
+.rank-chip.top1 .rank-n{color:var(--ink)}
+.rank-chip.top1:hover{border-color:var(--plate-glow);background:color-mix(in srgb,var(--plate-glow) 18%,var(--surface))}
+.rank-chip.top3{
+  border-color:color-mix(in srgb,var(--plate-glow) 30%,var(--line));
+  background:color-mix(in srgb,var(--plate-glow) 6%,var(--surface));
+}
+.rank-chip.quiet{opacity:.55}
+
+/* Address — handle line, not a heavy box */
+.idwho > .addr{
+  display:flex;align-items:center;gap:10px;flex-wrap:nowrap;
+  margin:0;padding:0;min-width:0;max-width:100%;
+  background:transparent;border:0;border-radius:0;
+}
+.idwho > .addr .addr-txt{
+  flex:1 1 auto;min-width:0;
+  font-family:var(--mono);font-size:clamp(10px,1.05vw,12.5px);
+  line-height:1.4;font-weight:450;letter-spacing:-.02em;
+  color:var(--ink-3);white-space:nowrap;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:thin;font-variant-ligatures:none;
+  -webkit-overflow-scrolling:touch;
+}
+.idwho > .addr .addr-txt::-webkit-scrollbar{height:3px}
+.idwho > .addr .addr-txt::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:var(--r-pill)}
+.idwho > .addr .copy{
+  cursor:pointer;flex:0 0 auto;align-self:center;
+  border:0;border-radius:0;background:transparent;
+  color:var(--ink-3);font-family:var(--sans);font-size:13px;font-weight:600;
+  letter-spacing:0;text-transform:none;padding:0;margin:0;min-height:0;
+  transition:color .15s;
+}
+.idwho > .addr .copy:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.idwho > .addr .copy:focus-visible{outline:2px solid var(--signal);outline-offset:3px;border-radius:4px}
+.copy{cursor:pointer}
+
+/* Meta chronology — you · network · height */
+.id-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-top:2px}
+.badges{display:flex;gap:var(--s2);margin:0;flex-wrap:wrap}
+.badge{font-family:var(--sans);font-size:12px;letter-spacing:.01em;text-transform:none;font-weight:500;border:1px solid var(--line-2);border-radius:var(--r-pill);padding:5px 11px;color:var(--ink-3);background:transparent}
+.badge.you{color:var(--ink);background:color-mix(in srgb,var(--signal) 8%,transparent);border-color:var(--line-2)}
+.status{font-family:var(--mono);font-size:12px;color:var(--ink-4);margin:0;letter-spacing:.02em;font-weight:400}
+.status #netlab{font-variant-numeric:tabular-nums}
+
+/* right pulse — ₭ hero · light chips · dense activity fill */
+.citizen-pulse{
+  display:flex;flex-direction:column;justify-content:space-between;gap:var(--s3);min-width:0;
+  padding:var(--s2) 0 var(--s2) var(--s5);border-left:1px solid var(--line);height:100%;
+}
+@media(max-width:900px){.citizen-pulse{padding:var(--s4) 0 0;border-left:0;border-top:1px solid var(--line);min-height:168px}}
+.pulse-top{display:flex;flex-direction:column;gap:var(--s3)}
+.pulse-k-lab{
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-4);margin:0;display:flex;align-items:baseline;justify-content:space-between;gap:var(--s2);
+}
+.pulse-k-lab span{color:var(--ink-3);letter-spacing:0;text-transform:none;font-size:11px;font-weight:500}
+.pulse-top .display{
+  font-size:clamp(40px,6.2vw,64px);color:var(--ink);line-height:.88;
+  font-variant-numeric:tabular-nums;letter-spacing:-.04em;font-weight:650;
+  text-shadow:0 0 48px color-mix(in srgb,var(--ink) 12%,transparent);
+}
+.pulse-top .display small{font-size:.36em;color:var(--ink-3);font-weight:500;letter-spacing:0;margin-left:4px;vertical-align:baseline}
+.pulse-lights{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;margin:0}
+.pulse-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--mono);font-size:11.5px;line-height:1;font-weight:500;
+  padding:7px 10px;border-radius:var(--r-pill);
+  border:1px solid var(--line);background:var(--surface);color:var(--ink-3);
+  text-decoration:none;transition:border-color .15s,color .15s,background .15s;
+}
+.pulse-chip b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.pulse-chip:hover{border-color:var(--line-2);color:var(--ink);text-decoration:none}
+.pulse-chip.glow{color:var(--plate-glow);border-color:color-mix(in srgb,var(--plate-glow) 35%,var(--line))}
+.pulse-chip.glow b{color:var(--plate-glow)}
+.pulse-chip.glow:hover{background:color-mix(in srgb,var(--plate-glow) 8%,transparent)}
+.pulse-chip.rank{color:var(--ink-2)}
+.pulse-chip.fenyx{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,var(--line))}
+.pulse-chip.fenyx b{color:var(--crit)}
+.pulse-chip.fenyx:hover{background:color-mix(in srgb,var(--crit) 8%,transparent)}
+.pulse-chip.quiet{opacity:.55}
+.pulse-chart{display:flex;flex-direction:column;gap:8px;flex:1 1 auto;min-height:0;justify-content:flex-end}
+.pulse-lab{
+  font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--ink-4);margin:0;display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+}
+.pulse-lab b{color:var(--ink-3);font-weight:500;letter-spacing:0;text-transform:none;font-size:11px}
+.actchart{
+  display:flex;align-items:flex-end;gap:3px;height:76px;width:100%;
+  padding:8px 8px 6px;margin:0;
+  border:1px solid var(--line);border-radius:12px;
+  background:
+    linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--surface-2) 70%,transparent) 100%),
+    repeating-linear-gradient(0deg,transparent,transparent 18px,color-mix(in srgb,var(--line) 55%,transparent) 18px,color-mix(in srgb,var(--line) 55%,transparent) 19px);
+  cursor:pointer;transition:border-color .15s;
+}
+.actchart:hover{border-color:var(--line-2)}
+.actchart i{
+  flex:1 1 0;min-width:3px;max-width:18px;height:var(--h,10%);
+  border-radius:3px 3px 1px 1px;background:var(--ink-3);
+  opacity:.45;transition:height .35s var(--ease),opacity .2s,background .2s,transform .15s;
+  transform-origin:bottom center;
+}
+.actchart i.on{background:var(--signal);opacity:.9}
+.actchart i.hot{background:var(--ink);opacity:1;box-shadow:0 0 12px color-mix(in srgb,var(--ink) 25%,transparent)}
+.actchart i.in{background:var(--good);opacity:.85}
+.actchart i.out{background:var(--crit);opacity:.75}
+.actchart:hover i{opacity:.7}
+.actchart:hover i.hot,.actchart:hover i.on,.actchart:hover i.in,.actchart:hover i.out{opacity:1}
+.actchart.empty{
+  align-items:center;justify-content:center;
+  color:var(--ink-4);font-family:var(--mono);font-size:11px;
+  background:var(--surface);cursor:default;
+}
+@media(prefers-reduced-motion:reduce){.actchart i{transition:none}}
+@media(max-width:639px){
+  .idhead{grid-template-columns:88px minmax(0,1fr);gap:var(--s3)}
+  .sigil-btn,.sigil,.sigil-face{width:88px;height:88px}
+  .actchart{height:64px;gap:2px;padding:6px}
+  .pulse-top .display{font-size:clamp(36px,11vw,48px)}
+  .id-title{font-size:clamp(22px,7vw,28px)}
+  .star-chip{font-size:12.5px;padding:6px 10px 6px 8px}
+  .star-chip b{font-size:13.5px}
+  .rank-chip{font-size:12px;padding:6px 10px 6px 8px}
+  .rank-chip .rank-ico{width:14px;height:14px}
+  .idwho > .addr .addr-txt{font-size:10px}
+}
+
+/* ── PROFILE TABS — Stars · Luz · Activity · Operate · Runes · Write · X-ray ── */
+#ptabs{
+  position:sticky;top:var(--nav-h);z-index:40;margin:0 0 var(--s5);
+  display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  padding:6px;border:1px solid var(--line);border-radius:14px;
+  background:color-mix(in srgb,var(--panel) 92%,transparent);backdrop-filter:blur(12px);
+}
+#ptabs::-webkit-scrollbar{display:none}
+#ptabs > button{
+  flex:1 0 auto;min-width:max-content;min-height:44px;padding:10px 16px;border-radius:10px;
+  font-family:var(--sans);font-size:14px;font-weight:500;letter-spacing:-.01em;
+  color:var(--ink-3);border:0;background:transparent;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  transition:color .15s,background .15s;
+}
+#ptabs > button:hover{color:var(--ink);background:var(--surface-2)}
+#ptabs > button.on{color:var(--signal-ink);background:var(--signal);font-weight:600}
+#ptabs > button .n{
+  font-family:var(--mono);font-size:11px;font-weight:600;opacity:.7;
+  padding:2px 7px;border-radius:var(--r-pill);background:color-mix(in srgb,var(--ink) 12%,transparent);
+}
+#ptabs > button.on .n{background:color-mix(in srgb,var(--signal-ink) 14%,transparent);opacity:1}
+[data-ppane]{display:none}
+[data-ppane].on{display:block}
+.xray-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--s3);margin-bottom:var(--s5)}
+.xray-card{
+  border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:var(--s4);
+  min-height:120px;display:flex;flex-direction:column;gap:8px;
+}
+.xray-card .k{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4)}
+.xray-card .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.15}
+.xray-card .s{font-size:13px;color:var(--ink-3);line-height:1.45;flex:1}
+.xray-card a.btn{margin-top:auto;align-self:flex-start}
+
+/* ── LUZ TAB — KRC-77 holdings · send · chronological ledger ── */
+.luz-sum{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3);margin:0 0 var(--s5)}
+@media(max-width:639px){.luz-sum{grid-template-columns:1fr}}
+.luz-sum .stat{padding:var(--s3);border:1px solid var(--line);border-radius:14px;background:var(--surface);min-height:72px}
+.luz-sum .stat .v{font-size:22px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.1}
+.luz-sum .stat .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin-top:6px}
+.luz-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--s3);margin:0 0 var(--s5)}
+.luz-cell{
+  appearance:none;border:1px solid var(--line);border-radius:14px;background:var(--surface);
+  padding:0;cursor:pointer;text-align:left;color:inherit;font:inherit;overflow:hidden;
+  display:flex;flex-direction:column;min-height:44px;
+  transition:border-color .15s var(--ease),transform .15s var(--ease),box-shadow .15s;
+}
+.luz-cell:hover,.luz-cell:focus-visible{border-color:var(--ink-3);transform:translateY(-2px);outline:none;box-shadow:0 16px 32px -22px rgba(0,0,0,.9)}
+.luz-cell.on{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal)}
+.luz-cell .luz-art{aspect-ratio:1.35;width:100%;background:var(--void);overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative}
+.luz-cell .luz-art img,.luz-cell .luz-art video,.luz-cell .luz-art .music-cover{width:100%;height:100%;object-fit:cover;display:block}
+.luz-cell .luz-art iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.luz-cell .luz-art .kv-nameplate,.luz-cell .luz-art .kv-mark{width:100%;height:100%}
+.luz-cell .luz-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px}
+.luz-cell .luz-amt{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.15}
+.luz-cell .luz-amt small{font-size:.62em;font-weight:500;color:var(--ink-3);margin-left:4px}
+.luz-cell .luz-meta{font-family:var(--mono);font-size:11px;color:var(--ink-4);line-height:1.4}
+.luz-cell .luz-share{height:4px;border-radius:var(--r-pill);background:var(--surface-2);margin-top:8px;overflow:hidden}
+.luz-cell .luz-share > i{display:block;height:100%;background:var(--signal);border-radius:inherit}
+.luz-empty{border:1px dashed var(--line-2);border-radius:14px;padding:var(--s6);text-align:center;color:var(--ink-3)}
+.luz-empty a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.luz-ops{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:var(--s4);margin:0 0 var(--s5)}
+.luz-ops[hidden]{display:none!important}
+.luz-ops .flab{margin-top:0}
+.luz-ledger{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);overflow:hidden}
+.luz-ledger:empty{display:none}
+
+/* ── RUNES TAB — same card language as Luz; amber only on Bitcoin doors ── */
+.rn-book{
+  appearance:none;border:1px solid var(--line);border-radius:14px;background:var(--surface);
+  padding:0;cursor:pointer;text-align:left;color:inherit;font:inherit;overflow:hidden;
+  display:flex;flex-direction:column;min-height:44px;
+  transition:border-color .15s var(--ease),transform .15s var(--ease),box-shadow .15s;
+}
+.rn-book:hover,.rn-book:focus-visible{border-color:var(--ink-3);transform:translateY(-2px);outline:none;box-shadow:0 16px 32px -22px rgba(0,0,0,.9)}
+.rn-book.on{border-color:var(--btc);box-shadow:0 0 0 1px var(--btc)}
+.rn-book .rn-art{
+  aspect-ratio:1.35;width:100%;background:var(--void);overflow:hidden;
+  display:flex;align-items:center;justify-content:center;position:relative;
+}
+.rn-book .rn-art img{width:100%;height:100%;object-fit:cover;display:block}
+.rn-book .rn-art .rn-glyph{
+  font-size:42px;line-height:1;color:var(--btc);font-weight:600;
+  font-family:var(--mono);letter-spacing:-.02em;
+}
+.rn-book .rn-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:4px}
+.rn-book .rn-amt{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1.15}
+.rn-book .rn-amt small{font-size:.62em;font-weight:500;color:var(--ink-3);margin-left:4px}
+.rn-book .rn-name{font-size:13.5px;font-weight:560;color:var(--ink);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rn-book .rn-meta{font-family:var(--mono);font-size:11px;color:var(--ink-4);line-height:1.4}
+.rn-book .rn-meta .in{color:var(--ink-2)}
+.rn-book .rn-meta .out{color:var(--btc)}
+.rn-book .rn-meta .lock{color:var(--btc)}
+.rn-book .luz-share > i{background:var(--btc)}
+#rn-ops.luz-ops{margin-top:var(--s4)}
+#rn-holds .luz-grid{margin-bottom:var(--s4)}
+
+/* face picker */
+#face-pick,#mouth-pick{position:fixed;inset:0;background:rgba(4,6,12,.82);backdrop-filter:blur(6px);z-index:70;display:flex;align-items:center;justify-content:center;padding:24px;animation:pfade .18s var(--ease)}
+#face-pick[hidden],#mouth-pick[hidden]{display:none!important}
+.fp-card{background:var(--panel);border:1px solid var(--line-2);border-radius:var(--r3);max-width:560px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow);animation:pslide .22s var(--ease)}
+.fp-head{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.fp-head b{font-size:15px;color:var(--ink)}
+.fp-head button{background:transparent;border:1px solid var(--line-2);border-radius:var(--r1);color:var(--ink-2);cursor:pointer;width:36px;height:36px;font-size:16px;transition:color .15s,border-color .15s}
+.fp-head button:hover{color:var(--ink);border-color:var(--ink)}
+.fp-body{padding:16px 20px;overflow:auto;flex:1}
+.fp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:var(--s3)}
+.fp-cell{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:8px;cursor:pointer;text-align:center;min-height:44px;color:inherit;font:inherit;transition:border-color .15s,transform .15s,box-shadow .15s}
+.fp-cell:hover,.fp-cell:focus-visible{border-color:var(--ink);outline:none;transform:translateY(-2px);box-shadow:0 10px 24px -16px rgba(0,0,0,.8)}
+.fp-cell.on{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal)}
+.fp-cell .art{position:relative;width:100%;aspect-ratio:1;border-radius:var(--r1);overflow:hidden;background:var(--surface-2);margin-bottom:8px;display:flex;align-items:center;justify-content:center}
+.fp-cell .art img,.fp-cell .art video,.fp-cell .art .music-cover{width:100%;height:100%;object-fit:cover;display:block}
+.fp-cell .art iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.fp-cell .art .ph{font-size:22px;color:var(--ink-3)}
+.fp-cell .lab{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);word-break:break-word}
+.fp-foot{padding:12px 20px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-4)}
+.fp-out{margin:0 20px 16px;font-family:var(--mono);font-size:12px}
+@keyframes pfade{from{opacity:0}to{opacity:1}}
+@keyframes pslide{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){#face-pick,#mouth-pick,.fp-card,.fp-cell,.citizen-home .card,.actchart i{animation:none!important;transition:none!important}}
 
 /* ── card scaffolding ── */
-.card{margin-bottom:var(--s4)}
-.chead{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s2)}
+.citizen-home .card{
+  margin-bottom:var(--s5);padding:var(--s5) var(--s5) var(--s6);
+  transition:border-color .2s var(--ease),box-shadow .2s var(--ease),transform .2s var(--ease);
+}
+.citizen-home .card:hover{border-color:var(--line-2)}
+.chead{display:flex;align-items:center;gap:var(--s3);margin-bottom:var(--s3)}
 .chead .sink-row{margin-left:auto}
-.chead h2{font-family:var(--mono);font-weight:500;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink)}
+.chead h2{font-family:var(--mono);font-weight:500;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
 .chead .cg{color:var(--ink-3);flex:0 0 auto}
 .chead .cg.btc-ink{color:var(--btc)}
-.sub{color:var(--ink-3);font-size:13.5px;line-height:1.55;margin-bottom:var(--s4);max-width:74ch}
+.sub{color:var(--ink-3);font-size:14px;line-height:1.6;margin-bottom:var(--s4);max-width:72ch}
 .sub b{color:var(--ink-2)}
 .note{font-size:12.5px;color:var(--ink-3);line-height:1.6;margin-top:var(--s4)}
 .note b{color:var(--ink-2)}
-.flab{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:0 0 var(--s2)}
+.flab{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);margin:0 0 var(--s2)}
 .actions{display:flex;gap:var(--s3);flex-wrap:wrap;margin-bottom:var(--s3)}
 
-/* ── key-value rows (node / bridge / contracts / volunteer) ── */
+/* operate blocks — visual breathing room between acts */
+.op-block{padding-top:var(--s5);margin-top:var(--s5);border-top:1px solid var(--line)}
+.op-block:first-of-type{padding-top:0;margin-top:var(--s2);border-top:0}
+
 .kv{display:flex;flex-wrap:wrap;gap:var(--s2) var(--s6);font-family:var(--mono);font-size:11.5px;color:var(--ink-3);line-height:1.5}
 .kv b{color:var(--ink);font-weight:500}
 .kv .gold{color:var(--ink)}
-
-/* ── status dot ── */
 .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 8px var(--good)}
 .dot.off{background:var(--ink-4);box-shadow:none}
 
-/* ── forms — the grid layouts the console/actions ride on ── */
-.sendform{display:grid;grid-template-columns:2fr 1fr auto;gap:var(--s3);margin-top:var(--s2)}
-.sendform input,.sendform textarea,#studio textarea,#studio input,#ct-code,.input,textarea.input{width:100%;background:var(--void);border:1px solid var(--line-2);border-radius:var(--r1);padding:12px 14px;color:var(--ink);font-family:var(--mono);font-size:13px;min-height:46px;outline:none;transition:border-color .15s}
-.sendform input:focus,.sendform textarea:focus,#studio textarea:focus,#studio input:focus,.input:focus,textarea.input:focus{border-color:var(--btc-line)}
+/* forms */
+.sendform{display:grid;grid-template-columns:2fr 1fr auto;gap:var(--s3);margin-top:var(--s2);align-items:start}
+.sendform .resolved{grid-column:1/-1}
+.sendform input,.sendform textarea,#studio textarea,#studio input,#ct-code,.input,textarea.input{width:100%;background:var(--void);border:1px solid var(--line-2);border-radius:var(--r1);padding:12px 14px;color:var(--ink);font-family:var(--mono);font-size:13px;min-height:46px;outline:none;transition:border-color .15s,box-shadow .15s}
+.sendform input:focus,.sendform textarea:focus,#studio textarea:focus,#studio input:focus,.input:focus,textarea.input:focus{border-color:var(--btc-line);box-shadow:0 0 0 3px var(--btc-soft)}
 #studio textarea,textarea.input{min-height:120px;resize:vertical;line-height:1.55}
 #ct-code{font-family:var(--mono);font-size:12.5px}
 .imeta{font-family:var(--mono);font-size:10.5px;color:var(--ink-4);margin-top:var(--s3);word-break:break-all}
@@ -83,14 +450,14 @@
 #i-preview{margin-top:var(--s3);text-align:center}
 @media(max-width:900px){.sendform{grid-template-columns:1fr!important}}
 
-/* L2 rune-send batch — + stacks ordinary signed sends, never a new consensus event */
+/* L2 rune-send batch */
 .rn-pay{border:1px solid var(--line-2);border-radius:var(--r1);background:var(--surface);padding:var(--s3);margin-bottom:var(--s3)}
 .rn-pay__top{display:flex;align-items:center;justify-content:space-between;gap:var(--s2);margin-bottom:var(--s2)}
 .rn-pay__n{font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .rn-pay__ops{display:flex;align-items:center;gap:var(--s2)}
 .rn-pay__rm{width:32px;height:32px;min-height:32px;border-radius:var(--r1);border:1px solid var(--line);background:transparent;color:var(--ink-3);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .rn-pay__rm:hover{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 50%,transparent)}
-.rn-add{width:100%;min-height:44px;margin:var(--s3) 0;border:1px dashed var(--line-2);border-radius:var(--r1);background:transparent;color:var(--ink-2);font-family:var(--mono);font-size:12.5px;font-weight:600;cursor:pointer}
+.rn-add{width:100%;min-height:44px;margin:var(--s3) 0;border:1px dashed var(--line-2);border-radius:var(--r1);background:transparent;color:var(--ink-2);font-family:var(--mono);font-size:12.5px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
 .rn-add:hover{border-color:var(--signal);color:var(--signal-ink);background:color-mix(in srgb,var(--signal) 8%,transparent)}
 .rn-add:disabled{opacity:.4;cursor:not-allowed}
 .rn-paytot{font-size:12.5px;color:var(--ink-3);line-height:1.5;margin:0 0 var(--s3)}
@@ -105,7 +472,7 @@
 .rn-payline__to{flex:1;min-width:0;font-family:var(--mono);overflow:hidden;text-overflow:ellipsis}
 .rn-payline__amt{flex:none;font-weight:600;font-variant-numeric:tabular-nums}
 .rn-modes{display:flex;gap:var(--s2);margin:var(--s3) 0}
-.rn-mode{flex:1;min-height:40px;border:1px solid var(--line-2);border-radius:var(--r1);background:transparent;color:var(--ink-3);font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer}
+.rn-mode{flex:1;min-height:40px;border:1px solid var(--line-2);border-radius:var(--r1);background:transparent;color:var(--ink-3);font-family:var(--mono);font-size:12px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s,background .15s}
 .rn-mode.on{border-color:var(--signal);color:var(--signal-ink);background:color-mix(in srgb,var(--signal) 12%,transparent)}
 .rn-pastehow{font-size:12px;color:var(--ink-3);line-height:1.6;margin:0 0 var(--s3)}
 .rn-pastehow b{color:var(--ink)}
@@ -118,7 +485,7 @@
 .rn-exins{margin-top:var(--s2);min-height:36px;padding:0 var(--s3);border:1px solid color-mix(in srgb,var(--signal) 40%,transparent);border-radius:var(--r1);background:color-mix(in srgb,var(--signal) 10%,transparent);color:var(--signal-ink);font-family:var(--mono);font-size:11px;font-weight:600;cursor:pointer}
 .rn-exins:hover{border-color:var(--signal)}
 .rn-paste{width:100%;min-height:128px;max-height:200px;resize:vertical;font-family:var(--mono);font-size:12.5px;line-height:1.5;padding:var(--s3);border:1px solid var(--line-2);border-radius:var(--r1);background:var(--void);color:var(--ink);box-sizing:border-box}
-.rn-paste:focus{border-color:var(--btc-line);outline:none}
+.rn-paste:focus{border-color:var(--btc-line);outline:none;box-shadow:0 0 0 3px var(--btc-soft)}
 .rn-pastehint{font-size:12px;color:var(--ink-3);line-height:1.55;margin:var(--s2) 0 var(--s3)}
 .rn-pastehint code{font-family:var(--mono);color:var(--ink)}
 .rn-prev{max-height:160px;overflow:auto;border:1px solid var(--line-2);border-radius:var(--r1);margin:0 0 var(--s3)}
@@ -129,10 +496,9 @@
 .input.rn-bad{border-color:var(--crit)!important}
 .rn-add.alt{border-style:solid}
 
-/* pot vs vault — the user must SEE what is sendable and what is still in their box */
 .rn-split{display:grid;grid-template-columns:1fr 1fr;gap:var(--s3);margin-top:var(--s3)}
 @media(max-width:640px){.rn-split{grid-template-columns:1fr}}
-.rn-cell{border:1px solid var(--line-2);border-radius:var(--r1);background:var(--surface);padding:var(--s3) var(--s4);min-height:96px}
+.rn-cell{border:1px solid var(--line-2);border-radius:var(--r1);background:var(--surface);padding:var(--s3) var(--s4);min-height:96px;transition:border-color .15s,background .15s}
 .rn-cell.on{border-color:var(--signal);background:color-mix(in srgb,var(--signal) 8%,transparent)}
 .rn-cell.wait{border-color:var(--btc);background:color-mix(in srgb,var(--btc) 8%,transparent)}
 .rn-cell.empty{opacity:.78}
@@ -145,26 +511,24 @@
 .rn-chip__in{font-variant-numeric:tabular-nums}
 .rn-chip__out{color:var(--btc);font-variant-numeric:tabular-nums}
 
-/* ── the tab pedals (studio · parent-type · rune console) keep JS class names ── */
 .itabs{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:var(--s3);margin-bottom:var(--s5)}
 .topbtn{display:inline-flex;align-items:center;justify-content:center;width:100%;font-family:var(--mono);font-size:12px;letter-spacing:.04em;padding:var(--s3) var(--s4);border-radius:var(--r1);border:1px solid var(--line);color:var(--ink-3);background:transparent;cursor:pointer;transition:.15s;min-height:48px}
-.topbtn:hover{color:var(--ink);border-color:var(--line-2)}
+.topbtn:hover{color:var(--ink);border-color:var(--line-2);background:var(--surface-2)}
 .topbtn.on{color:var(--signal-ink);background:var(--signal);border-color:var(--signal);font-weight:600}
 
-/* ── chip pickers (your stars · your relics · your runes · your ordinals) ── */
 .istars{display:flex;flex-wrap:wrap;gap:var(--s2);align-items:center;margin-top:var(--s2)}
-.istars .chip{cursor:pointer}
+.istars .chip{cursor:pointer;transition:border-color .15s,transform .15s}
+.istars .chip:hover{transform:translateY(-1px)}
+.istars .chip.on{border-color:var(--signal);color:var(--signal-ink);background:color-mix(in srgb,var(--signal) 12%,transparent)}
 
-/* ── the resolved recipient — a name is convenience, the ADDRESS is signed ── */
-.resolved{border:1px solid var(--line-2);border-radius:var(--r1);padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;word-break:break-all;margin-top:var(--s2)}
+.resolved{border:1px solid var(--line-2);border-radius:var(--r1);padding:10px 12px;font-family:var(--mono);font-size:11.5px;line-height:1.55;word-break:break-all;margin-top:0}
 .resolved.good{border-color:color-mix(in srgb,var(--good) 45%,transparent);background:color-mix(in srgb,var(--good) 8%,transparent);color:var(--ink-2)}
 .resolved.good b{color:var(--good)}
 .resolved.bad{border-color:color-mix(in srgb,var(--crit) 50%,transparent);background:color-mix(in srgb,var(--crit) 9%,transparent);color:var(--ink-2)}
 .resolved.bad b{color:var(--crit)}
 .resolved .who{display:block;font-family:var(--sans);font-size:13px;color:var(--ink);margin-bottom:3px}
-.resolved .addr{display:block;color:var(--ink-2);margin-top:0}
+.resolved .addr{display:block;color:var(--ink-2);margin-top:0;background:transparent;border:0;padding:0}
 
-/* ── the machine, alive — force + storage gauges (local work, not L1: ink) ── */
 .gauge{margin-top:var(--s4)}
 .glab{display:flex;justify-content:space-between;gap:var(--s3);font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:7px}
 .glab b{color:var(--ink-2);font-weight:500}
@@ -177,7 +541,6 @@
 .glegend .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle}
 .glegend b{color:var(--ink-3);font-weight:500}
 
-/* ── the black hole — irreversible, and it looks it ── */
 .card.danger{border-color:color-mix(in srgb,var(--crit) 42%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--crit) 6%,transparent),transparent 60%)}
 .card.danger .chead h2{color:var(--crit)}
 .warn{border:1px solid color-mix(in srgb,var(--crit) 50%,transparent);background:color-mix(in srgb,var(--crit) 9%,transparent);border-radius:var(--r2);padding:14px 16px;color:var(--ink-2);font-size:13px;line-height:1.6;margin-bottom:var(--s2)}
@@ -187,7 +550,6 @@
 .btn.danger{border-color:color-mix(in srgb,var(--crit) 55%,transparent);color:var(--crit)}
 .btn.danger:hover:not(:disabled){background:color-mix(in srgb,var(--crit) 12%,transparent);border-color:var(--crit)}
 .btn.danger:disabled{opacity:.45}
-/* the chosen relic, shown in place of the amount field */
 .reliccard{margin-top:var(--s3);overflow:hidden}
 .reliccard .rc-box{width:64px;height:64px;border-radius:var(--r2);border:1px solid color-mix(in srgb,var(--crit) 45%,transparent);background:var(--surface);overflow:hidden;display:flex;align-items:center;justify-content:center;float:left;margin-right:14px}
 .reliccard .rc-box img{width:100%;height:100%;object-fit:cover}
@@ -197,32 +559,71 @@
 .reliccard .rc-n{font-size:15px;color:var(--ink);font-weight:500;word-break:break-word}
 .reliccard .rc-k{font-size:12px;color:var(--ink-3)}
 
-/* ── every transaction this address ever made ── */
-#txlist{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);overflow:hidden}
-.txrow{display:grid;grid-template-columns:104px 1fr auto auto;gap:var(--s3);align-items:center;border-bottom:1px solid var(--line);padding:var(--s3) var(--s4);background:transparent;font-family:var(--mono);font-size:12px;min-height:56px;text-decoration:none}
-.txrow:last-child{border-bottom:0}
-.txrow:hover{background:var(--surface-2);text-decoration:none}
-.txrow .txk{font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--ink-3);display:flex;flex-direction:column;align-items:flex-start;gap:4px}
-.txrow .txk .sink{letter-spacing:.08em}
-.txrow.mark .txk{color:var(--ink);font-weight:600;letter-spacing:.14em}
-.txrow .txw{color:var(--ink-2);overflow:hidden;min-width:0}
-.txrow .txw b{color:var(--ink)}
-.txrow .txw small{display:block;color:var(--ink-4);font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.txrow .txd{font-size:13px}
-.txrow .txd.out{color:var(--crit)}.txrow .txd.in{color:var(--good)}.txrow .txd.self{color:var(--ink-4)}
-.txrow .txs-r{color:var(--ink-4);font-size:10.5px;white-space:nowrap}
-.txrow .txb{color:var(--ink-4);font-size:11px;white-space:nowrap}
-@media(max-width:700px){.txrow{grid-template-columns:88px 1fr}.txrow .txs-r,.txrow .txb{display:none}}
+#txlist{border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden}
+.actrow{
+  display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:14px;align-items:center;
+  padding:14px 16px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;
+  min-height:72px;transition:background .15s var(--ease);
+}
+.actrow:last-child{border-bottom:0}
+.actrow:hover{background:var(--surface-2);text-decoration:none}
+.actrow:focus-visible{outline:2px solid var(--signal);outline-offset:-2px}
+.act-ico{
+  width:44px;height:44px;border-radius:12px;border:1px solid var(--line);
+  background:var(--void);display:flex;align-items:center;justify-content:center;
+  color:var(--ink-2);flex:0 0 auto;
+}
+.act-ico svg{width:20px;height:20px;display:block}
+.actrow.out .act-ico{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 35%,var(--line))}
+.actrow.in .act-ico{color:var(--good);border-color:color-mix(in srgb,var(--good) 35%,var(--line))}
+.actrow.glow .act-ico{color:var(--gold,#e8b923);border-color:color-mix(in srgb,var(--gold,#e8b923) 40%,var(--line))}
+.actrow.btc .act-ico{color:var(--btc);border-color:color-mix(in srgb,var(--btc) 40%,var(--line))}
+.act-main{min-width:0;display:flex;flex-direction:column;gap:6px}
+.act-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
+.act-title{font-family:var(--sans);font-size:14.5px;font-weight:600;letter-spacing:-.01em;color:var(--ink);line-height:1.25}
+.act-tags{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.act-tag{
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-3);border:1px solid var(--line-2);border-radius:var(--r-pill);
+  padding:3px 8px;line-height:1;background:transparent;white-space:nowrap;
+}
+.act-tag.dir-in{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
+.act-tag.dir-out{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,transparent)}
+.act-tag.dir-self{color:var(--ink-4)}
+.act-tag.burn{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,transparent)}
+.act-tag.freeze{color:var(--gold,#e8b923);border-color:color-mix(in srgb,var(--gold,#e8b923) 45%,transparent)}
+.act-tag.btc{color:var(--btc);border-color:color-mix(in srgb,var(--btc) 45%,transparent)}
+.act-tag.luz{color:var(--ink-2);border-color:var(--line-2)}
+.act-sub{font-family:var(--mono);font-size:11.5px;color:var(--ink-4);line-height:1.45;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-sub b{color:var(--ink-3);font-weight:500}
+.act-amt{
+  font-family:var(--mono);font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;
+  text-align:right;white-space:nowrap;letter-spacing:-.01em;line-height:1.2;min-width:7ch;
+}
+.act-amt small{display:block;font-size:10px;font-weight:500;color:var(--ink-4);margin-top:3px;letter-spacing:0}
+.act-amt.pos{color:var(--good)}
+.act-amt.neg{color:var(--crit)}
+.act-amt.neu{color:var(--ink-3)}
+.act-amt.glow{color:var(--gold,#e8b923)}
+.act-amt.btc{color:var(--btc)}
+@media(max-width:639px){
+  .actrow{grid-template-columns:40px minmax(0,1fr);gap:12px;padding:12px 14px}
+  .act-amt{grid-column:2;text-align:left;margin-top:2px}
+  .act-ico{width:40px;height:40px;border-radius:11px}
+}
 
-/* ── baptisms ── */
+/* legacy class kept so older hooks don't break */
+.txrow{display:none}
+.luz-ledger .actrow:last-child{border-bottom:0}
+
 .bapt{display:flex;flex-wrap:wrap;gap:var(--s2)}
-.bapt .b{text-decoration:none;font-family:var(--mono);font-size:11px;border:1px solid var(--line-2);border-radius:var(--r-pill);padding:5px 12px;color:var(--ink-2)}
+.bapt .b{text-decoration:none;font-family:var(--mono);font-size:11px;border:1px solid var(--line-2);border-radius:var(--r-pill);padding:6px 12px;color:var(--ink-2);transition:border-color .15s,color .15s,transform .15s}
 .bapt .b b{color:var(--ink);font-weight:500}
-.bapt .b:hover{border-color:var(--ink)}
+.bapt .b:hover{border-color:var(--ink);color:var(--ink);transform:translateY(-1px)}
 
-/* ── the inscription gallery ── */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,210px),1fr));gap:var(--s3)}
-.tile{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:14px;display:flex;flex-direction:column;gap:8px}
+.tile{border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);padding:14px;display:flex;flex-direction:column;gap:8px;transition:border-color .15s,transform .15s,box-shadow .15s}
+.tile:hover{border-color:var(--line-2);transform:translateY(-2px);box-shadow:0 14px 28px -20px rgba(0,0,0,.85)}
 .tile img{width:100%;border-radius:var(--r1);background:var(--void);cursor:pointer;transition:transform .2s}
 .tile img:hover{transform:scale(1.02)}
 .tile .star{font-family:var(--mono);font-size:11.5px;color:var(--ink-2)}
@@ -230,10 +631,8 @@
 .tile .nm{font-size:13px;color:var(--ink)}
 .tile .meta{font-family:var(--mono);font-size:10px;color:var(--ink-4)}
 .more{display:flex;margin:var(--s4) auto 0}
-/* rarity chips — never amber; amber is reserved for Bitcoin-sealed things */
 .chip.mythic{color:var(--ink);border-color:var(--line-2)}
 .chip.rare,.chip.epic,.chip.legendary{color:var(--ink-2);border-color:var(--line-2)}
-/* the container — what actually lives inside a star */
 .cbox{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;aspect-ratio:1/1;border-radius:var(--r1);background:var(--void);border:1px solid var(--line);cursor:pointer;transition:border-color .2s,transform .2s;overflow:hidden}
 .cbox:hover{border-color:var(--line-2);transform:translateY(-1px)}
 .cbox i{font-family:var(--mono);font-size:22px;color:var(--ink-2);font-style:normal}
@@ -247,10 +646,9 @@
 .ptext.mini{font-size:11.5px;line-height:1.45;padding:10px;color:var(--ink-2);overflow:hidden}
 .ptag{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4)}
 
-/* ── the viewer — a sandboxed window into a star ── */
 #viewer{position:fixed;inset:0;background:rgba(4,6,12,.82);backdrop-filter:blur(6px);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px}
 #viewer[hidden]{display:none!important}
-.vcard{background:var(--panel);border:1px solid var(--line-2);border-radius:var(--r3);max-width:900px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden}
+.vcard{background:var(--panel);border:1px solid var(--line-2);border-radius:var(--r3);max-width:900px;width:100%;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow)}
 .vhead{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px;border-bottom:1px solid var(--line)}
 .vhead b{font-family:var(--mono);font-size:13px;color:var(--ink);margin-right:12px}
 .vhead span{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
@@ -263,46 +661,248 @@
 #v-body audio{width:100%}
 .vtext{width:100%;font-family:var(--mono);font-size:12.5px;line-height:1.7;color:var(--ink-2);white-space:pre-wrap;word-break:break-word;text-align:left;max-height:60vh;overflow:auto}
 .vfoot{padding:12px 20px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--ink-4)}
+
+.collection-split{display:grid;grid-template-columns:minmax(0,.42fr) minmax(0,1fr);gap:var(--s5);align-items:start}
+@media(max-width:900px){.collection-split{grid-template-columns:1fr}}
+
+/* ── STAR SHELF — crypto-standard gallery under the banner; click opens actions ── */
+.star-shelf{margin:0 0 var(--s5)}
+.shelf-head{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s4);flex-wrap:wrap;margin-bottom:var(--s4)}
+.shelf-head h2{font-family:var(--mono);font-size:13px;letter-spacing:.12em;text-transform:uppercase;font-weight:500;color:var(--ink);margin:0}
+.shelf-head .sub{margin:0;max-width:52ch;font-size:13px}
+.ss-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:var(--s3)}
+@media(min-width:900px){.ss-grid{grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:var(--s4)}}
+.ss-cell{
+  appearance:none;border:1px solid var(--line);border-radius:14px;background:var(--surface);
+  padding:0;cursor:pointer;text-align:left;color:inherit;font:inherit;overflow:hidden;
+  display:flex;flex-direction:column;min-height:44px;
+  transition:border-color .15s var(--ease),transform .15s var(--ease),box-shadow .15s var(--ease);
+}
+.ss-cell:hover,.ss-cell:focus-visible{
+  border-color:var(--ink-3);transform:translateY(-2px);
+  box-shadow:0 16px 32px -22px rgba(0,0,0,.9);outline:none;
+}
+.ss-cell.on{border-color:var(--signal);box-shadow:0 0 0 1px var(--signal)}
+.ss-cell .ss-art{
+  position:relative;aspect-ratio:1;width:100%;background:var(--void);overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+}
+.ss-cell .ss-art img,.ss-cell .ss-art video,.ss-cell .ss-art .music-cover{width:100%;height:100%;object-fit:cover;display:block}
+.ss-cell .ss-art iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.ss-cell .ss-art .kv-nameplate,.ss-cell .ss-art .kv-mark{width:100%;height:100%}
+.ss-cell .ss-meta{padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px;min-height:52px}
+.ss-cell .ss-name{font-size:13.5px;font-weight:560;color:var(--ink);line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ss-cell .ss-no{font-family:var(--mono);font-size:11px;color:var(--ink-4)}
+.ss-empty{border:1px dashed var(--line-2);border-radius:14px;padding:var(--s6);text-align:center;color:var(--ink-3)}
+.ss-empty a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+
+#star-sheet{position:fixed;inset:0;z-index:65;display:flex;align-items:flex-end;justify-content:center;padding:0;background:rgba(4,6,12,.55);backdrop-filter:blur(8px)}
+#star-sheet[hidden]{display:none!important}
+.ss-card{
+  width:min(560px,100%);max-height:88vh;overflow:auto;
+  background:var(--panel);border:1px solid var(--line-2);border-bottom:0;
+  border-radius:20px 20px 0 0;padding:20px 20px calc(20px + env(safe-area-inset-bottom,0px));
+  box-shadow:0 -20px 60px -28px rgba(0,0,0,.85);
+  animation:ssup .22s var(--ease);
+}
+@keyframes ssup{from{transform:translateY(18px);opacity:.6}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.ss-card{animation:none}}
+.ss-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px}
+.ss-hero{display:flex;gap:14px;align-items:center;min-width:0;flex:1}
+.ss-hero .ss-art{
+  width:72px;height:72px;border-radius:12px;overflow:hidden;flex:0 0 auto;
+  background:var(--void);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;position:relative;
+}
+.ss-hero .ss-art img,.ss-hero .ss-art video,.ss-hero .ss-art .music-cover{width:100%;height:100%;object-fit:cover}
+.ss-hero .ss-art .kv-nameplate,.ss-hero .ss-art .kv-mark{width:100%;height:100%;font-size:10px}
+.ss-hero-m{min-width:0}
+.ss-hero-m b{display:block;font-size:17px;font-weight:600;letter-spacing:-.02em;color:var(--ink);line-height:1.2}
+.ss-hero-m span{display:block;font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:4px}
+#ss-close{width:36px;height:36px;border-radius:var(--r-pill);border:1px solid var(--line-2);background:transparent;color:var(--ink-2);cursor:pointer;flex:0 0 auto}
+#ss-close:hover{color:var(--ink);border-color:var(--ink)}
+.ss-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:4px 0 8px}
+@media(max-width:420px){.ss-actions{grid-template-columns:1fr}}
+.ss-actions .btn{width:100%;justify-content:center;min-height:48px}
+.ss-actions .btn.danger{grid-column:1/-1}
+.ss-pane{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.ss-pane .flab{margin-bottom:8px}
+.ss-pane .sendform{grid-template-columns:1fr auto;margin-top:8px}
+#ss-out{margin-top:12px}
+
 </style>
 </head>
 <body data-page="home">
-<div class="wrap">
+<div class="wrap citizen-home">
 
-  <!-- ── THE CITIZEN — the address is the user; this page is their home ── -->
-  <div class="idhead">
-    <svg class="sigil" id="sigil" viewBox="0 0 96 96" aria-hidden="true"></svg>
-    <div class="idwho">
-      <div class="eyebrow">Citizen of the network · the address is the user</div>
-      <div class="addr" id="addr">—<button class="copy" id="copy">copy</button></div>
-      <div class="badges" id="badges"></div>
-      <div class="status"><span id="netlab">—</span></div>
+  <!-- ── CITIZEN PLATE — identity · ₭ · glow · Fenyx · activity breath ── -->
+  <header class="citizen-plate" id="citizen-top">
+    <div class="idhead">
+      <button type="button" class="sigil-btn" id="sigil-btn" aria-label="Profile face">
+        <img class="sigil sigil-sky" id="sigil" width="120" height="120" alt="" decoding="async" hidden>
+        <div class="sigil-face" id="sigil-face" hidden></div>
+      </button>
+      <div class="idwho">
+        <div class="id-headline">
+          <div class="displayname id-name" id="displayname" hidden></div>
+          <a class="rank-chip" id="glow-rank" href="/rank/glow" hidden></a>
+        </div>
+        <div class="addr" id="addr" title="">
+          <span class="addr-txt" id="addr-txt">—</span>
+          <button class="copy" id="copy" type="button">Copy</button>
+        </div>
+        <div class="id-meta">
+          <div class="badges" id="badges"></div>
+          <div class="status"><span id="netlab">—</span></div>
+        </div>
+        <!-- CITIZEN MOUTH — bio · site · banner (journal set-profile) -->
+        <div class="citizen-mouth" id="citizen-mouth" hidden></div>
+        <button type="button" class="mouth-edit" id="mouth-edit" hidden>Edit profile</button>
+      </div>
+    </div>
+    <div class="citizen-pulse" aria-label="Balance, lights, and activity">
+      <div class="pulse-top">
+        <div class="pulse-k-lab">Balance <span>on this book</span></div>
+        <div class="display" id="s-balance">—</div>
+        <div class="pulse-lights" id="s-lights"></div>
+      </div>
+      <div class="pulse-chart">
+        <div class="pulse-lab">Activity <b id="s-actmeta">journal breath</b></div>
+        <div class="actchart" id="s-actchart" role="img" aria-label="Recent journal density"></div>
+      </div>
+    </div>
+    <span id="s-breakdown" hidden></span>
+    <span id="s-luz" hidden></span>
+  </header>
+  <!-- quiet counters for tabs / xray — outside the plate grid -->
+  <span id="s-insc" hidden>—</span>
+  <span id="s-bapt" hidden>—</span>
+  <span id="s-ranges" hidden>—</span>
+
+  <!-- face picker — owner only; every choice is signed into the journal -->
+  <div id="face-pick" hidden>
+    <div class="fp-card" role="dialog" aria-modal="true" aria-labelledby="fp-title">
+      <div class="fp-head"><b id="fp-title">Choose your face</b><button type="button" id="fp-close" aria-label="Close">✕</button></div>
+      <div class="fp-body"><div class="fp-grid" id="fp-grid"><span class="eyebrow">loading your stars…</span></div></div>
+      <div class="out fp-out" id="fp-out"></div>
+      <div class="fp-foot">Only a star you own. Sign in KrayWallet — 1 ₭. The journal is the proof.</div>
     </div>
   </div>
 
-  <!-- ── THE BALANCE — a monumental figure; the rest read as stats ── -->
-  <div class="balanceband">
-    <div class="display" id="s-balance">—</div>
-    <div class="k" id="s-breakdown">₭ balance · stars held</div>
-    <div class="k" id="s-lights" style="margin-top:var(--s2)"></div>
-    <div class="k" id="s-luz" style="margin-top:var(--s2)"></div>
+  <!-- mouth editor — owner only; feeless set-profile (signature + nonce) -->
+  <div id="mouth-pick" hidden>
+    <div class="fp-card mouth-card" role="dialog" aria-modal="true" aria-labelledby="mouth-title">
+      <div class="fp-head"><b id="mouth-title">Edit your mouth</b><button type="button" id="mouth-close" aria-label="Close">✕</button></div>
+      <div class="fp-body mouth-body">
+        <label class="flab" for="mouth-desc">Description</label>
+        <textarea class="input mouth-ta" id="mouth-desc" maxlength="400" rows="3" placeholder="A short bio — sealed on the book"></textarea>
+        <label class="flab" for="mouth-url">Official site</label>
+        <input class="input" id="mouth-url" type="url" placeholder="https://…" autocomplete="off">
+        <label class="flab" for="mouth-banner-url">Banner click URL</label>
+        <input class="input" id="mouth-banner-url" type="url" placeholder="https://… (optional)" autocomplete="off">
+        <div class="flab">Banner image · owned image star</div>
+        <div class="fp-grid" id="mouth-banner-grid"><span class="eyebrow">loading your image stars…</span></div>
+        <input type="hidden" id="mouth-banner-star" value="">
+      </div>
+      <div class="out fp-out" id="mouth-out"></div>
+      <div class="fp-foot mouth-foot">
+        <button type="button" class="btn" id="mouth-clear">Clear all</button>
+        <button type="button" class="btn primary" id="mouth-save">Sign &amp; seal · feeless</button>
+      </div>
+    </div>
   </div>
-  <div class="stats pstats">
-    <div class="stat tick"><div class="v" id="s-insc">—</div><div class="k">inscriptions written</div></div>
-    <div class="stat"><div class="v" id="s-bapt">—</div><div class="k">stars baptized</div></div>
-    <div class="stat"><div class="v" id="s-ranges">—</div><div class="k">stars held</div></div>
+
+  <!-- sticky rail — jump to zones; JS marks the active section -->
+  
+  <nav class="ptabs" id="ptabs" aria-label="Profile views">
+    <button type="button" class="on" data-ptab="stars">Stars <span class="n" id="tabn-stars">0</span></button>
+    <button type="button" data-ptab="activity">Activity <span class="n" id="tabn-activity">…</span></button>
+    <button type="button" data-ptab="operate">Operate</button>
+    <button type="button" data-ptab="runes">Runes <span class="n" id="tabn-runes">0</span></button>
+    <button type="button" data-ptab="luz">Luz <span class="n" id="tabn-luz">0</span></button>
+    <button type="button" data-ptab="write">Write</button>
+    <button type="button" data-ptab="xray">X-ray</button>
+  </nav>
+
+<div id="star-sheet" hidden>
+    <div class="ss-card" role="dialog" aria-modal="true" aria-labelledby="ss-title">
+      <div class="ss-card-top">
+        <div class="ss-hero">
+          <div class="ss-art" id="ss-art"></div>
+          <div class="ss-hero-m">
+            <b id="ss-title">—</b>
+            <span id="ss-meta">—</span>
+          </div>
+        </div>
+        <button type="button" id="ss-close" aria-label="Close">✕</button>
+      </div>
+      <div class="ss-actions" id="ss-actions"></div>
+      <div class="ss-pane" id="ss-send-pane" hidden>
+        <div class="flab">Send this star · recipient</div>
+        <input class="input" id="ss-to" placeholder="name, domain, @username — or the address" autocomplete="off">
+        <div class="resolved" id="ss-res" hidden></div>
+        <div class="sendform">
+          <p class="note" style="margin:0;align-self:center">Gas 1 ₭ · the relic travels whole</p>
+          <button class="btn primary" id="ss-send-go" type="button">★ Send star</button>
+        </div>
+      </div>
+      <div class="out" id="ss-out"></div>
+    </div>
   </div>
 
   <!-- ── FUEL YOUR ACCOUNT — the on-ramp: proof-of-donation mints ₭ ── -->
-  <div class="card tick" style="margin-top:var(--s5)">
+
+  <div data-ppane="stars" class="on" id="pane-stars">
+<section class="pzone star-shelf" id="zone-stars" data-pzone="zone-stars">
+    <div class="shelf-head">
+      <h2>Stars</h2>
+      <p class="sub">Tap a star to act — set face, send, freeze, or open.</p>
+    </div>
+    <div class="ss-grid" id="ss-grid"><span class="eyebrow">loading stars…</span></div>
+  </section>
+
+<div class="pzone" id="zone-collection">
+  <div class="collection-split">
+  <div class="card tick">
+    <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-name"/></svg><h2>Baptisms</h2></div>
+    <p class="sub">Names written into the atlas by this address — unique in the universe, forever.</p>
+    <div class="bapt" id="bapt"><span class="eyebrow">none yet</span></div>
+  </div>
+  <div class="card tick">
+    <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-star"/></svg><h2>Inscriptions</h2></div>
+    <p class="sub">Everything this address chiseled into its stars — newest first, paginated.</p>
+    <div class="grid" id="grid"></div>
+    <button class="btn more" id="more" hidden>Load more</button>
+  </div>
+  </div>
+  </div>
+  </div>
+
+  <div data-ppane="activity" id="pane-activity">
+<div class="card tick pzone" id="txpanel" data-pzone="txpanel">
+    <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-block"/></svg><h2>Activity</h2></div>
+    <p class="sub">Every signed act on this address — newest first. Tags name the kind; the right column is the signed amount.</p>
+    <div id="txlist"><span class="eyebrow">reading the journal…</span></div>
+    <div class="actions" style="margin-top:var(--s3)">
+      <button class="btn" id="tx-more" hidden>load earlier transactions</button>
+    </div>
+  </div>
+
+  <!-- ── THE BLACK HOLE — an irreversible act gets an irreversible-looking panel ── -->
+  </div>
+
+  <div data-ppane="operate" id="pane-operate">
+<div class="card tick pzone" id="zone-fuel">
     <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-anchor"/></svg><h2>Fuel your account</h2></div>
     <p class="sub">New ₭ is born only by proof-of-burn — real satoshis destroyed forever at a keyless address, minting 1 ₭ per satoshi, the donation itself anchoring the network.</p>
     <a class="btn primary" href="/mine">Donate → mint ₭</a>
   </div>
 
   <!-- ── OPERATE — send ₭ · send Ӿ · the lane · send a written star ── -->
-  <div class="card tick" id="actpanel">
+
+<div class="card tick pzone" id="actpanel" data-pzone="actpanel">
     <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-send"/></svg><h2>Operate</h2></div>
     <p class="sub" id="actsub">Connect the KrayWallet that owns this address to operate from here.</p>
+    <div class="op-block">
     <div class="flab">Send ₭ · fungible fuel — money never touches a relic</div>
     <div class="sendform">
       <input class="input" id="send-to" placeholder="send to · a name, a domain, @username — or the address itself" autocomplete="off" disabled>
@@ -311,7 +911,8 @@
       <button class="btn primary" id="send-go" disabled>Send — fee 1 ₭</button>
     </div>
     <div class="out" id="send-out"></div>
-    <div class="flab" style="margin-top:var(--s5)">Send Ӿ · the journal book</div>
+    </div>
+    <div class="op-block"><div class="flab">Send Ӿ · the journal book</div>
     <p class="sub">The transferable light. Fee is prescribed — FIREBORN tank + 3.5s gap → 0 ₭; otherwise the eternal 1 ₭. Never chosen.</p>
     <div class="sendform">
       <input class="input" id="xsend-to" placeholder="send Ӿ to · a name, a domain, @username — or the address itself" autocomplete="off" disabled>
@@ -320,6 +921,7 @@
       <button class="btn primary" id="xsend-go" disabled>Send Ӿ — fee prescribed</button>
     </div>
     <div class="out" id="xsend-out"></div>
+    </div>
     <!-- TK-fold: same Ӿ, another book. IDs stay — JS and the door do not change.
          Closed by default; opens when this address already holds lane Ӿ (so the
          other book cannot vanish from the citizen's eye). -->
@@ -350,7 +952,7 @@
     </div>
     <div class="out" id="lane-exit-out"></div>
     </details>
-    <div class="flab" style="margin-top:var(--s5)">Send a WRITTEN star · the relic travels whole, its writings ride forever</div>
+    <div class="op-block"><div class="flab">Send a WRITTEN star · the relic travels whole, its writings ride forever</div>
     <div class="istars" id="relic-pick"><span class="eyebrow">no written stars yet — inscribe or baptize one below</span></div>
     <div class="sendform" style="grid-template-columns:1fr auto">
       <input class="input" id="relic-to" placeholder="send the relic to · a name, a domain, @username — or the address" autocomplete="off" disabled>
@@ -358,20 +960,12 @@
       <button class="btn" id="relic-go" disabled>★ Send star — gas 1 ₭</button>
     </div>
     <div class="out" id="relic-out"></div>
-  </div>
-
-  <!-- ── TRANSACTIONS — everything this address ever did, paginated by cursor ── -->
-  <div class="card tick" id="txpanel">
-    <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-block"/></svg><h2>Transactions</h2></div>
-    <p class="sub">Everything this address ever did — newest first, each opening its own page with the exact stars it moved. The eternal <b>1-₭ fee</b> is a fixed amount of pure fungible ₭ — it never spends a star; your inscribed and named stars (relics) move only by an explicit Send Star.</p>
-    <div id="txlist"><span class="eyebrow">reading the journal…</span></div>
-    <div class="actions" style="margin-top:var(--s3)">
-      <button class="btn" id="tx-more" hidden>load earlier transactions</button>
     </div>
   </div>
 
-  <!-- ── THE BLACK HOLE — an irreversible act gets an irreversible-looking panel ── -->
-  <div class="card tick danger" id="holepanel">
+  <!-- ── TRANSACTIONS — everything this address ever did, paginated by cursor ── -->
+
+<div class="card tick danger pzone" id="holepanel" data-pzone="holepanel">
     <div class="chead"><h2>◉ The black hole</h2>
       <div class="sink-row">
         <span class="sink sink-freeze" title="Star frozen in the black hole — visible, beyond reach">FREEZE <i aria-hidden="true">❄</i></span>
@@ -415,7 +1009,214 @@
   </div>
 
   <!-- ── THE STUDIO — write a star: text · sigil · media · name ── -->
-  <div class="card tick" id="studio">
+  </div>
+
+  <div data-ppane="runes" id="pane-runes">
+<div class="card tick btc pzone" id="bridgepanel" data-pzone="bridgepanel">
+    <div class="chead"><svg class="cg btc-ink" width="20" height="20"><use href="#g-bridge"/></svg><h2>Runes · the L2</h2></div>
+    <p class="sub">Bitcoin runes living here — pot-backed 1:1. Tap a rune to act. Deposit from your wallet, send on L2, exit back to Bitcoin.</p>
+
+    <div class="luz-sum" id="rn-sum" aria-label="Runes summary">
+      <div class="stat"><div class="v" id="rn-n-runes">0</div><div class="k">runes held</div></div>
+      <div class="stat"><div class="v" id="rn-n-bakery">0</div><div class="k">in bakery</div></div>
+      <div class="stat"><div class="v" id="rn-n-exits">0</div><div class="k">open exits</div></div>
+    </div>
+
+    <!-- the friendly empty state — a fresh citizen should understand, not stare at a form -->
+    <div class="luz-empty" id="rn-empty" hidden>
+      <div class="eyebrow" style="margin-bottom:10px">no runes on this address</div>
+      <p style="margin:0 0 12px;font-size:13px;color:var(--ink-3)">Receive a send on the L2, or deposit from your Bitcoin wallet into the bakery pot — one fee, then sendable.</p>
+    </div>
+
+    <!-- POSITIONS — card grid (same designer language as Luz) -->
+    <div id="rn-holds" hidden>
+      <div class="flab">① Holdings — tap a rune to choose it, then act below</div>
+      <div class="luz-grid" id="rn-list"></div>
+    </div>
+
+    <!-- L2 shop window — Bitcoin (L1) is the vault. This number is what is on the L2, sendable. -->
+    <div id="rn-split-wrap" hidden>
+      <div class="flab" style="margin-top:var(--s2)">On the L2 — bakery shop window</div>
+      <div class="rn-split" id="rn-split">
+        <div class="rn-cell" data-side="in">
+          <div class="rn-cell__k">In the bakery</div>
+          <div class="rn-cell__v">—</div>
+          <div class="rn-cell__s">sendable to anyone</div>
+        </div>
+        <div class="rn-cell" data-side="out" hidden>
+          <div class="rn-cell__k">Not in the pot</div>
+          <div class="rn-cell__v">—</div>
+          <div class="rn-cell__s">still parked</div>
+        </div>
+      </div>
+      <p class="rn-split__eq" id="rn-split-eq"></p>
+    </div>
+
+    <!-- THE PEDALS — Send first (same language as Luz); Bitcoin doors after -->
+    <div class="luz-ops" id="rn-ops" hidden>
+      <div class="flab">② Send · L2 · fee 1 ₭ · Bitcoin backing never moves</div>
+      <p class="sub" id="rn-ops-hint" style="margin:0 0 var(--s3)">Pick a rune above.</p>
+      <div class="itabs" style="margin-top:var(--s3)">
+        <button class="topbtn on" data-rtab="send" title="move runes to anyone here, instantly">→ Send · here on the L2</button>
+        <button class="topbtn" data-rtab="deposit" title="bring a rune IN from Bitcoin">↧ Deposit · in from Bitcoin</button>
+        <button class="topbtn" data-rtab="exit" title="take a rune OUT, back to Bitcoin">↥ Exit · out to Bitcoin</button>
+        <button class="topbtn" data-rtab="withdraw" title="pay an OPEN exit on Bitcoin — you fund the postage">⛓ Withdraw · pay on Bitcoin</button>
+        <button class="topbtn" data-rtab="cancel" title="unlock an OPEN exit — your signature alone reopens the lock">↩ Cancel · unlock an exit</button>
+      </div>
+
+      <div data-rpane="send">
+        <p class="note" style="margin-top:var(--s3)"><b>Move runes to anyone on KRAY.NETWORK — instantly.</b> Type who receives (an address or a KRAY name) and how much, or paste a drop list. <b>+</b> and a pasted list are the same law: each line is its own nonce and the eternal 1 ₭ fee. The Bitcoin backing never moves, only the credits do.</p>
+        <div class="rn-modes" role="tablist">
+          <button type="button" class="rn-mode on" data-rn-mode="rows" title="Add recipients one by one">+ Lines</button>
+          <button type="button" class="rn-mode" data-rn-mode="paste" title="Paste a drop list: one address and one amount per line">Paste a list</button>
+        </div>
+        <div id="rn-pays" style="margin-top:var(--s3)"></div>
+        <button type="button" class="rn-add" id="rn-add-pay" disabled>+ Add another address</button>
+        <div id="rn-paste-wrap" hidden>
+          <label class="flab" for="rn-paste">Drop list — one payment per line</label>
+          <div class="rn-pastehow"><b>How to write each line — exactly this, nothing else:</b>
+            <div class="rn-pastehow__f"><span class="rn-tag">ADDRESS</span><span class="rn-tag rn-tag--sp">one space</span><span class="rn-tag">AMOUNT</span></div>
+            <div class="rn-exbox" id="rn-exbox" hidden>
+              <div class="rn-exbox__t">Real example (this is YOUR own address — replace it with your recipients):</div>
+              <code class="rn-exbox__c" id="rn-exbox-c"></code>
+              <button type="button" class="rn-exins" id="rn-ex-ins" title="Fill the box with a ready-made example using your own address — then just swap in the real recipients">⤵ Insert example</button>
+            </div>
+          </div>
+          <textarea class="rn-paste" id="rn-paste" spellcheck="false" autocomplete="off" disabled placeholder=""></textarea>
+          <p class="rn-pastehint" id="rn-paste-hint"></p>
+          <div class="rn-prev" id="rn-prev" hidden></div>
+        </div>
+        <p class="rn-paytot" id="rn-send-tot"></p>
+        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
+          <p class="note" id="rn-send-which" style="align-self:center">— pick a rune above</p>
+          <button class="btn primary" id="rn-send-go" disabled>→ Send — sign</button>
+        </div>
+        <div class="out" id="rn-send-out"></div>
+      </div>
+
+      <div data-rpane="deposit" hidden>
+        <p class="note" style="margin-top:var(--s3)"><b>Your Bitcoin wallet is the vault.</b> Leave runes there until you want to sell or send on the L2. Then one fee: send them to the bakery pot below. They land in the shop window — sendable at once. The node credits the Taproot key that spent the coins. <b>The proof is the authorization.</b></p>
+        <div id="rn-vault-box" hidden style="margin-top:var(--s3)">
+          <div class="flab">① Bakery pot — the L2 shop window. Send runes here from your wallet</div>
+          <button class="btn" id="rn-vault-addr" style="width:100%;overflow-wrap:anywhere;text-align:left" title="copy the bakery pot address"></button>
+          <p class="note" id="rn-vault-note" style="margin-top:var(--s2)"></p>
+        </div>
+        <p class="note" id="rn-vault-need" style="margin-top:var(--s3)">— loading the bakery pot…</p>
+        <div class="sendform" style="grid-template-columns:1fr 2fr auto;margin-top:var(--s3)">
+          <input class="input" id="rn-dep-rid" placeholder="rune id · block:tx" autocomplete="off" disabled>
+          <input class="input" id="rn-dep-tx" placeholder="② Bitcoin txid · the tx that paid the bakery pot" autocomplete="off" disabled>
+          <button class="btn btc" id="rn-dep-go" disabled>⛓ Prove deposit</button>
+        </div>
+        <p class="note" id="rn-dep-which" style="margin-top:var(--s2)"></p>
+        <div class="out" id="rn-dep-out"></div>
+      </div>
+
+      <div data-rpane="exit" hidden>
+        <p class="note" style="margin-top:var(--s3)"><b>Take a rune out, back to Bitcoin — two taps.</b> ① This button <b>locks</b> your credits (so they can never be spent AND withdrawn) and signs the Bitcoin address that will receive them. ② Then open <b>Withdraw</b> to pay the L1 postage from your own sats. One exit at a time per rune. If you received these runes on the L2, they are pot-backed by construction — you withdraw from the shared pool whenever you want, no depositor needed.</p>
+        <div class="sendform" style="grid-template-columns:1fr 1fr;margin-top:var(--s3)">
+          <input class="input" id="rn-exit-l1" placeholder="L1 destination · taproot address to receive the runes (bc1p…)" autocomplete="off" disabled>
+          <input class="input" id="rn-exit-amt" placeholder="amount" autocomplete="off" disabled>
+        </div>
+        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
+          <p class="note" id="rn-exit-which" style="align-self:center">— pick a rune above</p>
+          <button class="btn btc" id="rn-exit-go" disabled>↥ Request exit — sign</button>
+        </div>
+        <div class="out" id="rn-exit-out"></div>
+      </div>
+
+      <div data-rpane="withdraw" hidden>
+        <p class="note" style="margin-top:var(--s3)"><b>Pay your open exit on Bitcoin — you fund it.</b> The runes come from the bakery pot (anyone with credit withdraws, no depositor needed). The ~330-sat postage and the miner fee come from <b>your sats</b>. Guardians only co-sign; nobody can redirect the address you already signed. After Bitcoin buries it, the lock burns by itself.</p>
+        <div class="flab" style="margin-top:var(--s3)">Miner fee — your choice, your sats</div>
+        <div class="rn-modes" id="rn-wd-fees" role="tablist">
+          <button type="button" class="rn-mode" data-wd-fee="low">Slow</button>
+          <button type="button" class="rn-mode on" data-wd-fee="medium">Medium</button>
+          <button type="button" class="rn-mode" data-wd-fee="high">High</button>
+          <button type="button" class="rn-mode" data-wd-fee="custom">Custom</button>
+        </div>
+        <input class="input" id="rn-wd-custom" placeholder="sat/vB · type your own rate" inputmode="numeric" autocomplete="off" hidden disabled>
+        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
+          <p class="note" id="rn-wd-which" style="align-self:center">— pick a rune above, then request an Exit</p>
+          <button class="btn btc" id="rn-wd-go" disabled>⛓ Build payout →</button>
+        </div>
+        <div class="out" id="rn-wd-out"></div>
+      </div>
+
+      <div data-rpane="cancel" hidden>
+        <p class="note" style="margin-top:var(--s3)"><b>Unlock an open exit — the hand-brake only you can pull.</b> If the L1 payout has not been broadcast yet, your signature (and nothing else — no expiry, no admin) reopens the lock and the credits return exactly. Nothing on Bitcoin is touched, the reserve never moves, and a <b>settled</b> or <b>already-broadcast</b> exit can never be cancelled — what is on Bitcoin is forever. Pays the eternal 1 ₭ fee.</p>
+        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
+          <p class="note" id="rn-cancel-which" style="align-self:center">— pick a rune above</p>
+          <button class="btn btc" id="rn-cancel-go" disabled>↩ Cancel exit — sign</button>
+        </div>
+        <div class="out" id="rn-cancel-out"></div>
+      </div>
+    </div>
+
+    <!-- FOR RUNE CREATORS — linking a rune project is an operator act, so it lives folded
+         at the bottom, out of the everyday user's way. All ids unchanged; the JS is untouched. -->
+    <details class="brlink" id="br-details">
+      <summary>⛓ For rune creators — plug your rune project into the L2</summary>
+      <p class="sub" style="margin-top:var(--s3)">You etched a rune on Bitcoin and want it to live here too? Link its <b>passport</b>: the rune's name and its etch id. Reserves settle through this node's <b>shared bakery pot</b> — a taproot the guardian federation holds, <b>proven against Bitcoin</b> — exactly how KRAY•SPACE runs its rune projects. (Want sole custody? Run your own node, with your own pot and guardians.)</p>
+      <div id="br-card" hidden>
+        <div class="kv" id="br-kv"></div>
+        <p class="note" id="br-note"></p>
+      </div>
+      <div id="br-form">
+        <div class="sendform" style="grid-template-columns:1fr 1fr">
+          <input class="input" id="br-rune" placeholder="rune · spaced name (e.g. KRILL•FREE)" autocomplete="off" disabled>
+          <input class="input" id="br-id" placeholder="rune id · etch block:tx (e.g. 915390:664)" autocomplete="off" disabled>
+        </div>
+        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
+          <input class="input" id="br-vault" placeholder="L1 vault · taproot address holding your reserves (bc1p…)" autocomplete="off" disabled>
+          <button class="btn btc" id="br-go" disabled>⛓ Link bridge — sign</button>
+        </div>
+        <div class="out" id="br-out"></div>
+      </div>
+    </details>
+  </div>
+
+  <!-- ── LAW — one mouth. Papers hang on a star (inscribe LAW). The v1 pot
+       (no face) stays folded: same ids, same JS, not a second studio. ── -->
+  </div>
+
+  <div data-ppane="luz" id="pane-luz">
+  <div class="card tick pzone" id="luzpanel" data-pzone="luzpanel">
+    <div class="chead"><h2>✧ Luz · KRC-77</h2></div>
+    <p class="sub">Shares of a star's sealed light — not glow (✦), not ₭, not Ӿ. Holdings below; send when you own this address; ledger newest first from the journal.</p>
+
+    <div class="luz-sum" id="luz-sum" aria-label="Luz summary">
+      <div class="stat"><div class="v" id="luz-n-books">0</div><div class="k">books held</div></div>
+      <div class="stat"><div class="v" id="luz-n-amt">0</div><div class="k">✧ total</div></div>
+      <div class="stat"><div class="v" id="luz-n-acts">—</div><div class="k">cut-sends in view</div></div>
+    </div>
+
+    <div class="flab">① Holdings — tap a book to send (owner) or open the rank</div>
+    <div class="luz-grid" id="luz-grid"><span class="eyebrow">loading Luz…</span></div>
+
+    <div class="luz-ops" id="luz-ops" hidden>
+      <div class="flab">② Send ✧ · fee 1 ₭ · Σ of that star does not change</div>
+      <p class="sub" id="luz-ops-hint" style="margin:0 0 var(--s3)">Pick a book above.</p>
+      <div class="sendform">
+        <input class="input" id="luz-to" placeholder="send to · name, domain, @username — or the address" autocomplete="off" disabled>
+        <div class="resolved" id="luz-res" hidden></div>
+        <input class="input" id="luz-amt" placeholder="amount · ✧" inputmode="numeric" autocomplete="off" disabled>
+        <button class="btn primary" id="luz-send-go" disabled>Send ✧ — fee 1 ₭</button>
+      </div>
+      <div class="out" id="luz-out"></div>
+    </div>
+
+    <div class="flab" style="margin-top:var(--s5)">③ Ledger · cut-send · chronological (newest first)</div>
+    <p class="sub" style="margin:0 0 var(--s3)">Only Luz moves on this address. Full journal is under Activity.</p>
+    <div class="luz-ledger" id="luz-list"><span class="eyebrow">reading Luz acts…</span></div>
+    <div class="actions" style="margin-top:var(--s3)">
+      <button class="btn" id="luz-more" hidden>load earlier Luz acts</button>
+      <a class="btn" href="/market/luz">Market · Luz →</a>
+      <a class="btn" href="/inscribe?tab=law">Seal a Luz paper →</a>
+    </div>
+  </div>
+  </div>
+
+  <div data-ppane="write" id="pane-write">
+<div class="card tick pzone" id="studio" data-pzone="studio">
     <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-inscribe"/></svg><h2>Write a star</h2></div>
     <p class="sub">A name, or bytes you type or drop. Signed by your wallet, sealed forever — this node quotes the fire.</p>
     <div class="itabs">
@@ -485,161 +1286,8 @@
   </div>
 
   <!-- ── YOUR RUNE · THE L2 — amber frame: bound to Bitcoin, settled by the vault ── -->
-  <div class="card tick btc" id="bridgepanel">
-    <div class="chead"><svg class="cg btc-ink" width="20" height="20"><use href="#g-bridge"/></svg><h2>Your runes · the L2</h2></div>
-    <p class="sub">Your Bitcoin runes, living here on KRAY NET. Your <b>Bitcoin wallet is the vault</b>. <b>Deposit</b> is one fee into the bakery pot — the L2 shop window, proven, never trusted. <b>Send</b> moves it to anyone here, instantly, for the eternal 1 ₭ fee. <b>Exit</b> locks the credits; <b>Withdraw</b> pays them on Bitcoin from your own sats. While an exit waits and no payout is in flight, <b>Cancel</b> is your own hand-brake. Every bakery number is <b>backed 1:1 by the pot on Bitcoin</b>.</p>
 
-    <!-- the friendly empty state — a fresh citizen should understand, not stare at a form -->
-    <p class="note" id="rn-empty" hidden>No runes here yet. You receive them when someone <b>sends</b> you runes on the L2, or when you <b>deposit</b> from your Bitcoin wallet into the bakery pot — one fee, then sendable.</p>
-
-    <!-- POSITIONS — every rune this address holds credits or an open exit in -->
-    <div id="rn-holds" hidden>
-      <div class="flab" style="margin-top:var(--s4)">Step 1 · your balances — click a rune to choose it, then act below</div>
-      <div class="istars" id="rn-list"></div>
-    </div>
-
-    <!-- L2 shop window — Bitcoin (L1) is the vault. This number is what is on the L2, sendable. -->
-    <div id="rn-split-wrap" hidden>
-      <div class="flab" style="margin-top:var(--s5)">On the L2 — in the bakery, ready to send</div>
-      <div class="rn-split" id="rn-split">
-        <div class="rn-cell" data-side="in">
-          <div class="rn-cell__k">In the bakery</div>
-          <div class="rn-cell__v">—</div>
-          <div class="rn-cell__s">sendable to anyone</div>
-        </div>
-        <div class="rn-cell" data-side="out" hidden>
-          <div class="rn-cell__k">Not in the pot</div>
-          <div class="rn-cell__v">—</div>
-          <div class="rn-cell__s">still parked</div>
-        </div>
-      </div>
-      <p class="rn-split__eq" id="rn-split-eq"></p>
-    </div>
-
-    <!-- THE THREE PEDALS — deposit (prove in) · send (move on L2) · exit (withdraw) -->
-    <div id="rn-ops" hidden>
-      <div class="flab" style="margin-top:var(--s6)">Step 2 · act — bring in, move, or take out</div>
-      <div class="itabs" style="margin-top:var(--s3)">
-        <button class="topbtn on" data-rtab="deposit" title="bring a rune IN from Bitcoin">↧ Deposit · in from Bitcoin</button>
-        <button class="topbtn" data-rtab="send" title="move runes to anyone here, instantly">→ Send · here on the L2</button>
-        <button class="topbtn" data-rtab="exit" title="take a rune OUT, back to Bitcoin">↥ Exit · out to Bitcoin</button>
-        <button class="topbtn" data-rtab="withdraw" title="pay an OPEN exit on Bitcoin — you fund the postage">⛓ Withdraw · pay on Bitcoin</button>
-        <button class="topbtn" data-rtab="cancel" title="unlock an OPEN exit — your signature alone reopens the lock">↩ Cancel · unlock an exit</button>
-      </div>
-
-      <div data-rpane="deposit">
-        <p class="note" style="margin-top:var(--s3)"><b>Your Bitcoin wallet is the vault.</b> Leave runes there until you want to sell or send on the L2. Then one fee: send them to the bakery pot below. They land in the shop window — sendable at once. The node credits the Taproot key that spent the coins. <b>The proof is the authorization.</b></p>
-        <div id="rn-vault-box" hidden style="margin-top:var(--s3)">
-          <div class="flab">① Bakery pot — the L2 shop window. Send runes here from your wallet</div>
-          <button class="btn" id="rn-vault-addr" style="width:100%;overflow-wrap:anywhere;text-align:left" title="copy the bakery pot address"></button>
-          <p class="note" id="rn-vault-note" style="margin-top:var(--s2)"></p>
-        </div>
-        <p class="note" id="rn-vault-need" style="margin-top:var(--s3)">— loading the bakery pot…</p>
-        <div class="sendform" style="grid-template-columns:1fr 2fr auto;margin-top:var(--s3)">
-          <input class="input" id="rn-dep-rid" placeholder="rune id · block:tx" autocomplete="off" disabled>
-          <input class="input" id="rn-dep-tx" placeholder="② Bitcoin txid · the tx that paid the bakery pot" autocomplete="off" disabled>
-          <button class="btn btc" id="rn-dep-go" disabled>⛓ Prove deposit</button>
-        </div>
-        <p class="note" id="rn-dep-which" style="margin-top:var(--s2)"></p>
-        <div class="out" id="rn-dep-out"></div>
-      </div>
-
-      <div data-rpane="send" hidden>
-        <p class="note" style="margin-top:var(--s3)"><b>Move runes to anyone on KRAY.NETWORK — instantly.</b> Type who receives (an address or a KRAY name) and how much, or paste a drop list. <b>+</b> and a pasted list are the same law: each line is its own nonce and the eternal 1 ₭ fee. The Bitcoin backing never moves, only the credits do.</p>
-        <div class="rn-modes" role="tablist">
-          <button type="button" class="rn-mode on" data-rn-mode="rows" title="Add recipients one by one">+ Lines</button>
-          <button type="button" class="rn-mode" data-rn-mode="paste" title="Paste a drop list: one address and one amount per line">Paste a list</button>
-        </div>
-        <div id="rn-pays" style="margin-top:var(--s3)"></div>
-        <button type="button" class="rn-add" id="rn-add-pay" disabled>+ Add another address</button>
-        <div id="rn-paste-wrap" hidden>
-          <label class="flab" for="rn-paste">Drop list — one payment per line</label>
-          <div class="rn-pastehow"><b>How to write each line — exactly this, nothing else:</b>
-            <div class="rn-pastehow__f"><span class="rn-tag">ADDRESS</span><span class="rn-tag rn-tag--sp">one space</span><span class="rn-tag">AMOUNT</span></div>
-            <div class="rn-exbox" id="rn-exbox" hidden>
-              <div class="rn-exbox__t">Real example (this is YOUR own address — replace it with your recipients):</div>
-              <code class="rn-exbox__c" id="rn-exbox-c"></code>
-              <button type="button" class="rn-exins" id="rn-ex-ins" title="Fill the box with a ready-made example using your own address — then just swap in the real recipients">⤵ Insert example</button>
-            </div>
-          </div>
-          <textarea class="rn-paste" id="rn-paste" spellcheck="false" autocomplete="off" disabled placeholder=""></textarea>
-          <p class="rn-pastehint" id="rn-paste-hint"></p>
-          <div class="rn-prev" id="rn-prev" hidden></div>
-        </div>
-        <p class="rn-paytot" id="rn-send-tot"></p>
-        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
-          <p class="note" id="rn-send-which" style="align-self:center">— pick a rune above</p>
-          <button class="btn primary" id="rn-send-go" disabled>→ Send — sign</button>
-        </div>
-        <div class="out" id="rn-send-out"></div>
-      </div>
-
-      <div data-rpane="exit" hidden>
-        <p class="note" style="margin-top:var(--s3)"><b>Take a rune out, back to Bitcoin — two taps.</b> ① This button <b>locks</b> your credits (so they can never be spent AND withdrawn) and signs the Bitcoin address that will receive them. ② Then open <b>Withdraw</b> to pay the L1 postage from your own sats. One exit at a time per rune. If you received these runes on the L2, they are pot-backed by construction — you withdraw from the shared pool whenever you want, no depositor needed.</p>
-        <div class="sendform" style="grid-template-columns:1fr 1fr;margin-top:var(--s3)">
-          <input class="input" id="rn-exit-l1" placeholder="L1 destination · taproot address to receive the runes (bc1p…)" autocomplete="off" disabled>
-          <input class="input" id="rn-exit-amt" placeholder="amount" autocomplete="off" disabled>
-        </div>
-        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
-          <p class="note" id="rn-exit-which" style="align-self:center">— pick a rune above</p>
-          <button class="btn btc" id="rn-exit-go" disabled>↥ Request exit — sign</button>
-        </div>
-        <div class="out" id="rn-exit-out"></div>
-      </div>
-
-      <div data-rpane="withdraw" hidden>
-        <p class="note" style="margin-top:var(--s3)"><b>Pay your open exit on Bitcoin — you fund it.</b> The runes come from the bakery pot (anyone with credit withdraws, no depositor needed). The ~330-sat postage and the miner fee come from <b>your sats</b>. Guardians only co-sign; nobody can redirect the address you already signed. After Bitcoin buries it, the lock burns by itself.</p>
-        <div class="flab" style="margin-top:var(--s3)">Miner fee — your choice, your sats</div>
-        <div class="rn-modes" id="rn-wd-fees" role="tablist">
-          <button type="button" class="rn-mode" data-wd-fee="low">Slow</button>
-          <button type="button" class="rn-mode on" data-wd-fee="medium">Medium</button>
-          <button type="button" class="rn-mode" data-wd-fee="high">High</button>
-          <button type="button" class="rn-mode" data-wd-fee="custom">Custom</button>
-        </div>
-        <input class="input" id="rn-wd-custom" placeholder="sat/vB · type your own rate" inputmode="numeric" autocomplete="off" hidden disabled>
-        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
-          <p class="note" id="rn-wd-which" style="align-self:center">— pick a rune above, then request an Exit</p>
-          <button class="btn btc" id="rn-wd-go" disabled>⛓ Build payout →</button>
-        </div>
-        <div class="out" id="rn-wd-out"></div>
-      </div>
-
-      <div data-rpane="cancel" hidden>
-        <p class="note" style="margin-top:var(--s3)"><b>Unlock an open exit — the hand-brake only you can pull.</b> If the L1 payout has not been broadcast yet, your signature (and nothing else — no expiry, no admin) reopens the lock and the credits return exactly. Nothing on Bitcoin is touched, the reserve never moves, and a <b>settled</b> or <b>already-broadcast</b> exit can never be cancelled — what is on Bitcoin is forever. Pays the eternal 1 ₭ fee.</p>
-        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
-          <p class="note" id="rn-cancel-which" style="align-self:center">— pick a rune above</p>
-          <button class="btn btc" id="rn-cancel-go" disabled>↩ Cancel exit — sign</button>
-        </div>
-        <div class="out" id="rn-cancel-out"></div>
-      </div>
-    </div>
-
-    <!-- FOR RUNE CREATORS — linking a rune project is an operator act, so it lives folded
-         at the bottom, out of the everyday user's way. All ids unchanged; the JS is untouched. -->
-    <details class="brlink" id="br-details">
-      <summary>⛓ For rune creators — plug your rune project into the L2</summary>
-      <p class="sub" style="margin-top:var(--s3)">You etched a rune on Bitcoin and want it to live here too? Link its <b>passport</b>: the rune's name and its etch id. Reserves settle through this node's <b>shared bakery pot</b> — a taproot the guardian federation holds, <b>proven against Bitcoin</b> — exactly how KRAY•SPACE runs its rune projects. (Want sole custody? Run your own node, with your own pot and guardians.)</p>
-      <div id="br-card" hidden>
-        <div class="kv" id="br-kv"></div>
-        <p class="note" id="br-note"></p>
-      </div>
-      <div id="br-form">
-        <div class="sendform" style="grid-template-columns:1fr 1fr">
-          <input class="input" id="br-rune" placeholder="rune · spaced name (e.g. KRILL•FREE)" autocomplete="off" disabled>
-          <input class="input" id="br-id" placeholder="rune id · etch block:tx (e.g. 915390:664)" autocomplete="off" disabled>
-        </div>
-        <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
-          <input class="input" id="br-vault" placeholder="L1 vault · taproot address holding your reserves (bc1p…)" autocomplete="off" disabled>
-          <button class="btn btc" id="br-go" disabled>⛓ Link bridge — sign</button>
-        </div>
-        <div class="out" id="br-out"></div>
-      </div>
-    </details>
-  </div>
-
-  <!-- ── LAW — one mouth. Papers hang on a star (inscribe LAW). The v1 pot
-       (no face) stays folded: same ids, same JS, not a second studio. ── -->
-  <div class="card tick" id="ctpanel">
+<div class="card tick pzone" id="ctpanel" data-pzone="ctpanel">
     <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-anchor"/></svg><h2>Law</h2></div>
     <p class="sub">A paper hangs on a <b>star you own</b> — KRC-77 Luz, mint, raffle, being, exam. That mouth is one place. The write studio.</p>
     <div class="actions">
@@ -681,22 +1329,27 @@
     </details>
   </div>
 
-  <!-- ── BAPTISMS ── -->
-  <div class="card tick">
-    <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-name"/></svg><h2>Baptisms</h2></div>
-    <p class="sub">Names written into the atlas by this address — unique in the universe, forever.</p>
-    <div class="bapt" id="bapt"><span class="eyebrow">none yet</span></div>
+  <!-- ── COLLECTION — baptisms + inscriptions ── -->
   </div>
 
-  <!-- ── INSCRIPTIONS ── -->
+  <div data-ppane="xray" id="pane-xray">
   <div class="card tick">
-    <div class="chead"><svg class="cg" width="20" height="20"><use href="#g-star"/></svg><h2>Inscriptions</h2></div>
-    <p class="sub">Everything this address chiseled into its stars — newest first, paginated.</p>
-    <div class="grid" id="grid"></div>
-    <button class="btn more" id="more" hidden>Load more</button>
+    <div class="chead"><h2>X-ray · this address on the node</h2></div>
+    <p class="sub">Everything this node knows about the citizen — balances, reputation, nonce, lights. Journal acts live in Activity; stars live in Stars.</p>
+
+  <div class="xray-grid" id="xray-grid">
+    <div class="xray-card"><div class="k">Network</div><div class="v" id="xray-net">—</div><div class="s" id="xray-net-s">Universe this node writes</div></div>
+    <div class="xray-card"><div class="k">Nonce</div><div class="v" id="xray-nonce">—</div><div class="s">Next signed act index for this address</div></div>
+    <div class="xray-card"><div class="k">Stars held</div><div class="v" id="xray-stars">—</div><div class="s" id="xray-stars-s">Written relics on this stone</div></div>
+    <div class="xray-card"><div class="k">✦ Glow rank</div><div class="v" id="xray-glow">—</div><div class="s" id="xray-glow-s">User reputation standing</div><a class="btn" href="/rank/glow">Open glow book →</a></div>
+    <div class="xray-card"><div class="k">Ӿ Nyx</div><div class="v" id="xray-x">—</div><div class="s" id="xray-x-s">Burn-born light</div><a class="btn" href="/rank/nyx">Open Nyx book →</a></div>
+    <div class="xray-card"><div class="k">✧ Luz</div><div class="v" id="xray-luz">—</div><div class="s" id="xray-luz-s">KRC-77 shares across stars</div><a class="btn" href="#luz">Open Luz tab →</a></div>
+    <div class="xray-card"><div class="k">Plain ₭</div><div class="v" id="xray-plain">—</div><div class="s">Spendable fuel · never a relic</div></div>
+  </div>
+  </div>
   </div>
 
-  <!-- ── THE VIEWER — a sandboxed window into a star ── -->
+<!-- ── THE VIEWER — a sandboxed window into a star ── -->
   <div id="viewer" hidden>
     <div class="vcard">
       <div class="vhead">
@@ -722,21 +1375,553 @@
   var m=/^\/(?:u|address|profile)\/([a-z0-9]{20,90})\/?$/.exec(location.pathname); // all three URL shapes (/u /address /profile)
   if(!m){ document.body.innerHTML='<div class="wrap"><p style="padding:40px 0">not an address — <a href="/">back to the explorer</a></p></div>'; return; }
   var ADDR=m[1], me=null, pub=null, offset=0, total=0, profile=null, relicStar=null;
-  $('addr').firstChild.nodeValue=ADDR;
-
-  // deterministic sigil — a pure function of the address (its visual identity)
-  (function sigil(){
-    var h=0; for(var i=0;i<ADDR.length;i++){ h=(h*31+ADDR.charCodeAt(i))>>>0; }
-    var hue=h%360, hue2=(h>>3)%360, pts=3+(h%5), R=34, r=14+(h%12), cx=48, cy=48, d='';
-    for(var j=0;j<pts*2;j++){ var ang=Math.PI*j/pts-Math.PI/2, rad=j%2===0?R:r;
-      d+=(j===0?'M':'L')+(cx+rad*Math.cos(ang)).toFixed(1)+' '+(cy+rad*Math.sin(ang)).toFixed(1)+' '; }
-    $('sigil').innerHTML='<rect width="96" height="96" rx="20" fill="hsl('+hue+',26%,9%)"/>'
-      +'<circle cx="48" cy="48" r="38" fill="none" stroke="hsl('+hue2+',60%,55%)" stroke-width="0.7" opacity="0.5"/>'
-      +'<path d="'+d+'Z" fill="hsl('+hue+',72%,60%)" opacity="0.92" stroke="hsl('+hue2+',80%,72%)" stroke-width="1.1" stroke-linejoin="round"/>'
-      +'<circle cx="48" cy="48" r="2.6" fill="#fff"/>';
+  (function(){
+    var t=$('addr-txt'); if(t) t.textContent=ADDR; /* full address — never truncate on the plate */
+    var a=$('addr'); if(a) a.title=ADDR;
   })();
 
-  on('copy','click',function(){ try{ navigator.clipboard.writeText(ADDR); $('copy').textContent='copied ✓'; setTimeout(function(){$('copy').textContent='copy';},1500);}catch(_){}});
+  // Citizen Sigil — sacred-geometry constellation unique to this address (KRAY.citizenSigilSrc).
+  // kray.js is deferred; apply after it loads (DOMContentLoaded).
+  function paintFallbackSigil(){
+    var img=$('sigil'); if(!img) return;
+    var src=(window.KRAY && typeof KRAY.citizenSigilSrc==='function') ? KRAY.citizenSigilSrc(ADDR, 512) : '';
+    if(!src) return;
+    img.src=src;
+    img.classList.add('sigil-sky');
+    img.classList.remove('dicebear');
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', paintFallbackSigil);
+  else paintFallbackSigil();
+
+  function paintCitizenFace(p){
+    var img=$('sigil'), box=$('sigil-face'), btn=$('sigil-btn'), nameEl=$('displayname');
+    var face=p && p.face;
+    var mine=(me===ADDR);
+    if(btn){
+      btn.classList.toggle('mine', !!mine);
+      btn.title=mine?'Choose a star you own as your face':'Profile face';
+      btn.setAttribute('aria-label', mine?'Choose profile face':'Profile face');
+    }
+    function starChip(n){
+      return '<a class="star-chip" href="/star/'+Number(n)+'" title="Open star #'+Number(n).toLocaleString()+'">'
+        +'<span class="star-ico" aria-hidden="true">★</span><b>'+Number(n).toLocaleString()+'</b></a>';
+    }
+    if(face && face.star!=null){
+      if(img) img.hidden=true;
+      if(box){
+        box.hidden=false;
+        box.innerHTML=(window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(face) : ('★ '+Number(face.star).toLocaleString());
+      }
+      if(nameEl){
+        nameEl.hidden=false;
+        if(face.name){
+          nameEl.innerHTML='<span class="id-title">'+esc(face.name)+'</span>'+starChip(face.star);
+        } else {
+          nameEl.innerHTML=starChip(face.star);
+        }
+      }
+    } else {
+      if(img){ img.hidden=false; paintFallbackSigil(); }
+      if(box){ box.hidden=true; box.innerHTML=''; }
+      if(nameEl){ nameEl.hidden=true; nameEl.textContent=''; }
+    }
+  }
+
+  function paintCitizenMouth(p){
+    var el=$('citizen-mouth'), edit=$('mouth-edit');
+    var mouth=p && p.mouth;
+    var mine=(me===ADDR);
+    if(edit){
+      edit.hidden=!mine;
+      edit.textContent=mouth?'Edit profile':'Set up profile';
+    }
+    if(!el) return;
+    var hasDesc=!!(mouth && mouth.description);
+    var hasUrl=!!(mouth && mouth.url);
+    var hasBan=!!(mouth && mouth.banner && mouth.banner.url);
+    if(!hasDesc && !hasUrl && !hasBan){
+      el.hidden=true; el.innerHTML='';
+      return;
+    }
+    el.hidden=false;
+    var html='';
+    if(hasDesc) html+='<p class="mouth-bio">'+esc(mouth.description)+'</p>';
+    if(hasUrl){
+      var host='';
+      try{ host=new URL(mouth.url).host; }catch(_){ host=mouth.url; }
+      html+='<a class="mouth-link" href="'+esc(mouth.url)+'" target="_blank" rel="noopener noreferrer">'+esc(host)+' ↗</a>';
+    }
+    if(hasBan){
+      var href=mouth.bannerUrl||('/star/'+Number(mouth.banner.star));
+      var ext=!!mouth.bannerUrl;
+      html+='<a class="mouth-banner" href="'+esc(href)+'"'
+        +(ext?' target="_blank" rel="noopener noreferrer"':'')
+        +' title="'+(ext?'Open link':'Open banner star')+'">'
+        +'<img src="'+esc(mouth.banner.url)+'" alt="" loading="lazy" decoding="async">'
+        +'</a>';
+    }
+    el.innerHTML=html;
+  }
+
+  /* Glow ladder mark — site glyphs (apex · sky · orbit · lit), not emoji. */
+  function glowRankGlyph(rank){
+    if(window.KRAY && typeof KRAY.glowRankGlyphHtml==='function') return KRAY.glowRankGlyphHtml(rank, 16);
+    var id=rank===1?'g-rank-apex':rank<=3?'g-rank-sky':rank<=10?'g-rank-orbit':'g-rank-lit';
+    return '<svg class="rank-ico" width="16" height="16" aria-hidden="true"><use href="#'+id+'"/></svg>';
+  }
+  function paintGlowRank(glowN, rank, total){
+    var el=$('glow-rank'); if(!el) return;
+    if(!(glowN>0) || rank==null || !(rank>0)){
+      el.hidden=true; el.innerHTML=''; el.className='rank-chip quiet';
+      return;
+    }
+    var cls='rank-chip';
+    if(rank===1) cls+=' top1';
+    else if(rank<=3) cls+=' top3';
+    var of=total!=null && total>0 ? '<span class="rank-of">/'+Number(total).toLocaleString()+'</span>' : '';
+    var tier=rank===1?'apex':rank<=3?'sky':rank<=10?'orbit':'lit';
+    el.className=cls;
+    el.hidden=false;
+    el.href='/rank/glow';
+    el.title='Global glow rank #'+Number(rank).toLocaleString()+(total?' of '+Number(total).toLocaleString():'')+' · '+tier+' — soulbound ✦ from frozen stars';
+    el.innerHTML='<span class="rank-emo" aria-hidden="true">'+glowRankGlyph(rank)+'</span>'
+      +'<span class="rank-n">#'+Number(rank).toLocaleString()+'</span>'+of;
+  }
+
+  function closeFacePick(){
+    var m=$('face-pick'); if(m) m.hidden=true;
+    var o=$('fp-out'); if(o){ o.className='out'; o.textContent=''; }
+  }
+  function openFacePick(){
+    if(me!==ADDR) return;
+    if(!present()){ window.open('https://kray.network','_blank','noopener'); return; }
+    var m=$('face-pick'); if(!m) return;
+    m.hidden=false;
+    var g=$('fp-grid'), o=$('fp-out');
+    if(o){ o.className='out'; o.textContent=''; }
+    var rows=(profile && profile.written) ? profile.written.slice() : [];
+    if(!rows.length){
+      g.innerHTML='<span class="eyebrow">no stars yet — inscribe or baptize one below, then choose it here</span>';
+      return;
+    }
+    var cur=profile && profile.face && profile.face.star;
+    g.innerHTML=rows.map(function(w){
+      var on=(cur!=null && Number(cur)===Number(w.star))?' on':'';
+      var art=(window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(w) : ('★ '+Number(w.star).toLocaleString());
+      var lab=w.name ? esc(w.name) : ('#'+Number(w.star).toLocaleString());
+      return '<button type="button" class="fp-cell'+on+'" data-face-star="'+w.star+'">'
+        +'<div class="art">'+art+'</div><div class="lab">'+lab+'</div></button>';
+    }).join('');
+    g.querySelectorAll('[data-face-star]').forEach(function(b){
+      b.addEventListener('click', function(){ chooseFace(b.getAttribute('data-face-star')); });
+    });
+  }
+  async function chooseFace(star){
+    if(me!==ADDR || busy) return;
+    var out=$('fp-out');
+    busy=true;
+    try{
+      out.className='out'; out.textContent='preparing — the node builds the exact message…';
+      var res=await walletAct('set-face', {star:String(star)}, out);
+      out.className='out ok';
+      out.innerHTML='✓ face set · star #'+Number(star).toLocaleString()+(res && res.hash ? ' · <a href="/tx/'+esc(res.hash)+'">receipt</a>' : '');
+      await loadProfile();
+      setTimeout(closeFacePick, 700);
+    }catch(e){
+      out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused');
+    }finally{ busy=false; }
+  }
+  on('sigil-btn','click',function(){ if(me===ADDR) openFacePick(); });
+  on('fp-close','click', closeFacePick);
+  var fp=$('face-pick');
+  if(fp) fp.addEventListener('click', function(ev){ if(ev.target===fp) closeFacePick(); });
+
+  function closeMouthPick(){
+    var m=$('mouth-pick'); if(m) m.hidden=true;
+    var o=$('mouth-out'); if(o){ o.className='out'; o.textContent=''; }
+  }
+  function openMouthPick(){
+    if(me!==ADDR) return;
+    if(!present()){ window.open('https://kray.network','_blank','noopener'); return; }
+    var m=$('mouth-pick'); if(!m) return;
+    m.hidden=false;
+    var mouth=profile && profile.mouth;
+    var d=$('mouth-desc'), u=$('mouth-url'), bu=$('mouth-banner-url'), bs=$('mouth-banner-star'), o=$('mouth-out');
+    if(o){ o.className='out'; o.textContent=''; }
+    if(d) d.value=(mouth && mouth.description) || '';
+    if(u) u.value=(mouth && mouth.url) || '';
+    if(bu) bu.value=(mouth && mouth.bannerUrl) || '';
+    if(bs) bs.value=(mouth && mouth.bannerStar) || '';
+    var g=$('mouth-banner-grid');
+    var rows=((profile && profile.written) ? profile.written.slice() : []).filter(function(w){
+      return w && w.media && w.ctype && /^image\//i.test(w.ctype) && w.url;
+    });
+    if(!rows.length){
+      g.innerHTML='<span class="eyebrow">no image stars yet — inscribe an image, then pick it here · or leave empty</span>';
+    } else {
+      var cur=bs ? bs.value : '';
+      g.innerHTML='<button type="button" class="fp-cell'+(cur===''?' on':'')+'" data-banner-star="">'
+        +'<div class="art"><span class="ph">∅</span></div><div class="lab">none</div></button>'
+        +rows.map(function(w){
+          var on=(cur!=='' && Number(cur)===Number(w.star))?' on':'';
+          var art=w.url ? ('<img src="'+esc(w.url)+'" alt="">') : ('★ '+Number(w.star).toLocaleString());
+          var lab=w.name ? esc(w.name) : ('#'+Number(w.star).toLocaleString());
+          return '<button type="button" class="fp-cell'+on+'" data-banner-star="'+w.star+'">'
+            +'<div class="art">'+art+'</div><div class="lab">'+lab+'</div></button>';
+        }).join('');
+      g.querySelectorAll('[data-banner-star]').forEach(function(b){
+        b.addEventListener('click', function(){
+          var v=b.getAttribute('data-banner-star')||'';
+          if(bs) bs.value=v;
+          g.querySelectorAll('.fp-cell').forEach(function(c){ c.classList.toggle('on', (c.getAttribute('data-banner-star')||'')===v); });
+        });
+      });
+    }
+  }
+  async function saveMouth(clearAll){
+    if(me!==ADDR || busy) return;
+    var out=$('mouth-out');
+    var description=clearAll?'':(($('mouth-desc')&&$('mouth-desc').value)||'');
+    var url=clearAll?'':(($('mouth-url')&&$('mouth-url').value.trim())||'');
+    var bannerStar=clearAll?'':(($('mouth-banner-star')&&$('mouth-banner-star').value)||'');
+    var bannerUrl=clearAll?'':(($('mouth-banner-url')&&$('mouth-banner-url').value.trim())||'');
+    if(/[|\r\n]/.test(description) || /[|\r\n]/.test(url) || /[|\r\n]/.test(bannerUrl)){
+      out.className='out err'; out.textContent='✗ description / URLs must not contain | or newlines'; return;
+    }
+    busy=true;
+    try{
+      out.className='out'; out.textContent='preparing — feeless seal (signature + nonce)…';
+      var res=await walletAct('set-profile', {description:description, url:url, bannerStar:bannerStar, bannerUrl:bannerUrl}, out);
+      out.className='out ok';
+      out.innerHTML='✓ profile '+(clearAll?'cleared':'sealed')+(res && res.hash ? ' · <a href="/tx/'+esc(res.hash)+'">receipt</a>' : '');
+      await loadProfile();
+      setTimeout(closeMouthPick, 700);
+    }catch(e){
+      out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused');
+    }finally{ busy=false; }
+  }
+  on('mouth-edit','click',function(){ if(me===ADDR) openMouthPick(); });
+  on('mouth-close','click', closeMouthPick);
+  on('mouth-save','click', function(){ saveMouth(false); });
+  on('mouth-clear','click', function(){ saveMouth(true); });
+  var mp=$('mouth-pick');
+  if(mp) mp.addEventListener('click', function(ev){ if(ev.target===mp) closeMouthPick(); });
+  document.addEventListener('keydown', function(ev){
+    if(ev.key!=='Escape') return;
+    closeFacePick();
+    closeMouthPick();
+  });
+
+  /* ── STAR SHELF — gallery first; sheet holds the actions for one star ── */
+  var sheetStar=null;
+  function closeStarSheet(){
+    var sh=document.getElementById('star-sheet'); if(sh) sh.hidden=true;
+    var pane=document.getElementById('ss-send-pane'); if(pane) pane.hidden=true;
+    var out=document.getElementById('ss-out'); if(out){ out.className='out'; out.textContent=''; }
+    sheetStar=null;
+    var g=document.getElementById('ss-grid');
+    if(g) g.querySelectorAll('.ss-cell.on').forEach(function(c){ c.classList.remove('on'); });
+  }
+  function paintStarShelf(p){
+    var g=document.getElementById('ss-grid'); if(!g) return;
+    var rows=(p && p.written) ? p.written.slice() : [];
+    var faceStar=p && p.face && p.face.star!=null ? Number(p.face.star) : null;
+    if(!rows.length){
+      g.innerHTML='<div class="ss-empty"><div class="eyebrow" style="margin-bottom:10px">no stars yet</div>'
+        +'<a href="#studio">Write or baptize a star →</a></div>';
+      return;
+    }
+    g.innerHTML=rows.map(function(w){
+      var art=(window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(w) : ('★ '+Number(w.star).toLocaleString());
+      var name=w.name ? esc(w.name) : ('★ '+Number(w.star).toLocaleString());
+      var faceMark=(faceStar!=null && Number(w.star)===faceStar)?' · face':'';
+      return '<button type="button" class="ss-cell" data-ss-star="'+esc(String(w.star))+'">'
+        +'<div class="ss-art">'+art+'</div>'
+        +'<div class="ss-meta"><span class="ss-name">'+name+'</span>'
+        +'<span class="ss-no">#'+Number(w.star).toLocaleString()+faceMark+'</span></div></button>';
+    }).join('');
+    g.querySelectorAll('[data-ss-star]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var star=b.getAttribute('data-ss-star');
+        var w=(profile && profile.written||[]).filter(function(x){ return String(x.star)===String(star); })[0];
+        if(w) openStarSheet(w, b);
+      });
+    });
+    if(window.KRAY && KRAY.hydratePortraits) KRAY.hydratePortraits(g);
+  }
+  function openStarSheet(w, cell){
+    sheetStar=w;
+    var sh=document.getElementById('star-sheet'); if(!sh) return;
+    var g=document.getElementById('ss-grid');
+    if(g) g.querySelectorAll('.ss-cell').forEach(function(c){ c.classList.toggle('on', c===cell); });
+    var art=document.getElementById('ss-art');
+    var title=document.getElementById('ss-title');
+    var meta=document.getElementById('ss-meta');
+    var actions=document.getElementById('ss-actions');
+    var pane=document.getElementById('ss-send-pane');
+    var out=document.getElementById('ss-out');
+    if(pane) pane.hidden=true;
+    if(out){ out.className='out'; out.textContent=''; }
+    if(art) art.innerHTML=(window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(w) : '';
+    if(title) title.textContent=w.name || ('Star #'+Number(w.star).toLocaleString());
+    if(meta) meta.textContent='★ '+Number(w.star).toLocaleString()+(w.ctype?' · '+w.ctype:'');
+    var mine=(me===ADDR);
+    var faceStar=profile && profile.face && profile.face.star!=null ? Number(profile.face.star) : null;
+    var isFace=(faceStar!=null && Number(w.star)===faceStar);
+    var html='<a class="btn" href="/star/'+encodeURIComponent(String(w.star))+'">Open star →</a>';
+    if(mine){
+      html+='<button type="button" class="btn'+(isFace?'':' primary')+'" id="ss-face" '+(isFace?'disabled':'')+'>'+(isFace?'Current face':'Set as face')+'</button>';
+      html+='<button type="button" class="btn" id="ss-send">Send star</button>';
+      html+='<button type="button" class="btn danger" id="ss-freeze">Freeze forever</button>';
+    } else {
+      html+='<span class="note" style="grid-column:1/-1;margin:0">Viewing another citizen — connect as this address to act.</span>';
+    }
+    if(actions) actions.innerHTML=html;
+    sh.hidden=false;
+    var faceBtn=document.getElementById('ss-face');
+    if(faceBtn) faceBtn.addEventListener('click', async function(){
+      if(!mine || busy) return;
+      var o=document.getElementById('ss-out');
+      try{
+        if(o){ o.className='out'; o.textContent='preparing — the node builds the exact message…'; }
+        var res=await walletAct('set-face', {star:String(w.star)}, o||{className:'',textContent:''});
+        if(o){ o.className='out ok'; o.innerHTML='✓ face set · star #'+Number(w.star).toLocaleString()+(res&&res.hash?' · <a href="/tx/'+esc(res.hash)+'">receipt</a>':''); }
+        await loadProfile();
+        setTimeout(closeStarSheet, 700);
+      }catch(e){ if(o){ o.className='out err'; o.textContent='✗ '+(e&&e.message?e.message:'refused'); } }
+    });
+    var sendBtn=document.getElementById('ss-send');
+    if(sendBtn) sendBtn.addEventListener('click', function(){
+      if(pane) pane.hidden=false;
+      relicStar=String(w.star);
+      var inp=document.getElementById('ss-to'); if(inp){ inp.disabled=false; inp.focus(); }
+    });
+    var frBtn=document.getElementById('ss-freeze');
+    if(frBtn) frBtn.addEventListener('click', function(){
+      holeStar=String(w.star);
+      holeMode('relic', w);
+      var o=document.getElementById('ss-out');
+      // freeze() writes to hole-rout — mirror result into sheet after
+      freeze('relic').then(function(){
+        var src=document.getElementById('hole-rout');
+        if(o && src && src.textContent){ o.className=src.className; o.innerHTML=src.innerHTML; }
+        if(src && src.className.indexOf('ok')>=0) setTimeout(closeStarSheet, 900);
+      });
+    });
+  }
+  (function(){
+    var sh=document.getElementById('star-sheet');
+    var close=document.getElementById('ss-close');
+    if(close) close.addEventListener('click', closeStarSheet);
+    if(sh) sh.addEventListener('click', function(ev){ if(ev.target===sh) closeStarSheet(); });
+    document.addEventListener('keydown', function(ev){ if(ev.key==='Escape') closeStarSheet(); });
+    var to=document.getElementById('ss-to'), res=document.getElementById('ss-res');
+    if(to && res && typeof wireResolveEl==='function') wireResolveEl(to, res);
+    var go=document.getElementById('ss-send-go');
+    if(go) go.addEventListener('click', async function(){
+      if(me!==ADDR || !sheetStar) return;
+      var out=document.getElementById('ss-out');
+      var inp=document.getElementById('ss-to');
+      var toAddr=(inp && (inp.getAttribute('data-resolved')||inp.value.trim()))||'';
+      if(!toAddr){ if(out){ out.className='out err'; out.textContent='✗ recipient required'; } return; }
+      relicStar=String(sheetStar.star);
+      try{
+        if(out){ out.className='out'; out.textContent='preparing…'; }
+        var r=await walletAct('sendstar',{to:toAddr,star:relicStar}, out||{className:'',textContent:''});
+        if(out){ out.className='out ok'; out.innerHTML='✓ star sent'+(r&&r.hash?' · <a href="/tx/'+esc(r.hash)+'">receipt</a>':''); }
+        relicStar=null; if(inp) inp.value='';
+        await loadProfile();
+        setTimeout(closeStarSheet, 800);
+      }catch(e){ if(out){ out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused'); } }
+    });
+  })();
+
+
+    /* ── PROFILE TABS — Stars · Activity · Operate · Runes · Luz · Write · X-ray ── */
+  function showProfileTab(id){
+    var tabs=document.querySelectorAll('#ptabs [data-ptab]');
+    var panes=document.querySelectorAll('[data-ppane]');
+    tabs.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-ptab')===id); });
+    panes.forEach(function(p){ p.classList.toggle('on', p.getAttribute('data-ppane')===id); });
+    try{ history.replaceState(null,'','#'+id); }catch(_){ }
+    if(id==='activity' && typeof loadTxs==='function'){
+      try{ loadTxs(true); }catch(_){ }
+    }
+    if(id==='luz'){
+      try{ if(typeof paintLuzPanel==='function') paintLuzPanel(profile); }catch(_){ }
+      try{ if(typeof loadLuzTxs==='function') loadLuzTxs(true); }catch(_){ }
+      if(window.KRAY && KRAY.hydratePortraits){
+        var g=document.getElementById('luz-grid'); if(g) KRAY.hydratePortraits(g);
+      }
+    }
+    if(id==='stars' && window.KRAY && KRAY.hydratePortraits){
+      var g=document.getElementById('ss-grid'); if(g) KRAY.hydratePortraits(g);
+    }
+  }
+  (function(){
+    var nav=document.getElementById('ptabs'); if(!nav) return;
+    nav.addEventListener('click', function(ev){
+      var b=ev.target.closest && ev.target.closest('[data-ptab]');
+      if(!b) return;
+      showProfileTab(b.getAttribute('data-ptab'));
+    });
+    var hash=(location.hash||'').replace(/^#/,'');
+    var allowed={stars:1,luz:1,activity:1,operate:1,runes:1,write:1,xray:1};
+    if(allowed[hash]) showProfileTab(hash);
+  })();
+  document.addEventListener('click', function(ev){
+    var a=ev.target.closest && ev.target.closest('a[href="#luz"]');
+    if(!a) return;
+    ev.preventDefault();
+    showProfileTab('luz');
+  });
+
+  /* ── LUZ ✧ — holdings · owner send · chronological cut-send ledger ── */
+  var luzStar=null, luzBefore=null, luzDone=false, luzBusy=false, luzSeen=0;
+  function luzSharePct(amt, supply){
+    try{
+      var a=BigInt(String(amt||'0').replace(/[^0-9]/g,'')||'0');
+      var s=BigInt(String(supply||'0').replace(/[^0-9]/g,'')||'0');
+      if(s<=0n) return 0;
+      return Number((a * 10000n) / s) / 100;
+    }catch(_){ return 0; }
+  }
+  function selectLuzBook(star){
+    luzStar=star!=null?String(star):null;
+    var g=document.getElementById('luz-grid');
+    if(g) g.querySelectorAll('[data-luz-star]').forEach(function(c){
+      c.classList.toggle('on', c.getAttribute('data-luz-star')===luzStar);
+    });
+    var hint=document.getElementById('luz-ops-hint');
+    var rows=(profile&&profile.luz)||[];
+    var h=rows.filter(function(x){ return String(x.star)===String(luzStar); })[0];
+    if(hint){
+      if(!luzStar||!h) hint.textContent='Pick a book above.';
+      else hint.innerHTML='Sending from ★ <b>'+Number(h.star).toLocaleString()+'</b>'
+        +(h.starName?' “'+esc(h.starName)+'”':'')
+        +' · you hold <b>'+Number(h.amount).toLocaleString()+'</b> ✧'
+        +(h.supply?' · supply '+Number(h.supply).toLocaleString():'');
+    }
+    var amt=document.getElementById('luz-amt');
+    if(amt && h) amt.placeholder='amount · up to '+Number(h.amount).toLocaleString()+' ✧';
+  }
+  function paintLuzPanel(p){
+    var rows=((p&&p.luz)||[]).slice().sort(function(a,b){
+      try{ var da=BigInt(String(a.amount||0)), db=BigInt(String(b.amount||0)); if(db!==da) return db>da?1:-1; }catch(_){}
+      return Number(a.star)-Number(b.star);
+    });
+    var tabn=document.getElementById('tabn-luz'); if(tabn) tabn.textContent=String(rows.length);
+    var nBooks=document.getElementById('luz-n-books'); if(nBooks) nBooks.textContent=String(rows.length);
+    var tot=0; rows.forEach(function(h){ tot+=Number(h.amount)||0; });
+    var nAmt=document.getElementById('luz-n-amt'); if(nAmt) nAmt.textContent=tot.toLocaleString();
+    var ops=document.getElementById('luz-ops');
+    if(ops) ops.hidden=!(me===ADDR && rows.length);
+    var g=document.getElementById('luz-grid'); if(!g) return;
+    if(!rows.length){
+      g.innerHTML='<div class="luz-empty"><div class="eyebrow" style="margin-bottom:10px">no Luz on this address</div>'
+        +'<p style="margin:0 0 12px;font-size:13px;color:var(--ink-3)">✧ is a share of a sealed star (KRC-77). Receive a cut-send, or seal a Luz paper on a star you own.</p>'
+        +'<a href="/market/luz">Browse Luz market →</a> · <a href="/inscribe?tab=law">Seal Luz →</a></div>';
+      luzStar=null;
+      return;
+    }
+    g.innerHTML=rows.map(function(h){
+      var face={star:h.star,name:h.starName||null,ctype:h.ctype||null,url:h.url||null,held:!!h.held,media:!!h.media,contentHash:h.contentHash||null};
+      var art=(window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(face) : ('★ '+Number(h.star).toLocaleString());
+      var pct=luzSharePct(h.amount, h.supply);
+      var title=(h.starName?esc(h.starName)+' · ':'')+'★ '+Number(h.star).toLocaleString();
+      return '<button type="button" class="luz-cell'+(String(luzStar)===String(h.star)?' on':'')+'" data-luz-star="'+esc(String(h.star))+'" title="'+title+'">'
+        +'<div class="luz-art">'+art+'</div>'
+        +'<div class="luz-body">'
+        +'<div class="luz-amt">'+Number(h.amount).toLocaleString()+'<small>✧</small></div>'
+        +'<div class="luz-meta">★ '+Number(h.star).toLocaleString()+(h.starName?' · '+esc(h.starName):'')
+        +(h.supply?' · '+pct.toFixed(pct>=10?0:2)+'% of '+Number(h.supply).toLocaleString():'')+'</div>'
+        +(h.supply?'<div class="luz-share" aria-hidden="true"><i style="width:'+Math.max(2,Math.min(100,pct)).toFixed(1)+'%"></i></div>':'')
+        +'</div></button>';
+    }).join('');
+    g.querySelectorAll('[data-luz-star]').forEach(function(b){
+      b.addEventListener('click', function(){
+        var star=b.getAttribute('data-luz-star');
+        if(me===ADDR){
+          selectLuzBook(star);
+        } else {
+          location.href='/rank/luz/'+encodeURIComponent(star);
+        }
+      });
+    });
+    if(luzStar && !rows.some(function(h){ return String(h.star)===String(luzStar); })) luzStar=null;
+    if(luzStar) selectLuzBook(luzStar);
+    else if(me===ADDR && rows.length===1) selectLuzBook(rows[0].star);
+    if(window.KRAY && KRAY.hydratePortraits) KRAY.hydratePortraits(g);
+  }
+  function loadLuzTxs(reset){
+    if(luzBusy || (luzDone && !reset)) return;
+    if(reset){ luzBefore=null; luzDone=false; luzSeen=0; var list0=document.getElementById('luz-list'); if(list0) list0.innerHTML='<span class="eyebrow">reading Luz acts…</span>'; }
+    luzBusy=true;
+    var want=12, batch=[], cursor=luzBefore, scans=0;
+    function tick(){
+      if(scans++>40){ finish(batch, true); return; }
+      var u='/api/kraynet/address-txs/'+encodeURIComponent(ADDR)+'?limit=50'+(cursor!=null?'&before='+cursor:'');
+      fetch(u).then(function(r){ return r.json(); }).then(function(d){
+        var txs=d.transactions||[];
+        txs.forEach(function(t){ if(t && t.kind==='cut-send') batch.push(t); });
+        cursor=d.nextBefore;
+        var done=!!d.done || cursor==null;
+        if(batch.length>=want || done || !txs.length) finish(batch.slice(0,want), done || batch.length<want);
+        else tick();
+      }).catch(function(){ luzBusy=false; var el=document.getElementById('luz-list'); if(el && !luzSeen) el.innerHTML='<span class="eyebrow">could not read Luz acts</span>'; });
+    }
+    function finish(rows, done){
+      luzBusy=false;
+      var el=document.getElementById('luz-list'), more=document.getElementById('luz-more');
+      if(!rows.length && !luzSeen){
+        if(el) el.innerHTML='<span class="eyebrow">no cut-send yet on this address</span>';
+        if(more) more.hidden=true; luzDone=true;
+        var na=document.getElementById('luz-n-acts'); if(na) na.textContent='0';
+        return;
+      }
+      var html=rows.map(txRow).join('');
+      if(el){ if(!luzSeen) el.innerHTML=html; else el.insertAdjacentHTML('beforeend', html); }
+      luzSeen+=rows.length;
+      if(rows.length) luzBefore=rows[rows.length-1].seq;
+      else luzBefore=cursor;
+      luzDone=!!done;
+      if(more) more.hidden=luzDone;
+      var na=document.getElementById('luz-n-acts'); if(na) na.textContent=String(luzSeen)+(luzDone?'':'');
+    }
+    tick();
+  }
+  (function(){
+    var to=document.getElementById('luz-to'), res=document.getElementById('luz-res');
+    if(to && res && typeof wireResolveEl==='function') wireResolveEl(to, res);
+    var more=document.getElementById('luz-more');
+    if(more) more.addEventListener('click', function(){ loadLuzTxs(false); });
+    var go=document.getElementById('luz-send-go');
+    if(go) go.addEventListener('click', async function(){
+      if(busy||me!==ADDR||!luzStar) return;
+      var out=document.getElementById('luz-out');
+      var toAddr=recipientOf('luz-to');
+      var amt=(document.getElementById('luz-amt')||{}).value||'';
+      amt=String(amt).replace(/[,\s]/g,'');
+      if(!toAddr||!/^\d+$/.test(amt)||BigInt(amt)<1n){
+        if(out){ out.className='out err'; out.textContent='✗ pick a book, a recipient, and a whole ✧ amount'; }
+        return;
+      }
+      busy=true;
+      try{
+        var r=await walletAct('cut-send',{to:toAddr,star:String(luzStar),amount:amt}, out||{className:'',textContent:''});
+        if(out){ out.className='out ok'; out.innerHTML='✓ sent '+Number(amt).toLocaleString()+' ✧ of ★ '+Number(luzStar).toLocaleString()+txLink(r); }
+        var inp=document.getElementById('luz-amt'); if(inp) inp.value='';
+        var tin=document.getElementById('luz-to'); if(tin){ tin.value=''; tin.removeAttribute('data-resolved'); }
+        var rb=document.getElementById('luz-res'); if(rb) rb.hidden=true;
+        await loadProfile();
+        loadLuzTxs(true);
+      }catch(e){ if(out){ out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused'); } }
+      finally{ busy=false; }
+    });
+  })();
+
+
+  on('copy','click',function(){ try{ navigator.clipboard.writeText(ADDR); $('copy').textContent='Copied'; setTimeout(function(){$('copy').textContent='Copy';},1500);}catch(_){}});
 
   /* ── ₭ — one formatter, so no amount ever breaks a card ──────────────────
      kNum is for COUNTS. ₭ piles use kWhole — 1500 is 1,500, never 1.50K. */
@@ -929,143 +2114,248 @@
     var short = a.length>24 ? a.slice(0,10)+'…'+a.slice(-6) : a;
     return esc((lab && lab.label) || short);
   }
-  /* a rune's face: its parent-ordinal thumbnail from L1, falling back to the etch's symbol emoji —
-     the same enrichment KRAY•SPACE gives runes, so every rune is recognisable at a glance */
   function runeIcon(thumb, symbol, size){
     var s = size||20;
-    // fallback = hidden SIBLING toggled on error — HTML inside the onerror attribute would break
-    // the attribute on its double quotes and spill junk into the page
     var fb = '<span class="rthumb rthumb-fb" style="width:'+s+'px;height:'+s+'px;line-height:'+s+'px'+(thumb?';display:none':'')+'">'+esc(symbol||'ᚱ')+'</span>';
     if(!thumb) return fb;
     return '<img class="rthumb" src="'+esc(thumb)+'" width="'+s+'" height="'+s+'" alt="" loading="lazy" '
       +'onerror="this.style.display=&quot;none&quot;;if(this.nextElementSibling)this.nextElementSibling.style.display=&quot;inline-grid&quot;">'+fb;
   }
-  /* readable rune amount: "777,000 KRAYNETBRIDGETRI" (base units → display by the rune's own divisibility) */
   function runeAmt(t){ var nm='<b class="gold">'+esc(t.runeName||t.runeId||'rune')+'</b>';
     return fmtBase(t.amount||0, t.runeDiv||0)+' '+(t.runeId?('<span class="rlink" data-rune="'+esc(t.runeId)+'" title="open the rune page — vault, holders, solvency">'+nm+'</span>'):nm); }
+
+  function actSvg(id){ return '<svg width="20" height="20" aria-hidden="true"><use href="#'+id+'"/></svg>'; }
+  function actTag(label, cls){ return '<span class="act-tag'+(cls?' '+cls:'')+'">'+esc(label)+'</span>'; }
+  function actAmtHtml(sign, value, unit, cls){
+    if(value==null || value==='') return '<span class="act-amt neu">—</span>';
+    var prefix = sign>0?'+':(sign<0?'−':'');
+    return '<span class="act-amt '+(cls||(sign>0?'pos':sign<0?'neg':'neu'))+'">'
+      +prefix+esc(String(value))
+      +(unit?'<small>'+esc(unit)+'</small>':'')
+      +'</span>';
+  }
   function txRow(t){
     var mine = String(t.from)===String(ADDR);
     var other = mine ? t.to : t.from;
     var otherLab = mine ? t.toWho : t.fromWho;
-    var dir = t.direction==='self' ? '↺' : t.direction==='out' ? '→' : '←';
-    var line = '', sub = '';
+    var dir = t.direction || (mine && other && String(other)!==String(ADDR) ? 'out' : (!mine ? 'in' : 'self'));
+    if(t.kind==='validator-reward' || t.kind==='settlement' || t.kind==='emit') dir='in';
+    var title='', sub='', ico='g-block', tags=[], rowCls=dir, amtSign=0, amtVal=null, amtUnit='', amtCls='';
+    var party = other ? ((mine?'to ':'from ')+who(other,otherLab)) : '';
+    var blk = t.blockNumber!=null ? ('#'+Number(t.blockNumber).toLocaleString()) : 'pending';
+    var feeBits = t.fee!=null ? ('fee '+kWhole(t.fee)+' ₭') : '';
+
+    function moneySide(amount){
+      if(dir==='in'){ amtSign=1; }
+      else if(dir==='out'){ amtSign=-1; }
+      else { amtSign=0; }
+      amtVal = amount;
+    }
+
     switch(t.kind){
       case 'transfer':
-        line = '<b>'+kWhole(t.amount)+' ₭</b> '+(t.direction==='self'?'to itself':(mine?'to ':'from ')+who(other,otherLab));
-        sub  = (other==='KRAY_BLACK_HOLE' ? 'burned in the fire — fungible ₭, never a star'
-                : '<span title="The fee is pure fungible ₭ — never a star. A star (an inscribed or named creation) can NEVER pay a fee, so your creations are never touched. Enforced at the gate every signed action passes.">fee '+(t.fee||1)+' ₭ · <b>pure ₭, never a star</b></span>');
+        ico='g-send';
+        if(other==='KRAY_BLACK_HOLE'){
+          title='Burn ₭'; tags=[actTag('burn','burn')]; rowCls='out';
+          amtSign=-1; amtVal=kWhole(t.amount); amtUnit='₭';
+          sub='destroyed in the fire · Ӿ born 1:1 · '+blk;
+        } else {
+          title=dir==='in'?'Received ₭':'Sent ₭';
+          tags=[actTag('transfer'), actTag(dir,'dir-'+dir)];
+          moneySide(kWhole(t.amount)); amtUnit='₭';
+          sub=(party||'self')+(feeBits?' · '+feeBits:'')+' · '+blk;
+        }
+        break;
+      case 'burn':
+        ico='g-nyx'; title='Burn ₭ → Fenyx'; tags=[actTag('burn','burn'), actTag('fenyx')];
+        rowCls='out'; amtSign=-1; amtVal=kWhole(t.amount); amtUnit='₭';
+        sub='₭ dies · Ӿ +'+kWhole(t.amount)+' born · '+blk;
         break;
       case 'x-send':
-        line = '<b>Ӿ '+Number(t.amount).toLocaleString()+'</b> '+(t.direction==='self'?'to itself':(mine?'to ':'from ')+who(other,otherLab));
-        sub  = 'the transferable light — born 1:1 from burned ₭ · Ӿ moves, ₭ pays the gas (fee '+(t.fee||1)+' ₭)';
+        ico='g-nyx'; title=dir==='in'?'Received Fenyx':'Sent Fenyx';
+        tags=[actTag('x-send'), actTag('fenyx'), actTag(dir,'dir-'+dir)];
+        moneySide(Number(t.amount).toLocaleString()); amtUnit='Ӿ';
+        sub=(party||'self')+(feeBits?' · '+feeBits:'')+' · '+blk;
         break;
       case 'lane-enter':
-        line = '<b>Ӿ '+Number(t.amount).toLocaleString()+' entered the lane</b>';
-        sub  = 'spendable Ӿ moved into the TK-fold lane · journal DA · fee '+(t.fee||1)+' ₭';
+        ico='g-send'; title='Entered TK-fold lane'; tags=[actTag('lane'), actTag('enter')];
+        amtSign=-1; amtVal=Number(t.amount).toLocaleString(); amtUnit='Ӿ lane'; amtCls='neu';
+        sub='journal → compressed lane · '+feeBits+' · '+blk;
         break;
       case 'lane-exit':
-        line = '<b>Ӿ '+Number(t.amount).toLocaleString()+' left the lane</b>';
-        sub  = 'Ӿ returned to the journal book · journal DA · fee '+(t.fee||1)+' ₭';
+        ico='g-send'; title='Left TK-fold lane'; tags=[actTag('lane'), actTag('exit')];
+        amtSign=1; amtVal=Number(t.amount).toLocaleString(); amtUnit='Ӿ'; amtCls='neu';
+        sub='lane → journal book · '+feeBits+' · '+blk;
         break;
       case 'fold-seal':
-        line = '<b>fold-seal — one proven breath</b>';
-        sub  = 'Groth16 + sorted diffs landed on the journal · DA fee '+(t.fee||1)+' ₭ · anyone may fold';
+        ico='g-anchor'; title='Fold sealed'; tags=[actTag('fold'), actTag('proof')];
+        amtSign=0; amtVal=feeBits?('−'+kWhole(t.fee)):'—'; amtUnit=feeBits?'₭':''; amtCls='neu';
+        sub='proven breath on the journal · '+blk;
         break;
       case 'transfer-star':
-        line = '<b>★ star #'+Number(t.star).toLocaleString()+'</b>'+(t.starName||t.name?' “'+esc(t.starName||t.name)+'”':'')+' '+(mine?'to ':'from ')+who(other,otherLab);
-        sub  = (other==='KRAY_BLACK_HOLE' ? 'a star frozen forever — it keeps everything written on it'
-                                          : 'the star travelled whole, its writings ride forever')
-              +(t.contentType?' · '+esc(t.contentType)+(t.size?' · '+((window.KRAY&&KRAY.formatBytes)?KRAY.formatBytes(t.size):Number(t.size).toLocaleString()+' bytes'):''):'');
+        ico='g-star';
+        if(other==='KRAY_BLACK_HOLE'){
+          title='Froze star #'+Number(t.star).toLocaleString();
+          tags=[actTag('freeze','freeze'), actTag('glow','freeze')];
+          rowCls='glow'; amtSign=1; amtVal='+1'; amtUnit='✦ glow'; amtCls='glow';
+          sub=(t.starName||t.name?'“'+esc(t.starName||t.name)+'” · ':'')+'beyond reach · '+blk;
+        } else {
+          title=(dir==='in'?'Received':'Sent')+' star #'+Number(t.star).toLocaleString();
+          tags=[actTag('star'), actTag(dir,'dir-'+dir)];
+          amtSign=dir==='in'?1:-1; amtVal='★ '+Number(t.star).toLocaleString(); amtUnit=t.starName||t.name||'relic';
+          amtCls=dir==='in'?'pos':'neg';
+          sub=(t.starName||t.name?'“'+esc(t.starName||t.name)+'” · ':'')+(party||'')+' · '+blk;
+        }
         break;
       case 'inscribe':
-        line = '<b>✎ wrote on star #'+Number(t.star).toLocaleString()+'</b>';
-        sub  = (window.KRAY&&KRAY.categorySpec?KRAY.categorySpec(KRAY.categoryOf(t.contentType)).label+' · ':'')+(t.contentType||'content')+(t.size?' · '+((window.KRAY&&KRAY.formatBytes)?KRAY.formatBytes(t.size):Number(t.size).toLocaleString()+' bytes'):'')+' · burned '+(t.burn||'1')+' ₭ in the fire';
+        ico='g-inscribe'; title='Inscribed ★ '+Number(t.star).toLocaleString();
+        tags=[actTag('inscribe'), actTag('burn','burn')];
+        amtSign=-1; amtVal=kWhole(t.burn||t.fee||1); amtUnit='₭ fire';
+        sub=((window.KRAY&&KRAY.categorySpec&&t.contentType)?KRAY.categorySpec(KRAY.categoryOf(t.contentType)).label+' · ':'')
+          +esc(t.contentType||'content')
+          +(t.size?' · '+((window.KRAY&&KRAY.formatBytes)?KRAY.formatBytes(t.size):Number(t.size).toLocaleString()+' B'):'')
+          +' · '+blk;
         break;
       case 'name':
-        line = '<b>✦ baptised “'+esc(t.name||'')+'”</b>';
-        sub  = 'star #'+Number(t.star).toLocaleString()+' · burned '+(t.burn||'1')+' ₭ in the fire';
+        ico='g-name'; title='Baptised “'+esc(t.name||'')+'”';
+        tags=[actTag('baptism'), actTag('burn','burn')];
+        amtSign=-1; amtVal=kWhole(t.burn||t.fee||1); amtUnit='₭ fire';
+        sub='star #'+Number(t.star).toLocaleString()+' · '+blk;
+        break;
+      case 'origin':
+        ico='g-anchor'; title='Origin ★ '+Number(t.star).toLocaleString();
+        tags=[actTag('origin'), actTag('burn','burn')];
+        amtSign=-1; amtVal=kWhole(t.burn||t.fee||1); amtUnit='₭ fire';
+        sub='L1 blessing · '+blk;
+        break;
+      case 'set-face':
+        ico='g-star'; title='Set face · ★ '+Number(t.star).toLocaleString();
+        tags=[actTag('face'), actTag('self','dir-self')];
+        amtSign=-1; amtVal=kWhole(t.fee||1); amtUnit='₭';
+        sub=(t.starName||t.name?'“'+esc(t.starName||t.name)+'” · ':'')+'citizen mouth · '+blk;
+        break;
+      case 'set-profile':
+        ico='g-name'; title='Updated profile';
+        tags=[actTag('profile'), actTag('self','dir-self')];
+        amtSign=0; amtVal='—'; amtUnit='feeless'; amtCls='';
+        sub=(t.description?esc(String(t.description).slice(0,48))+(String(t.description).length>48?'…':'')+' · ':'')
+          +(t.bannerStar?'banner ★ '+Number(t.bannerStar).toLocaleString()+' · ':'')
+          +'citizen mouth · '+blk;
+        break;
+      case 'cut-send':
+        ico='g-star'; title=dir==='in'?'Received Luz':'Sent Luz';
+        tags=[actTag('luz','luz'), actTag('krc-77'), actTag(dir,'dir-'+dir)];
+        moneySide(((t.luz&&t.luz.amount!=null)?Number(t.luz.amount):Number(t.amount||0)).toLocaleString());
+        amtUnit='✧ · ★ '+Number(t.star||(t.luz&&t.luz.star)||0).toLocaleString();
+        sub=(party||'self')+(feeBits?' · '+feeBits:'')+' · '+blk;
         break;
       case 'settlement':
-        line = '<b>'+kWhole(t.amount||0)+' ₭</b>';
-        sub  = 'interval '+(t.interval!=null?t.interval:'—')+' · settled';
+        ico='g-glow'; title='Settlement';
+        tags=[actTag('settle'), actTag('in','dir-in')];
+        amtSign=1; amtVal=kWhole(t.amount||0); amtUnit='₭';
+        sub='interval '+(t.interval!=null?t.interval:'—')+' · '+blk;
         break;
-      /* ── the rune L2 — each act says WHAT rune, HOW MUCH (in its own decimals), and WHERE it went ── */
+      case 'emit':
+        ico='g-glow'; title='Minted ₭';
+        tags=[actTag('mint'), actTag('donate')];
+        amtSign=1; amtVal=kWhole(t.amount||0); amtUnit='₭';
+        sub='proof-of-donation · '+blk;
+        break;
       case 'rune-deposit':
-        line = runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>↧ '+runeAmt(t)+'</b> · in from Bitcoin';
-        sub  = '<span title="The node rebuilt the proof from Bitcoin — back to the etch — and credited exactly what landed in the vault.">deposit proven against Bitcoin · backed 1:1 by the vault'+(t.outpoint?' · utxo '+esc(String(t.outpoint).slice(0,12))+'…':'')+'</span>';
+        ico='g-bridge'; title='Rune deposit'; tags=[actTag('rune','btc'), actTag('deposit','btc')];
+        rowCls='btc'; amtSign=1; amtVal=fmtBase(t.amount||0,t.runeDiv||0); amtUnit=(t.runeSymbol||t.runeName||'rune'); amtCls='btc';
+        sub=esc(t.runeName||t.runeId||'')+' · from Bitcoin · '+blk;
         break;
       case 'rune-send':
-        line = runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>'+runeAmt(t)+'</b> '+(t.direction==='self'?'to itself':(mine?'to ':'from ')+who(other,otherLab));
-        sub  = 'moved instantly on the L2 · signed · the Bitcoin backing never moved · fee 1 ₭';
+        ico='g-bridge'; title=dir==='in'?'Received rune':'Sent rune';
+        tags=[actTag('rune','btc'), actTag(dir,'dir-'+dir)];
+        rowCls='btc'; moneySide(fmtBase(t.amount||0,t.runeDiv||0)); amtUnit=(t.runeSymbol||t.runeName||'rune'); amtCls=dir==='in'?'pos':'neg';
+        sub=esc(t.runeName||t.runeId||'')+' · '+(party||'self')+' · '+blk;
         break;
       case 'rune-exit':
-        line = runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>↥ '+runeAmt(t)+'</b> · out to Bitcoin';
-        sub  = 'exit requested — credits LOCKED here'+(t.l1Address?' · pays '+esc(String(t.l1Address).slice(0,14))+'…':'')+' · burns when the payout proves';
+        ico='g-bridge'; title='Rune exit'; tags=[actTag('rune','btc'), actTag('exit','btc')];
+        rowCls='btc'; amtSign=-1; amtVal=fmtBase(t.amount||0,t.runeDiv||0); amtUnit=(t.runeSymbol||'rune')+' locked'; amtCls='btc';
+        sub='credits locked'+(t.l1Address?' · '+esc(String(t.l1Address).slice(0,14))+'…':'')+' · '+blk;
         break;
       case 'rune-lodge':
-        line = runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>⚓ armed to '+(t.l1Address||t.to?esc(String(t.l1Address||t.to).slice(0,14))+'…':'the signed Bitcoin address')+'</b>';
-        sub  = 'pays the destination signed on the exit'+(t.exitAmount!=null?' · '+esc(String(t.exitAmount))+' locked':'')+(t.potExplorer?' · <a href="'+esc(t.potExplorer)+'" target="_blank" rel="noopener" style="color:var(--btc)">pot coin ↗</a>':'');
+        ico='g-bridge'; title='Rune armed'; tags=[actTag('rune','btc'), actTag('lodge','btc')];
+        rowCls='btc'; amtSign=0; amtVal='⚓'; amtUnit='withdraw ready'; amtCls='btc';
+        sub=(t.l1Address?esc(String(t.l1Address).slice(0,18))+'… · ':'')+blk;
         break;
       case 'rune-settle':
-        line = runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>⚖ '+runeAmt(t)+'</b> · settled on Bitcoin';
-        sub  = 'the L1 payout was proven · the locked credits burned · the rune is home'+(t.l1Txid?(t.l1Explorer?' · <a href="'+esc(t.l1Explorer)+'" target="_blank" rel="noopener" style="color:var(--btc)">₿ '+esc(String(t.l1Txid).slice(0,12))+'… ↗</a>':' · tx '+esc(String(t.l1Txid).slice(0,12))+'…'):'');
+        ico='g-bridge'; title='Rune settled'; tags=[actTag('rune','btc'), actTag('settled','btc')];
+        rowCls='btc'; amtSign=1; amtVal=fmtBase(t.amount||0,t.runeDiv||0); amtUnit='on Bitcoin'; amtCls='btc';
+        sub=esc(t.runeName||t.runeId||'')+' · L1 proven · '+blk;
         break;
-      case 'amm-add':
-        line = t.createPool
-          ? runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>✦ Create pool</b> · '+kWhole(t.krayIn)+' ₭ + '+fmtBase(t.runeIn||0,t.runeDiv||0)+' '+esc(t.runeName||t.runeId||'rune')
-          : runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>⇄ added LP</b> · '+kWhole(t.krayIn)+' ₭ + '+fmtBase(t.runeIn||0,t.runeDiv||0)+' '+esc(t.runeName||t.runeId||'rune');
-        sub  = t.createPool ? 'the mark · first writer · this pair cannot be born again — same law as a star name · fee 1 ₭' : 'constant-product pool · pot-backed rune only · fee 1 ₭';
+      case 'rune-cancel':
+        ico='g-bridge'; title='Exit cancelled'; tags=[actTag('rune','btc'), actTag('cancel')];
+        rowCls='btc'; amtSign=1; amtVal=fmtBase(t.amount||0,t.runeDiv||0); amtUnit='unlocked'; amtCls='pos';
+        sub='credits returned · '+blk;
         break;
-      case 'amm-remove':
-        line = runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>⇄ burned '+esc(t.lp||'0')+' LP</b> · '+esc(t.runeName||t.runeId||'rune');
-        sub  = 'proportional withdraw · fee 1 ₭';
+      case 'amm-add': case 'amm-rr-add':
+        ico='g-glow'; title=t.createPool?'Created pool':'Added LP';
+        tags=[actTag('amm'), actTag(t.createPool?'create':'add')];
+        amtSign=-1; amtVal=t.krayIn!=null?kWhole(t.krayIn):'LP'; amtUnit=t.krayIn!=null?'₭ in':esc(t.runeName||'pool');
+        sub=esc(t.runeName||t.runeId||'pair')+' · '+blk;
         break;
-      case 'amm-swap':
-        line = runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>⇄ swapped</b> · '+(t.side==='rune'?(fmtBase(t.amount||0,t.runeDiv||0)+' rune → ₭'):(kWhole(t.amount)+' ₭ → rune'));
-        sub  = 'UniV2 quote re-derived on replay · signed minOut · fee 1 ₭';
+      case 'amm-remove': case 'amm-rr-remove':
+        ico='g-glow'; title='Removed LP'; tags=[actTag('amm'), actTag('remove')];
+        amtSign=1; amtVal=esc(t.lp||'0'); amtUnit='LP burned';
+        sub=esc(t.runeName||t.runeId||'pair')+' · '+blk;
         break;
-      case 'amm-rr-add':
-        line = t.createPool
-          ? runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>✦ Create pool</b> · '+esc(t.runeName||t.runeId||'rune')+' / '+esc(t.otherName||t.otherRuneId||'rune')
-          : runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>⇄ added LP</b> · '+esc(t.runeName||t.runeId||'rune')+' / '+esc(t.otherName||t.otherRuneId||'rune');
-        sub  = t.createPool ? 'the mark · first writer · this pair cannot be born again — same law as a star name · fee 1 ₭' : 'two pot-backed piles · fee 1 ₭';
-        break;
-      case 'amm-rr-remove':
-        line = runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>⇄ burned '+esc(t.lp||'0')+' LP</b> · '+esc(t.runeName||t.runeId||'')+' / '+esc(t.otherName||t.otherRuneId||'');
-        sub  = 'proportional withdraw · fee 1 ₭';
-        break;
-      case 'amm-rr-swap':
-        line = runeIcon(t.thumbnail,t.runeSymbol,20)+' <b>⇄ rune/rune swap</b> · '+esc(t.payRuneId||'');
-        sub  = 'UniV2 re-derived on replay · signed minOut · fee 1 ₭';
+      case 'amm-swap': case 'amm-rr-swap':
+        ico='g-glow'; title='Swap'; tags=[actTag('amm'), actTag('swap')];
+        amtSign=0; amtVal=t.amount!=null?(t.side==='rune'?fmtBase(t.amount,t.runeDiv||0):kWhole(t.amount)):'⇄';
+        amtUnit=t.side==='rune'?'rune → ₭':(t.amount!=null?'₭ → rune':'');
+        amtCls='neu';
+        sub=esc(t.runeName||t.runeId||'pair')+' · '+blk;
         break;
       case 'validator-reward':
-        line = '<b>⚖ '+kWhole(t.amount)+' ₭ earned</b> · validator reward';
-        sub  = 'the fee pool settled your proven work'
-             +(t.blocksPresent?' · '+Number(t.blocksPresent).toLocaleString()+' block(s) present':'')
-             +(t.hits>0?' · 🛡 custody '+t.hits+'/8':'')
-             +' · open for the full table — who guarded, who earned';
+        ico='g-vote'; title='Validator reward'; tags=[actTag('reward'), actTag('in','dir-in')];
+        amtSign=1; amtVal=kWhole(t.amount); amtUnit='₭';
+        sub='fee pool'+(t.blocksPresent?' · '+Number(t.blocksPresent).toLocaleString()+' blocks':'')+' · '+blk;
+        break;
+      case 'contract':
+        ico='g-anchor'; title='Law sealed'; tags=[actTag('law'), actTag('burn','burn')];
+        amtSign=-1; amtVal=kWhole(t.burn||t.fee||1); amtUnit='₭';
+        sub=(t.star!=null?'★ '+Number(t.star).toLocaleString()+' · ':'')+blk;
+        break;
+      case 'contract-call':
+        ico='g-anchor'; title='Law called'; tags=[actTag('law'), actTag('call')];
+        amtSign=-1; amtVal=kWhole(t.fee||1); amtUnit='₭';
+        sub=(t.rule?esc(t.rule)+' · ':'')+blk;
+        break;
+      case 'eternize':
+        ico='g-anchor'; title='Eternized'; tags=[actTag('eternize')];
+        amtSign=-1; amtVal=kWhole(t.fee||1); amtUnit='₭';
+        sub=blk;
         break;
       default:
-        line = '<b>'+esc(t.kind)+'</b>'+(other?' '+(mine?'to ':'from ')+who(other,otherLab):'');
-        sub  = t.amount ? (t.runeId ? runeIcon(t.thumbnail,t.runeSymbol,16)+' '+runeAmt(t) : kWhole(t.amount)+' ₭') : '';
+        ico='g-block'; title=esc(t.kind);
+        tags=[actTag(t.kind), actTag(dir,'dir-'+dir)];
+        if(t.amount!=null){ moneySide(t.runeId?fmtBase(t.amount,t.runeDiv||0):kWhole(t.amount)); amtUnit=t.runeId?(t.runeSymbol||'rune'):'₭'; }
+        else { amtSign=0; amtVal='—'; }
+        sub=(party?party+' · ':'')+blk;
     }
-    var ms = t.movedStars;
-    var stars = ms && ms.to && ms.to.length
-      ? '<span class="txs-r" title="The exact stars that moved. The 1-₭ fee is a fixed amount of pure fungible ₭ — it never spends a star, so your rare low numbers — #0, #1, #2 — and every relic are never touched.">'+Number(ms.count).toLocaleString()+' star'+(ms.count==='1'?'':'s')
-        +' · #'+Number(ms.to[0].start).toLocaleString()
-        +(ms.to[0].len!=='1'?'→#'+Number(ms.to[0].end).toLocaleString():'')+'</span>'
-      : '';
-    var plate = (other==='KRAY_BLACK_HOLE' && t.kind==='transfer-star') ? sink('freeze')
-      : (other==='KRAY_BLACK_HOLE' && t.kind==='transfer') ? sink('burn')
-      : (t.kind==='inscribe'||t.kind==='name'||t.kind==='origin'||t.kind==='contract') ? sink('burn')
-      : '';
-    return '<a class="txrow'+(t.createPool?' mark':'')+'" href="/tx/'+esc(t.hash)+'" title="'+esc(t.hash)+'">'
-      +'<span class="txk">'+(t.createPool?'Create pool':esc(t.kind))+(plate?' '+plate:'')+'</span>'
-      +'<span class="txw"><span class="txd '+esc(t.direction)+'">'+dir+'</span> '+line
-      +(sub?'<small>'+sub+'</small>':'')+'</span>'
-      +stars
-      +'<span class="txb">'+(t.blockNumber!=null?'#'+Number(t.blockNumber).toLocaleString():'pending')+'</span></a>';
+
+    if(t.createPool) tags.unshift(actTag('first writer'));
+    var amtHtml;
+    if(amtVal!=null && String(amtVal).indexOf('★ ')===0){
+      amtHtml='<span class="act-amt '+(amtCls||(amtSign>0?'pos':'neg'))+'">'+(amtSign>0?'+':amtSign<0?'−':'')+esc(String(amtVal).replace(/^★\s*/,''))+'<small>'+esc(amtUnit||'star')+'</small></span>';
+    } else if(amtVal==='+1' || amtVal==='⚓' || amtVal==='⇄' || amtVal==='—' || (typeof amtVal==='string' && amtVal.charAt(0)==='−')){
+      amtHtml='<span class="act-amt '+(amtCls||'neu')+'">'+esc(String(amtVal))+(amtUnit?'<small>'+esc(amtUnit)+'</small>':'')+'</span>';
+    } else {
+      amtHtml=actAmtHtml(amtSign, amtVal, amtUnit, amtCls);
+    }
+
+    return '<a class="actrow '+esc(rowCls)+(t.createPool?' mark':'')+'" href="/tx/'+esc(t.hash)+'" title="'+esc(t.hash)+'">'
+      +'<span class="act-ico">'+actSvg(ico)+'</span>'
+      +'<span class="act-main"><span class="act-head"><span class="act-title">'+title+'</span><span class="act-tags">'+tags.join('')+'</span></span>'
+      +(sub?'<span class="act-sub">'+sub+'</span>':'')+'</span>'
+      +amtHtml
+      +'</a>';
   }
+
   function loadTxs(reset){
     if(txBusy || (txDone && !reset)) return;
     if(reset){ txBefore=null; txDone=false; document.getElementById('txlist').innerHTML='<span class="eyebrow">reading the journal…</span>'; }
@@ -1076,13 +2366,85 @@
       var el=document.getElementById('txlist'), more=document.getElementById('tx-more');
       if(!d.transactions || (!d.transactions.length && txBefore==null)){
         el.innerHTML='<span class="eyebrow">this address has done nothing yet — its history starts with its first action</span>';
-        if(more) more.hidden=true; txDone=true; return;
+        if(more) more.hidden=true; txDone=true; var ta=document.getElementById('tabn-activity'); if(ta) ta.textContent='0';
+        paintActChart([]);
+        return;
       }
       var html=d.transactions.map(txRow).join('');
       if(txBefore==null) el.innerHTML=html; else el.insertAdjacentHTML('beforeend', html);
       txBefore=d.nextBefore; txDone=!!d.done;
       if(more) more.hidden=txDone;
+      var ta=document.getElementById('tabn-activity');
+      if(ta){
+        var n=el.querySelectorAll('.actrow').length;
+        ta.textContent = n ? (String(n)+(txDone?'':'+')) : '0';
+      }
+      if(reset) paintActChart(d.transactions);
     }).catch(function(){ txBusy=false; });
+  }
+
+  /* Activity breath — one bar per recent act (oldest → newest). Densely fills the plate;
+     green/red mirrors in/out. The book only — never a second money fold. */
+  var actChartBusy=false;
+  function paintActChart(seedTxs){
+    var host=document.getElementById('s-actchart');
+    var meta=document.getElementById('s-actmeta');
+    if(!host) return;
+    function actDir(t){
+      if(!t) return 'self';
+      if(t.kind==='validator-reward'||t.kind==='settlement'||t.kind==='emit') return 'in';
+      if(t.direction==='in'||t.direction==='out'||t.direction==='self') return t.direction;
+      var mine=String(t.from)===String(ADDR);
+      var other=mine?t.to:t.from;
+      if(mine && other && String(other)!==String(ADDR)) return 'out';
+      if(!mine) return 'in';
+      return 'self';
+    }
+    function actWeight(t){
+      var n=Number(t&&t.amount!=null?t.amount:(t&&t.fee!=null?t.fee:1));
+      if(!isFinite(n)||n<=0) n=1;
+      return Math.log10(n+1);
+    }
+    function render(txs){
+      var MAX=36;
+      // API returns newest first — reverse so the chart breathes left→right through time
+      var list=(txs||[]).slice(0,MAX).reverse();
+      if(!list.length){
+        host.className='actchart empty';
+        host.innerHTML='no acts yet';
+        if(meta) meta.textContent='quiet';
+        host.onclick=null; host.style.cursor='default'; host.removeAttribute('title');
+        return;
+      }
+      var weights=list.map(actWeight);
+      var maxW=0.001;
+      weights.forEach(function(w){ if(w>maxW) maxW=w; });
+      host.className='actchart';
+      host.innerHTML=list.map(function(t,i){
+        var dir=actDir(t);
+        var pct=Math.max(18, Math.round((weights[i]/maxW)*100));
+        var cls=dir==='in'?'in':(dir==='out'?'out':'');
+        if(i>=list.length-3) cls+=(cls?' ':'')+'hot';
+        else if(i>=list.length-8) cls+=(cls?' ':'')+'on';
+        var tip=(t.kind||'act')+(t.blockNumber!=null?' · #'+t.blockNumber:'');
+        return '<i class="'+cls+'" style="--h:'+pct+'%" title="'+esc(tip)+'"></i>';
+      }).join('');
+      if(meta) meta.textContent=list.length.toLocaleString()+' recent';
+      host.onclick=function(){ if(typeof showProfileTab==='function') showProfileTab('activity'); };
+      host.style.cursor='pointer';
+      host.title='Open Activity — journal of this address';
+    }
+    if(seedTxs){ render(seedTxs); return; }
+    if(actChartBusy) return;
+    actChartBusy=true;
+    fetch('/api/kraynet/address-txs/'+encodeURIComponent(ADDR)+'?limit=50').then(function(r){ return r.json(); }).then(function(d){
+      actChartBusy=false;
+      render(d.transactions||[]);
+    }).catch(function(){
+      actChartBusy=false;
+      host.className='actchart empty';
+      host.textContent='—';
+    });
   }
 
   function txLink(res){
@@ -1126,51 +2488,61 @@
       return;
     }
     profile=p;
+    paintCitizenFace(p);
+    paintCitizenMouth(p);
     try{ window.kraynetStudioBal=BigInt(String(p.balance==null?'0':p.balance).replace(/[^0-9]/g,'')||'0'); }catch(_){ window.kraynetStudioBal=0n; }
     if(typeof paintStudioTicket==='function') paintStudioTicket();
     $('netlab').textContent='KRAY NET · '+p.network+' · block #'+p.node.height.toLocaleString();
-    // THE EXACT figure — every unit counted, to the last ₭ (never abbreviated here;
-    // the abbreviation lives on chips, the truth lives on the balance).
+    // THE EXACT figure — ₭ is the hero of the plate (never abbreviated here).
     $('s-balance').innerHTML=Number(p.balance).toLocaleString()+' <small>₭</small>';
-    // the pure split: plain ₭ moves as money (a fungible amount); stars are written/named
-    // creations, protocol-locked — they NEVER move as money, only by Send Star.
     var relics=(p.written||[]).length;
-    $('s-breakdown').innerHTML=
-      '<b style="color:var(--ink-2)">'+Number(p.plain).toLocaleString()+'</b> ₭ plain · spendable, moves as money'
-      +' &nbsp;·&nbsp; <b style="color:var(--ink-2)">'+relics.toLocaleString()+'</b> star'+(relics===1?'':'s')
-      +' · written, move only by Send Star';
-    // ── THE TWO LIGHTS — engraved on this address's stone, both re-derived from the anchored journal ──
-    //   ✦ glow: soulbound reputation, 1 per star this address froze forever — never transfers, never bought.
-    //   Ӿ    : the transferable token born 1:1 from this address's own ₭ burns — a distinct token of sacrifice.
+    var bd=$('s-breakdown');
+    if(bd) bd.textContent=Number(p.plain).toLocaleString()+' ₭ · '+relics+' stars';
+    // ── TWO LIGHTS only on the plate — ✦ glow · Ӿ Fenyx (Nyx). Luz lives in its tab.
     var LT=p.lights||{}, glowN=Number(LT.glow||0), xN=Number(LT.x||0);
+    var glowRank=LT.glowRank!=null?Number(LT.glowRank):null;
+    var glowRankTotal=LT.glowRankTotal!=null?Number(LT.glowRankTotal):null;
     var xsN=LT.xSpendable!=null?Number(LT.xSpendable):null, lxN=LT.laneX!=null?Number(LT.laneX):null;
+    paintGlowRank(glowN, glowRank, glowRankTotal);
     var lightsEl=document.getElementById('s-lights');
     if(lightsEl){
-      lightsEl.innerHTML=
-        '<a href="/rank/glow" style="text-decoration:none;color:'+(glowN>0?'var(--gold,#e8b923)':'var(--ink-4)')+'" title="Glow — soulbound honor, 1 per star you froze forever. The rank book is /rank/glow.">✦ <b>'+glowN.toLocaleString()+'</b> glow</a>'
-        +' &nbsp;·&nbsp; <a href="/rank/nyx" style="text-decoration:none;color:'+(xN>0?'var(--ink-2)':'var(--ink-4)')+'" title="Nyx (Ӿ) — born 1:1 from burned ₭. Fenyx is the hybrid (phoenix + Nyx). The rank book is /rank/nyx.">Ӿ <b>'+xN.toLocaleString()+'</b> Nyx</a>'
-        // the WHOLE Ӿ story, in the X-red the acts wear on /chain: what moves NOW (journal book) and
-        // what breathes inside the TK-fold lane (feeless, settled by proven fold-seals)
-        +(xsN!=null&&(xsN>0||(lxN||0)>0)?' &nbsp;·&nbsp; <span style="color:'+(xsN>0?'#ff6b6b':'var(--ink-4)')+'" title="Ӿ this address can move NOW by x-send (the journal book).">Ӿ <b>'+xsN.toLocaleString()+'</b> spendable</span>':'')
-        +(lxN!=null&&lxN>0?' &nbsp;·&nbsp; <span style="color:#ff3b3b" title="Ӿ living inside the TK-fold lane — feeless transfers, settled on the journal by proven fold-seals.">Ӿ <b>'+lxN.toLocaleString()+'</b> in the lane</span>':'');
+      var glowChip='<a class="pulse-chip glow'+(glowN>0?'':' quiet')+'" href="/rank/glow" title="Glow — soulbound reputation from frozen stars">✦ <b>'+glowN.toLocaleString()+'</b> glow</a>';
+      var fenyxChip='<a class="pulse-chip fenyx'+(xN>0?'':' quiet')+'" href="/rank/nyx" title="Fenyx / Nyx (Ӿ) — born 1:1 from burned ₭">Ӿ <b>'+xN.toLocaleString()+'</b> Fenyx</a>';
+      lightsEl.innerHTML=glowChip+fenyxChip;
     }
     var laneHint=document.getElementById('x-lane-hint');
     var laneBox=document.getElementById('x-lane');
     if(laneHint) laneHint.textContent=(lxN!=null&&lxN>0)?' · '+lxN.toLocaleString()+' Ӿ in the lane':'';
     if(laneBox) laneBox.open=!!(lxN!=null&&lxN>0);
-    var luzEl=document.getElementById('s-luz');
-    if(luzEl){
-      var luzRows=p.luz||[];
-      luzEl.innerHTML=luzRows.length
-        ? luzRows.map(function(h){
-            return '<a href="/rank/luz/'+esc(h.star)+'" style="text-decoration:none;color:var(--ink-2)" title="KRC-77 Luz — holder rank of this star">✧ <b>'+Number(h.amount).toLocaleString()+'</b> on ★ '+esc(String(h.star))+'</a>';
-          }).join(' &nbsp;·&nbsp; ')
-        : '';
-    }
-    $('s-insc').textContent=p.inscriptions.total.toLocaleString();
-    $('s-bapt').textContent=p.baptisms.length.toLocaleString();
-    $('s-ranges').textContent=p.stars.total.toLocaleString();
+    paintLuzPanel(p);
+    paintActChart();
+    var si=$('s-insc'); if(si) si.textContent=p.inscriptions.total.toLocaleString();
+    var sb=$('s-bapt'); if(sb) sb.textContent=p.baptisms.length.toLocaleString();
+    var sr=$('s-ranges'); if(sr) sr.textContent=p.stars.total.toLocaleString();
     if(me===ADDR) paintStars(p.stars.free); // your own stars
+    paintStarShelf(p);
+    (function(){
+      var n=document.getElementById('tabn-stars');
+      if(n) n.textContent=String((p.written||[]).length);
+      var xn=document.getElementById('xray-net'); if(xn) xn.textContent=String(p.network||'—');
+      var xns=document.getElementById('xray-net-s'); if(xns) xns.textContent='Block #'+Number((p.node&&p.node.height)||0).toLocaleString();
+      var xnonce=document.getElementById('xray-nonce'); if(xnonce) xnonce.textContent=String(p.nonce!=null?p.nonce:'—');
+      var xs=document.getElementById('xray-stars'); if(xs) xs.textContent=String((p.stars&&p.stars.total)!=null?p.stars.total:(p.written||[]).length);
+      var xss=document.getElementById('xray-stars-s'); if(xss) xss.textContent=String((p.written||[]).length)+' written · '+String(p.inscriptions&&p.inscriptions.total||0)+' inscriptions · '+String((p.baptisms||[]).length)+' baptisms';
+      var LT=p.lights||{};
+      var gN=Number(LT.glow||0), gR=LT.glowRank!=null?Number(LT.glowRank):null, gT=LT.glowRankTotal!=null?Number(LT.glowRankTotal):null;
+      var xg=document.getElementById('xray-glow');
+      if(xg) xg.textContent=(gN>0 && gR) ? ('#'+gR) : (gN>0 ? (String(gN)+' ✦') : '—');
+      var xgs=document.getElementById('xray-glow-s');
+      if(xgs) xgs.textContent=gN>0 ? (gN.toLocaleString()+' ✦ glow'+(gT?(' · '+gT.toLocaleString()+' ranked'):'')) : 'No glow yet — freeze a star to earn ✦';
+      var xX=document.getElementById('xray-x'); if(xX) xX.textContent=Number(LT.x||0).toLocaleString();
+      var xXs=document.getElementById('xray-x-s'); if(xXs) xXs.textContent='Spendable '+Number(LT.xSpendable!=null?LT.xSpendable:0).toLocaleString()+' Ӿ';
+      var luzRows=p.luz||[];
+      var luzTot=0; try{ luzRows.forEach(function(h){ luzTot+=Number(h.amount)||0; }); }catch(_){}
+      var xl=document.getElementById('xray-luz'); if(xl) xl.textContent=luzRows.length?luzRows.length.toLocaleString():'—';
+      var xls=document.getElementById('xray-luz-s'); if(xls) xls.textContent=luzRows.length?(luzTot.toLocaleString()+' ✧ across '+luzRows.length+' book'+(luzRows.length===1?'':'s')):'No Luz yet — receive ✧ or seal KRC-77 on a star';
+      var xp=document.getElementById('xray-plain'); if(xp) xp.textContent=Number(p.plain!=null?p.plain:p.balance||0).toLocaleString()+' ₭';
+    })();
     var badges='';
     if(me===ADDR) badges+='<span class="badge you">This is you</span>';
     $('badges').innerHTML=badges;
@@ -1196,7 +2568,7 @@
         var title='star #'+Number(w.star).toLocaleString()+(w.name?' · “'+esc(w.name)+'”':'')+(w.ctype?' · '+esc(w.ctype):' · baptized');
         return (window.KRAY && KRAY.starChipButton)
           ? KRAY.starChipButton('data-relic="'+w.star+'" title="'+title+'"', w)
-          : '<button type="button" class="chip" data-relic="'+w.star+'" title="'+title+'">#'+Number(w.star).toLocaleString()+'</button>';
+          : '<button type="button" class="chip" data-relic="'+w.star+'" title="'+title+'"><span class="chip-lab">'+(window.KRAY&&KRAY.starMark?KRAY.starMark(w.star):('★ '+Number(w.star).toLocaleString()))+(w.name?'<span class="chip-name">'+esc(w.name)+'</span>':'')+'</span></button>';
       }).join('');
       rp.querySelectorAll('[data-relic]').forEach(function(b){
         b.addEventListener('click',function(){
@@ -1217,7 +2589,7 @@
           var title='freeze star #'+Number(w.star).toLocaleString()+' forever'+(w.name?' · “'+esc(w.name)+'”':'');
           return (window.KRAY && KRAY.starChipButton)
             ? KRAY.starChipButton('data-hole="'+w.star+'" title="'+title+'"', w)
-            : '<button type="button" class="chip" data-hole="'+w.star+'" title="'+title+'">#'+Number(w.star).toLocaleString()+'</button>';
+            : '<button type="button" class="chip" data-hole="'+w.star+'" title="'+title+'"><span class="chip-lab">'+(window.KRAY&&KRAY.starMark?KRAY.starMark(w.star):('★ '+Number(w.star).toLocaleString()))+(w.name?'<span class="chip-name">'+esc(w.name)+'</span>':'')+'</span></button>';
         }).join('');
         hp.querySelectorAll('[data-hole]').forEach(function(b){
           b.addEventListener('click',function(){
@@ -1350,12 +2722,15 @@
   var OPFIELDS=['send-to','send-amt','send-go','xsend-to','xsend-amt','xsend-go','lane-enter-amt','lane-enter-go','lane-to','lane-amt','lane-send-go','lane-exit-amt','lane-exit-go','relic-to','relic-go','hole-amt','hole-kray','br-rune','br-id','br-vault','br-go',
                 'rn-dep-tx','rn-dep-go','rn-add-pay','rn-paste','rn-send-go','rn-exit-l1','rn-exit-amt','rn-exit-go','rn-wd-custom','rn-wd-go',
                 'i-content','i-name','i-parent','i-oparent','i-osatpoint','i-metadata','i-metapick','i-go',
-                'ct-code','ct-go','ct-kind','ct-a','ct-b','ct-c','ct-d','ct-lock','ct-form','ct-addr','ct-rule','ct-call'];
+                'ct-code','ct-go','ct-kind','ct-a','ct-b','ct-c','ct-d','ct-lock','ct-form','ct-addr','ct-rule','ct-call',
+                'luz-to','luz-amt','luz-send-go'];
   function unlock(){
     var mine = me===ADDR;
     $('actsub').textContent = mine ? 'You hold this address — every command lives here. Journal acts cost 1 ₭ (x-send is prescribed). Lane sends are feeless until someone seals a breath.' : (me?'Connected as another address — open YOUR profile to operate.':'Connect the KrayWallet that owns this address to operate from here.');
     OPFIELDS.forEach(function(id){ var el=$(id); if(el) el.disabled=!mine; });
     if($('rn-pays')) paintRunePayRows(readProfileRunePays());
+    var ops=document.getElementById('luz-ops');
+    if(ops) ops.hidden=!mine || !(profile && profile.luz && profile.luz.length);
     // the relic-freeze button lives inside a section that stays hidden until a
     // relic is picked — unreachable by default without needing to be disabled
   }
@@ -2021,7 +3396,7 @@
   // Deposits are authorised by a Bitcoin proof, not a signature; sends and exits
   // are signed by the owner and the rune book HALTS if Σ ever breaks. Amounts are
   // parsed to base units with BigInt, so nothing rounds and nothing drifts.
-  var rnRunes=[], rnActive=null, rnBridgeId=null, rnBridgeDiv=0, rtab='deposit', rbusy=false;
+  var rnRunes=[], rnActive=null, rnBridgeId=null, rnBridgeDiv=0, rtab='send', rbusy=false;
   function runeDiv(r){ return (r && r.divisibility!=null) ? Number(r.divisibility) : 0; }
   function activeRune(){ return rnRunes.filter(function(x){return x.runeId===rnActive;})[0] || null; }
   function toBase(str, div){ // decimal display units → integer base units, exactly
@@ -2089,6 +3464,17 @@
       try{ bal0=BigInt(String(r.balance||'0')); }catch(_){}
       fillPotBoard(pers0, free0, null, d0, bal0);
     }
+    var hint=$('rn-ops-hint');
+    if(hint){
+      if(!r) hint.textContent='Pick a rune above.';
+      else {
+        var dH=runeDiv(r), potH=0n;
+        try{ potH=sendableOf(r); }catch(_){}
+        hint.innerHTML='Sending <b>'+esc(r.rune||r.runeId)+'</b>'
+          +(r.symbol?' ('+esc(r.symbol)+')':'')
+          +' · bakery <b>'+fmtBase(String(potH),dH)+'</b> · fee 1 ₭ per line';
+      }
+    }
     var lab = r ? ('<span class="rlink" data-rune="'+esc(r.runeId)+'" title="open the rune page — vault, holders, solvency">'+runeIcon(r.thumbnail, r.symbol, 18)+' <b class="gold">'+esc(r.rune||r.runeId)+'</b></span> · you hold '+fmtBase(r.balance, runeDiv(r))+(runeDiv(r)?' (up to '+runeDiv(r)+' decimals)':'')) : '— you hold no runes yet';
     var sendLab=lab;
     if(r){
@@ -2138,22 +3524,48 @@
     rnBridgeDiv = (p && p.bridge && p.bridge.etch && p.bridge.etch.divisibility!=null) ? Number(p.bridge.etch.divisibility) : 0;
     var owner=(me===ADDR);
     var holds=$('rn-holds'), ops=$('rn-ops');
+    var nBakery=0, nExits=0;
+    rnRunes.forEach(function(r){
+      try{ if(sendableOf(r)>0n) nBakery++; }catch(_){}
+      try{ if(r.locked && BigInt(String(r.locked.amount||'0'))>0n) nExits++; }catch(_){}
+    });
+    var tr=document.getElementById('tabn-runes'); if(tr) tr.textContent=String(rnRunes.length);
+    var nr=document.getElementById('rn-n-runes'); if(nr) nr.textContent=String(rnRunes.length);
+    var nb=document.getElementById('rn-n-bakery'); if(nb) nb.textContent=String(nBakery);
+    var ne=document.getElementById('rn-n-exits'); if(ne) ne.textContent=String(nExits);
     if(rnRunes.length){
       holds.hidden=false;
       $('rn-list').innerHTML = rnRunes.map(function(r){
         var d=runeDiv(r);
-        var lockTxt = r.locked ? ' · <span style="color:var(--btc)">'+fmtBase(r.locked.amount, d)+' exiting</span>' : '';
         var potN=0n, vaultN=0n;
         try{ potN=sendableOf(r); }catch(_){}
         try{ vaultN=BigInt(String(r.personal||'0')); }catch(_){}
-        var splitTxt=' · <span class="rn-chip__in">bakery '+fmtBase(String(potN),d)+'</span>'+(vaultN>0n?' · <span class="rn-chip__out">parked '+fmtBase(String(vaultN),d)+'</span>':'');
-        return '<button class="chip rn-chip" data-rune="'+esc(r.runeId)+'" title="'+esc(r.rune||r.runeId)+' · '+esc(r.runeId)+' · bakery '+fmtBase(String(potN),d)+'">'
-          +runeIcon(r.thumbnail, r.symbol, 22)
-          +'<b class="gold">'+esc(r.rune||r.runeId)+'</b>'+(r.symbol?' <span class="rn-sym">'+esc(r.symbol)+'</span>':'')
-          +' · '+fmtBase(r.balance, d)+splitTxt+lockTxt+'</button>';
+        var lock = r.locked && BigInt(String(r.locked.amount||'0'))>0n ? r.locked : null;
+        var bal=BigInt(String(r.balance||'0'));
+        var pct=0;
+        try{ if(bal>0n) pct=Number((potN * 10000n) / bal) / 100; }catch(_){}
+        var thumb=r.thumbnail
+          ? '<img src="'+esc(r.thumbnail)+'" alt="" loading="lazy" decoding="async">'
+          : '<span class="rn-glyph">'+(r.symbol?esc(r.symbol):'ᚱ')+'</span>';
+        var metaParts=['<span class="in">bakery '+fmtBase(String(potN),d)+'</span>'];
+        if(vaultN>0n) metaParts.push('<span class="out">parked '+fmtBase(String(vaultN),d)+'</span>');
+        if(lock) metaParts.push('<span class="lock">exit '+fmtBase(lock.amount,d)+'</span>');
+        return '<button type="button" class="rn-book'+(r.runeId===rnActive?' on':'')+'" data-rune="'+esc(r.runeId)+'" title="'+esc(r.rune||r.runeId)+' · '+esc(r.runeId)+'">'
+          +'<div class="rn-art">'+thumb+'</div>'
+          +'<div class="rn-body">'
+          +'<div class="rn-name">'+esc(r.rune||r.runeId)+'</div>'
+          +'<div class="rn-amt">'+fmtBase(r.balance,d)+(r.symbol?'<small>'+esc(r.symbol)+'</small>':'')+'</div>'
+          +'<div class="rn-meta">'+metaParts.join(' · ')+'</div>'
+          +'<div class="luz-share" aria-hidden="true"><i style="width:'+Math.max(2,Math.min(100,pct||(potN>0n?8:2))).toFixed(1)+'%"></i></div>'
+          +'</div></button>';
       }).join('');
       document.querySelectorAll('#rn-list [data-rune]').forEach(function(b){
-        b.addEventListener('click',function(){ if(me!==ADDR) return; rnActive=b.getAttribute('data-rune'); paintActive(); });
+        b.addEventListener('click',function(){
+          rnActive=b.getAttribute('data-rune');
+          paintActive();
+          // picking a card opens Send — same as Luz: holdings → send is the first action
+          if(typeof showRnTab==='function') showRnTab('send');
+        });
       });
     } else { holds.hidden=true; $('rn-list').innerHTML=''; }
     // a friendly empty state instead of a bare form — shown to the owner when they hold nothing yet
@@ -2207,15 +3619,24 @@
     var b=$('rn-vault-addr'); var t=b.textContent; b.textContent=rnPot.pot+'  ✓ copied';
     setTimeout(function(){ b.textContent=t; },1200);
   });
-  // the three pedals switch like the studio's, scoped so they never cross wires
+  // the pedals switch like the studio's, scoped so they never cross wires
+  // Send is the default action (Luz language); Bitcoin doors stay one tap away.
+  function showRnTab(id){
+    rtab=id||'send';
+    document.querySelectorAll('#rn-ops .itabs .topbtn').forEach(function(c){
+      c.classList.toggle('on', c.getAttribute('data-rtab')===rtab);
+    });
+    document.querySelectorAll('#rn-ops [data-rpane]').forEach(function(pn){
+      pn.hidden = pn.getAttribute('data-rpane')!==rtab;
+    });
+  }
   document.querySelectorAll('#rn-ops .itabs .topbtn').forEach(function(ch){
     ch.addEventListener('click',function(){
       if(ch.hidden) return;
-      document.querySelectorAll('#rn-ops .itabs .topbtn').forEach(function(c){c.classList.remove('on');});
-      ch.classList.add('on'); rtab=ch.getAttribute('data-rtab');
-      document.querySelectorAll('#rn-ops [data-rpane]').forEach(function(pn){ pn.hidden = pn.getAttribute('data-rpane')!==rtab; });
+      showRnTab(ch.getAttribute('data-rtab'));
     });
   });
+  showRnTab('send');
   async function runePrepareSign(action, fields){
     var pr=await fetch('/api/kraynet/prepare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(Object.assign({action:action,from:me},fields))});
     var prep=await pr.json(); if(!pr.ok||prep.error) throw new Error(prep.error||'refused');

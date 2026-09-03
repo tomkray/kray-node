@@ -458,6 +458,37 @@ export function eternizeMessage(network: string, from: string, star: bigint, l1I
   return `kraynet.eternize.v1|net=${network}|from=${from}|star=${star}|l1=${l1InscriptionId}|nonce=${nonce}`
 }
 
+/** Citizen face — bind one OWNED star as this address's profile face (avatar + name mouth).
+ *  Ownership is re-proven in the reducer on every apply; losing the star clears the face. */
+export function setFaceMessage(network: string, from: string, star: bigint, nonce: number): string {
+  return `kraynet.set-face.v1|net=${network}|from=${from}|star=${star}|nonce=${nonce}`
+}
+
+/** CITIZEN MOUTH — bio + site URL + banner (owned image star) + banner click URL.
+ *  Feeless like quantum-commit: signature + nonce only; no ₭. Fields must not contain `|` or newlines
+ *  so the domain-separated message stays unambiguous. Empty strings clear. */
+export const PROFILE_DESC_MAX_BYTES = 400
+export const PROFILE_URL_MAX_BYTES = 512
+export function assertProfileText(s: string, maxBytes: number, label: string): void {
+  if (typeof s !== 'string') throw new Error(`set-profile: ${label} must be a string`)
+  if (Buffer.byteLength(s, 'utf8') > maxBytes) throw new Error(`set-profile: ${label} is ${Buffer.byteLength(s, 'utf8')} bytes — cap is ${maxBytes}`)
+  if (/[|\r\n]/.test(s)) throw new Error(`set-profile: ${label} must not contain | or newlines`)
+}
+export function assertHttpsOrEmpty(u: string, label: string): void {
+  assertProfileText(u, PROFILE_URL_MAX_BYTES, label)
+  if (u === '') return
+  let parsed: URL
+  try { parsed = new URL(u) } catch { throw new Error(`set-profile: ${label} is not a valid URL`) }
+  if (parsed.protocol !== 'https:') throw new Error(`set-profile: ${label} must be https`)
+}
+export function setProfileMessage(
+  network: string, from: string,
+  description: string, url: string, bannerStar: string, bannerUrl: string,
+  nonce: number,
+): string {
+  return `kray-core.set-profile.v1|net=${network}|from=${from}|desc=${description}|url=${url}|bannerStar=${bannerStar}|bannerUrl=${bannerUrl}|nonce=${nonce}`
+}
+
 /** Canonical RUNE-SEND message — an L2 rune transfer, signed by its holder. */
 export function runeSendMessage(network: string, from: string, to: string, runeId: string, amount: bigint, nonce: number): string {
   return `kray-core.rune-send.v1|net=${network}|from=${from}|to=${to}|rune=${runeId}|amount=${amount}|nonce=${nonce}`

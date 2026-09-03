@@ -67,7 +67,7 @@ export function donationProofMinConf(net: string): number {
 // 'donate'/'anchor' are the proof-of-donation mint events (KRAYNET): a donation of
 // proven sats mints ₭ against the anchoring pot's deficit; an anchor spends pot sats
 // to fund a Bitcoin anchor. Every kind the reducer handles lives in this union.
-export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'eternize' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy' | 'star-offer' | 'star-offer-cancel' | 'star-offer-accept' | 'cut-send'
+export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'eternize' | 'set-face' | 'set-profile' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy' | 'star-offer' | 'star-offer-cancel' | 'star-offer-accept' | 'cut-send'
 
 /** A star's user-given name: 1..64 bytes UTF-8, byte-exact unique, forever. */
 export const NAME_MAX_BYTES = 64
@@ -214,6 +214,12 @@ export interface KrayEvent {
   // after a quantum computer breaks the account's ECC key, because it relies on the Lamport key alone.
   lamportPublicKey?: string // 32768-hex (256×2×32 bytes)
   lamportSignature?: string // 16384-hex (256×32 bytes)
+  /** CITIZEN MOUTH (set-profile) — feeless like quantum-commit. Bio + site URL + banner star + banner click. */
+  description?: string
+  url?: string
+  bannerStar?: string
+  bannerUrl?: string
+
   proofHash?: string // sha256 of the proof bundle, so an auditor can demand the bytes
   // origin: bind a Bitcoin L1 Ordinals inscription to a star
   l1InscriptionId?: string // origin: the L1 PARENT ordinal id <reveal_txid>i<index> · eternize: the carving that holds the star's exact bytes
@@ -326,16 +332,20 @@ export const SIZE_PROPORTION_ACTIVATION_SEQ: Record<string, number> = {
 /** THE SPACE TRINITY (2026-08-13, the Creator's word — "abracadabra") — three laws that keep
  *  the network's internet inside the world's disks FOREVER, each a Bitcoin homage that works:
  *
- *  1 · THE STAR CEILING — 21 MB per star (the 21 million coins): the largest single work.
- *  2 · THE SEAL BUDGET — the HARD consensus bound is 21 MB of NEW content per seal (SEAL_CONTENT_BUDGET,
- *      == the star ceiling, because a block must fit its largest transaction — Bitcoin's own rule). The
- *      1 MB figure is NOT this bound; it is the retarget's economic TARGET (law 3 below), the average the
- *      price steers toward. Honest ceiling arithmetic: one seal ≤ 21 MB; a seal fires per CONFIRMED
+ *  LIVE (signet + main, born at seq 0): 10 MB per star and per seal (`MAX_INSCRIPTION_PROPORTION`).
+ *  `MAX_INSCRIPTION_BYTES` / `SEAL_CONTENT_BUDGET` (21 MB) stay frozen only so a pre-proportion
+ *  journal (regtest goldens) replays byte-identically (A3). They are not the live ceiling.
+ *
+ *  1 · THE STAR CEILING — 10 MB per star (`MAX_INSCRIPTION_PROPORTION`): the largest single work.
+ *  2 · THE SEAL BUDGET — the HARD consensus bound is 10 MB of NEW content per seal (same number,
+ *      because a block must fit its largest transaction — Bitcoin's own rule). The 1 MB figure is
+ *      NOT this bound; it is the retarget's economic TARGET (law 3 below), the average the price
+ *      steers toward. Honest ceiling arithmetic: one seal ≤ 10 MB; a seal fires per CONFIRMED
  *      Bitcoin anchor txid, and several distinct anchors can confirm in one Bitcoin block, so per-block
  *      content is bounded ECONOMICALLY (a real anchor fee per seal) — not by physics — and the retarget
  *      prices sustained demand up ×2/window. The average habit rests near 1 MB/seal (~52.5 GB/year), an
  *      economic bound that falls against the world's disks every year. An act that would overflow the
- *      open seal's 21 MB budget is refused whole (retry after the next seal), like a full mempool.
+ *      open seal's 10 MB budget is refused whole (retry after the next seal), like a full mempool.
  *  3 · THE SPACE RETARGET — every 1008 seals (2016/2: half a Bitcoin difficulty epoch, one week), the price of a byte
  *      re-derives from measured demand, exactly like Bitcoin's difficulty:
  *        bytesPerKray' = clamp(bytesPerKray × target/actual, ÷2 … ×2, band)
