@@ -29,6 +29,7 @@ const SKIP_PREFIX = [
   'apps/kray-api/', 'apps/kray-net/data', 'apps/kray-net/regtest-harness/',
   'apps/kray-net/signet-harness/', 'apps/kray-net/archive/', 'gauntlet-',
   'data-archive-', 'data-signet-local/', 'data-backup-',
+  'apps/kray-net/later/', 'apps/kray-net/works/', 'apps/kray-net/library/',
 ]
 const SKIP_FILE = new Set([
   '.ds_store', 'vault-keys.env', 'owner.box', 'node-hot.env', '.kray-sync-rev',
@@ -46,6 +47,7 @@ const SKIP_FILE = new Set([
   'operator-ship.md', 'krayos-mind.md', 'origin-local.env.example',
   'pot-signer.mjs', 'pot-custody-ops.md',
   'defi.html', 'market.html', 'markets.html', 'pool.html',
+  'parents.md',
   // writer-disk gateway key (RPC + ord) — lives beside server.mjs on a writer; never in the zip
   '.kray-api.json',
 ])

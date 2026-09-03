@@ -103,5 +103,10 @@ apps/kray-api/
 bin/
 .oss-guard-local
 
-# The Creator's desk — scratch drop kit, never shipped, never committed
-apps/kray-net/later/desk/
+# The Creator's desk — living chronology, inscription workbook, artist roster.
+# Follow never needs these. They stay on this disk. Never the public door.
+apps/kray-net/later/
+apps/kray-net/works/
+apps/kray-net/PARENTS.md
+apps/kray-net/library/MANIFEST.md
+**/.vscode/

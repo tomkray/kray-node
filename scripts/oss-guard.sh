@@ -69,7 +69,9 @@ done
 
 # House folders a stranger clone must never carry
 HOUSE="$(git ls-files 'scripts/exam/' 'scripts/lab/' 'scripts/operator/' 'ops/' \
-  'apps/kray-net/later/desk/' 'docs/OPERATOR-SHIP.md' 'docs/KRAYOS-MIND.md' \
+  'apps/kray-net/later/' 'apps/kray-net/works/' 'apps/kray-net/PARENTS.md' \
+  'apps/kray-net/library/MANIFEST.md' \
+  'docs/OPERATOR-SHIP.md' 'docs/KRAYOS-MIND.md' \
   'docs/HANDOFF-*.md' 'docs/POT-CUSTODY-OPS.md' 'scripts/pot-signer.mjs' \
   'networks/mainnet/origin-vitrine/' 'networks/mainnet/origin-local.env.example' \
   || true)"

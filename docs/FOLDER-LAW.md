@@ -71,6 +71,7 @@ disk. They are not workshop tools.
 | Mainnet follow | `follower-main/` `:4481` | `follower` |
 | Docs | `docs/*.md` at this root | `docs/law/` as a second tree |
 | Public scripts | `scripts/follow/` · `scripts/guardian/` · `scripts/folder/` | `exam/` · `lab/` · `operator/` · pot-signer on the official clone |
+| Creator desk | `later/` · `works/` · `PARENTS.md` (this disk) | the public clone or the `/validate` zip |
 | Public remote | [`github.com/tomkray/kray-node`](https://github.com/tomkray/kray-node) · `main` | any other remote as a user door |
 
 Docs shelf grouping (Law / Run / Design / History) lives in

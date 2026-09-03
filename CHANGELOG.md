@@ -19,6 +19,8 @@ consensus flags and activation sequences — a tag never replaces a proof):
   installs a pot-signer. Creator DeFi / market mouths are not this door.
   `apps/kray-core` is untouched — every journaled AMM / vault event still
   replays. `POT-CUSTODY.md` is the math law, not a ceremony.
+- **DESK:** `later/`, `works/`, and `PARENTS.md` stay off this clone. The
+  twelve (`canon/`) still ship. Draco/Basis stay: they decode 3D stars.
 
 ## [Unreleased] — 2026-08-28 · THE TWIN REBIRTH — born strict (MAJOR: new genesis on signet + main)
 
