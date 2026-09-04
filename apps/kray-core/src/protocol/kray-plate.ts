@@ -10,13 +10,16 @@
  *   desc=<…>\n
  *   url=<…>\n
  *   bannerUrl=<…>\n
+ *   [optional] bannerStar=<decimal>\n   — omit entirely when empty (A3: tips without it stay byte-identical)
  *   [optional action block — omitted entirely when actTo is empty (A3: old tips byte-identical)]
  *   actTo=<bech32 address>\n
  *   actHint=<≤32 B label>\n
  *   actAmount=<decimal ₭ suggestion or empty>\n
  *
- * Action block is an invitation only: chrome may prepare a `transfer` to actTo.
- * It is NOT a paper/contract (laws hang on stars). No new journal kind.
+ * Banner visual (product): https media URL (YouTube / video / image) via bannerUrl.
+ * Optional bannerStar remains in the byte grammar (A3) so any tip sealed with it still
+ * replays byte-identically; the living mouth uses bannerUrl. Action block is an invitation
+ * only: chrome may prepare a `transfer` to actTo. It is NOT a paper/contract.
  */
 import { createHash } from 'node:crypto'
 import { assertHttpsOrEmpty, assertProfileText, PROFILE_DESC_MAX_BYTES, PROFILE_URL_MAX_BYTES } from './scheme.ts'
@@ -35,6 +38,8 @@ export type KrayPlateFields = {
   description: string
   url: string
   bannerUrl: string
+  /** Optional owned image star as the plate cinema (promo / market). Empty ⇒ omitted from bytes. */
+  bannerStar?: string
   /** Optional pay invitation destination. Empty ⇒ no action block in bytes. */
   actTo?: string
   /** Short UI label (like | gift | tip | support | …). */
@@ -62,6 +67,14 @@ function assertActAmountOrEmpty(a: string): void {
   }
 }
 
+function assertBannerStarOrEmpty(s: string): void {
+  assertProfileText(s, 24, 'bannerStar')
+  if (s === '') return
+  if (!/^(0|[1-9]\d*)$/.test(s)) {
+    throw new Error('kray-plate: bannerStar must be a star number or empty')
+  }
+}
+
 function normalizeAct(fields: KrayPlateFields): { actTo: string; actHint: string; actAmount: string } {
   const actTo = fields.actTo ?? ''
   const actHint = fields.actHint ?? ''
@@ -83,15 +96,18 @@ export function encodeKrayPlate(fields: KrayPlateFields): Buffer {
   const description = fields.description ?? ''
   const url = fields.url ?? ''
   const bannerUrl = fields.bannerUrl ?? ''
+  const bannerStar = fields.bannerStar ?? ''
   assertProfileText(description, PROFILE_DESC_MAX_BYTES, 'description')
   assertHttpsOrEmpty(url, 'url')
   assertHttpsOrEmpty(bannerUrl, 'bannerUrl')
+  assertBannerStarOrEmpty(bannerStar)
   const { actTo, actHint, actAmount } = normalizeAct(fields)
   let body =
     'kray-plate.v1\n' +
     `desc=${description}\n` +
     `url=${url}\n` +
     `bannerUrl=${bannerUrl}\n`
+  if (bannerStar !== '') body += `bannerStar=${bannerStar}\n`
   if (actTo !== '') {
     body +=
       `actTo=${actTo}\n` +
@@ -130,10 +146,16 @@ export function decodeKrayPlate(buf: Uint8Array | Buffer): KrayPlateFields {
   const description = grab('desc=', lines[1]!)
   const url = grab('url=', lines[2]!)
   const bannerUrl = grab('bannerUrl=', lines[3]!)
+  let bannerStar = ''
   let actTo = ''
   let actHint = ''
   let actAmount = ''
   let i = 4
+  // Optional bannerStar (A3 — absent on tips sealed before this field).
+  if (i < lines.length && lines[i]!.startsWith('bannerStar=')) {
+    bannerStar = grab('bannerStar=', lines[i]!)
+    i++
+  }
   // Allow a single trailing empty from the final LF; refuse mid-packet blanks / junk.
   if (i < lines.length && lines[i]!.startsWith('actTo=')) {
     actTo = grab('actTo=', lines[i]!)
@@ -152,8 +174,10 @@ export function decodeKrayPlate(buf: Uint8Array | Buffer): KrayPlateFields {
   assertProfileText(description, PROFILE_DESC_MAX_BYTES, 'description')
   assertHttpsOrEmpty(url, 'url')
   assertHttpsOrEmpty(bannerUrl, 'bannerUrl')
-  normalizeAct({ description, url, bannerUrl, actTo, actHint, actAmount })
+  assertBannerStarOrEmpty(bannerStar)
+  normalizeAct({ description, url, bannerUrl, bannerStar, actTo, actHint, actAmount })
   const out: KrayPlateFields = { description, url, bannerUrl }
+  if (bannerStar !== '') out.bannerStar = bannerStar
   if (actTo !== '') {
     out.actTo = actTo
     out.actHint = actHint

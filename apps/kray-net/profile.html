@@ -175,9 +175,28 @@
   margin:0;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--ink-4);
 }
 .mouth-banner-hint b{color:var(--ink-2);font-weight:600}
-.mouth-banner-grid.fp-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
-.mouth-banner-grid .fp-cell .art{
-  aspect-ratio:1500 / 500; /* same frame as the live banner — preview what you seal */
+.mouth-banner-preview{
+  margin:4px 0 0;border:1px solid var(--line);border-radius:12px;overflow:hidden;
+  background:color-mix(in srgb,var(--bg-2, #0c1018) 80%,transparent)
+}
+.mouth-banner-preview-lab{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:8px 12px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-4);border-bottom:1px solid var(--line)
+}
+.mouth-banner-preview-lab b{color:var(--ink-2);font-weight:600;letter-spacing:.04em;text-transform:none}
+.mouth-banner-preview-stage{aspect-ratio:16/9;background:#0a0c12}
+.mouth-banner-preview-stage .plate-banner-stage{width:100%;height:100%}
+.mouth-banner-preview-stage img,
+.mouth-banner-preview-stage video,
+.mouth-banner-preview-stage iframe{width:100%;height:100%;object-fit:cover;display:block;border:0}
+.mouth-banner-preview-stage .preview-empty{
+  height:100%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;color:var(--ink-4);padding:12px;text-align:center
+}
+.mouth-banner-preview-stage .preview-err{
+  height:100%;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;color:var(--crit, #f66);padding:12px;text-align:center
 }
 
 /* Global glow rank — beside the name / star (celestial ladder mark) */
@@ -1008,11 +1027,12 @@
         <label class="flab" for="mouth-url">Official site</label>
         <input class="input" id="mouth-url" type="url" placeholder="https://yoursite.example — not the banner" autocomplete="off">
         <label class="flab" for="mouth-banner-url">Banner media URL</label>
-        <input class="input" id="mouth-banner-url" type="url" placeholder="https://… YouTube / .mp4 / .gif / image (different from site)" autocomplete="off">
-        <div class="flab">Banner image</div>
-        <div class="fp-grid mouth-banner-grid" id="mouth-banner-grid"><span class="eyebrow">media banner comes later</span></div>
-        <input type="hidden" id="mouth-banner-star" value="">
-        <p class="mouth-banner-hint">Official site = your page. Banner = different media (YouTube / video / gif). Same URL looks identical — don't.</p>
+        <input class="input" id="mouth-banner-url" type="url" placeholder="https://… YouTube / .mp4 / .gif / image" autocomplete="off">
+        <div class="mouth-banner-preview" id="mouth-banner-preview" hidden>
+          <div class="mouth-banner-preview-lab"><span>Live preview</span><b>before you pay 1 ₭</b></div>
+          <div class="mouth-banner-preview-stage" id="mouth-banner-preview-stage"></div>
+        </div>
+        <p class="mouth-banner-hint">Official site = your page. Banner = different media (YouTube / video / gif / image). Preview renders before you seal.</p>
         <p class="mouth-banner-hint" style="margin-top:var(--s4)">Optional action · invite a transfer (not a star contract)</p>
         <label class="flab" for="mouth-act-to">Action pay to</label>
         <input class="input" id="mouth-act-to" type="text" placeholder="bcrt1… / tb1… / bc1… (empty = off)" autocomplete="off" spellcheck="false">
@@ -2023,6 +2043,34 @@
     var m=$('mouth-pick'); if(m) m.hidden=true;
     var o=$('mouth-out'); if(o){ o.className='out'; o.textContent=''; }
   }
+  function paintMouthBannerPreview(){
+    var wrap=$('mouth-banner-preview'), stage=$('mouth-banner-preview-stage');
+    if(!wrap || !stage) return;
+    var urlEl=$('mouth-banner-url');
+    var url=(urlEl && urlEl.value.trim()) || '';
+    if(!url){
+      wrap.hidden=true;
+      stage.innerHTML='';
+      return;
+    }
+    wrap.hidden=false;
+    if(window.KRAY && typeof KRAY.plateBannerHtml==='function'){
+      var html=KRAY.plateBannerHtml(url);
+      if(!html){
+        stage.innerHTML='<div class="preview-err">URL not accepted as banner media</div>';
+        return;
+      }
+      stage.innerHTML=html;
+      if(typeof KRAY.mountPlateBanners==='function') KRAY.mountPlateBanners(stage);
+      var kind=(typeof KRAY.plateBannerKind==='function') ? KRAY.plateBannerKind(url) : '';
+      if(kind==='link'){
+        stage.insertAdjacentHTML('beforeend',
+          '<div class="preview-err" style="height:auto;padding:8px;background:rgba(0,0,0,.72)">link fallback — use a direct image / video / YouTube URL for cinema</div>');
+      }
+    } else {
+      stage.innerHTML='<div class="preview-empty">'+esc(url)+'</div>';
+    }
+  }
   function openMouthPick(){
     if(me!==ADDR) return;
     if(!present()){ window.open('https://kray.network','_blank','noopener'); return; }
@@ -2040,8 +2088,7 @@
     if(aa) aa.value=mouth.actAmount || '';
     paintMouthDescCount();
     paintMouthCooldownHint();
-    var g=$('mouth-banner-grid');
-    if(g) g.innerHTML='<span class="eyebrow">banner image media is later — optional click URL above</span>';
+    paintMouthBannerPreview();
   }
   async function saveMouth(clearAll){
     if(me!==ADDR || busy) return;
@@ -2087,6 +2134,11 @@
   on('mouth-clear','click', function(){ saveMouth(true); });
   var mouthDescEl=$('mouth-desc');
   if(mouthDescEl) mouthDescEl.addEventListener('input', paintMouthDescCount);
+  var mouthUrlBanner=$('mouth-banner-url');
+  if(mouthUrlBanner){
+    mouthUrlBanner.addEventListener('input', paintMouthBannerPreview);
+    mouthUrlBanner.addEventListener('change', paintMouthBannerPreview);
+  }
   var mp=$('mouth-pick');
   if(mp) mp.addEventListener('click', function(ev){ if(ev.target===mp) closeMouthPick(); });
   /* Plate action — sealed actTo invitation → existing transfer (confirm in wallet). Not a contract. */

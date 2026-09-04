@@ -66,6 +66,14 @@ function main() {
   ok(assertKrayPlateBytes(actH, actBuf).actTo === B.addr, 'act block round-trips')
   ok(actBuf.includes(Buffer.from('actTo=' + B.addr)), 'actTo present in bytes when set')
   ok(!encodeKrayPlate(fields).includes(Buffer.from('actTo=')), 'actTo omitted when empty')
+  ok(!encodeKrayPlate(fields).includes(Buffer.from('bannerStar=')), 'bannerStar omitted when empty (A3)')
+  const withStar = { description: 'Promo', url: '', bannerUrl: '', bannerStar: '12' }
+  const starBuf = encodeKrayPlate(withStar)
+  ok(assertKrayPlateBytes(hashKrayPlate(withStar), starBuf).bannerStar === '12', 'bannerStar round-trips')
+  ok(starBuf.includes(Buffer.from('bannerStar=12\n')), 'bannerStar present when set')
+  rejects(() => encodeKrayPlate({
+    description: 'x', url: '', bannerUrl: '', bannerStar: '01',
+  }), /star number/i, 'leading-zero bannerStar refused')
   let seq = 0
   const journal: KrayEvent[] = []
   const L = new KrayLedger(undefined, NET, undefined, false, (hash) => atlas.get(hash) ?? null)
