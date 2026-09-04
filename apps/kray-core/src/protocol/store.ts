@@ -143,6 +143,10 @@ export class LedgerStore {
   /** Rebuild the reducer from the journal on disk, re-verifying the whole chain or HALT. */
   private replay(): void {
     if (!existsSync(this.journalPath)) return
+    // Cold replay may lack non-tip plate atlas blobs (older GC). Tip pointers still rebuild from the journal.
+    // Live append restores strict atlas checks immediately after.
+    this.ledger.plateAtlasStrict = false
+    try {
     let raw = readFileSync(this.journalPath, 'utf8')
     // DURABILITY INVARIANT: a committed event's line is NEWLINE-TERMINATED. A tail without a trailing
     // newline is a torn/unacknowledged write (the fsync never completed to the last byte) — even when it
@@ -185,6 +189,9 @@ export class LedgerStore {
       this.ledger.applyLive(e)
       this.seqNo = e.seq
       this.lastHash = e.hash
+    }
+    } finally {
+      this.ledger.plateAtlasStrict = true
     }
   }
 }

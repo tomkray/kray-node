@@ -196,6 +196,12 @@ section{padding:var(--s6) 0;border-top:1px solid var(--line)}
 .chip .sface{width:32px;height:32px;border-radius:50%;object-fit:cover;flex:0 0 auto;
   background:var(--surface);border:1px solid var(--line)}
 .chip.has-face{padding:var(--s1) var(--s3) var(--s1) var(--s1)}
+.chip .chip-lab{display:inline-flex;align-items:center;gap:0;min-width:0;flex-wrap:nowrap}
+.chip .chip-name{
+  margin-left:8px;color:var(--ink);font-weight:560;letter-spacing:0;
+  text-transform:none;max-width:16ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.chip.on .chip-name{color:var(--signal-ink)}
 .chip.btc{color:var(--btc);border-color:var(--btc-line);background:var(--btc-soft)}
 .chip.on{color:var(--signal-ink);background:var(--signal);border-color:var(--signal)}
 /* everything INSIDE a selected chip must flip to the signal ink too — a gold rune name on the light
@@ -665,3 +671,26 @@ details.brlink>summary:hover{color:var(--btc)}
   .cta.row .btn{flex:1 1 auto;justify-content:center}
   .wallet-menu{right:0;left:auto;max-width:calc(100vw - 2 * var(--page-gutter))}
 }
+
+/* ── KRAY PLATE banner stage — sealed bannerUrl rendered 16:9 (YouTube / video / image·gif) ── */
+.plate-banner-stage{
+  position:relative;width:100%;max-width:42rem;
+  aspect-ratio:16 / 9;
+  border-radius:12px;overflow:hidden;
+  border:1px solid var(--line, var(--line-2));
+  background:var(--void, #0a0a0a);
+  margin:4px 0 2px;
+  box-shadow:0 8px 28px -18px rgba(0,0,0,.55);
+}
+.plate-banner-stage .plate-banner-frame,
+.plate-banner-stage .plate-banner-video,
+.plate-banner-stage .plate-banner-img{
+  position:absolute;inset:0;width:100%;height:100%;
+  border:0;display:block;
+  object-fit:cover;object-position:center;
+  background:#000;
+}
+.plate-banner-stage .plate-banner-video{object-fit:contain}
+.plate-banner-stage .plate-banner-hit{position:absolute;inset:0;display:block}
+.plate-banner-fallback{display:inline-flex;margin-top:4px}
+.star-plate .plate-banner-stage{max-width:100%;margin:var(--s3) 0}

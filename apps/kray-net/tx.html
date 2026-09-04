@@ -168,6 +168,14 @@
   }
   function addr(a, who, t){
     if(!a) return '—';
+    if(a==='KRAY_TREASURY'){
+      var treLab=(who && who.label) ? who.label : 'Treasury · fee pool → validators';
+      return '<a href="/address/'+esc(a)+'" title="'+esc(a)+' — ₭ fees wait here until settlement pays validators by proven work">'+esc(a)+'</a>'
+        +' <span class="who-tag">'+esc(treLab)+'</span>';
+    }
+    if(a==='KRAY_BLACK_HOLE'){
+      return '<a href="/blackhole" title="'+esc(a)+'">'+esc(a)+'</a> <span class="who-tag">'+(who&&who.label?esc(who.label):'Black hole')+'</span>';
+    }
     if(String(a).indexOf('KRAY_AMM_')===0){
       var href=(t&&t.otherRuneId)
         ? '/pool/'+encodeURIComponent(pairCall(t.runeName||t.runeId))+'/'+encodeURIComponent(pairCall(t.otherName||t.otherRuneId))
@@ -204,7 +212,19 @@
       return addr(dest, t.toWho, t)+' <span class="who-tag">signed Bitcoin destination · the payout pays here</span>';
     }
     if((t.kind==='rune-settle'||t.kind==='rune-rehome') && t.l1Txid) return btcOrigin(t.l1Txid, t.l1Explorer);
+    // Fee-only act: book credited TREASURY — never paint a blank "to" over a known sink.
+    if((!t.to || t.to==='KRAY_TREASURY') && t.feeTo==='KRAY_TREASURY' && (!t.amount || String(t.amount)==='0')){
+      return addr(t.feeTo || t.to || 'KRAY_TREASURY', t.feeToWho || t.toWho || {label:'Treasury · fee pool → validators'}, t);
+    }
     return addr(t.to, t.toWho, t);
+  }
+  function feeCell(t){
+    var feeAmt = t.treasuryCredit || t.fee;
+    if(feeAmt==null || String(feeAmt)==='' || String(feeAmt)==='0') return '';
+    var dest = t.feeTo || 'KRAY_TREASURY';
+    return '<span class="who"><b>fee → pool</b>'+kray(feeAmt)
+      +' → '+addr(dest, t.feeToWho || {label:'Treasury · fee pool → validators'}, t)
+      +'</span>';
   }
   function potCoinLink(t){
     var id = t.potTxid || (t.outpoint ? String(t.outpoint).split(':')[0] : '');
@@ -274,7 +294,9 @@
       case 'inscribe':      return 'Content chiselled into star '+n+(t.starName?' “'+esc(t.starName)+'”':'')+' — forever'+(Number(t.size)>0?' · '+esc(prettySize(t.size)):'')+(burnOf(t)?' · burned '+kray(burnOf(t))+xB:'');
       case 'name':          return 'Star '+n+' baptised “'+esc(t.name||t.starName||'')+'” — unique in the universe'+(burnOf(t)?' · burned '+kray(burnOf(t))+xB:'');
       case 'origin':        return 'Star '+n+' born from a Bitcoin L1 ordinal'+(burnOf(t)?' · burned '+kray(burnOf(t))+xB:'');
-      case 'settlement':    return 'Interval '+t.interval+' settled';
+      case 'settlement':    return t.payouts && t.payouts.length
+        ? ('Fee pool settled — <span class="amt">'+kray(t.feesPaid||0)+'</span> to '+t.payouts.length+' validator'+(t.payouts.length===1?'':'s'))
+        : 'Fee pool settled';
       case 'settle':        return 'Interval '+t.interval+' closed';
       case 'genesis':       return 'GENESIS — the network opened. No premine, no founder coinbase';
       case 'emit':          return '<span class="amt">'+kray(t.amount)+'</span> minted by proof-of-donation';
@@ -439,6 +461,35 @@
   // (fillStar retired: /api/kraynet/tx now delivers the star's full shape itself —
   //  SHAPE PARITY enforced at the endpoint, the one honest layer for it.)
   fetch('/api/kraynet/tx/'+HASH).then(function(r){return r.json();}).then(function(t){
+    if(t.error){ return t; }
+    // THE VITRINE MIRRORS THE BOOK. Paid ₭ is SettlementRow[2] on the sealed event
+    // (GET /receipt/<seq> — the same bytes the cascade hashed). This page never
+    // invents a fee, never splits a pool, never "corrects" the node. If /tx and
+    // the receipt disagree, the receipt is the journal; the fold is not the book.
+    if(t.kind!=='settlement' || t.seq==null) return t;
+    return fetch('/api/kraynet/receipt/'+encodeURIComponent(String(t.seq))).then(function(r){return r.json();}).then(function(rec){
+      var rows=rec&&rec.event&&rec.event.payouts;
+      if(!Array.isArray(rows)||!rows.length) return t;
+      var by={}; var sum=0n;
+      rows.forEach(function(row){
+        if(!row||row[0]==null) return;
+        var paid=String(row[2]==null?'0':row[2]);
+        by[String(row[0])]=paid;
+        try{ sum+=BigInt(paid.replace(/[^0-9]/g,'')||'0'); }catch(_){}
+      });
+      if(t.payouts&&t.payouts.length){
+        t.payouts=t.payouts.map(function(p){
+          if(p&&p.address!=null&&by[p.address]!=null) p.paid=by[p.address];
+          return p;
+        });
+      } else {
+        t.payouts=rows.map(function(row){ return { address:row[0], paid:String(row[2]||'0'), work:'0', hits:0, blocks:0 }; });
+      }
+      t.feesPaid=sum.toString();
+      return t;
+    }).catch(function(){ return t; });
+  }).then(function(t){
+    if(!t) return;
     if(t.error){
       var gone=/no transaction|not found|no such/i.test(String(t.error||''));
       document.getElementById('body').innerHTML='<div class="txhead"><div class="label">'+(gone?'not found':'the node refused')+'</div><div class="headline">'+esc(t.error)+'</div>'
@@ -520,10 +571,14 @@
         +(t.kind==='x-send'
           ? (String(t.fee||'0')==='0'
             ? '<span class="who"><b>fee</b>feeless · tank</span>'
-            : '<span class="who"><b>fee</b>'+kray(t.fee||'1')+'</span>')
-          : (t.fee?'<span class="who"><b>fee</b>'+kray(t.fee)+'</span>':''))
+            : feeCell(t))
+          : (t.fee || t.treasuryCredit ? feeCell(t) : ''))
         +(t.burn||burnOf(t)?'<span class="who"><b>burned</b>'+kray(burnOf(t))+'</span>':'')
-        +'</div></div>';
+        +'</div>'
+        +(t.feeTo==='KRAY_TREASURY' || t.to==='KRAY_TREASURY'
+          ? '<p class="note">The eternal act fee credits <b>KRAY_TREASURY</b> (the fee pool). Every node that resyncs the journal recomputes the same credit. Later settlement pays validators linear in proven work — the book never invents a second destination.</p>'
+          : '')
+        +'</div>';
     }
 
     // WHICH LUZ moved — the star's face, the sealed supply, the units that travelled. Not a rune.

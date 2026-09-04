@@ -127,10 +127,15 @@ async function main() {
     ok(!!httpTry.error, 'http (non-https) site URL refused at the door')
 
     const set = await act(A, mouth)
-    ok(set.ok === true, 'Alice set-profile succeeds (feeless)')
+    ok(set.ok === true, 'Alice set-profile succeeds (1 ₭ identity seal)')
 
     const balBefore = await jget('/api/kraynet/profile/' + encodeURIComponent(A.addr))
     const bal1 = BigInt(String(balBefore.balance || '0'))
+    ok(balBefore.mouthPaid === true && balBefore.mouthFee === '1', 'profile.mouthPaid / mouthFee = paid law')
+    ok(typeof balBefore.mouthNextAt === 'number' && balBefore.mouthNextAt > Date.now(),
+      'profile.mouthNextAt is in the future after seal')
+    ok(balBefore.mouthDescMax === 160, 'profile.mouthDescMax is 160 (X bio)')
+
     const set2 = await act(A, {
       action: 'set-profile',
       description: 'Rotated bio',
@@ -138,12 +143,12 @@ async function main() {
       bannerStar,
       bannerUrl: 'https://example.com/promo',
     })
-    ok(set2.ok === true, 'Alice rotates mouth')
+    ok(!!set2.error && /cooldown/i.test(String(set2.error)), 'Alice rotate inside cooldown refused at the door')
     const balAfter = await jget('/api/kraynet/profile/' + encodeURIComponent(A.addr))
-    ok(BigInt(String(balAfter.balance || '0')) === bal1, 'set-profile moved NO ₭')
+    ok(BigInt(String(balAfter.balance || '0')) === bal1, 'refused rotate moved NO ₭')
 
     const prof = await jget('/api/kraynet/profile/' + encodeURIComponent(A.addr))
-    ok(prof.mouth && prof.mouth.description === 'Rotated bio', 'profile.mouth.description')
+    ok(prof.mouth && prof.mouth.description === 'Builder on the book', 'profile.mouth.description (first seal)')
     ok(prof.mouth && prof.mouth.url === 'https://example.com', 'profile.mouth.url')
     ok(prof.mouth && String(prof.mouth.bannerStar) === bannerStar, 'profile.mouth.bannerStar')
     ok(prof.mouth && prof.mouth.banner && prof.mouth.banner.url, 'profile.mouth.banner paints content URL')
@@ -158,30 +163,29 @@ async function main() {
     const steal = await act(A, {
       action: 'set-profile', description: 'x', url: '', bannerStar: String(bobBanner.star), bannerUrl: '',
     })
-    ok(!!steal.error, 'Alice cannot wear Bob’s star as banner')
+    ok(!!steal.error, 'Alice cannot wear Bob’s star as banner (or still in cooldown)')
 
     const badType = await act(A, {
       action: 'set-profile', description: '', url: '', bannerStar: String(text.star), bannerUrl: '',
     })
-    ok(!!badType.error, 'non-image star refused as banner')
+    ok(!!badType.error, 'non-image star refused as banner (or still in cooldown)')
 
     const send = await act(A, { action: 'sendstar', to: B.addr, star: bannerStar })
     ok(send.ok === true, 'Alice sends banner star to Bob')
     const prof2 = await jget('/api/kraynet/profile/' + encodeURIComponent(A.addr))
     ok(prof2.mouth && prof2.mouth.bannerStar === '' && !prof2.mouth.banner, 'banner cleared after send; bio kept')
-    ok(prof2.mouth && prof2.mouth.description === 'Rotated bio', 'bio survives banner clear')
+    ok(prof2.mouth && prof2.mouth.description === 'Builder on the book', 'bio survives banner clear')
 
     const clear = await act(A, {
       action: 'set-profile', description: '', url: '', bannerStar: '', bannerUrl: '',
     })
-    ok(clear.ok === true, 'Alice clears mouth')
+    ok(!!clear.error && /cooldown/i.test(String(clear.error)), 'Alice clear inside cooldown refused')
     const prof3 = await jget('/api/kraynet/profile/' + encodeURIComponent(A.addr))
-    ok(prof3.mouth == null, 'profile.mouth absent after clear-all')
+    ok(prof3.mouth && prof3.mouth.description === 'Builder on the book', 'mouth still present after refused clear')
 
     const html = await fetch(BASE + '/u/' + encodeURIComponent(A.addr)).then((r) => r.text())
     ok(html.includes('set-profile') && html.includes('paintCitizenMouth'), 'profile page chrome includes mouth editor')
 
-    // restore + reboot: mouth re-derives from journal
     const bobMouth = await act(B, {
       action: 'set-profile',
       description: 'Bob mouth',
@@ -189,7 +193,7 @@ async function main() {
       bannerStar: bannerStar,
       bannerUrl: '',
     })
-    ok(bobMouth.ok === true, 'Bob sets mouth with the image he now owns')
+    ok(bobMouth.ok === true, 'Bob sets mouth with the image he now owns (pays 1 ₭)')
 
     child.kill('SIGKILL')
     await sleep(200)
@@ -198,7 +202,8 @@ async function main() {
     ok(profR.mouth && profR.mouth.description === 'Bob mouth' && String(profR.mouth.bannerStar) === bannerStar,
       'after reboot Bob mouth re-derives from the journal')
     const profAR = await jget('/api/kraynet/profile/' + encodeURIComponent(A.addr))
-    ok(profAR.mouth == null, 'after reboot Alice mouth still cleared')
+    ok(profAR.mouth && profAR.mouth.description === 'Builder on the book', 'after reboot Alice mouth still sealed')
+    ok(typeof profAR.mouthNextAt === 'number' && profAR.mouthNextAt > 0, 'after reboot gap clock re-derives')
 
     done(fail ? 1 : 0)
   } catch (e) {

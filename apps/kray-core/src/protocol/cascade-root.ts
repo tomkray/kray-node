@@ -38,6 +38,8 @@ export interface CascadeParts {
   cutCommitment?: string    // Luz / CutBook (KRC-77) — present iff a star has portioned Luz (A3 by presence)
   faceCommitment?: string   // CITIZEN FACE — address→owned star; present iff at least one face is set (A3 by presence)
   profileCommitment?: string // CITIZEN MOUTH — address→bio/url/banner; present iff at least one mouth is set (A3 by presence)
+  /** KRAY PLATE — living plate (addr→hash and/or star→hash); present iff at least one plate is set (A3 by presence) */
+  krayPlateCommitment?: string
 }
 
 /** Re-derive the cascade root from its parts — byte-identical to `ledger.cascadeRoot()`, which IS this. */
@@ -66,5 +68,6 @@ export function cascadeRootFromParts(p: CascadeParts): string {
   if (p.cutCommitment !== undefined) h.update(`cut:${p.cutCommitment}\n`, 'utf8')           // Luz CutBook (A3): undefined when no star has portioned hair ⇒ byte-identical
   if (p.faceCommitment !== undefined) h.update(`faces:${p.faceCommitment}\n`, 'utf8')       // CITIZEN FACE (A3): undefined when no face is set ⇒ byte-identical genesis
   if (p.profileCommitment !== undefined) h.update(`profiles:${p.profileCommitment}\n`, 'utf8') // CITIZEN MOUTH (A3): undefined when no mouth is set ⇒ byte-identical genesis
+  if (p.krayPlateCommitment !== undefined) h.update(`kray-plates:${p.krayPlateCommitment}\n`, 'utf8') // KRAY PLATE (A3): undefined when no plate ⇒ byte-identical genesis
   return h.digest('hex')
 }

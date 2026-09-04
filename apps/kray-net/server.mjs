@@ -18,7 +18,7 @@
 import { createServer, request as httpRequest } from 'node:http'
 import { createHash, randomBytes } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
-import { readFileSync, existsSync, writeFileSync, mkdirSync, renameSync, openSync, writeSync, readSync, fsyncSync, closeSync, statSync } from 'node:fs'
+import { readFileSync, existsSync, writeFileSync, mkdirSync, renameSync, openSync, writeSync, readSync, fsyncSync, closeSync, statSync, unlinkSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { KrayNode } from '../kray-core/src/protocol/node.ts'
@@ -35,7 +35,10 @@ import {
   runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, quantumCommitMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, scriptOfAddress, toBtcNet, normalizeAddr, verifySignature, addressOf,
   _generateKeyPair, isAddressOnNetwork, isSupportedScheme,
 } from '../kray-core/src/protocol/scheme.ts'
-import { eternizeMessage, setFaceMessage, setProfileMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES } from '../kray-core/src/protocol/scheme.ts'
+import { eternizeMessage, setFaceMessage, clearFaceMessage, setProfileMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES, PROFILE_COOLDOWN_MS } from '../kray-core/src/protocol/scheme.ts'
+import {
+  encodeKrayPlate, hashKrayPlate, setKrayPlateMessage, assertKrayPlateBytes, KRAY_PLATE_CONTENT_TYPE,
+} from '../kray-core/src/protocol/kray-plate.ts'
 import { proveInscription } from '../kray-core/src/protocol/inscription-proof.ts'
 import { tkFoldSendMessage, parseLaneAmount } from '../kray-core/src/protocol/tk-fold.ts'   // THE LANE DOOR: the fold's own signing domain
 import { orderWindow, keyFromSignedMessage } from '../kray-core/src/protocol/window-order.ts'   // THE SAME-INSTANT GATE: the objective order
@@ -1906,11 +1909,39 @@ function profileView(addr) {
       }
     }
   } catch (_) { /* mouth must never take the profile door down */ }
+  let mouthNextAt = 0
+  let mouthPaid = true
+  let krayPlate = null
+  try {
+    mouthNextAt = node.ledger.profileNextAtOf(addr)
+    mouthPaid = node.ledger.profileValueActive()
+  } catch (_) { /* */ }
+  try {
+    const ph = node.ledger.krayPlateOf(addr)
+    if (ph) {
+      const pth = join(CONTENT_DIR, ph)
+      let fields = null
+      let held = false
+      if (existsSync(pth)) {
+        try {
+          fields = assertKrayPlateBytes(ph, readFileSync(pth))
+          held = true
+        } catch (_) { /* corrupt / mismatch — fail-closed empty fields */ }
+      }
+      krayPlate = { hash: ph, held, url: '/content/' + ph, ...(fields || {}) }
+    }
+  } catch (_) { /* plate must never take the profile door down */ }
   return {
     address: addr, network: NET, node: { height: node.seq },
     balance: bal, plain: bal, nonce: node.nonceOf(addr),
     stars: { total: starNos.length, free: [nextStar], list: starNos.map(String) },
     starCount: starNos.length, written, face, mouth,
+    krayPlate,
+    mouthNextAt,
+    mouthDescMax: PROFILE_DESC_MAX_BYTES,
+    mouthCooldownMs: PROFILE_COOLDOWN_MS,
+    mouthPaid,
+    mouthFee: mouthPaid ? '1' : '0',
     inscriptions: { total: inscribed.length },
     baptisms,
     freeStar: nextStar, freeStars: [nextStar],            // v2: not a pre-owned star — the next creation number
@@ -2766,7 +2797,7 @@ async function settleFeePoolOnSeal(txid) {
  *
  *  A missing treasury kind here is a VIEW lie, not a consensus hole: the first mainnet settlement
  *  (seq 49) paid 42 ₭ from atlas fees; omitting inscribe/origin painted "0 earned" over the journal. */
-const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'burn', 'x-send', 'cut-send', 'eternize', 'set-face'])
+const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'burn', 'x-send', 'cut-send', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate'])
 /** ₭ this act credited to TREASURY — the fee pool the next settlement splits. View-only. */
 function treasuryCreditOf(e) {
   if (!e || !e.kind) return 0n
@@ -2896,6 +2927,206 @@ function validatorRewardRows(addr, before = null) {
     if (l) rows.push({ synthetic: true, seq: t.seq, hash: t.hash, at: t.at, kind: 'validator-reward', from: null, to: addr, amount: l.paid.toString(), fee: '0', work: l.work.toString(), hits: l.hits, blocksPresent: l.blocks.length })
   }
   return rows
+}
+
+/** THE TREASURY BOOK (view-only) — every fee credit and every settlement payout, folded from the
+ *  journal the same way a cold node recomputes feePool. Vitrine mirrors bytes; never a second money. */
+const TREASURY_RANGES = {
+  '1h': 60 * 60 * 1000,
+  '24h': 24 * 60 * 60 * 1000,
+  '7d': 7 * 24 * 60 * 60 * 1000,
+  '30d': 30 * 24 * 60 * 60 * 1000,
+  '1y': 365 * 24 * 60 * 60 * 1000,
+  all: null,
+}
+let _treMemo = { upto: -1, life: null }
+function treasuryLife() {
+  if (_treMemo.upto === events.length && _treMemo.life) return _treMemo.life
+  const credits = []
+  const byKind = new Map()
+  let lifeIn = 0n
+  for (const e of events) {
+    if (e.kind === 'settlement' || e.kind === 'reward') continue
+    let c = 0n
+    try { c = treasuryCreditOf(e) } catch { c = 0n }
+    if (c <= 0n) continue
+    lifeIn += c
+    credits.push({ seq: e.seq, at: Number(e.at) || 0, amount: c, kind: e.kind, hash: e.hash })
+    const row = byKind.get(e.kind) || { kind: e.kind, amount: 0n, count: 0 }
+    row.amount += c
+    row.count += 1
+    byKind.set(e.kind, row)
+  }
+  const pays = []
+  const byValidator = new Map()
+  let lifeOut = 0n
+  for (const t of settlementTables()) {
+    const paid = t.paid || 0n
+    lifeOut += paid
+    pays.push({
+      seq: t.seq, at: Number(t.at) || 0, amount: paid, hash: t.hash, beacon: t.beacon || null,
+      validators: (t.payouts || []).filter((p) => p.paid > 0n).length,
+      payouts: (t.payouts || []).filter((p) => p && p.paid > 0n).map((p) => ({ address: p.address, paid: p.paid })),
+    })
+    for (const p of t.payouts || []) {
+      if (!p || !(p.paid > 0n)) continue
+      const v = byValidator.get(p.address) || { address: p.address, paid: 0n, settlements: 0 }
+      v.paid += p.paid
+      v.settlements += 1
+      byValidator.set(p.address, v)
+    }
+  }
+  // Legacy reward drains (if any) — same fold as foldSettlementTables.
+  for (const e of events) {
+    if (e.kind !== 'reward') continue
+    let a = 0n
+    try { a = BigInt(e.amount || 0) } catch { a = 0n }
+    if (a <= 0n) continue
+    lifeOut += a
+    pays.push({ seq: e.seq, at: Number(e.at) || 0, amount: a, hash: e.hash, beacon: null, validators: 0, kind: 'reward' })
+  }
+  pays.sort((a, b) => a.seq - b.seq)
+  let balance = 0n
+  try { balance = node.feePool() } catch {
+    try { balance = node.ledger.balances.get(TREASURY) || 0n } catch { balance = lifeIn - lifeOut }
+  }
+  if (balance < 0n) balance = 0n
+  const fold = lifeIn - lifeOut
+  const life = {
+    balance, lifeIn, lifeOut, fold,
+    conserves: fold === balance,
+    credits, pays,
+    byKind: [...byKind.values()].sort((a, b) => (a.amount === b.amount ? b.count - a.count : (a.amount < b.amount ? 1 : -1))),
+    validators: [...byValidator.values()].sort((a, b) => (a.paid < b.paid ? 1 : -1)),
+    firstAt: credits.length || pays.length
+      ? Math.min(...[...credits, ...pays].map((x) => x.at).filter((t) => t > 0), Date.now())
+      : Date.now(),
+  }
+  _treMemo = { upto: events.length, life }
+  return life
+}
+function treasurySeries(life, rangeKey, now = Date.now()) {
+  const span = Object.prototype.hasOwnProperty.call(TREASURY_RANGES, rangeKey) ? TREASURY_RANGES[rangeKey] : TREASURY_RANGES['24h']
+  const from = span == null ? (life.firstAt || now) : Math.max(0, now - span)
+  const to = now
+  const windowMs = Math.max(1, to - from)
+  let bucketMs, bucketCount
+  if (rangeKey === '1h') { bucketMs = 5 * 60 * 1000; bucketCount = 12 }
+  else if (rangeKey === '24h') { bucketMs = 60 * 60 * 1000; bucketCount = 24 }
+  else if (rangeKey === '7d') { bucketMs = 24 * 60 * 60 * 1000; bucketCount = 7 }
+  else if (rangeKey === '30d') { bucketMs = 24 * 60 * 60 * 1000; bucketCount = 30 }
+  else if (rangeKey === '1y') { bucketMs = 30 * 24 * 60 * 60 * 1000; bucketCount = 12 }
+  else {
+    bucketCount = 24
+    bucketMs = Math.max(60 * 1000, Math.ceil(windowMs / bucketCount))
+  }
+  const series = []
+  for (let i = 0; i < bucketCount; i++) {
+    const t0 = from + i * bucketMs
+    const t1 = i === bucketCount - 1 ? to + 1 : from + (i + 1) * bucketMs
+    series.push({ t: t0, tEnd: t1, in: 0n, out: 0n, feeActs: 0, settlements: 0 })
+  }
+  const bucketOf = (at) => {
+    if (at < from || at > to) return -1
+    const i = Math.min(bucketCount - 1, Math.max(0, Math.floor((at - from) / bucketMs)))
+    return i
+  }
+  let winIn = 0n, winOut = 0n, feeActs = 0, settlements = 0
+  const winByKind = new Map()
+  const winValidators = new Map()
+  for (const c of life.credits) {
+    if (c.at < from || c.at > to) continue
+    winIn += c.amount
+    feeActs += 1
+    const i = bucketOf(c.at)
+    if (i >= 0) { series[i].in += c.amount; series[i].feeActs += 1 }
+    const row = winByKind.get(c.kind) || { kind: c.kind, amount: 0n, count: 0 }
+    row.amount += c.amount
+    row.count += 1
+    winByKind.set(c.kind, row)
+  }
+  for (const p of life.pays) {
+    if (p.at < from || p.at > to) continue
+    winOut += p.amount
+    settlements += 1
+    const i = bucketOf(p.at)
+    if (i >= 0) { series[i].out += p.amount; series[i].settlements += 1 }
+    for (const row of p.payouts || []) {
+      const v = winValidators.get(row.address) || { address: row.address, paid: 0n, settlements: 0 }
+      v.paid += row.paid
+      v.settlements += 1
+      winValidators.set(row.address, v)
+    }
+  }
+  const labelOfBucket = (t0) => {
+    const d = new Date(t0)
+    if (bucketMs <= 60 * 60 * 1000) return d.toISOString().slice(11, 16) + 'Z'
+    if (bucketMs <= 24 * 60 * 60 * 1000) return d.toISOString().slice(5, 10)
+    return d.toISOString().slice(0, 7)
+  }
+  return {
+    range: span == null ? 'all' : rangeKey,
+    from, to,
+    window: {
+      in: winIn.toString(),
+      out: winOut.toString(),
+      net: (winIn - winOut).toString(),
+      feeActs,
+      settlements,
+      validatorsPaid: winValidators.size,
+    },
+    series: series.map((b) => ({
+      t: b.t,
+      label: labelOfBucket(b.t),
+      in: b.in.toString(),
+      out: b.out.toString(),
+      feeActs: b.feeActs,
+      settlements: b.settlements,
+    })),
+    byKind: [...winByKind.values()]
+      .sort((a, b) => (a.amount < b.amount ? 1 : -1))
+      .map((k) => ({ kind: k.kind, amount: k.amount.toString(), count: k.count })),
+    validatorsWindow: [...winValidators.values()]
+      .sort((a, b) => (a.paid < b.paid ? 1 : -1))
+      .slice(0, 32)
+      .map((v) => ({
+        address: v.address,
+        paid: v.paid.toString(),
+        settlements: v.settlements,
+        who: labelOf(v.address),
+      })),
+  }
+}
+function treasuryAnalytics(rangeKey = '24h') {
+  const life = treasuryLife()
+  const key = TREASURY_RANGES[rangeKey] !== undefined ? rangeKey : '24h'
+  const win = treasurySeries(life, key)
+  const head = (() => { try { return headView() } catch { return null } })()
+  return {
+    address: TREASURY,
+    label: 'Treasury · fee pool → validators',
+    balance: life.balance.toString(),
+    lifetimeIn: life.lifeIn.toString(),
+    lifetimeOut: life.lifeOut.toString(),
+    fold: life.fold.toString(),
+    conserves: life.conserves,
+    feeActs: life.credits.length,
+    settlements: life.pays.length,
+    validatorsPaid: life.validators.length,
+    byKindAll: life.byKind.map((k) => ({ kind: k.kind, amount: k.amount.toString(), count: k.count })),
+    validators: life.validators.slice(0, 24).map((v) => ({
+      address: v.address,
+      paid: v.paid.toString(),
+      settlements: v.settlements,
+      who: labelOf(v.address),
+    })),
+    recentPays: life.pays.slice(-8).reverse().map((p) => ({
+      hash: p.hash, seq: p.seq, at: p.at, amount: p.amount.toString(), validators: p.validators, beacon: p.beacon,
+    })),
+    ...win,
+    node: head ? { height: head.height, seq: head.seq, network: head.network || NET } : null,
+    law: 'Σ fees − Σ settlements = balance · every stranger recomputes the same fold from the journal',
+  }
 }
 /** The recent Bitcoin block hashes — the claim window's beacons. The draw under ANY of the last `n` hashes
  *  accepts, so a payer who broadcast under hash H is not disqualified when H+1 arrives mid-confirmation.
@@ -3327,7 +3558,7 @@ function nameHeldBy(addr) {
 }
 function labelOf(addr) {
   if (!addr) return null
-  if (addr === TREASURY) return { label: 'Treasury', simulated: false, founder: false }
+  if (addr === TREASURY) return { label: 'Treasury · fee pool → validators', simulated: false, founder: false }
   if (addr === BLACK_HOLE) return { label: 'Black hole', simulated: false, founder: false }
   if (addr.startsWith('KRAY_AMM_RR_')) return { label: 'the pool · no key', simulated: false, founder: false }
   if (addr.startsWith('KRAY_AMM_')) return { label: 'the pool · no key', simulated: false, founder: false }
@@ -3432,6 +3663,8 @@ function txSummary(e, block) {
     amount: e.amount ?? null, fee: e.fee ?? null, nonce: e.nonce ?? null,
     star: starNo, name: e.name ?? null, parent: e.parent ?? null,
     contentHash: e.contentHash ?? null, contentType: e.contentType ?? null, size: e.size ?? null,
+    // KRAY PLATE — journal seals only the hash (or "" clear); never the bio plaintext.
+    plateHash: e.kind === 'set-kray-plate' ? (e.plateHash ?? '') : undefined,
     burn: seqToBurn.get(e.seq) ?? null,   // ₭ destroyed into the star (inscribe/origin/name); honest absence otherwise
     movedStars: null,
     interval: e.interval ?? null,
@@ -3577,7 +3810,43 @@ function txSummary(e, block) {
     }
     if (thumb) out.thumbnail = thumb
   }
+  // FEE → TREASURY — the book credits KRAY_TREASURY (fee pool → validators on settlement).
+  // Mirror that destination on the vitrine: never leave `to` blank when the only ₭ move is the fee.
+  // View-only; re-derived from the same treasuryCreditOf fold every node can recompute.
+  {
+    const credit = treasuryCreditOf(e)
+    if (credit > 0n) {
+      out.feeTo = TREASURY
+      out.feeToWho = labelOf(TREASURY)
+      out.treasuryCredit = credit.toString()
+      // Fee-only acts (plate, face, eternize, …): journal has no peer `to`, but ₭ left `from` into the pool.
+      // Do NOT overwrite a real peer/sink (transfer, burn, inscribe, AMM, ticket take, …).
+      if (!out.to && feeOnlyTreasuryDestination(e)) {
+        out.to = TREASURY
+        out.toWho = { label: 'Treasury · fee pool → validators', simulated: false, founder: false }
+      }
+    }
+  }
   return out
+}
+
+/** True when this act's only ₭ credit on the book is the fee into TREASURY (no peer amount / burn / LP). */
+function feeOnlyTreasuryDestination(e) {
+  if (!e || !e.kind) return false
+  if (e.to) return false
+  const nonzero = (v) => {
+    if (v == null || v === '') return false
+    try { return BigInt(String(v)) > 0n } catch { return false }
+  }
+  if (nonzero(e.amount) || nonzero(e.take) || nonzero(e.krayIn) || nonzero(e.runeIn) || nonzero(e.lp) || nonzero(e.burn)) return false
+  const peerKinds = new Set([
+    'transfer', 'transfer-star', 'cut-send', 'x-send', 'burn', 'burn-thaw',
+    'inscribe', 'origin', 'name', 'contract', 'donate', 'emit', 'settlement',
+    'anchor', 'seal', 'rune-send', 'rune-deposit', 'rune-settle', 'rune-lodge',
+    'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap',
+  ])
+  if (peerKinds.has(e.kind)) return false
+  return FEE_POOL_KINDS.has(e.kind) || e.kind === 'set-kray-plate' || e.kind === 'set-face' || e.kind === 'clear-face' || e.kind === 'eternize'
 }
 // the minimal /api/state the explorer reads (network/simulation/latestBlock/mainnet), plus a
 // non-breaking supply + cascadeRoot for athe owner boxe else.
@@ -3990,6 +4259,24 @@ function starView(nBig) {
   const nameEv = history.find((h) => h.kind === 'name')
   if (inscriptions[0]) inscriptions[0].burn = inscEv && inscEv.burn ? inscEv.burn : null
 
+  // KRAY PLATE on this star — living tip (hash in journal; atlas holds bytes). Owner-only; clears on send.
+  let krayPlate = null
+  try {
+    const ph = node.ledger.krayStarPlateOf(nStr)
+    if (ph) {
+      const pth = join(CONTENT_DIR, ph)
+      let fields = null
+      let held = false
+      if (existsSync(pth)) {
+        try {
+          fields = assertKrayPlateBytes(ph, readFileSync(pth))
+          held = true
+        } catch (_) { /* corrupt / mismatch — fail-closed empty fields */ }
+      }
+      krayPlate = { hash: ph, held, url: '/content/' + ph, ...(fields || {}) }
+    }
+  } catch (_) { /* plate must never take the star door down */ }
+
   return {
     star: nStr, no: nStr, dark: false, written,
     owner: s.owner, by: s.by, id: s.id, seq: s.seq,
@@ -4013,6 +4300,7 @@ function starView(nBig) {
     lastDelivery: [...history].reverse().find((h) => h.kind === 'contract-call' && (h.rule === 'settle' || h.rule === 'draw') && Array.isArray(h.paid) && h.paid.length) || null,
     luz: luzFace(nStr, s.contract ? node.contract(s.contract) : null),
     poll: pollFace(nStr, s.contract ? node.contract(s.contract) : null),
+    krayPlate,
   }
 }
 
@@ -4857,12 +5145,19 @@ function prepareMessage(action, b, nonceOverride) {
       if (s.owner !== from) throw new Error(`only the owner of star #${star} may wear it as face`)
       return { message: setFaceMessage(NET, from, BigInt(star), nonce), nonce, star }
     }
+    case 'clear-face': {
+      // CLEAR FACE — default sigil again. Door mirrors the reducer (1 ₭ · refuse if unset).
+      if (node.ledger.faceOf(from) == null) throw new Error('clear-face refused — no face is set')
+      if (node.ledger.balanceOf(from) < 1n) throw new Error('1 ₭ is needed to clear a face')
+      return { message: clearFaceMessage(NET, from, nonce), nonce, fee: '1' }
+    }
     case 'set-profile': {
-      // CITIZEN MOUTH — feeless bio / site / banner. Door mirrors the reducer (no ₭).
+      // CITIZEN MOUTH — identity seal. At/after PROFILE_VALUE_SEQ: 1 ₭ (door mirrors reducer).
       const description = typeof b.description === 'string' ? b.description : ''
       const url = typeof b.url === 'string' ? b.url : ''
       const bannerStar = b.bannerStar != null && String(b.bannerStar) !== '' ? String(b.bannerStar).replace(/[#,\s]/g, '') : ''
       const bannerUrl = typeof b.bannerUrl === 'string' ? b.bannerUrl : ''
+      const paid = node.ledger.profileValueActive()
       assertProfileText(description, PROFILE_DESC_MAX_BYTES, 'description')
       assertHttpsOrEmpty(url, 'url')
       assertHttpsOrEmpty(bannerUrl, 'bannerUrl')
@@ -4875,9 +5170,70 @@ function prepareMessage(action, b, nonceOverride) {
       } else if (bannerUrl !== '') {
         throw new Error('bannerUrl requires a bannerStar')
       }
+      const cur = node.ledger.profileOf(from)
+      if (paid) {
+        if (cur
+          && cur.description === description
+          && cur.url === url
+          && cur.bannerStar === bannerStar
+          && cur.bannerUrl === bannerUrl) {
+          throw new Error('set-profile unchanged — identical mouth refused (journal hygiene)')
+        }
+        if (!cur && !description && !url && !bannerStar && !bannerUrl) {
+          throw new Error('set-profile unchanged — nothing to clear')
+        }
+        if (node.ledger.balanceOf(from) < 1n) throw new Error('1 ₭ is needed to set a public profile')
+        const nextAt = node.ledger.profileNextAtOf(from)
+        if (nextAt > 0 && Date.now() < nextAt) {
+          throw new Error(`set-profile cooldown — one rewrite per address per day; next at ${nextAt}`)
+        }
+      }
       return {
         message: setProfileMessage(NET, from, description, url, bannerStar, bannerUrl, nonce),
         nonce, description, url, bannerStar, bannerUrl,
+        fee: paid ? '1' : '0',
+        mouthPaid: paid,
+        mouthNextAt: node.ledger.profileNextAtOf(from),
+        mouthCooldownMs: PROFILE_COOLDOWN_MS,
+        mouthDescMax: PROFILE_DESC_MAX_BYTES,
+      }
+    }
+    case 'set-kray-plate': {
+      // KRAY PLATE — living plate. Hash in journal; canonical bytes staged to atlas; exactly 1 ₭.
+      const clear = b.clear === true || b.plateHash === ''
+      const star = b.star != null && String(b.star) !== '' ? String(b.star).replace(/[#,\s]/g, '') : ''
+      if (star !== '' && !/^(0|[1-9]\d*)$/.test(star)) throw new Error('kray-plate star must be a star number or empty')
+      if (star !== '') {
+        const s = node.ledger.stars.star(BigInt(star))
+        if (!s) throw new Error(`star #${star} does not exist`)
+        if (s.owner !== from) throw new Error(`only the living owner of star #${star} may set its KRAY plate`)
+      }
+      if (node.ledger.balanceOf(from) < 1n) throw new Error('1 ₭ is needed to set a KRAY plate')
+      let plateHash = ''
+      let plateBuf = null
+      if (!clear) {
+        const description = typeof b.description === 'string' ? b.description : ''
+        const url = typeof b.url === 'string' ? b.url : ''
+        const bannerUrl = typeof b.bannerUrl === 'string' ? b.bannerUrl : ''
+        // Optional pay invitation (transfer only — not a paper/contract). Empty actTo ⇒ omitted from bytes (A3).
+        const actTo = typeof b.actTo === 'string' ? b.actTo.trim() : ''
+        const actHint = typeof b.actHint === 'string' ? b.actHint : ''
+        const actAmount = typeof b.actAmount === 'string' ? b.actAmount.trim() : ''
+        const plateFields = { description, url, bannerUrl, actTo, actHint, actAmount }
+        plateBuf = encodeKrayPlate(plateFields)
+        plateHash = hashKrayPlate(plateFields)
+        const cur = star !== '' ? node.ledger.krayStarPlateOf(star) : node.ledger.krayPlateOf(from)
+        if ((cur || '') === plateHash) throw new Error('set-kray-plate unchanged — identical plate refused')
+      } else {
+        const cur = star !== '' ? node.ledger.krayStarPlateOf(star) : node.ledger.krayPlateOf(from)
+        if (!cur) throw new Error('set-kray-plate unchanged — nothing to clear')
+      }
+      return {
+        message: setKrayPlateMessage(NET, from, plateHash, star, nonce),
+        nonce, plateHash, star, fee: '1',
+        contentHash: plateHash || undefined,
+        contentType: plateHash ? KRAY_PLATE_CONTENT_TYPE : undefined,
+        size: plateBuf ? plateBuf.length : undefined,
       }
     }
     case 'x-send': {
@@ -5074,12 +5430,48 @@ function buildSubmitEvent(action, b, atOverride) {
       action_ = { ...base, kind: 'set-face', star, fee: '1' }
       break
     }
+    case 'clear-face': {
+      action_ = { ...base, kind: 'clear-face', fee: '1' }
+      break
+    }
     case 'set-profile': {
       const description = typeof b.description === 'string' ? b.description : ''
       const url = typeof b.url === 'string' ? b.url : ''
       const bannerStar = b.bannerStar != null && String(b.bannerStar) !== '' ? String(b.bannerStar).replace(/[#,\s]/g, '') : ''
       const bannerUrl = typeof b.bannerUrl === 'string' ? b.bannerUrl : ''
-      action_ = { ...base, kind: 'set-profile', description, url, bannerStar, bannerUrl }
+      const paid = node.ledger.profileValueActive()
+      action_ = {
+        ...base, kind: 'set-profile', description, url, bannerStar, bannerUrl,
+        ...(paid ? { fee: '1' } : {}),
+      }
+      break
+    }
+    case 'set-kray-plate': {
+      // Clear rule must match prepare (fail-closed parity).
+      const clear = b.clear === true || b.plateHash === ''
+      const star = b.star != null && String(b.star) !== '' ? String(b.star).replace(/[#,\s]/g, '') : ''
+      let plateHash = ''
+      if (!clear) {
+        const description = typeof b.description === 'string' ? b.description : ''
+        const url = typeof b.url === 'string' ? b.url : ''
+        const bannerUrl = typeof b.bannerUrl === 'string' ? b.bannerUrl : ''
+        const actTo = typeof b.actTo === 'string' ? b.actTo.trim() : ''
+        const actHint = typeof b.actHint === 'string' ? b.actHint : ''
+        const actAmount = typeof b.actAmount === 'string' ? b.actAmount.trim() : ''
+        const plateFields = { description, url, bannerUrl, actTo, actHint, actAmount }
+        const plateBuf = encodeKrayPlate(plateFields)
+        plateHash = hashKrayPlate(plateFields)
+        // Staged before submit — ledger refuse-closes if atlasBytes cannot read this hash.
+        pendingWrite = {
+          hash: plateHash,
+          buf: plateBuf,
+          meta: { contentType: KRAY_PLATE_CONTENT_TYPE, size: plateBuf.length, at: Date.now() },
+          beforeSubmit: true,
+        }
+      } else {
+        plateHash = ''
+      }
+      action_ = { ...base, kind: 'set-kray-plate', plateHash, ...(star ? { star } : {}), fee: '1' }
       break
     }
     // THE STAR MARKET — native, atomic, trustless. list/edit-price + delist + buy; the eternal 1-₭ fee → validators.
@@ -5224,12 +5616,20 @@ function applySubmitEvent(built) {
   if (built.action_.kind === 'x-send') {
     built.action_.fee = String(node.ledger.xSendFeeFor(built.action_.from, Number(built.action_.at), node.seq + 1))
   }
+  // KRAY PLATE: atlas must be readable BEFORE the reducer mutates (atlasBytes fail-closed).
+  // Content-addressed write on a refused submit is harmless; journal never seals a ghost hash.
+  // NEVER unlink prior tip blobs — a stranger's cold replay in 100 years needs the same atlas
+  // as the writer (journal + content). Tip elasticity is the tip map; disk keeps every seal.
+  if (built.pendingWrite && built.pendingWrite.beforeSubmit) {
+    writeFileSync(join(CONTENT_DIR, built.pendingWrite.hash), built.pendingWrite.buf)
+    writeFileSync(join(CONTENT_DIR, built.pendingWrite.hash + '.json'), JSON.stringify(built.pendingWrite.meta))
+  }
   // node.submit is SYNCHRONOUS — capture the star delta around THIS act alone, so a response can
   // never report a sibling's star when the instant gate applies several acts inside one flush.
   const bornBefore = node.ledger.stars.createdSeq
   const e = node.submit(built.action_)   // throws on a bad signature / any economic precondition — BEFORE any disk write
   const bornAfter = node.ledger.stars.createdSeq
-  if (built.pendingWrite) {
+  if (built.pendingWrite && !built.pendingWrite.beforeSubmit) {
     try {
       writeFileSync(join(CONTENT_DIR, built.pendingWrite.hash), built.pendingWrite.buf)
       writeFileSync(join(CONTENT_DIR, built.pendingWrite.hash + '.json'), JSON.stringify(built.pendingWrite.meta))
@@ -5988,7 +6388,7 @@ const server = createServer(async (req, res) => {
           'lane-enter': 'money', 'lane-exit': 'money', 'fold-seal': 'money',
           'contract': 'law', 'contract-call': 'law',
           'quantum-commit': 'quantum', 'quantum-migrate': 'quantum',
-          'set-face': 'identity', 'set-profile': 'identity',
+          'set-face': 'identity', 'clear-face': 'identity', 'set-profile': 'identity', 'set-kray-plate': 'identity',
           'transfer-star': 'starmove',
           'eternize': 'starmove',   // ⚓ the eternal binding — a star fact, hung beside the moves
           // THE NATIVE STAR MARKET — list / delist / buy are user acts; the constellation
@@ -6429,6 +6829,12 @@ const server = createServer(async (req, res) => {
         const s = node.supply()
         return ok(res, { ...s, fire: fireView(node.ledger) })
       }
+      // THE TREASURY DASHBOARD — view-only fold of fee credits + settlements. Range window is a lens;
+      // balance / lifetime / conservation are always the full journal. Strangers recompute the same bytes.
+      if (p === '/api/kraynet/treasury') {
+        const range = String(url.searchParams.get('range') || 'all')
+        return ok(res, treasuryAnalytics(range))
+      }
       if (p === '/api/kraynet/pot') return ok(res, node.pot())
       // THE SELF-ANCHOR LOG — donations that ARE anchors (keyless, pay-to-contract). Each is re-verifiable: derive
       // selfAnchorScriptHex(internalKey, KrayAnchor.payload(blockNumber, root)) → the burn address the tx paid, and
@@ -6521,9 +6927,22 @@ const server = createServer(async (req, res) => {
         const q = url.searchParams
         const limit = Math.max(1, Math.min(50, parseInt(q.get('limit') ?? '25', 10) || 25))
         const before = q.get('before') != null ? parseInt(q.get('before'), 10) : null   // a seq cursor
-        const mine = events.filter((e) => (e.from === addr || e.to === addr) && (before == null || e.seq < before))
+        let mine
+        if (addr === TREASURY) {
+          // Fee pool: journal rarely sets `to=KRAY_TREASURY` — ₭ arrive via fee/atlas credit.
+          // Mirror the book: every act that credited the pool, plus every settlement that drained it.
+          mine = events.filter((e) => {
+            if (before != null && !(e.seq < before)) return false
+            if (e.kind === 'settlement') return true
+            try { return treasuryCreditOf(e) > 0n } catch { return false }
+          })
+        } else {
+          mine = events.filter((e) => (e.from === addr || e.to === addr) && (before == null || e.seq < before))
+        }
         // + the validator's settlement earnings (a settlement has no from/to, so the filter misses them)
-        const merged = [...mine, ...validatorRewardRows(addr, before)].sort((a, b) => a.seq - b.seq)
+        const merged = addr === TREASURY
+          ? mine.sort((a, b) => a.seq - b.seq)
+          : [...mine, ...validatorRewardRows(addr, before)].sort((a, b) => a.seq - b.seq)
         const page = merged.slice(-limit).reverse()   // newest-first within the page
         const transactions = await Promise.all(page.map(async (e) => {
           if (e.synthetic) {
@@ -6531,7 +6950,46 @@ const server = createServer(async (req, res) => {
             return { hash: e.hash, seq: e.seq, kind: e.kind, at: e.at, from: null, to: addr, amount: e.amount, fee: '0', direction: 'in', work: e.work, hits: e.hits, blocksPresent: e.blocksPresent, blockNumber: blk ? blk.number : null }
           }
           const s = txSummary(e, blockOfSeq(e.seq))
-          s.direction = e.from === addr && e.to === addr ? 'self' : e.from === addr ? 'out' : 'in'
+          if (addr === TREASURY) {
+            if (e.kind === 'settlement') {
+              s.direction = 'out'
+              s.from = TREASURY
+              s.fromWho = labelOf(TREASURY)
+              s.treasuryRole = 'distribution'
+              // Paint the ₭ that LEFT the pool (journal SettlementRow[2] sum), not a peer transfer.
+              if (s.feesPaid != null) s.amount = s.feesPaid
+              // Enrich who/how many for the activity row (tx page already has the full table).
+              if (Array.isArray(s.payouts) && s.payouts.length) {
+                s.payoutCount = s.payouts.length
+                try {
+                  const memo = settlementTables().find((t) => t.seq === e.seq || t.hash === e.hash)
+                  if (memo && Array.isArray(memo.payouts) && memo.payouts.length) {
+                    s.payouts = memo.payouts.map((p) => ({
+                      address: p.address,
+                      paid: p.paid.toString(),
+                      work: p.work.toString(),
+                      hits: p.hits,
+                      blocks: Array.isArray(p.blocks) ? p.blocks.length : (p.blocks || 0),
+                      who: labelOf(p.address),
+                    }))
+                    s.payoutCount = s.payouts.length
+                    s.feesPaid = memo.paid.toString()
+                    s.amount = s.feesPaid
+                    if (memo.beacon) s.beacon = memo.beacon
+                  }
+                } catch { /* view enrichment only — raw journaled payouts still paint */ }
+              }
+            } else {
+              // Fee / atlas credit into the pool — paint the ₭ that entered, not a peer transfer amount.
+              s.direction = 'in'
+              s.to = TREASURY
+              s.toWho = labelOf(TREASURY)
+              s.treasuryRole = 'fee-in'
+              if (s.treasuryCredit) s.amount = s.treasuryCredit
+            }
+          } else {
+            s.direction = e.from === addr && e.to === addr ? 'self' : e.from === addr ? 'out' : 'in'
+          }
           // rune events render RICH: the rune's name, symbol, divisibility (for display math) and its
           // parent-ordinal thumbnail — so a rune-deposit reads "777,000 KRAYNETBRIDGETRI", never "₭"
           if (s.runeId) {

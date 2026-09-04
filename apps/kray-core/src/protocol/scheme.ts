@@ -464,11 +464,23 @@ export function setFaceMessage(network: string, from: string, star: bigint, nonc
   return `kraynet.set-face.v1|net=${network}|from=${from}|star=${star}|nonce=${nonce}`
 }
 
+/** Clear citizen face — return to the default sigil. Pays the eternal 1 ₭ (set-face parity).
+ *  Refused when no face is set (journal hygiene). Losing the star also clears without this act. */
+export function clearFaceMessage(network: string, from: string, nonce: number): string {
+  return `kraynet.clear-face.v1|net=${network}|from=${from}|nonce=${nonce}`
+}
+
 /** CITIZEN MOUTH — bio + site URL + banner (owned image star) + banner click URL.
- *  Feeless like quantum-commit: signature + nonce only; no ₭. Fields must not contain `|` or newlines
- *  so the domain-separated message stays unambiguous. Empty strings clear. */
-export const PROFILE_DESC_MAX_BYTES = 400
+ *  At/after PROFILE_VALUE_SEQ: eternal 1 ₭ (set-face parity) + hygiene.
+ *  Below the pin: feeless legacy (A3 — journals that sealed mouths without fee replay byte-identical).
+ *  Desc cap (paid era) = X/Twitter profile bio (160) — UTF-8 bytes, not graphemes.
+ *  Cooldown = 1 rewrite / address / day (journal hygiene to 100y — state replaces; journal still appends). */
+export const PROFILE_DESC_MAX_BYTES = 160
+/** Legacy bio cap for set-profile events below PROFILE_VALUE_SEQ (feeless era). */
+export const PROFILE_DESC_MAX_BYTES_LEGACY = 400
 export const PROFILE_URL_MAX_BYTES = 512
+/** Minimum gap between two successful set-profile acts for the same address (ms) — paid era only. */
+export const PROFILE_COOLDOWN_MS = 24 * 60 * 60 * 1000
 export function assertProfileText(s: string, maxBytes: number, label: string): void {
   if (typeof s !== 'string') throw new Error(`set-profile: ${label} must be a string`)
   if (Buffer.byteLength(s, 'utf8') > maxBytes) throw new Error(`set-profile: ${label} is ${Buffer.byteLength(s, 'utf8')} bytes — cap is ${maxBytes}`)

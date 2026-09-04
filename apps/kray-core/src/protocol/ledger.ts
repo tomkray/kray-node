@@ -26,7 +26,7 @@ import {
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, BODY_HASH_RE, ORIGIN_COHORT_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
-  runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, eternizeMessage, setFaceMessage, setProfileMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES, quantumCommitMessage, quantumMigrateMessage,
+  runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, eternizeMessage, setFaceMessage, clearFaceMessage, setProfileMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES, PROFILE_DESC_MAX_BYTES_LEGACY, PROFILE_COOLDOWN_MS, quantumCommitMessage, quantumMigrateMessage,
 } from './scheme.ts'
 import { parseOriginProofs, verifyOriginProofs } from './ordinal-ancestry.ts'
 import { emptyLane, laneRoot, laneTotal, applyFoldDiffs, foldDiffsHash, parseLaneAmount, type FoldDiffs } from './tk-fold.ts'
@@ -55,6 +55,7 @@ import { StarOffers } from './star-offers.ts'   // escrowed bids — pot ₭ == 
 import { inclusionRoot as buildInclusionRoot, IncrementalInclusionTree } from './inclusion-tree.ts'   // ADR-3 3a (Slice A): the cumulative included-act SMT
 import { IncrementalNonceMap } from './nonce-map.ts'   // ADR-3 eligibility opening: the committed account→(nonce,height) map
 import { keyFromSignedMessage, orderWindow } from './window-order.ts'   // ADR-3 3c: the leaf key = SHA-256 of the SIGNED message ONLY (no envelope, no clock); orderWindow = THE SAME-INSTANT LAW's arithmetic
+import { setKrayPlateMessage, KRAY_PLATE_HASH_RE, assertKrayPlateBytes } from './kray-plate.ts'
 import { signedBytesOfEvent } from './signed-message.ts'   // the MIRROR — requireSig is the REFEREE that re-proves parity on every act, every replay
 import { windowCommitment } from './censorship-evidence.ts'   // ADR-3 3d-a: binds a Bitcoin seal height to that seal's cumulative inclusion root
 import { cascadeRootFromParts, type CascadeParts } from './cascade-root.ts'   // ADR-3: the cascade root, from its parts — one law, no drift
@@ -326,6 +327,19 @@ const DIGIT_LAW_SEQ: Record<string, number> = {
   main: 0,
 }
 
+/**
+ * CITIZEN MOUTH VALUE (set-profile) — at/after this seq the mouth is a paid identity seal:
+ * exactly 1 ₭ → Treasury (set-face parity), bio ≤160 bytes, identical refuse, 1 rewrite / day.
+ * Below: feeless legacy + 400-byte bio (A3 — Signet mouths sealed without fee replay byte-identical).
+ * Signet tip ~155 when pinned (2026-09-03); margin past any feeless scar. Regtest born active (0).
+ * Main born active (0) — Origin mouth book starts under the paid law.
+ */
+export const PROFILE_VALUE_SEQ: Record<string, number> = {
+  regtest: 0,
+  signet: 200,  // tip ~155 — past any feeless mouth scar
+  main: 80,     // tip ~49 — past any feeless mouth scar; paid law opens with margin
+}
+
 /** ADR-3 eligibility opening — hard cap on the producedRoots lookback map (cascade root → {seq, inclusionRoot}).
  *  The seal case prunes below the last anchor seq, but a long PRE-activation run has no seals to prune, so this
  *  cap (evict-oldest) bounds memory regardless. Far larger than any real confirmation latency in events, so it
@@ -433,6 +447,12 @@ export class KrayLedger {
   /** CITIZEN MOUTH — address → bio / site URL / banner star / banner click. Feeless (quantum-commit pattern).
    *  Folds by presence (A3). Losing the banner star clears only the banner binding. */
   private readonly profiles = new Map<string, { description: string; url: string; bannerStar: string; bannerUrl: string }>()
+  /** Mouth gap clock — `at` of each address's last successful set-profile (1/day hygiene; derived, not cascaded). */
+  private readonly profileLastAt = new Map<string, number>()
+  /** KRAY PLATE — address → living-plate content hash (atlas). Clear = delete. */
+  private readonly krayPlatesByAddr = new Map<string, string>()
+  /** KRAY PLATE — star → living-plate content hash. Cleared on transfer / freeze / lose ownership. */
+  private readonly krayPlatesByStar = new Map<string, string>()
   /** accounts already rescued through the quantum escape hatch — one rescue per account, ever (also folds into
    *  the cascade root append-only, and blocks any replay of a migration). */
   private readonly migratedAccounts = new Set<string>()
@@ -460,8 +480,14 @@ export class KrayLedger {
    *  Windowed settlements (presenceTip) fail closed when a custody claim cannot
    *  be re-derived from these bytes. Historical events fall back to the bitmap. */
   readonly atlasBytes?: (hash: string) => Uint8Array | null
+  /**
+   * When true (default · live append), missing plate atlas bytes refuse.
+   * Journal replay sets false so tip pointers rebuild even if non-tip plate
+   * plaintext was deleted by an older GC — the sealed hash in the journal is enough for money state.
+   */
+  plateAtlasStrict: boolean = true
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number, profileValueSeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -486,6 +512,7 @@ export class KrayLedger {
     this.donationScriptSeq = donationScriptSeq ?? (DONATION_SCRIPT_LAW_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.runeBookOpenSeq = runeBookOpenSeq ?? (RUNE_BOOK_OPEN_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.digitLawSeq = digitLawSeq ?? (DIGIT_LAW_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.profileValueSeq = profileValueSeq ?? (PROFILE_VALUE_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     // main pin 0 is the law itself (not a signaling): start at 10_000. Donate never
     // reads the rate — an empty-of-stars journal keeps its cascade.
     if (this.sizeProportionSeq === 0) {
@@ -546,6 +573,7 @@ export class KrayLedger {
   private readonly runeBookOpenSeq: number          // PORTA 2: below it, rune-* / amm-* refuse (all nets born open at 0)
   private readonly digitLawSeq: number              // DIGIT LAW: at/after it, set / isqrt / args refuse past 78 digits
   private readonly uniqueRelicRefuseSeq: number     // THE UNIQUE-RELIC LAW: at/after it, a taken name/bytes refuse BEFORE fire (A3 below — cursed-burn still applies)
+  private readonly profileValueSeq: number          // CITIZEN MOUTH VALUE: at/after it, set-profile pays 1 ₭ + hygiene (A3 below = feeless legacy)
   /** THE JOURNAL'S ACCUMULATED TRUTH — outpoint → balances of ONE rune, re-derived by earlier
    *  proven deposits. Scoped per rune (the etch-root shortcut is exact only for the focused rune,
    *  so one rune's memo must never answer for another). Re-built identically on every replay from
@@ -1226,6 +1254,7 @@ export class KrayLedger {
         this.market.remove(star)          // the owner changed: any live offer from the old owner is void (no stale/reviving listing)
         this.clearFaceIf(e.from!, star)   // face rides ownership — lose the star, lose the face
         this.clearProfileBannerIf(e.from!, star) // banner rides ownership — lose the star, lose the banner
+        this.clearKrayStarPlate(star)     // KRAY PLATE on a star does not travel — clear on send (incl. freeze)
         if (e.to === BLACK_HOLE) this.glow.set(e.from!, (this.glow.get(e.from!) ?? 0) + 1)
         break
       }
@@ -1296,6 +1325,7 @@ export class KrayLedger {
         this.market.remove(star)            // the offer is consumed, once
         this.clearFaceIf(seller, star)      // seller no longer holds the face star
         this.clearProfileBannerIf(seller, star)
+        this.clearKrayStarPlate(star)       // plate does not inherit to buyer
         break
       }
       case 'star-offer': {
@@ -1370,6 +1400,7 @@ export class KrayLedger {
         this.market.remove(star)
         this.clearFaceIf(owner, star)       // owner sold the face star via offer accept
         this.clearProfileBannerIf(owner, star)
+        this.clearKrayStarPlate(star)
         break
       }
       case 'x-send': {
@@ -2529,21 +2560,45 @@ export class KrayLedger {
         this.faces.set(e.from, e.star)
         break
       }
-      case 'set-profile': {
-        // CITIZEN MOUTH — bio + site URL + banner (owned image star) + banner click URL.
-        // Feeless like quantum-commit: signature + nonce only; no ₭, no Treasury. Empty fields clear.
-        // Cascade by presence (A3): no mouths ⇒ profileCommitment absent ⇒ genesis root untouched.
+      case 'clear-face': {
+        // CLEAR FACE — return to the default sigil. Same 1 ₭ seal as set-face.
+        // Refused when nothing is set (identical refuse). Losing the worn star still clears for free.
         this.checkNonce(e)
         if (typeof e.from !== 'string') throw new Error('ledger: from must be a string')
+        this.requireSig(e, clearFaceMessage(this.network, e.from, e.nonce!))
+        const cfee = BigInt(e.fee ?? '0')
+        if (cfee !== MIN_FEE) throw new Error('ledger: clear-face costs exactly 1 ₭ — the seal, no more, no less')
+        if (this.balanceOf(e.from) < cfee) throw new Error('ledger: 1 ₭ is needed to clear a face')
+        if (this.faces.get(e.from) == null) throw new Error('ledger: clear-face refused — no face is set')
+        // ── validated → mutate ──
+        this.commitNonce(e)
+        this.balances.set(e.from, this.balanceOf(e.from) - cfee)
+        this.credit(TREASURY, cfee)
+        this.faces.delete(e.from)
+        break
+      }
+      case 'set-profile': {
+        // CITIZEN MOUTH — bio + site URL + banner (owned image star) + banner click URL.
+        // Below PROFILE_VALUE_SEQ: feeless legacy (A3). At/after: eternal 1 ₭ → Treasury (set-face parity)
+        // + hygiene (≤160-byte bio · identical refuse · 1 rewrite / day). Cascade by presence.
+        this.checkNonce(e)
+        if (typeof e.from !== 'string') throw new Error('ledger: from must be a string')
+        const paid = e.seq >= this.profileValueSeq
         const description = typeof e.description === 'string' ? e.description : ''
         const url = typeof e.url === 'string' ? e.url : ''
         const bannerStar = typeof e.bannerStar === 'string' ? e.bannerStar : ''
         const bannerUrl = typeof e.bannerUrl === 'string' ? e.bannerUrl : ''
-        assertProfileText(description, PROFILE_DESC_MAX_BYTES, 'description')
+        assertProfileText(description, paid ? PROFILE_DESC_MAX_BYTES : PROFILE_DESC_MAX_BYTES_LEGACY, 'description')
         assertHttpsOrEmpty(url, 'url')
         assertHttpsOrEmpty(bannerUrl, 'bannerUrl')
         this.requireSig(e, setProfileMessage(this.network, e.from, description, url, bannerStar, bannerUrl, e.nonce!))
-        if (e.fee != null && BigInt(e.fee) !== 0n) throw new Error('ledger: set-profile is feeless — fee must be absent or 0')
+        const pfee = BigInt(e.fee ?? '0')
+        if (paid) {
+          if (pfee !== MIN_FEE) throw new Error('ledger: set-profile costs exactly 1 ₭ — the seal, no more, no less')
+          if (this.balanceOf(e.from) < pfee) throw new Error('ledger: 1 ₭ is needed to set a public profile')
+        } else if (pfee !== 0n) {
+          throw new Error('ledger: set-profile is feeless below the value pin — fee must be absent or 0')
+        }
         if (bannerStar !== '') {
           if (!STAR_RE.test(bannerStar)) throw new Error('ledger: set-profile banner names one star, by its number')
           const bst = this.stars.star(BigInt(bannerStar))
@@ -2555,10 +2610,93 @@ export class KrayLedger {
         } else if (bannerUrl !== '') {
           throw new Error('ledger: bannerUrl requires a bannerStar')
         }
+        const cur = this.profiles.get(e.from)
+        if (paid) {
+          if (cur
+            && cur.description === description
+            && cur.url === url
+            && cur.bannerStar === bannerStar
+            && cur.bannerUrl === bannerUrl) {
+            throw new Error('ledger: set-profile unchanged — identical mouth refused (journal hygiene)')
+          }
+          if (!cur && !description && !url && !bannerStar && !bannerUrl) {
+            throw new Error('ledger: set-profile unchanged — nothing to clear')
+          }
+          const at = Number(e.at)
+          if (!Number.isFinite(at) || !Number.isInteger(at) || at < 0) {
+            throw new Error('ledger: set-profile needs an integer millisecond timestamp (gap clock)')
+          }
+          const last = this.profileLastAt.get(e.from)
+          if (last !== undefined && at < last + PROFILE_COOLDOWN_MS) {
+            throw new Error(`ledger: set-profile cooldown — one rewrite per address per day (${PROFILE_COOLDOWN_MS} ms); next at ${last + PROFILE_COOLDOWN_MS}`)
+          }
+        }
         // ── validated → mutate ──
         this.commitNonce(e)
+        if (paid) {
+          this.balances.set(e.from, this.balanceOf(e.from) - pfee)
+          this.credit(TREASURY, pfee)
+        }
+        const atStamp = Number(e.at)
+        if (Number.isFinite(atStamp) && Number.isInteger(atStamp) && atStamp >= 0) {
+          this.profileLastAt.set(e.from, atStamp)
+        }
         if (!description && !url && !bannerStar && !bannerUrl) this.profiles.delete(e.from)
         else this.profiles.set(e.from, { description, url, bannerStar, bannerUrl })
+        break
+      }
+      case 'set-kray-plate': {
+        // KRAY PLATE — living plate: journal seals SHA-256 only; atlas holds canonical bytes.
+        // Address plate (star '') or star plate (owned living star). Exactly 1 ₭ → Treasury.
+        // Does NOT mutate inscription contentHash (A5). Star plate clears on transfer/freeze.
+        this.checkNonce(e)
+        if (typeof e.from !== 'string') throw new Error('ledger: from must be a string')
+        const plateHash = typeof e.plateHash === 'string' ? e.plateHash.toLowerCase() : ''
+        const star = typeof e.star === 'string' ? e.star : ''
+        if (plateHash !== '' && !KRAY_PLATE_HASH_RE.test(plateHash)) {
+          throw new Error('ledger: kray-plate hash must be 64 hex or empty (clear)')
+        }
+        if (star !== '' && !STAR_RE.test(star)) throw new Error('ledger: kray-plate star must be a star number or empty')
+        this.requireSig(e, setKrayPlateMessage(this.network, e.from, plateHash, star, e.nonce!))
+        const pfee = BigInt(e.fee ?? '0')
+        if (pfee !== MIN_FEE) throw new Error('ledger: set-kray-plate costs exactly 1 ₭ — the seal, no more, no less')
+        if (this.balanceOf(e.from) < pfee) throw new Error('ledger: 1 ₭ is needed to set a KRAY plate')
+        if (star !== '') {
+          const st = this.stars.star(BigInt(star))
+          if (!st) throw new Error(`ledger: star #${star} does not exist`)
+          if (st.owner === BLACK_HOLE) throw new Error('ledger: a frozen star has no living plate')
+          if (st.owner !== e.from) throw new Error(`ledger: only the living owner of star #${star} may set its KRAY plate`)
+        }
+        // Atlas: when bytes are present, they MUST match the sealed hash (fail-closed on mismatch).
+        // Live append keeps plateAtlasStrict=true → missing bytes refuse (door writes atlas first).
+        // Journal replay sets plateAtlasStrict=false so a cold follower can rebuild tip pointers
+        // even if an older build GC'd non-tip plate plaintext — tip hashes still live in the journal.
+        // Doctrine: prefer keeping every plate blob forever; never unlink on rotate (100-year resync).
+        if (this.atlasBytes && plateHash !== '') {
+          const bytes = this.atlasBytes(plateHash)
+          if (!bytes) {
+            if (this.plateAtlasStrict !== false) {
+              throw new Error('ledger: kray-plate atlas bytes missing for sealed hash — refuse')
+            }
+          } else {
+            assertKrayPlateBytes(plateHash, bytes)
+          }
+        }
+        const cur = star !== '' ? this.krayPlatesByStar.get(star) : this.krayPlatesByAddr.get(e.from)
+        if ((cur ?? '') === plateHash) {
+          throw new Error('ledger: set-kray-plate unchanged — identical plate refused (journal hygiene)')
+        }
+        // ── validated → mutate ──
+        this.commitNonce(e)
+        this.balances.set(e.from, this.balanceOf(e.from) - pfee)
+        this.credit(TREASURY, pfee)
+        if (star !== '') {
+          if (plateHash === '') this.krayPlatesByStar.delete(star)
+          else this.krayPlatesByStar.set(star, plateHash)
+        } else {
+          if (plateHash === '') this.krayPlatesByAddr.delete(e.from)
+          else this.krayPlatesByAddr.set(e.from, plateHash)
+        }
         break
       }
       case 'settlement': {
@@ -2866,6 +3004,20 @@ export class KrayLedger {
     const p = this.profiles.get(address)
     return p ? { ...p } : null
   }
+  /** Mouth gap clock — `at` of the last successful set-profile, or undefined if never sealed. */
+  profileLastAtOf(address: string): number | undefined { return this.profileLastAt.get(address) }
+  /** Earliest `at` at which this address may seal another mouth (0 = ready now). Paid-era hygiene only. */
+  profileNextAtOf(address: string): number {
+    if (this.lastAppliedSeq + 1 < this.profileValueSeq) return 0
+    const last = this.profileLastAt.get(address)
+    return last === undefined ? 0 : last + PROFILE_COOLDOWN_MS
+  }
+  /** True when the next set-profile seq will pay the eternal 1 ₭ (identity value law). */
+  profileValueActive(atSeq?: number): boolean {
+    const seq = atSeq ?? (this.lastAppliedSeq + 1)
+    return seq >= this.profileValueSeq
+  }
+  profileValueSeqOf(): number { return this.profileValueSeq }
   private clearFaceIf(address: string, star: bigint): void {
     const cur = this.faces.get(address)
     if (cur != null && cur === star.toString()) this.faces.delete(address)
@@ -2876,6 +3028,42 @@ export class KrayLedger {
     const next = { ...cur, bannerStar: '', bannerUrl: '' }
     if (!next.description && !next.url) this.profiles.delete(address)
     else this.profiles.set(address, next)
+  }
+  /** Star KRAY PLATE does not travel with the relic — clear on send / buy / offer-accept / freeze. */
+  private clearKrayStarPlate(star: bigint): void {
+    this.krayPlatesByStar.delete(star.toString())
+  }
+  /** Address living-plate hash, or null. */
+  krayPlateOf(address: string): string | null {
+    return this.krayPlatesByAddr.get(address) ?? null
+  }
+  /** Star living-plate hash, or null. */
+  krayStarPlateOf(star: string | bigint): string | null {
+    return this.krayPlatesByStar.get(String(star)) ?? null
+  }
+  /**
+   * Tip plate hashes currently live (address + star). Atlas GC may drop any
+   * content-addressed plate file whose hash is NOT in this set — journal history
+   * still holds the seal; hot disk need not keep old plaintext.
+   */
+  tipKrayPlateHashes(): Set<string> {
+    const tip = new Set<string>()
+    for (const h of this.krayPlatesByAddr.values()) tip.add(h)
+    for (const h of this.krayPlatesByStar.values()) tip.add(h)
+    return tip
+  }
+  /** How many living tip plates (addr + star slots). Tip cardinality, not journal length. */
+  tipKrayPlateCount(): number {
+    return this.krayPlatesByAddr.size + this.krayPlatesByStar.size
+  }
+  private krayPlatesRoot(): string {
+    const addrLines = [...this.krayPlatesByAddr.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+      .map(([a, h]) => `a:${a}:${h}`)
+    const starLines = [...this.krayPlatesByStar.entries()]
+      .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+      .map(([s, h]) => `s:${s}:${h}`)
+    return sha256hex([...addrLines, ...starLines].join('\n'))
   }
   private facesRoot(): string {
     return sha256hex([...this.faces.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([a, s]) => `${a}:${s}`).join('\n'))
@@ -2988,6 +3176,8 @@ export class KrayLedger {
       ...(!this.cuts.empty() ? { cutCommitment: this.cuts.commitment() } : {}),
       ...(this.faces.size > 0 ? { faceCommitment: this.facesRoot() } : {}),
       ...(this.profiles.size > 0 ? { profileCommitment: this.profilesRoot() } : {}),
+      ...((this.krayPlatesByAddr.size > 0 || this.krayPlatesByStar.size > 0)
+        ? { krayPlateCommitment: this.krayPlatesRoot() } : {}),
     }
   }
 

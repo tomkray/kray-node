@@ -7,7 +7,7 @@
 <link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
 <link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
-<link rel="stylesheet" href="/kray.css?v=txt9">
+<link rel="stylesheet" href="/kray.css?v=plate2">
 <style>
 /* ============================================================================
    KRAY.NETWORK — Star · page-local only. The system lives in /kray.css.
@@ -66,6 +66,42 @@
 .rg-mythic{color:#f7931a}.rg-legendary{color:#c98bff}.rg-epic{color:#6bb6ff}.rg-rare{color:#4ec98a}.rg-uncommon{color:#d7dae2}.rg-common{color:#818995}.rg-dark{color:#4a5058}
 .owner{font-family:var(--mono);font-size:12px;color:var(--ink-3);margin-top:var(--s4);word-break:break-all}
 .owner b{color:var(--ink-2);font-weight:500}
+/* KRAY PLATE — living tip beside the relic (hash in journal · atlas bytes) */
+.star-plate{margin-top:var(--s4);max-width:42rem}
+.star-plate .sp-bio{font-size:15px;line-height:1.55;color:var(--ink-2);margin:0 0 var(--s3)}
+.star-plate .sp-link{font-family:var(--mono);font-size:12px;color:var(--ink-3);text-decoration:none;border-bottom:1px solid var(--line-2)}
+.star-plate .sp-link:hover{color:var(--ink)}
+.star-plate .sp-act{
+  display:inline-flex;align-items:center;margin-top:var(--s3);padding:8px 14px;
+  font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;
+  color:var(--ink);background:color-mix(in srgb,var(--signal) 12%,var(--panel));
+  border:1px solid color-mix(in srgb,var(--signal) 40%,var(--line));border-radius:var(--r3);
+}
+.star-plate .sp-act-out{font-size:12px;color:var(--ink-4);margin-top:var(--s2)}
+.star-plate .sp-meta{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);margin-top:var(--s3)}
+/* Elite cinema — full-bleed 16:9 under starhead (official site stays a text link above) */
+.star-cinema{margin:0 0 var(--s5);min-width:0}
+.star-cinema .plate-banner-lab{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:0 0 8px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-4);
+}
+.star-cinema .plate-banner-lab b{color:var(--ink-3);font-weight:600;letter-spacing:.12em}
+.star-cinema .plate-banner-stage{
+  max-width:none;width:100%;margin:0;
+  border-radius:14px;
+  box-shadow:0 1px 0 color-mix(in srgb,var(--ink) 6%,transparent),0 24px 48px -28px rgba(0,0,0,.65);
+}
+#star-plate-pick[hidden]{display:none!important}
+#star-plate-pick{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:var(--s5)}
+#star-plate-pick .sp-card{width:min(440px,100%);background:var(--panel);border:1px solid var(--line-2);border-radius:var(--r3);box-shadow:var(--shadow);padding:var(--s5)}
+#star-plate-pick .sp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--s4)}
+#star-plate-pick .sp-head b{font-size:15px}
+#star-plate-pick label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin:var(--s3) 0 var(--s2)}
+#star-plate-pick textarea,#star-plate-pick input{width:100%;box-sizing:border-box}
+#star-plate-pick .sp-foot{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s4);flex-wrap:wrap}
+#star-plate-pick .sp-hint{font-size:12px;color:var(--ink-4);margin-top:var(--s3);line-height:1.45}
 
 /* live market offer — the loudest action on a listed star */
 .offer{margin-top:var(--s5);padding:var(--s5);border:1px solid var(--line-2);border-radius:var(--r3);background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:var(--s5);flex-wrap:wrap}
@@ -349,8 +385,33 @@
   </nav>
 </div>
 <div class="toast" id="toast"></div>
+<!-- KRAY PLATE editor — living owner only; hash in journal · 1 ₭ -->
+<div id="star-plate-pick" hidden>
+  <div class="sp-card" role="dialog" aria-modal="true" aria-labelledby="sp-title">
+    <div class="sp-head"><b id="sp-title">KRAY Plate · this star</b><button type="button" id="sp-close" aria-label="Close">✕</button></div>
+    <label for="sp-desc">Description <span id="sp-desc-count">0 / 160</span></label>
+    <textarea class="input" id="sp-desc" maxlength="160" rows="3" placeholder="Bio for this star — 160 bytes"></textarea>
+    <label for="sp-url">Official site</label>
+    <input class="input" id="sp-url" type="url" placeholder="https://yoursite.example — not the banner" autocomplete="off">
+    <label for="sp-banner">Banner media URL</label>
+    <input class="input" id="sp-banner" type="url" placeholder="https://… YouTube / .mp4 / .gif / image (different from site)" autocomplete="off">
+    <p class="sp-hint">Official site = your page. Banner = different media. Same URL looks identical — don't.</p>
+    <label for="sp-act-to">Optional action · pay to</label>
+    <input class="input" id="sp-act-to" type="text" placeholder="address (empty = off) — transfer only, not star law" autocomplete="off" spellcheck="false">
+    <label for="sp-act-hint">Action label</label>
+    <input class="input" id="sp-act-hint" type="text" maxlength="32" placeholder="like · gift · tip · support…" autocomplete="off">
+    <label for="sp-act-amt">Suggested ₭</label>
+    <input class="input" id="sp-act-amt" type="text" inputmode="numeric" placeholder="empty or 0 = visitor chooses" autocomplete="off">
+    <p class="sp-hint">Journal seals the hash · atlas holds the bytes · only the living owner · clears on send · <b>1 ₭</b> to validators. Action = transfer invite — star contracts stay on the law canvas.</p>
+    <div class="out" id="sp-out"></div>
+    <div class="sp-foot">
+      <button type="button" class="btn" id="sp-clear">Clear plate</button>
+      <button type="button" class="btn primary" id="sp-save">Sign &amp; seal · 1 ₭</button>
+    </div>
+  </div>
+</div>
 
-<script src="/kray.js?v=txt9" defer></script>
+<script src="/kray.js?v=plate2" defer></script>
 <script src="/contract-exam.js?v=rain2" defer></script>
 <script>
 (function(){
@@ -1720,6 +1781,125 @@
       });
     });
   }
+  function mouthByteLen(s){
+    try { return new TextEncoder().encode(String(s || '')).length; } catch (_) { return String(s || '').length; }
+  }
+  var starPlateBusy=false;
+  function closeStarPlatePick(){
+    var m=document.getElementById('star-plate-pick'); if(m) m.hidden=true;
+    var o=document.getElementById('sp-out'); if(o){ o.className='out'; o.textContent=''; }
+  }
+  function openStarPlatePick(s){
+    if(!s || s.owner==='KRAY_BLACK_HOLE') return;
+    var m=document.getElementById('star-plate-pick'); if(!m) return;
+    m.hidden=false;
+    var p=s.krayPlate && s.krayPlate.held ? s.krayPlate : null;
+    var d=document.getElementById('sp-desc'), u=document.getElementById('sp-url'), b=document.getElementById('sp-banner');
+    var at=document.getElementById('sp-act-to'), ah=document.getElementById('sp-act-hint'), aa=document.getElementById('sp-act-amt');
+    if(d) d.value=(p && p.description) || '';
+    if(u) u.value=(p && p.url) || '';
+    if(b) b.value=(p && p.bannerUrl) || '';
+    if(at) at.value=(p && p.actTo) || '';
+    if(ah) ah.value=(p && p.actHint) || '';
+    if(aa) aa.value=(p && p.actAmount) || '';
+    var c=document.getElementById('sp-desc-count');
+    if(c) c.textContent=mouthByteLen(d && d.value)+' / 160';
+    var o=document.getElementById('sp-out'); if(o){ o.className='out'; o.textContent=''; }
+    m.setAttribute('data-star', String(s.star));
+  }
+  async function saveStarPlate(clearAll){
+    if(starPlateBusy) return;
+    var m=document.getElementById('star-plate-pick');
+    var star=m && m.getAttribute('data-star');
+    var out=document.getElementById('sp-out');
+    if(!star || !out) return;
+    var description=clearAll?'':((document.getElementById('sp-desc')||{}).value||'');
+    var url=clearAll?'':(((document.getElementById('sp-url')||{}).value||'').trim());
+    var bannerUrl=clearAll?'':(((document.getElementById('sp-banner')||{}).value||'').trim());
+    var actTo=clearAll?'':(((document.getElementById('sp-act-to')||{}).value||'').trim());
+    var actHint=clearAll?'':((document.getElementById('sp-act-hint')||{}).value||'');
+    var actAmount=clearAll?'':(((document.getElementById('sp-act-amt')||{}).value||'').trim());
+    if(mouthByteLen(description)>160){ out.className='out err'; out.textContent='✗ description over 160 bytes'; return; }
+    if(/[|\r\n]/.test(description)||/[|\r\n]/.test(url)||/[|\r\n]/.test(bannerUrl)
+      ||/[|\r\n]/.test(actTo)||/[|\r\n]/.test(actHint)||/[|\r\n]/.test(actAmount)){
+      out.className='out err'; out.textContent='✗ fields must not contain | or newlines'; return;
+    }
+    if(!actTo && (actHint || actAmount)){
+      out.className='out err'; out.textContent='✗ action label / amount need a pay-to address'; return;
+    }
+    if(url && bannerUrl && url.replace(/\/$/,'')===bannerUrl.replace(/\/$/,'')){
+      if(!window.confirm('Official site and banner URL are the same.\nUse a different URL for the banner (YouTube / video / image) so the page does not look identical.\nContinue anyway?')) return;
+    }
+    var w=window.krayWallet;
+    if(!(w && w._isKrayWallet)){ out.className='out err'; out.textContent='✗ connect KrayWallet'; return; }
+    var accs=await w.getAccounts();
+    var me=Array.isArray(accs)?accs[0]:(accs&&(accs.address||(accs.accounts&&accs.accounts[0])));
+    if(!me){ out.className='out err'; out.textContent='✗ connect KrayWallet'; return; }
+    starPlateBusy=true;
+    try{
+      out.className='out'; out.textContent='preparing — KRAY Plate for ★ '+star+' (1 ₭)…';
+      var body=clearAll
+        ? {action:'set-kray-plate', from:me, star:String(star), clear:true}
+        : {action:'set-kray-plate', from:me, star:String(star), description:description, url:url, bannerUrl:bannerUrl, actTo:actTo, actHint:actHint, actAmount:actAmount};
+      var res=await signAndSubmit(body);
+      out.className='out ok';
+      out.innerHTML='✓ star plate '+(clearAll?'cleared':'sealed')+(res && res.hash ? ' · <a href="/tx/'+esc(res.hash)+'">receipt</a>' : '');
+      setTimeout(function(){ location.reload(); }, 700);
+    }catch(e){
+      out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused');
+    }finally{ starPlateBusy=false; }
+  }
+  (function wireStarPlateUi(){
+    var d=document.getElementById('sp-desc');
+    if(d) d.addEventListener('input', function(){
+      var c=document.getElementById('sp-desc-count');
+      if(c) c.textContent=mouthByteLen(d.value)+' / 160';
+    });
+    var cl=document.getElementById('sp-close');
+    if(cl) cl.addEventListener('click', closeStarPlatePick);
+    var sv=document.getElementById('sp-save');
+    if(sv) sv.addEventListener('click', function(){ saveStarPlate(false); });
+    var cr=document.getElementById('sp-clear');
+    if(cr) cr.addEventListener('click', function(){ saveStarPlate(true); });
+    var pick=document.getElementById('star-plate-pick');
+    if(pick) pick.addEventListener('click', function(ev){ if(ev.target===pick) closeStarPlatePick(); });
+  })();
+  var starPlateActBusy=false;
+  document.addEventListener('click', async function(ev){
+    var btn=ev.target && ev.target.closest ? ev.target.closest('#star-plate-act') : null;
+    if(!btn) return;
+    var out=document.getElementById('star-plate-act-out');
+    var w=window.krayWallet;
+    if(!(w && w._isKrayWallet)){
+      if(out){ out.textContent='connect KrayWallet'; }
+      return;
+    }
+    var accs=await w.getAccounts();
+    var me=Array.isArray(accs)?accs[0]:(accs&&(accs.address||(accs.accounts&&accs.accounts[0])));
+    if(!me){ if(out) out.textContent='connect KrayWallet'; return; }
+    var to=btn.getAttribute('data-act-to')||'';
+    var hint=btn.getAttribute('data-act-hint')||'Support';
+    var sug=(btn.getAttribute('data-act-amount')||'').trim();
+    if(!to){ if(out) out.textContent='no pay destination'; return; }
+    if(me===to){ if(out) out.textContent='cannot pay yourself'; return; }
+    var amt=sug && sug!=='0' ? sug : '';
+    if(!amt){
+      var typed=window.prompt('How many ₭ for ['+hint+']? (whole number; fee is +1 ₭)', '1');
+      if(typed==null) return;
+      amt=String(typed).trim().replace(/[,\s]/g,'');
+    }
+    if(!/^\d+$/.test(amt) || BigInt(amt)<1n){ if(out) out.textContent='amount must be a whole ₭ >= 1'; return; }
+    if(!window.confirm('Send '+amt+' ₭ for ['+hint+']?\nTo '+to.slice(0,12)+'...\nFee 1 ₭ — confirm in KrayWallet.')) return;
+    if(starPlateActBusy) return;
+    starPlateActBusy=true;
+    if(out) out.textContent='preparing transfer…';
+    try{
+      var res=await signAndSubmit({ action:'transfer', from:me, to:to, amount:amt });
+      if(out) out.innerHTML='✓ '+esc(hint)+' · '+amt+' ₭'+(res && res.hash ? ' · <a href="/tx/'+esc(res.hash)+'">receipt</a>' : '');
+    }catch(e){
+      if(out) out.textContent='✗ '+(e&&e.message?e.message:'refused');
+    }finally{ starPlateActBusy=false; }
+  });
   function mountOwnerBar(s){
     var host=document.getElementById('ownerbar');
     if(!host || !s.owner) return;
@@ -1743,6 +1923,7 @@
           +'<a class="btn danger" href="'+home+'#freeze" data-star="'+esc(s.star)+'">◉ Freeze forever</a>'
         : '<a class="btn primary" href="/inscribe" data-star="'+esc(s.star)+'">✎ Write on this star</a>'
           +'<a class="btn" href="'+home+'#send">Send ₭</a>';
+      acts += '<button type="button" class="btn" id="star-plate-edit">'+(s.krayPlate && s.krayPlate.held ? 'Edit KRAY Plate' : 'Set KRAY Plate')+' · 1 ₭</button>';
       host.innerHTML='<div class="minepanel">'
         +'<div class="mh"><span class="mdot"></span><b>This star is yours</b>'
         +'<span class="mw">the connected wallet holds it</span></div>'
@@ -1757,6 +1938,8 @@
           try{ sessionStorage.setItem('kray.pickStar', a.getAttribute('data-star')); }catch(_){ }
         });
       });
+      var peb=document.getElementById('star-plate-edit');
+      if(peb) peb.addEventListener('click', function(){ openStarPlatePick(s); });
     }
     // the wallet may not be injected yet; ask, and ask again once it announces
     function check(){
@@ -2288,8 +2471,43 @@
           +'<i id="fmhow">It can never move again — not by anyone, ever. Retired from circulation, it stays visible forever. '
           +'<a href="/blackhole">see the register ↗</a></i></span></div>'
         : '<div class="owner">held by <b>'+addr(s.owner)+'</b></div>')
+      +(function(){
+        var p=s.krayPlate;
+        if(!p || !p.held) return '<div id="star-plate-view" class="star-plate" hidden></div>';
+        var hasText=!!(p.description || p.url || p.actTo);
+        if(!hasText) return '<div id="star-plate-view" class="star-plate" hidden></div>';
+        var html='<div id="star-plate-view" class="star-plate">';
+        if(p.description) html+='<p class="sp-bio">'+esc(p.description)+'</p>';
+        if(p.url){
+          var host='';
+          try{ host=new URL(p.url).host; }catch(_){ host=p.url; }
+          html+='<a class="sp-link" href="'+esc(p.url)+'" target="_blank" rel="noopener noreferrer">site · '+esc(host)+' ↗</a>';
+        }
+        if(p.actTo){
+          var hint=(p.actHint && String(p.actHint).trim()) || 'Support';
+          var sug=p.actAmount && String(p.actAmount).trim() && p.actAmount!=='0'
+            ? (' · '+p.actAmount+' ₭') : '';
+          html+='<div><button type="button" class="sp-act" id="star-plate-act" data-act-to="'+esc(p.actTo)+'" data-act-hint="'+esc(hint)+'" data-act-amount="'+esc(p.actAmount||'')+'">'+esc(hint)+sug+'</button></div>';
+          html+='<div class="sp-act-out" id="star-plate-act-out"></div>';
+        }
+        html+='<div class="sp-meta">KRAY Plate · '+esc(String(p.hash||'').slice(0,12))+'… · 1 ₭ seal</div></div>';
+        return html;
+      })()
       +'<div id="offerbar"></div>'
-      +'</div></div>';
+      +'</div></div>'
+      +(function(){
+        var p=s.krayPlate;
+        if(!p || !p.held || !p.bannerUrl) return '';
+        if(window.KRAY && typeof KRAY.plateBannerHtml==='function'){
+          return '<div class="star-cinema" id="star-cinema">'
+            +'<div class="plate-banner-lab"><span>Plate banner</span><b>16:9</b></div>'
+            +KRAY.plateBannerHtml(p.bannerUrl)
+            +'</div>';
+        }
+        var bh='';
+        try{ bh=new URL(p.bannerUrl).host; }catch(_){ bh=p.bannerUrl; }
+        return '<div class="star-cinema" id="star-cinema"><a class="sp-link" href="'+esc(p.bannerUrl)+'" target="_blank" rel="noopener noreferrer">banner · '+esc(bh)+' ↗</a></div>';
+      })();
 
     // what is written on it
     if(s.inscriptions.length || s.baptism){
@@ -2545,6 +2763,10 @@
       +'<a class="btn" href="/docs#inscribe">how stars work</a></div>';
 
     document.getElementById('body').innerHTML=h;
+    if(window.KRAY && typeof KRAY.mountPlateBanners==='function'){
+      var cinema=document.getElementById('star-cinema');
+      if(cinema) KRAY.mountPlateBanners(cinema);
+    }
 
     // its place in the city, drawn from the node's own parcel list
     if(s.written) mountLand(s.star);

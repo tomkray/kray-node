@@ -1,17 +1,19 @@
 /**
- * CITIZEN MOUTH (set-profile) — feeless bio / site URL / banner on the journal.
+ * CITIZEN MOUTH (set-profile) — paid identity seal (1 ₭) + hygiene on the journal.
  *   node src/test/set-profile.test.ts
  *
- * Pins: genesis root untouched · owner-only · forge refused · no ₭ moved ·
+ * Pins: genesis root untouched · owner-only · forge refused · exactly 1 ₭ → Treasury ·
  * banner must be owned image · lose-banner-star clears banner · clear-all
- * drops profileCommitment · replay reproduces root · conservation holds.
+ * drops profileCommitment · 160-byte bio · 1/day cooldown · identical refused ·
+ * replay reproduces root · conservation holds.
  */
 import { createHash } from 'node:crypto'
 import { KrayLedger } from '../protocol/ledger.ts'
 import {
   NETWORKS, toBtcNet, _generateKeyPair, _signKrayWallet, _hexToBytes,
-  inscribeMessageV2, setProfileMessage, sendStarMessage,
+  inscribeMessageV2, setProfileMessage, sendStarMessage, PROFILE_COOLDOWN_MS,
 } from '../protocol/scheme.ts'
+import { TREASURY } from '../protocol/kray-primitives.ts'
 import type { KrayEvent } from '../protocol/kray-primitives.ts'
 import * as btc from '@scure/btc-signer'
 
@@ -37,6 +39,7 @@ const sign = (m: string, w: W) => _signKrayWallet(m, w.sk)
 
 function book() {
   let seq = 0
+  let clock = 1_700_000_000_000
   const journal: KrayEvent[] = []
   const L = new KrayLedger(undefined, NET)
   const apply = (e: Omit<KrayEvent, 'seq' | 'hash' | 'prevHash'> & { hash?: string }) => {
@@ -61,16 +64,18 @@ function book() {
   }
   const mouth = (
     w: W,
-    fields: { description?: string; url?: string; bannerStar?: string; bannerUrl?: string },
+    fields: { description?: string; url?: string; bannerStar?: string; bannerUrl?: string; at?: number; fee?: string },
     signer: W = w,
   ) => {
     const description = fields.description ?? ''
     const url = fields.url ?? ''
     const bannerStar = fields.bannerStar ?? ''
     const bannerUrl = fields.bannerUrl ?? ''
+    const at = fields.at ?? (clock += PROFILE_COOLDOWN_MS)
+    const fee = fields.fee ?? '1'
     const nonce = L.nonceOf(w.addr)
     return apply({
-      kind: 'set-profile', at: 0, from: w.addr,
+      kind: 'set-profile', at, from: w.addr, fee,
       description, url, bannerStar, bannerUrl, nonce,
       publicKey: signer.pk,
       signature: sign(setProfileMessage(NET, w.addr, description, url, bannerStar, bannerUrl, nonce), signer),
@@ -79,16 +84,18 @@ function book() {
   }
   const tryMouth = (
     w: W,
-    fields: { description?: string; url?: string; bannerStar?: string; bannerUrl?: string },
+    fields: { description?: string; url?: string; bannerStar?: string; bannerUrl?: string; at?: number; fee?: string },
     signer: W = w,
   ) => {
     const description = fields.description ?? ''
     const url = fields.url ?? ''
     const bannerStar = fields.bannerStar ?? ''
     const bannerUrl = fields.bannerUrl ?? ''
+    const at = fields.at ?? (clock + PROFILE_COOLDOWN_MS)
+    const fee = fields.fee ?? '1'
     const nonce = L.nonceOf(w.addr)
     const e = {
-      seq: seq + 1, prevHash: '', hash: 'hx', at: 0, kind: 'set-profile' as const, from: w.addr,
+      seq: seq + 1, prevHash: '', hash: 'hx', at, kind: 'set-profile' as const, from: w.addr, fee,
       description, url, bannerStar, bannerUrl, nonce, publicKey: signer.pk,
       signature: sign(setProfileMessage(NET, w.addr, description, url, bannerStar, bannerUrl, nonce), signer),
       scheme: 'kraywallet',
@@ -102,48 +109,71 @@ function book() {
       publicKey: w.pk, signature: sign(sendStarMessage(NET, w.addr, to, star, nonce), w), scheme: 'kraywallet',
     } as never)
   }
-  return { L, journal, mint, born, mouth, tryMouth, send }
+  return { L, journal, mint, born, mouth, tryMouth, send, get clock() { return clock } }
 }
 
 function main() {
-  console.log('\n╔═ CITIZEN MOUTH — set-profile · feeless · owner-only · cascade by presence ═╗\n')
+  console.log('\n╔═ CITIZEN MOUTH — set-profile · 1 ₭ · owner-only · 160B · 1/day · cascade by presence ═╗\n')
 
   ok(new KrayLedger(undefined, NET).cascadeParts().profileCommitment === undefined,
     'no mouths ⇒ profileCommitment absent (A3)')
   const g1 = new KrayLedger(undefined, NET).cascadeRoot()
   ok(new KrayLedger(undefined, NET).cascadeRoot() === g1,
     'empty ledgers share the genesis cascade root')
+  ok(new KrayLedger(undefined, NET).profileValueActive(1) === true,
+    'regtest PROFILE_VALUE_SEQ = 0 (paid law born active)')
 
   const A = wallet('alice'), B = wallet('bob'), M = wallet('mallory')
 
   const a = book()
   a.mint(A.addr, '100')
-  a.mint(B.addr, '50')
-  const banner = a.born(A, 'banner-png')
-  const textStar = a.born(A, 'not-an-image', 'text/plain')
-  const rootBefore = a.L.cascadeRoot()
-  const balBefore = a.L.balanceOf(A.addr)
+  a.mint(B.addr, '100')
+  const banner = a.born(A, 'alice-banner')
+  const textStar = a.born(A, 'alice-text', 'text/plain')
 
+  const balBefore = a.L.balanceOf(A.addr)
+  const treBefore = a.L.balanceOf(TREASURY)
   a.mouth(A, {
-    description: 'Builder on the book',
+    description: 'Hello book',
     url: 'https://example.com',
     bannerStar: banner.toString(),
     bannerUrl: 'https://example.com/promo',
   })
   const mouth = a.L.profileOf(A.addr)
-  ok(!!mouth && mouth.description === 'Builder on the book' && mouth.url === 'https://example.com'
+  ok(!!mouth && mouth.description === 'Hello book' && mouth.url === 'https://example.com'
     && mouth.bannerStar === banner.toString() && mouth.bannerUrl === 'https://example.com/promo',
-    'Alice mouth lands on the journal')
-  ok(a.L.cascadeRoot() !== rootBefore, 'a set mouth folds into the cascade root')
-  ok(a.L.balanceOf(A.addr) === balBefore, 'set-profile moved NO ₭')
+    'Alice mouth sealed')
+  ok(a.L.balanceOf(A.addr) === balBefore - 1n, 'set-profile took exactly 1 ₭')
+  ok(a.L.balanceOf(TREASURY) === treBefore + 1n, '1 ₭ landed in Treasury (byte-proven fee)')
   ok(a.L.conserves(), 'conservation holds after set-profile')
+  ok(a.L.profileNextAtOf(A.addr) === (a.L.profileLastAtOf(A.addr)! + PROFILE_COOLDOWN_MS),
+    'nextAt = lastAt + 1 day')
 
-  // rotate / clear fields
+  rejects(() => a.tryMouth(A, {
+    description: 'Hello book',
+    url: 'https://example.com',
+    bannerStar: banner.toString(),
+    bannerUrl: 'https://example.com/promo',
+    at: a.clock + PROFILE_COOLDOWN_MS,
+  }), /identical|unchanged/i, 'identical mouth refused')
+
+  rejects(() => a.tryMouth(A, {
+    description: 'too soon',
+    url: '',
+    bannerStar: '',
+    bannerUrl: '',
+    at: a.L.profileLastAtOf(A.addr)!,
+  }), /cooldown/i, 'rewrite inside the same day refused')
+
+  rejects(() => a.tryMouth(A, { description: 'no pay', fee: '0', at: a.clock + PROFILE_COOLDOWN_MS }),
+    /exactly 1/, 'fee 0 refused under paid law')
+  rejects(() => a.tryMouth(A, { description: 'overpay', fee: '2', at: a.clock + PROFILE_COOLDOWN_MS }),
+    /exactly 1/, 'fee 2 refused under paid law')
+
   a.mouth(A, { description: 'Rotated bio', url: '', bannerStar: '', bannerUrl: '' })
   ok(a.L.profileOf(A.addr)?.description === 'Rotated bio' && a.L.profileOf(A.addr)?.bannerStar === '',
-    'owner may rotate / clear fields')
+    'Alice rotates after cooldown (pays 1 ₭ again)')
 
-  // hostile
   rejects(() => a.tryMouth(A, { description: 'hijack' }, M), /signature|signed/i,
     'Mallory cannot set Alice’s mouth (forged signature refused)')
   ok(a.L.profileOf(A.addr)?.description === 'Rotated bio', 'Alice’s mouth unchanged after forge')
@@ -152,6 +182,8 @@ function main() {
     'http (non-https) site URL refused')
   rejects(() => a.tryMouth(A, { description: 'pipe|bad' }), /\| or newlines/i,
     'description with | refused')
+  rejects(() => a.tryMouth(A, { description: 'x'.repeat(161) }), /cap is 160/i,
+    'description over 160 bytes (X bio) refused')
   rejects(() => a.tryMouth(A, { bannerStar: textStar.toString() }), /image star/i,
     'non-image star refused as banner')
 
@@ -159,7 +191,6 @@ function main() {
   rejects(() => a.tryMouth(A, { bannerStar: bobBanner.toString() }), /owner/i,
     'Alice cannot wear Bob’s star as banner')
 
-  // restore banner then lose it via send
   a.mouth(A, {
     description: 'keep me',
     url: 'https://example.com',
@@ -170,17 +201,18 @@ function main() {
   ok(a.L.profileOf(A.addr)?.bannerStar === '' && a.L.profileOf(A.addr)?.description === 'keep me',
     'sending the banner star clears only the banner binding')
 
-  // clear all → drop from cascade
   a.mouth(A, { description: '', url: '', bannerStar: '', bannerUrl: '' })
   ok(a.L.profileOf(A.addr) === null, 'clear-all deletes the mouth')
   ok(a.L.cascadeParts().profileCommitment === undefined,
     'empty mouth book ⇒ profileCommitment absent again')
+  ok(a.L.profileLastAtOf(A.addr) != null, 'gap clock survives clear (anti-spam)')
 
-  // replay
   const b = book()
   for (const e of a.journal) b.L.applyLive({ ...e })
   ok(b.L.cascadeRoot() === a.L.cascadeRoot() && b.L.profileOf(A.addr) === null,
     'stranger replay reproduces cascade root + cleared mouth')
+  ok(b.L.profileNextAtOf(A.addr) === a.L.profileNextAtOf(A.addr),
+    'stranger replay reproduces mouth gap clock')
 
   console.log(`\n${pass} passed, ${fail} failed\n`)
   if (fail) process.exit(1)

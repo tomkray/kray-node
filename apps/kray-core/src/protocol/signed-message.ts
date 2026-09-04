@@ -28,8 +28,9 @@ import {
   runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage,
   ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, eternizeMessage,
   contractCallMessage, contractCallMessageV2, quantumCommitMessage,
-  laneEnterMessage, laneExitMessage, foldSealMessage, setFaceMessage, setProfileMessage,
+  laneEnterMessage, laneExitMessage, foldSealMessage, setFaceMessage, clearFaceMessage, setProfileMessage,
 } from './scheme.ts'
+import { setKrayPlateMessage } from './kray-plate.ts'
 import { sha256hex, type KrayEvent } from './kray-primitives.ts'
 import { canonicalCode } from './contract.ts'
 import { rrPairKey } from './amm.ts'
@@ -105,12 +106,19 @@ export function signedMessageOfEvent(e: KrayEvent, network: string): string | nu
     }
     case 'eternize': return eternizeMessage(network, e.from!, BigInt(e.star!), e.l1InscriptionId!, e.nonce!)
     case 'set-face': return setFaceMessage(network, e.from!, BigInt(e.star!), e.nonce!)
+    case 'clear-face': return clearFaceMessage(network, e.from!, e.nonce!)
     case 'set-profile': return setProfileMessage(
       network, e.from!,
       typeof e.description === 'string' ? e.description : '',
       typeof e.url === 'string' ? e.url : '',
       typeof e.bannerStar === 'string' ? e.bannerStar : '',
       typeof e.bannerUrl === 'string' ? e.bannerUrl : '',
+      e.nonce!,
+    )
+    case 'set-kray-plate': return setKrayPlateMessage(
+      network, e.from!,
+      typeof e.plateHash === 'string' ? e.plateHash : '',
+      typeof e.star === 'string' ? e.star : '',
       e.nonce!,
     )
     case 'contract-call': {

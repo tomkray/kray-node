@@ -28,7 +28,7 @@ import { custodyFromHex, hitCount } from '../economics/custody.ts'
 import { readPresenceTip } from '../economics/presence-window.ts'
 
 /** the user-signed actions the submit path accepts (donate/anchor/reward/rune-deposit are system paths) */
-const USER_KINDS = new Set(['transfer', 'transfer-star', 'burn', 'inscribe', 'name', 'origin', 'eternize', 'set-face', 'set-profile', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'quantum-commit', 'contract', 'contract-call', 'x-send', 'cut-send', 'lane-enter', 'lane-exit', 'fold-seal', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept'])
+const USER_KINDS = new Set(['transfer', 'transfer-star', 'burn', 'inscribe', 'name', 'origin', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'quantum-commit', 'contract', 'contract-call', 'x-send', 'cut-send', 'lane-enter', 'lane-exit', 'fold-seal', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept'])
 
 export interface SupplyView { emitted: bigint; burned: bigint; circulating: bigint }
 export interface PotView { held: bigint; target: bigint; deficit: bigint; donated: bigint; spent: bigint; minted: bigint; open: boolean }
@@ -149,15 +149,30 @@ export class KrayNode {
   quantumCommit(from: string, commit: string, nonce: number, publicKey: string, signature: string, scheme = 'kraywallet', at = 0): KrayEvent {
     return this.store.append({ kind: 'quantum-commit', at, from, quantumCommit: String(commit).toLowerCase(), nonce, publicKey, signature, scheme } as never)
   }
-  /** CITIZEN MOUTH — feeless bio / site / banner binding. Signature + nonce only. */
+  /** CITIZEN MOUTH — bio / site / banner binding. At/after PROFILE_VALUE_SEQ pays fee:'1'. */
   setProfile(
     from: string,
     description: string, url: string, bannerStar: string, bannerUrl: string,
     nonce: number, publicKey: string, signature: string, scheme = 'kraywallet', at = 0,
+    fee: string | null = null,
   ): KrayEvent {
     return this.store.append({
       kind: 'set-profile', at, from,
       description, url, bannerStar, bannerUrl,
+      ...(fee != null ? { fee } : {}),
+      nonce, publicKey, signature, scheme,
+    } as never)
+  }
+  /** KRAY PLATE — living plate (hash in journal, bytes in atlas). Exactly 1 ₭. star='' = address plate. */
+  setKrayPlate(
+    from: string,
+    plateHash: string,
+    star: string,
+    nonce: number, publicKey: string, signature: string, scheme = 'kraywallet', at = 0,
+  ): KrayEvent {
+    return this.store.append({
+      kind: 'set-kray-plate', at, from,
+      plateHash, star: star || undefined, fee: '1',
       nonce, publicKey, signature, scheme,
     } as never)
   }

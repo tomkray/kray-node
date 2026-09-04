@@ -72,6 +72,8 @@ export function shouldPackPath(rel) {
   }
   const parts = p.split('/').filter(Boolean)
   const base = (parts[parts.length - 1] || '').toLowerCase()
+  // macOS AppleDouble (._*) — a leftover tar once shipped ._pot-signer.mjs
+  if (base.startsWith('._')) return false
   // operator handoff (house names, deploy rite) — disk only
   if (parts[0] === 'docs' && base.startsWith('handoff-')) return false
   // bakery on disk (rsync leftover) — never zip. Follow never installs the pen.
@@ -167,10 +169,9 @@ let headSeen = { at: 0, v: null }
 // endpoint never spawns git per request. Overridable (0 in tests); default 5s.
 const HEAD_TTL_MS = Number(process.env.KRAY_PACK_HEAD_TTL_MS ?? 5000)
 
-// Re-read the checked-out commit, throttled. The pack (an in-memory zip of the
-// whole tree) is then rebuilt ONLY when HEAD actually moved — so /downloads and
-// /api/node-version always follow the latest pushed commit the operator has
-// checked out, with no node restart. commitOf falls back to `git rev-parse HEAD`
+// Re-read the checked-out commit, throttled. The pack is THIS door's filtered
+// tree (rsync after push) — never a live GitHub fetch. Rebuilt when HEAD
+// moves or the process restarts. commitOf falls back to `git rev-parse HEAD`
 // when no sync stamp is present, which is the writer's case.
 function headNow(root) {
   const now = Date.now()

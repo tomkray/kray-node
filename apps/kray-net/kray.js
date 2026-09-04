@@ -79,6 +79,11 @@
     '<symbol id="g-t-mersenne" viewBox="0 0 24 24"><path d="M12 2.5 21.5 12 12 21.5 2.5 12Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M12 7 17 12 12 17 7 12Z" fill="currentColor"/></symbol>' +
     '<symbol id="g-t-twin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M7 7.5 10.9 9.75 10.9 14.25 7 16.5 3.1 14.25 3.1 9.75Z"/><path d="M17 7.5 20.9 9.75 20.9 14.25 17 16.5 13.1 14.25 13.1 9.75Z"/></g></symbol>' +
     '<symbol id="g-t-resonance" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.3" fill="currentColor"/><g fill="none" stroke="currentColor" stroke-linecap="round"><path d="M6.5 12a5.5 5.5 0 0 1 11 0" stroke-width="1.4" opacity=".85"/><path d="M3 12a9 9 0 0 1 18 0" stroke-width="1.3" opacity=".5"/></g></symbol>' +
+    /* ── GLOW LADDER — rank marks (replaces emoji). Apex → sky → orbit → lit. ── */
+    '<symbol id="g-rank-apex" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M4.2 19.2c2.2-1.1 4.1-3.4 5.2-6.2" stroke-width="1.5" opacity=".55"/><path d="M5.6 20.2c2.8-1.2 5.4-4.1 6.8-7.6" stroke-width="1.3" opacity=".35"/><path d="M12.2 3.2c.35 3.2 2.7 5.5 5.9 5.9-3.2.35-5.55 2.7-5.9 5.9-.35-3.2-2.7-5.55-5.9-5.9 3.2-.35 5.55-2.7 5.9-5.9z" fill="currentColor" stroke="none"/></g><circle cx="18.4" cy="5.2" r="1.15" fill="currentColor"/></symbol>' +
+    '<symbol id="g-rank-sky" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"><path d="M6.2 16.8 12 7.4 17.8 16.8"/><path d="M8.4 13.2h7.2" opacity=".55"/></g><g fill="currentColor"><circle cx="6.2" cy="16.8" r="1.35"/><circle cx="12" cy="7.4" r="1.55"/><circle cx="17.8" cy="16.8" r="1.35"/></g></symbol>' +
+    '<symbol id="g-rank-orbit" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9.2" ry="3.6" fill="none" stroke="currentColor" stroke-width="1.25" transform="rotate(-28 12 12)" opacity=".7"/><path d="M12 7.2c.3 2.4 2.1 4.1 4.5 4.4-2.4.3-4.2 2.1-4.5 4.5-.3-2.4-2.1-4.2-4.5-4.5 2.4-.3 4.2-2.1 4.5-4.4z" fill="currentColor"/><circle cx="19.1" cy="7.6" r="1.2" fill="currentColor"/></symbol>' +
+    '<symbol id="g-rank-lit" viewBox="0 0 24 24"><path d="M12 4.2c.28 3.4 2.9 6 6.3 6.3-3.4.28-6 2.9-6.3 6.3-.28-3.4-2.9-6-6.3-6.3 3.4-.28 6-2.9 6.3-6.3z" fill="currentColor" opacity=".92"/><g stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity=".55"><path d="M12 2.4v1.5M12 20.1v1.5M2.4 12h1.5M20.1 12h1.5"/></g></symbol>' +
     '</defs></svg>';
 
   /* Header = the book, left to right as the story reads.
@@ -99,6 +104,7 @@
     { p: 'rank', href: '/rank', label: 'Rank' },
     { p: 'market', href: '/market', label: 'Market' },
     { p: 'blackhole', href: '/blackhole', label: 'Black hole' },
+    { p: 'treasury', href: '/address/KRAY_TREASURY', label: 'Treasury' },
     { p: 'docs', href: '/docs', label: 'Docs' }
   ];
 
@@ -574,6 +580,19 @@
     var v = Number(n);
     return '★ ' + (Number.isFinite(v) ? v.toLocaleString() : String(n == null ? '' : n));
   };
+  /* Glow ladder glyph id — apex (#1) · sky (≤3) · orbit (≤10) · lit (rest). */
+  KRAY.glowRankGlyphId = function (rank) {
+    rank = Number(rank);
+    if (rank === 1) return 'g-rank-apex';
+    if (rank > 0 && rank <= 3) return 'g-rank-sky';
+    if (rank > 0 && rank <= 10) return 'g-rank-orbit';
+    return 'g-rank-lit';
+  };
+  KRAY.glowRankGlyphHtml = function (rank, px) {
+    px = px || 16;
+    var id = KRAY.glowRankGlyphId(rank);
+    return '<svg class="rank-ico" width="' + px + '" height="' + px + '" aria-hidden="true"><use href="#' + id + '"/></svg>';
+  };
   /* Title on a card: ★ N always, name beside it when baptised. Plain text. */
   KRAY.starTitle = function (t) {
     t = t || {};
@@ -615,6 +634,183 @@
     var mark = KRAY.starMark(star);
     return '<span class="kv-mark">' + KRAY.esc(mark) + '</span>';
   };
+
+  /* ── CITIZEN SIGIL — sacred-geometry constellation fallback ───────────────
+     Deterministic portrait from any address/seed. Da Vinci echo (Vitruvian
+     rings + golden ratio) over deep space + constellation unique to the seed.
+     Replaces DiceBear-style blocks. CSP-safe data URI (img-src 'self' data:). */
+  KRAY.citizenSigilSrc = function (seed, size) {
+    seed = String(seed == null ? '' : seed);
+    size = size || 512;
+    var h = 2166136261 >>> 0;
+    for (var i = 0; i < seed.length; i++) {
+      h ^= seed.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    var rnd = (function (a) {
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        var t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    })(h || 1);
+
+    var PHI = 1.6180339887;
+    var TAU = Math.PI * 2;
+    var hue = Math.floor(rnd() * 360);
+    var hue2 = (hue + 28 + Math.floor(rnd() * 50)) % 360;
+    var accent = 'hsl(' + hue + ',62%,62%)';
+    var accent2 = 'hsl(' + hue2 + ',48%,72%)';
+    var ink = 'rgba(244,245,250,0.88)';
+    var dim = 'rgba(244,245,250,0.18)';
+    var faint = 'rgba(244,245,250,0.08)';
+    var S = size, cx = S / 2, cy = S / 2;
+    var rMax = S * 0.42;
+    var parts = [];
+    var uid = 'cs' + (h >>> 0).toString(16);
+
+    parts.push('<defs>');
+    parts.push('<radialGradient id="' + uid + 'g" cx="38%" cy="32%" r="72%">'
+      + '<stop offset="0%" stop-color="hsl(' + hue + ',40%,18%)"/>'
+      + '<stop offset="55%" stop-color="hsl(' + ((hue + 200) % 360) + ',28%,7%)"/>'
+      + '<stop offset="100%" stop-color="#020308"/>'
+      + '</radialGradient>');
+    parts.push('<radialGradient id="' + uid + 'core" cx="50%" cy="50%" r="50%">'
+      + '<stop offset="0%" stop-color="' + accent2 + '" stop-opacity=".55"/>'
+      + '<stop offset="100%" stop-color="' + accent + '" stop-opacity="0"/>'
+      + '</radialGradient>');
+    parts.push('<filter id="' + uid + 'glow" x="-40%" y="-40%" width="180%" height="180%">'
+      + '<feGaussianBlur stdDeviation="' + (S * 0.012).toFixed(2) + '" result="b"/>'
+      + '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>'
+      + '</filter>');
+    parts.push('</defs>');
+
+    // Deep space canvas
+    parts.push('<rect width="' + S + '" height="' + S + '" fill="#020308"/>');
+    parts.push('<rect width="' + S + '" height="' + S + '" fill="url(#' + uid + 'g)"/>');
+
+    // Soft nebula blobs
+    var blobs = 2 + Math.floor(rnd() * 2);
+    for (var b = 0; b < blobs; b++) {
+      var bx = S * (0.2 + rnd() * 0.6), by = S * (0.2 + rnd() * 0.6);
+      var br = S * (0.12 + rnd() * 0.18);
+      parts.push('<circle cx="' + bx.toFixed(1) + '" cy="' + by.toFixed(1) + '" r="' + br.toFixed(1)
+        + '" fill="hsl(' + ((hue + b * 40) % 360) + ',45%,40%)" opacity="' + (0.06 + rnd() * 0.08).toFixed(3) + '"/>');
+    }
+
+    // Field stars
+    var field = 28 + Math.floor(rnd() * 24);
+    for (var s = 0; s < field; s++) {
+      var sx = rnd() * S, sy = rnd() * S;
+      var sr = (0.4 + rnd() * 1.6) * (S / 512);
+      var so = 0.25 + rnd() * 0.7;
+      parts.push('<circle cx="' + sx.toFixed(1) + '" cy="' + sy.toFixed(1) + '" r="' + sr.toFixed(2)
+        + '" fill="' + ink + '" opacity="' + so.toFixed(3) + '"/>');
+    }
+
+    // Vitruvian / sacred rings (golden ratio radii)
+    var rings = [rMax / (PHI * PHI), rMax / PHI, rMax, rMax * PHI * 0.72];
+    for (var ri = 0; ri < rings.length; ri++) {
+      parts.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + rings[ri].toFixed(2)
+        + '" fill="none" stroke="' + (ri === 2 ? dim : faint) + '" stroke-width="'
+        + (S * (ri === 2 ? 0.0035 : 0.002)).toFixed(2) + '"/>');
+    }
+
+    // Rotated polygon — sides 5..8 (pentagon → octagon)
+    var sides = 5 + Math.floor(rnd() * 4);
+    var rot = rnd() * TAU;
+    var polyR = rMax * (0.72 + rnd() * 0.18);
+    var poly = [];
+    for (var p = 0; p < sides; p++) {
+      var a = rot + (TAU * p) / sides - Math.PI / 2;
+      poly.push([(cx + Math.cos(a) * polyR).toFixed(2), (cy + Math.sin(a) * polyR).toFixed(2)]);
+    }
+    parts.push('<polygon points="' + poly.map(function (pt) { return pt.join(','); }).join(' ')
+      + '" fill="none" stroke="' + accent + '" stroke-opacity=".42" stroke-width="'
+      + (S * 0.003).toFixed(2) + '"/>');
+    // Inner dual (rotated half-step) — vesica echo
+    var poly2 = [];
+    for (var p2 = 0; p2 < sides; p2++) {
+      var a2 = rot + TAU / (sides * 2) + (TAU * p2) / sides - Math.PI / 2;
+      var r2 = polyR / PHI;
+      poly2.push([(cx + Math.cos(a2) * r2).toFixed(2), (cy + Math.sin(a2) * r2).toFixed(2)]);
+    }
+    parts.push('<polygon points="' + poly2.map(function (pt) { return pt.join(','); }).join(' ')
+      + '" fill="none" stroke="' + accent2 + '" stroke-opacity=".28" stroke-width="'
+      + (S * 0.0022).toFixed(2) + '"/>');
+
+    // Flower-of-life arcs (6 petals around center)
+    var petalR = rMax / PHI;
+    var petalN = 6;
+    var petalRot = rot * 0.5;
+    for (var pet = 0; pet < petalN; pet++) {
+      var pa = petalRot + (TAU * pet) / petalN;
+      var px = cx + Math.cos(pa) * (petalR * 0.55);
+      var py = cy + Math.sin(pa) * (petalR * 0.55);
+      parts.push('<circle cx="' + px.toFixed(2) + '" cy="' + py.toFixed(2) + '" r="' + (petalR * 0.55).toFixed(2)
+        + '" fill="none" stroke="' + dim + '" stroke-width="' + (S * 0.0018).toFixed(2) + '"/>');
+    }
+
+    // Constellation — bright nodes on a ring, unique edges
+    var nodes = 5 + Math.floor(rnd() * 5);
+    var constR = rMax * (0.55 + rnd() * 0.28);
+    var stars = [];
+    for (var n = 0; n < nodes; n++) {
+      var na = rot + (TAU * n) / nodes + (rnd() - 0.5) * 0.35;
+      var nr = constR * (0.82 + rnd() * 0.28);
+      stars.push({ x: cx + Math.cos(na) * nr, y: cy + Math.sin(na) * nr, w: 0.7 + rnd() });
+    }
+    // Connect each to next + a few chords (deterministic graph)
+    for (var e = 0; e < stars.length; e++) {
+      var aN = stars[e], bN = stars[(e + 1) % stars.length];
+      parts.push('<line x1="' + aN.x.toFixed(2) + '" y1="' + aN.y.toFixed(2)
+        + '" x2="' + bN.x.toFixed(2) + '" y2="' + bN.y.toFixed(2)
+        + '" stroke="' + accent + '" stroke-opacity=".55" stroke-width="'
+        + (S * 0.0025).toFixed(2) + '"/>');
+    }
+    var chords = 1 + Math.floor(rnd() * 3);
+    for (var c = 0; c < chords; c++) {
+      var i1 = Math.floor(rnd() * stars.length);
+      var i2 = (i1 + 2 + Math.floor(rnd() * (stars.length - 3))) % stars.length;
+      if (i1 === i2) continue;
+      parts.push('<line x1="' + stars[i1].x.toFixed(2) + '" y1="' + stars[i1].y.toFixed(2)
+        + '" x2="' + stars[i2].x.toFixed(2) + '" y2="' + stars[i2].y.toFixed(2)
+        + '" stroke="' + accent2 + '" stroke-opacity=".32" stroke-width="'
+        + (S * 0.0018).toFixed(2) + '" stroke-dasharray="' + (S * 0.012).toFixed(1) + ' ' + (S * 0.008).toFixed(1) + '"/>');
+    }
+    for (var ns = 0; ns < stars.length; ns++) {
+      var st = stars[ns];
+      var sr2 = (1.4 + st.w * 1.8) * (S / 512);
+      parts.push('<circle cx="' + st.x.toFixed(2) + '" cy="' + st.y.toFixed(2) + '" r="' + sr2.toFixed(2)
+        + '" fill="' + ink + '" filter="url(#' + uid + 'glow)"/>');
+      parts.push('<circle cx="' + st.x.toFixed(2) + '" cy="' + st.y.toFixed(2) + '" r="' + (sr2 * 2.4).toFixed(2)
+        + '" fill="' + accent + '" opacity=".18"/>');
+    }
+
+    // Core — small Vitruvian cross + glow heart
+    parts.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + (S * 0.07).toFixed(2) + '" fill="url(#' + uid + 'core)"/>');
+    var arm = S * 0.028;
+    parts.push('<path d="M' + cx + ' ' + (cy - arm) + 'V' + (cy + arm) + 'M' + (cx - arm) + ' ' + cy + 'H' + (cx + arm)
+      + '" stroke="' + ink + '" stroke-width="' + (S * 0.003).toFixed(2) + '" stroke-linecap="round" opacity=".75"/>');
+    parts.push('<circle cx="' + cx + '" cy="' + cy + '" r="' + (S * 0.009).toFixed(2) + '" fill="' + accent2 + '"/>');
+
+    // Fine corner ticks — manuscript / atlas plate feel
+    var tick = S * 0.04, inset = S * 0.06;
+    [[inset, inset], [S - inset, inset], [inset, S - inset], [S - inset, S - inset]].forEach(function (pt, qi) {
+      var tx = pt[0], ty = pt[1];
+      var dx = qi % 2 === 0 ? tick : -tick;
+      var dy = qi < 2 ? tick : -tick;
+      parts.push('<path d="M' + tx + ' ' + (ty + dy) + 'V' + ty + 'H' + (tx + dx)
+        + '" fill="none" stroke="' + faint + '" stroke-width="' + (S * 0.002).toFixed(2) + '"/>');
+    });
+
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + S + ' ' + S
+      + '" width="' + S + '" height="' + S + '" role="img" aria-label="Citizen sigil">'
+      + parts.join('') + '</svg>';
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+  };
+
   KRAY.nameplateHtml = function (t) {
     t = t || {};
     var name = String(t.name || (t.baptism && t.baptism.name) || '').trim();
@@ -625,6 +821,131 @@
       + (name ? '<b>' + KRAY.esc(name) + '</b>' : '')
       + '<em>name only</em></span>';
   };
+
+  /* ── KRAY PLATE bannerUrl — render the sealed HTTPS URL in the front (16:9 stage).
+     youtube → embed autoplay (muted; browser policy) · stop on ENDED
+     direct video → <video autoplay> · pause on ended
+     image / gif → <img> cover in the same wide frame
+     other https → quiet outbound link (never invent a second media kind) ── */
+  KRAY.plateYoutubeId = function (raw) {
+    try {
+      var u = new URL(String(raw || ''));
+      var host = (u.hostname || '').replace(/^www\./, '').toLowerCase();
+      if (host === 'youtu.be') {
+        var id = (u.pathname || '').replace(/^\//, '').split('/')[0];
+        return /^[\w-]{11}$/.test(id) ? id : '';
+      }
+      if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'music.youtube.com') {
+        if (u.searchParams.get('v') && /^[\w-]{11}$/.test(u.searchParams.get('v'))) return u.searchParams.get('v');
+        var parts = (u.pathname || '').split('/').filter(Boolean);
+        // /live/ID · /embed/ID · /shorts/ID
+        if (parts.length >= 2 && /^(live|embed|shorts|v)$/.test(parts[0]) && /^[\w-]{11}$/.test(parts[1])) return parts[1];
+      }
+    } catch (_) { /* not a URL */ }
+    return '';
+  };
+  KRAY.plateBannerKind = function (raw) {
+    var s = String(raw || '').trim();
+    if (!s) return '';
+    if (KRAY.plateYoutubeId(s)) return 'youtube';
+    try {
+      var path = (new URL(s)).pathname || '';
+      var ext = (path.split('.').pop() || '').toLowerCase();
+      if (/^(gif|png|jpe?g|webp|avif|svg)$/.test(ext)) return 'image';
+      if (/^(mp4|webm|ogg|ogv|mov|m4v)$/.test(ext)) return 'video';
+    } catch (_) { /* */ }
+    // content-type unknown — treat image hosts lightly via common query-less paths
+    if (/\.(gif|png|jpe?g|webp|avif)(\?|$)/i.test(s)) return 'image';
+    if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(s)) return 'video';
+    return 'link';
+  };
+  /** HTML for one sealed bannerUrl — always the same 16:9 stage. */
+  KRAY.plateBannerHtml = function (raw) {
+    var url = String(raw || '').trim();
+    if (!url) return '';
+    var kind = KRAY.plateBannerKind(url);
+    var esc = KRAY.esc;
+    if (kind === 'youtube') {
+      var id = KRAY.plateYoutubeId(url);
+      var src = 'https://www.youtube.com/embed/' + encodeURIComponent(id)
+        + '?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1';
+      return '<div class="plate-banner-stage" data-plate-banner="youtube" data-ytid="' + esc(id) + '">'
+        + '<iframe class="plate-banner-frame" src="' + esc(src) + '" title="KRAY Plate banner" '
+        + 'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" '
+        + 'allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>'
+        + '</div>';
+    }
+    if (kind === 'video') {
+      return '<div class="plate-banner-stage" data-plate-banner="video">'
+        + '<video class="plate-banner-video" src="' + esc(url) + '" autoplay muted playsinline controls '
+        + 'preload="metadata"></video></div>';
+    }
+    if (kind === 'image') {
+      return '<div class="plate-banner-stage" data-plate-banner="image">'
+        + '<a class="plate-banner-hit" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" title="Open banner">'
+        + '<img class="plate-banner-img" src="' + esc(url) + '" alt="" loading="lazy" decoding="async">'
+        + '</a></div>';
+    }
+    var host = url;
+    try { host = new URL(url).host; } catch (_) { /* */ }
+    return '<a class="mouth-link plate-banner-fallback" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">banner · ' + esc(host) + ' ↗</a>';
+  };
+  /** Wire stop-on-end for youtube / native video inside a painted root. Idempotent. */
+  KRAY.mountPlateBanners = function (root) {
+    var scope = root && root.querySelectorAll ? root : document;
+    // Native <video> — pause when the clip ends (no loop landfill).
+    scope.querySelectorAll('video.plate-banner-video').forEach(function (v) {
+      if (v.__krayPlateWired) return;
+      v.__krayPlateWired = true;
+      v.addEventListener('ended', function () {
+        try { v.pause(); } catch (_) { /* */ }
+      });
+    });
+    var ytStages = scope.querySelectorAll('[data-plate-banner="youtube"][data-ytid]');
+    if (!ytStages.length) return;
+    function wirePlayers() {
+      if (!window.YT || !YT.Player) return;
+      ytStages.forEach(function (stage) {
+        if (stage.__krayYt) return;
+        var iframe = stage.querySelector('iframe.plate-banner-frame');
+        if (!iframe) return;
+        stage.__krayYt = true;
+        try {
+          // eslint-disable-next-line no-new
+          new YT.Player(iframe, {
+            events: {
+              onStateChange: function (ev) {
+                // 0 === ENDED — stop (do not loop). Live streams never fire this.
+                if (ev && ev.data === 0 && ev.target && typeof ev.target.stopVideo === 'function') {
+                  try { ev.target.stopVideo(); } catch (_) { /* */ }
+                }
+              },
+            },
+          });
+        } catch (_) { /* API optional — embed still autoplays */ }
+      });
+    }
+    if (window.YT && YT.Player) { wirePlayers(); return; }
+    if (!window.__krayYtApiLoading) {
+      window.__krayYtApiLoading = true;
+      var prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function () {
+        if (typeof prev === 'function') try { prev(); } catch (_) { /* */ }
+        wirePlayers();
+      };
+      var s = document.createElement('script');
+      s.src = 'https://www.youtube.com/iframe_api';
+      s.async = true;
+      document.head.appendChild(s);
+    } else {
+      var tries = 0;
+      var t = setInterval(function () {
+        tries++;
+        if ((window.YT && YT.Player) || tries > 40) { clearInterval(t); wirePlayers(); }
+      }, 250);
+    }
+  };
+
   /* Market / history plate — the sealed bytes fill the square. Image and audio cover as
      <img>; video as a still; text / code through the letter template. A baptised star
      with no bytes gets the nameplate — never an empty square. ★ N is the empty
@@ -633,19 +954,29 @@
     t = t || {};
     var kind = KRAY.starKindOf(t);
     if (kind === 'named') return KRAY.nameplateHtml(t);
-    var media = t.media || t.url || (t.contentHash ? '/content/' + t.contentHash : '');
+    // profile.written uses `media` as a BOOLEAN flag (has image/video/audio).
+    // Other doors pass `media` as a /content/… URL. Never treat a boolean as a src —
+    // that made music tiles iframe "true" / dump the whole page into the square.
+    var media = (typeof t.media === 'string' && t.media)
+      || t.url
+      || (t.contentHash ? '/content/' + t.contentHash : '');
     var ct = String(t.contentType || t.ctype || '');
     var cat = KRAY.categoryOf(ct);
     var badge = kind === 'inscribed'
       ? '<span class="skind-face" title="has an inscription — no baptism">unnamed</span>'
       : '';
     if (!media) return KRAY.starMarkPlate(t);
-    var hash = (String(media).match(/\/(?:content|cover|render)\/([0-9a-f]{64})/) || [])[1];
+    var hash = (t.contentHash && /^[0-9a-f]{64}$/i.test(String(t.contentHash)) && String(t.contentHash).toLowerCase())
+      || (String(media).match(/\/(?:content|cover|render)\/([0-9a-f]{64})/i) || [])[1];
+    if (hash) hash = String(hash).toLowerCase();
     var layer;
     if (cat === 'image' || cat === 'vector') {
       layer = '<img loading="lazy" alt="" src="' + KRAY.esc(media) + '" onerror="this.remove()">';
-    } else if (cat === 'audio' && hash) {
-      layer = '<img loading="lazy" alt="" src="/cover/' + hash + '" onerror="this.remove()">';
+    } else if (cat === 'audio') {
+      // Lists / pickers: ID3 sleeve only — never an <audio> or /render iframe in the square.
+      layer = hash
+        ? '<img class="music-cover" loading="lazy" alt="" src="/cover/' + hash + '" onerror="this.remove()">'
+        : '<span class="ph">♪</span>';
     } else if (cat === 'video') {
       layer = '<video muted playsinline preload="metadata" src="' + KRAY.esc(media) + '"></video>';
     } else {
@@ -720,8 +1051,12 @@
   KRAY.starChipInner = function (t) {
     t = t || {};
     var n = Number(t.star);
-    var lab = Number.isFinite(n) ? KRAY.starMark(n) : KRAY.esc(String(t.star || ''));
-    return KRAY.starChipArt(t) + '<span>' + lab + '</span>';
+    var mark = Number.isFinite(n) ? KRAY.starMark(n) : KRAY.esc(String(t.star || ''));
+    var name = String(t.name || (t.baptism && t.baptism.name) || '').trim();
+    var lab = name
+      ? (mark + '<span class="chip-name">' + KRAY.esc(name) + '</span>')
+      : mark;
+    return KRAY.starChipArt(t) + '<span class="chip-lab">' + lab + '</span>';
   };
   KRAY.starChipButton = function (attrs, t) {
     var inner = KRAY.starChipInner(t);
@@ -1157,8 +1492,8 @@
     return '<footer class="foot"><div class="wrap">' +
       '<div class="g12">' +
         '<div class="foot-brand c4"><div class="b">₭ KRAY.NETWORK</div><div class="t">The book: sacrifice → ₭ → stars. Replay proves it. Sealed to Bitcoin. DeFi is an app on this ledger — not the node.</div></div>' +
-        '<div class="col foot-col"><h5>Explore</h5><a href="/">Explorer</a><a href="/blocks">Chain</a><a href="/network">Network</a><a href="/land">Land</a><a href="/city">City</a><a href="/library">Library</a><a href="/mind">Mind</a><a href="/rank">Rank</a><a href="/dashboard">Dashboard</a></div>' +
-        '<div class="col foot-col"><h5>Apps</h5><a href="/market/luz">Light market</a><a href="/rune">Runes</a><a href="/send">Send</a></div>' +
+        '<div class="col foot-col"><h5>Explore</h5><a href="/">Explorer</a><a href="/blocks">Chain</a><a href="/network">Network</a><a href="/land">Land</a><a href="/city">City</a><a href="/library">Library</a><a href="/mind">Mind</a><a href="/rank">Rank</a><a href="/dashboard">Dashboard</a><a href="/address/KRAY_TREASURY">Treasury</a><a href="/blackhole">Black hole</a></div>' +
+        '<div class="col foot-col"><h5>Apps</h5><a href="/market">Markets</a><a href="/market/star">Star market</a><a href="/market/luz">Light market</a><a href="/collections">Collections</a><a href="/defi">DeFi</a><a href="/rune">Runes</a><a href="/send">Send</a></div>' +
         '<div class="col foot-col prove"><h5>Prove</h5><a href="/proof">Proof</a><a href="/verify">Verify</a><a href="/anchor">The anchor</a><a href="/burn">Bitcoin Proof</a><a href="/docs">Docs</a><a href="/docs#atlas">Site atlas</a></div>' +
       '</div>' +
       '<div class="bar"><span>circulating ₭ = emitted − burned · one cascade root sealed to Bitcoin</span><span>KRAY OS v2 · Blueprint</span></div>' +
@@ -1182,6 +1517,10 @@
       document.head.appendChild(icon);
     }
     var active = document.body.getAttribute('data-page') || 'home';
+    try {
+      if (/\/(?:u|address|profile)\/KRAY_TREASURY\/?$/i.test(location.pathname)) active = 'treasury';
+      else if (/\/blackhole\/?$/i.test(location.pathname)) active = 'blackhole';
+    } catch (_) { /* path paint only */ }
     if (window.KRAY_NAV !== false && !document.querySelector('header.nav')) {
       document.body.insertBefore(KRAY.el(navHTML(active)), document.getElementById('kray-glyphs').nextSibling);
     }

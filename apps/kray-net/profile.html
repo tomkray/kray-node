@@ -42,6 +42,29 @@
   box-shadow:none;min-height:188px;
   --plate-glow:#e8c547; /* soulbound glow — plate-local; Blueprint keeps --btc for Bitcoin only */
 }
+.citizen-plate.has-cinema{padding-bottom:var(--s4)}
+.citizen-cinema{
+  grid-column:1 / -1;
+  margin:0;
+  min-width:0;
+}
+.citizen-cinema[hidden]{display:none!important}
+.citizen-cinema .plate-banner-stage{
+  max-width:none;width:100%;
+  margin:0;
+  border-radius:14px;
+  border-color:color-mix(in srgb,var(--line) 70%,transparent);
+  box-shadow:
+    0 1px 0 color-mix(in srgb,var(--ink) 6%,transparent),
+    0 24px 48px -28px rgba(0,0,0,.65);
+}
+.citizen-cinema .plate-banner-lab{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin:0 0 8px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-4);
+}
+.citizen-cinema .plate-banner-lab b{color:var(--ink-3);font-weight:600;letter-spacing:.12em}
 .citizen-plate::before{content:none}
 .citizen-plate > *{position:relative;z-index:1}
 @media(max-width:900px){.citizen-plate{grid-template-columns:1fr;gap:var(--s4);padding:var(--s4) var(--s5);min-height:0}}
@@ -115,12 +138,26 @@
   max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .mouth-link:hover{text-decoration:underline}
+.mouth-act{
+  align-self:start;margin-top:2px;padding:8px 14px;
+  font-family:var(--sans);font-size:13px;font-weight:600;
+  color:var(--ink);background:color-mix(in srgb,var(--signal) 12%,var(--surface));
+  border:1px solid color-mix(in srgb,var(--signal) 40%,var(--line));
+  border-radius:var(--r-pill);cursor:pointer;
+}
+.mouth-act:hover{border-color:var(--signal);background:color-mix(in srgb,var(--signal) 18%,var(--surface))}
+.mouth-act[hidden]{display:none!important}
+.mouth-act-out{font-size:12px;color:var(--ink-3);min-height:1.2em}
+.mouth-act-out.ok{color:var(--ok, #3d8)}
+.mouth-act-out.err{color:var(--danger, #e55)}
 .mouth-banner{
-  display:block;width:100%;max-width:520px;aspect-ratio:3/1;
+  display:block;width:100%;max-width:520px;
+  /* Exact citizen banner frame: 1500×500 (3:1) — crops cover; never stretch. */
+  aspect-ratio:1500 / 500;
   border-radius:12px;overflow:hidden;border:1px solid var(--line);
   background:var(--void);text-decoration:none;position:relative;
 }
-.mouth-banner img{width:100%;height:100%;object-fit:cover;display:block}
+.mouth-banner img{width:100%;height:100%;object-fit:cover;object-position:center;display:block}
 .mouth-banner:hover{border-color:var(--ink-3)}
 .mouth-edit{
   align-self:start;margin-top:2px;padding:6px 12px;
@@ -134,12 +171,14 @@
 .mouth-body{display:flex;flex-direction:column;gap:10px;padding:var(--s4)}
 .mouth-ta{resize:vertical;min-height:72px;font-family:var(--sans);line-height:1.4}
 .mouth-foot{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
-.mouth-banner-pick{
-  border:2px solid transparent;border-radius:10px;overflow:hidden;cursor:pointer;
-  aspect-ratio:1;background:var(--void);
+.mouth-banner-hint{
+  margin:0;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--ink-4);
 }
-.mouth-banner-pick.on{border-color:var(--signal)}
-.mouth-banner-pick img{width:100%;height:100%;object-fit:cover;display:block}
+.mouth-banner-hint b{color:var(--ink-2);font-weight:600}
+.mouth-banner-grid.fp-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+.mouth-banner-grid .fp-cell .art{
+  aspect-ratio:1500 / 500; /* same frame as the live banner — preview what you seal */
+}
 
 /* Global glow rank — beside the name / star (celestial ladder mark) */
 .id-headline{display:flex;align-items:center;flex-wrap:wrap;gap:10px 12px;min-width:0}
@@ -276,6 +315,142 @@
   background:var(--surface);cursor:default;
 }
 @media(prefers-reduced-motion:reduce){.actchart i{transition:none}}
+
+/* ── TREASURY ANALYTICS DASHBOARD — protocol sink · journal fold only ── */
+.tdash{margin:var(--s5) 0 var(--s6);display:flex;flex-direction:column;gap:var(--s4)}
+.tdash[hidden]{display:none!important}
+.tdash-top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--s3) var(--s4)}
+.tdash-law{
+  font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink-3);max-width:52ch;margin:0;
+}
+.tdash-law b{color:var(--ink-2);font-weight:600}
+.tdash-ranges{display:inline-flex;flex-wrap:wrap;gap:2px;padding:0;border:0}
+.tdash-ranges button{
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  padding:8px 10px;min-height:36px;border-radius:0;border:0;border-bottom:1px solid transparent;
+  background:transparent;color:var(--ink-4);cursor:pointer;margin-bottom:-1px;
+}
+.tdash-ranges button.on,.tdash-ranges button:hover{
+  color:var(--ink);border-bottom-color:var(--ink);background:transparent;
+}
+.tdash-tx-tools{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;
+  margin:4px 0 14px;padding-bottom:10px;border-bottom:1px solid var(--line);
+}
+.tdash-tx-tools .group{display:inline-flex;flex-wrap:wrap;align-items:center;gap:2px}
+.tdash-tx-tools .lab{
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--ink-4);margin-right:6px;
+}
+.tdash-tx-tools button{
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;
+  padding:7px 10px;min-height:34px;border:0;border-bottom:1px solid transparent;
+  margin-bottom:-1px;background:transparent;color:var(--ink-4);cursor:pointer;border-radius:0;
+}
+.tdash-tx-tools button:hover{color:var(--ink-2)}
+.tdash-tx-tools button.on{color:var(--ink);border-bottom-color:var(--ink)}
+.tdash-tx-tools select{
+  font-family:var(--mono);font-size:11px;color:var(--ink-2);
+  background:transparent;border:0;border-bottom:1px solid var(--line);
+  padding:7px 4px;min-height:34px;outline:none;cursor:pointer;max-width:180px;
+}
+.tdash-tx-tools select:focus{border-bottom-color:var(--ink)}
+.tdash-tx-meta{font-family:var(--mono);font-size:11px;color:var(--ink-4);margin:0 0 10px}
+.tdash-cta{
+  margin:var(--s4) 0 0;padding:var(--s4) var(--s5);
+  border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--s4);
+}
+.tdash-cta .copy{min-width:0;flex:1 1 240px}
+.tdash-cta h4{margin:0 0 6px;font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.tdash-cta p{margin:0;font-size:13px;line-height:1.5;color:var(--ink-3);max-width:54ch}
+.tdash-cta p b{color:var(--ink-2);font-weight:550}
+.tdash-cta .doors{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tdash-cta .btn.primary{min-height:44px}
+.tdash-cta .quiet{
+  font-family:var(--mono);font-size:11px;color:var(--ink-4);text-decoration:none;
+  border-bottom:1px solid transparent;padding:8px 4px;
+}
+.tdash-cta .quiet:hover{color:var(--ink-2);border-bottom-color:var(--ink-3)}
+.tdash-cta.inline{margin-top:var(--s3)}
+.tdash-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:var(--s3)}
+@media(max-width:900px){.tdash-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tdash-kpi{
+  padding:var(--s4);border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);
+  display:flex;flex-direction:column;gap:8px;min-width:0;
+}
+.tdash-kpi .k{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4)}
+.tdash-kpi .v{font-family:var(--mono);font-size:clamp(22px,3.2vw,32px);font-weight:650;letter-spacing:-.03em;font-variant-numeric:tabular-nums;color:var(--ink);line-height:1}
+.tdash-kpi .v small{font-size:.42em;color:var(--ink-3);font-weight:500;margin-left:4px}
+.tdash-kpi .s{font-family:var(--mono);font-size:11px;color:var(--ink-4);line-height:1.4}
+.tdash-kpi .v.pos{color:var(--good)}
+.tdash-kpi .v.neg{color:var(--crit)}
+.tdash-kpi.proof{border-color:color-mix(in srgb,var(--good) 35%,var(--line))}
+.tdash-kpi.proof .v{color:var(--good);font-size:18px}
+.tdash-kpi.warn{border-color:color-mix(in srgb,var(--crit) 35%,var(--line))}
+.tdash-chart-wrap{
+  border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);
+  padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3);
+}
+.tdash-chart-lab{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);
+}
+.tdash-chart-lab b{color:var(--ink-3);font-weight:500;letter-spacing:0;text-transform:none;font-size:11px}
+.tdash-legend{display:inline-flex;gap:14px;font-size:11px;letter-spacing:0;text-transform:none}
+.tdash-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.tdash-legend .in i{background:var(--good)}
+.tdash-legend .out i{background:var(--crit)}
+.tdash-chart{
+  display:flex;align-items:flex-end;gap:4px;height:140px;width:100%;
+  padding:10px 8px 6px;
+  background:
+    linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--void) 55%,transparent) 100%),
+    repeating-linear-gradient(0deg,transparent,transparent 27px,color-mix(in srgb,var(--line) 50%,transparent) 27px,color-mix(in srgb,var(--line) 50%,transparent) 28px);
+}
+.tdash-chart .col{flex:1 1 0;min-width:6px;max-width:36px;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:2px}
+.tdash-chart .bar{width:100%;border-radius:3px 3px 1px 1px;min-height:0}
+.tdash-chart .bar.in{background:var(--good);opacity:.88}
+.tdash-chart .bar.out{background:var(--crit);opacity:.78}
+.tdash-chart-axis{
+  display:flex;justify-content:space-between;gap:4px;
+  font-family:var(--mono);font-size:10px;color:var(--ink-4);
+}
+.tdash-chart-axis span{flex:1 1 0;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tdash-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:var(--s3)}
+@media(max-width:900px){.tdash-grid{grid-template-columns:1fr}}
+.tdash-panel{
+  border:1px solid var(--line);border-radius:var(--r2);background:var(--surface);
+  padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3);min-width:0;
+}
+.tdash-panel h3{
+  margin:0;font-family:var(--sans);font-size:15px;font-weight:600;letter-spacing:-.01em;color:var(--ink);
+}
+.tdash-panel .sub{margin:0;font-family:var(--mono);font-size:11.5px;color:var(--ink-4);line-height:1.45}
+.tdash-bars{display:flex;flex-direction:column;gap:10px}
+.tdash-barrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;align-items:center}
+.tdash-barrow .meta{min-width:0}
+.tdash-barrow .name{font-family:var(--mono);font-size:12px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tdash-barrow .amt{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600;text-align:right;white-space:nowrap}
+.tdash-barrow .track{grid-column:1/-1;height:6px;border-radius:999px;background:var(--void);overflow:hidden;border:1px solid var(--line)}
+.tdash-barrow .fill{height:100%;background:var(--ink-2);border-radius:999px}
+.tdash-barrow .fill.in{background:var(--good)}
+.tdash-barrow .fill.out{background:var(--crit)}
+.tdash-table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.tdash-table th{
+  text-align:left;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);
+  font-weight:500;padding:0 8px 10px 0;border-bottom:1px solid var(--line);
+}
+.tdash-table th.r,.tdash-table td.r{text-align:right}
+.tdash-table td{padding:10px 8px 10px 0;border-bottom:1px solid var(--line);color:var(--ink-2);vertical-align:middle}
+.tdash-table tr:last-child td{border-bottom:0}
+.tdash-table a{color:var(--ink);text-decoration:none}
+.tdash-table a:hover{text-decoration:underline}
+.tdash-table .rank{color:var(--ink-4);width:2.5ch}
+.tdash-empty{font-family:var(--mono);font-size:12px;color:var(--ink-4);padding:var(--s4) 0}
+[data-tpane]{display:none}
+[data-tpane].on{display:block}
+#ttabs[hidden],#treasury-dash[hidden]{display:none!important}
 @media(max-width:639px){
   .idhead{grid-template-columns:88px minmax(0,1fr);gap:var(--s3)}
   .sigil-btn,.sigil,.sigil-face{width:88px;height:88px}
@@ -311,6 +486,34 @@
   padding:2px 7px;border-radius:var(--r-pill);background:color-mix(in srgb,var(--ink) 12%,transparent);
 }
 #ptabs > button.on .n{background:color-mix(in srgb,var(--signal-ink) 14%,transparent);opacity:1}
+
+/* ── TREASURY TABS — minimal text rail · hairline · active underline ── */
+#ttabs{
+  position:sticky;top:var(--nav-h);z-index:40;margin:0 0 var(--s5);
+  display:flex;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  padding:0;border:0;border-bottom:1px solid var(--line);
+  background:color-mix(in srgb,var(--bg,var(--void)) 88%,transparent);backdrop-filter:blur(10px);
+}
+#ttabs::-webkit-scrollbar{display:none}
+#ttabs > button{
+  flex:0 0 auto;min-height:44px;padding:12px 16px 14px;margin:0;
+  font-family:var(--sans);font-size:13px;font-weight:450;letter-spacing:.01em;
+  color:var(--ink-4);border:0;border-bottom:1px solid transparent;margin-bottom:-1px;
+  background:transparent;cursor:pointer;border-radius:0;
+  display:inline-flex;align-items:center;gap:8px;
+  transition:color .15s,border-color .15s;
+}
+#ttabs > button:hover{color:var(--ink-2);background:transparent}
+#ttabs > button.on{
+  color:var(--ink);font-weight:550;background:transparent;
+  border-bottom-color:var(--ink);
+}
+#ttabs > button .n{
+  font-family:var(--mono);font-size:10px;font-weight:500;opacity:.55;
+  padding:0;border-radius:0;background:transparent;letter-spacing:.04em;
+}
+#ttabs > button.on .n{opacity:.85;background:transparent}
+
 [data-ppane]{display:none}
 [data-ppane].on{display:block}
 .xray-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--s3);margin-bottom:var(--s5)}
@@ -590,6 +793,8 @@
 .act-tag.dir-in{color:var(--good);border-color:color-mix(in srgb,var(--good) 40%,transparent)}
 .act-tag.dir-out{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 40%,transparent)}
 .act-tag.dir-self{color:var(--ink-4)}
+.act-tag.paid{color:var(--gold,#e8b923);border-color:color-mix(in srgb,var(--gold,#e8b923) 50%,transparent)}
+.act-tag.fee{color:var(--ink-3);border-color:var(--line-2)}
 .act-tag.burn{color:var(--crit);border-color:color-mix(in srgb,var(--crit) 45%,transparent)}
 .act-tag.freeze{color:var(--gold,#e8b923);border-color:color-mix(in srgb,var(--gold,#e8b923) 45%,transparent)}
 .act-tag.btc{color:var(--btc);border-color:color-mix(in srgb,var(--btc) 45%,transparent)}
@@ -754,7 +959,7 @@
           <div class="badges" id="badges"></div>
           <div class="status"><span id="netlab">—</span></div>
         </div>
-        <!-- CITIZEN MOUTH — bio · site · banner (journal set-profile) -->
+        <!-- CITIZEN MOUTH — bio · site · act (banner renders in cinema below) -->
         <div class="citizen-mouth" id="citizen-mouth" hidden></div>
         <button type="button" class="mouth-edit" id="mouth-edit" hidden>Edit profile</button>
       </div>
@@ -770,6 +975,8 @@
         <div class="actchart" id="s-actchart" role="img" aria-label="Recent journal density"></div>
       </div>
     </div>
+    <!-- CINEMA — full-bleed 16:9 under identity · sealed bannerUrl (YouTube / video / image·gif) -->
+    <div class="citizen-cinema" id="citizen-cinema" hidden></div>
     <span id="s-breakdown" hidden></span>
     <span id="s-luz" hidden></span>
   </header>
@@ -784,30 +991,43 @@
       <div class="fp-head"><b id="fp-title">Choose your face</b><button type="button" id="fp-close" aria-label="Close">✕</button></div>
       <div class="fp-body"><div class="fp-grid" id="fp-grid"><span class="eyebrow">loading your stars…</span></div></div>
       <div class="out fp-out" id="fp-out"></div>
-      <div class="fp-foot">Only a star you own. Sign in KrayWallet — 1 ₭. The journal is the proof.</div>
+      <div class="fp-foot mouth-foot">
+        <button type="button" class="btn" id="fp-clear" hidden>Clear face · 1 ₭</button>
+        <span class="eyebrow" style="margin:0;align-self:center">Only a star you own · journal is the proof</span>
+      </div>
     </div>
   </div>
 
-  <!-- mouth editor — owner only; feeless set-profile (signature + nonce) -->
+  <!-- mouth editor — owner only; KRAY Plate (hash in journal · 1 ₭) -->
   <div id="mouth-pick" hidden>
     <div class="fp-card mouth-card" role="dialog" aria-modal="true" aria-labelledby="mouth-title">
-      <div class="fp-head"><b id="mouth-title">Edit your mouth</b><button type="button" id="mouth-close" aria-label="Close">✕</button></div>
+      <div class="fp-head"><b id="mouth-title">KRAY Plate</b><button type="button" id="mouth-close" aria-label="Close">✕</button></div>
       <div class="fp-body mouth-body">
-        <label class="flab" for="mouth-desc">Description</label>
-        <textarea class="input mouth-ta" id="mouth-desc" maxlength="400" rows="3" placeholder="A short bio — sealed on the book"></textarea>
+        <label class="flab" for="mouth-desc">Description <span id="mouth-desc-count" class="eyebrow">0 / 160</span></label>
+        <textarea class="input mouth-ta" id="mouth-desc" maxlength="160" rows="3" placeholder="A short bio — 160 bytes, like X"></textarea>
         <label class="flab" for="mouth-url">Official site</label>
-        <input class="input" id="mouth-url" type="url" placeholder="https://…" autocomplete="off">
-        <label class="flab" for="mouth-banner-url">Banner click URL</label>
-        <input class="input" id="mouth-banner-url" type="url" placeholder="https://… (optional)" autocomplete="off">
-        <div class="flab">Banner image · owned image star</div>
-        <div class="fp-grid" id="mouth-banner-grid"><span class="eyebrow">loading your image stars…</span></div>
+        <input class="input" id="mouth-url" type="url" placeholder="https://yoursite.example — not the banner" autocomplete="off">
+        <label class="flab" for="mouth-banner-url">Banner media URL</label>
+        <input class="input" id="mouth-banner-url" type="url" placeholder="https://… YouTube / .mp4 / .gif / image (different from site)" autocomplete="off">
+        <div class="flab">Banner image</div>
+        <div class="fp-grid mouth-banner-grid" id="mouth-banner-grid"><span class="eyebrow">media banner comes later</span></div>
         <input type="hidden" id="mouth-banner-star" value="">
+        <p class="mouth-banner-hint">Official site = your page. Banner = different media (YouTube / video / gif). Same URL looks identical — don't.</p>
+        <p class="mouth-banner-hint" style="margin-top:var(--s4)">Optional action · invite a transfer (not a star contract)</p>
+        <label class="flab" for="mouth-act-to">Action pay to</label>
+        <input class="input" id="mouth-act-to" type="text" placeholder="bcrt1… / tb1… / bc1… (empty = off)" autocomplete="off" spellcheck="false">
+        <label class="flab" for="mouth-act-hint">Action label</label>
+        <input class="input" id="mouth-act-hint" type="text" maxlength="32" placeholder="like · gift · tip · support…" autocomplete="off">
+        <label class="flab" for="mouth-act-amt">Suggested ₭</label>
+        <input class="input" id="mouth-act-amt" type="text" inputmode="numeric" placeholder="empty or 0 = visitor chooses" autocomplete="off">
+        <p class="mouth-banner-hint" id="mouth-cooldown-hint">KRAY Plate · journal seals the hash · atlas holds the bytes · 1 ₭</p>
       </div>
       <div class="out fp-out" id="mouth-out"></div>
       <div class="fp-foot mouth-foot">
-        <button type="button" class="btn" id="mouth-clear">Clear all</button>
-        <button type="button" class="btn primary" id="mouth-save">Sign &amp; seal · feeless</button>
+        <button type="button" class="btn" id="mouth-clear">Clear plate</button>
+        <button type="button" class="btn primary" id="mouth-save">Sign &amp; seal · 1 ₭</button>
       </div>
+      <p class="fp-foot" style="border-top:0;padding-top:0">Living plate · bio ≤160 · identical refuse · <b>1 ₭</b> · relic contentHash untouched (A5).</p>
     </div>
   </div>
 
@@ -822,6 +1042,172 @@
     <button type="button" data-ptab="write">Write</button>
     <button type="button" data-ptab="xray">X-ray</button>
   </nav>
+
+  <!-- TREASURY — 4 analytic doors · Overview · Sources · Recipients · Flows -->
+  <nav id="ttabs" hidden aria-label="Treasury analytics">
+    <button type="button" class="on" data-ttab="overview">Overview</button>
+    <button type="button" data-ttab="sources">Sources</button>
+    <button type="button" data-ttab="recipients">Recipients</button>
+    <button type="button" data-ttab="flows">Flows <span class="n" id="tabn-flows">…</span></button>
+  </nav>
+
+  <section id="treasury-dash" class="tdash" hidden>
+    <div class="tdash-top">
+      <p class="tdash-law" id="tdash-law">Σ fees − Σ settlements = balance · the living proof that this pool belongs to everyone.</p>
+      <div class="tdash-ranges" id="tdash-ranges" role="group" aria-label="Time window">
+        <button type="button" data-range="1h">1h</button>
+        <button type="button" data-range="24h">24h</button>
+        <button type="button" data-range="7d">7d</button>
+        <button type="button" data-range="30d">30d</button>
+        <button type="button" data-range="1y">1y</button>
+        <button type="button" class="on" data-range="all">All</button>
+      </div>
+    </div>
+
+    <div data-tpane="overview" class="on" id="tpane-overview">
+      <div class="tdash-kpis" id="tdash-kpis">
+        <div class="tdash-kpi"><span class="k">Balance now</span><span class="v" id="td-bal">—</span><span class="s">fee pool waiting for proven work</span></div>
+        <div class="tdash-kpi"><span class="k">Lifetime in</span><span class="v pos" id="td-life-in">—</span><span class="s" id="td-life-in-s">all fees ever credited</span></div>
+        <div class="tdash-kpi"><span class="k">Lifetime out</span><span class="v neg" id="td-life-out">—</span><span class="s" id="td-life-out-s">paid to validators</span></div>
+        <div class="tdash-kpi proof" id="td-proof-kpi"><span class="k">Conservation</span><span class="v" id="td-proof">—</span><span class="s" id="td-proof-s">fold vs ledger</span></div>
+      </div>
+      <div class="tdash-kpis" style="margin-top:var(--s3)" id="tdash-win-kpis">
+        <div class="tdash-kpi"><span class="k">Window in</span><span class="v pos" id="td-win-in">—</span><span class="s" id="td-win-in-s">fees in range</span></div>
+        <div class="tdash-kpi"><span class="k">Window out</span><span class="v neg" id="td-win-out">—</span><span class="s" id="td-win-out-s">settlements in range</span></div>
+        <div class="tdash-kpi"><span class="k">Net</span><span class="v" id="td-win-net">—</span><span class="s">in − out this window</span></div>
+        <div class="tdash-kpi"><span class="k">Acts · pays</span><span class="v" id="td-win-acts" style="font-size:22px">—</span><span class="s" id="td-win-acts-s">fee acts · settlements</span></div>
+      </div>
+      <div class="tdash-chart-wrap" style="margin-top:var(--s3)">
+        <div class="tdash-chart-lab">
+          <span>Flow · <b id="td-chart-meta">journal breath</b></span>
+          <span class="tdash-legend"><span class="in"><i></i>fees in</span><span class="out"><i></i>paid out</span></span>
+        </div>
+        <div class="tdash-chart" id="tdash-chart" role="img" aria-label="Treasury in and out over time"></div>
+        <div class="tdash-chart-axis" id="tdash-axis"></div>
+      </div>
+      <aside class="tdash-cta" id="td-earn-cta" aria-label="Become a guardian">
+        <div class="copy">
+          <h4>This pool pays proven presence</h4>
+          <p>Fees wait here until a seal with <b>guardian beats</b> settles them — linear in work, sybil-neutral. Be one of the names on Recipients: open Validate on this site, or Start mining in <b>KrayWallet</b>. Same wallet · one guardian · key never leaves you.</p>
+        </div>
+        <div class="doors">
+          <a class="btn primary" href="/validate">Be a guardian →</a>
+          <a class="quiet" href="https://www.kraywallet.com/install" target="_blank" rel="noopener">KrayWallet install ↗</a>
+        </div>
+      </aside>
+      <div class="tdash-panel" style="margin-top:var(--s4)" id="td-overview-tx-panel">
+        <h3>Transactions</h3>
+        <p class="sub">Fee credits and distributions · filter · sort · every row opens the sealed act.</p>
+        <div class="tdash-tx-tools" id="td-overview-tools" data-tx-tools>
+          <div class="group" role="group" aria-label="Filter direction">
+            <span class="lab">Filter</span>
+            <button type="button" class="on" data-tfilter="all">All</button>
+            <button type="button" data-tfilter="in">Fees in</button>
+            <button type="button" data-tfilter="out">Paid out</button>
+          </div>
+          <div class="group" role="group" aria-label="Sort">
+            <span class="lab">Sort</span>
+            <button type="button" class="on" data-tsort="newest">Newest</button>
+            <button type="button" data-tsort="oldest">Oldest</button>
+            <button type="button" data-tsort="amt-desc">Amount ↓</button>
+            <button type="button" data-tsort="amt-asc">Amount ↑</button>
+          </div>
+          <div class="group">
+            <span class="lab">Kind</span>
+            <select data-tkind aria-label="Filter by kind">
+              <option value="all">All kinds</option>
+            </select>
+          </div>
+        </div>
+        <p class="tdash-tx-meta" id="td-overview-meta">—</p>
+        <div id="td-overview-list"><span class="eyebrow">reading the journal…</span></div>
+        <div class="actions" style="margin-top:var(--s3)">
+          <button class="btn" id="td-overview-more" hidden>load earlier</button>
+          <button type="button" class="btn" id="td-overview-to-flows" style="margin-left:8px">open Flows →</button>
+        </div>
+      </div>
+    </div>
+
+    <div data-tpane="sources" id="tpane-sources">
+      <div class="tdash-grid">
+        <div class="tdash-panel">
+          <h3>Categories that funded the pool</h3>
+          <p class="sub">Which act kinds credited the most ₭ in this window — every byte from the journal fee fold.</p>
+          <div class="tdash-bars" id="td-sources"></div>
+        </div>
+        <div class="tdash-panel">
+          <h3>All-time sources</h3>
+          <p class="sub">Lifetime ranking — nothing escapes the bytes.</p>
+          <div class="tdash-bars" id="td-sources-all"></div>
+        </div>
+      </div>
+    </div>
+
+    <div data-tpane="recipients" id="tpane-recipients">
+      <aside class="tdash-cta inline" aria-label="Earn from the fee pool">
+        <div class="copy">
+          <h4 id="td-recip-cta-title">Earn a seat on this table</h4>
+          <p id="td-recip-cta-body">When the pool settles, every name here was proven online. Start as a light guardian on <b>/validate</b> (Hold the library → up to 3×) or use Start mining in the wallet (1×). Follow alone pays 0 until you also mine.</p>
+        </div>
+        <div class="doors">
+          <a class="btn primary" href="/validate">Open Validate →</a>
+          <a class="quiet" href="https://www.kraywallet.com/install" target="_blank" rel="noopener">Wallet path ↗</a>
+        </div>
+      </aside>
+      <div class="tdash-grid" style="margin-top:var(--s4)">
+        <div class="tdash-panel">
+          <h3>Who earned from the Treasury</h3>
+          <p class="sub">Validators / guardians paid by proven work in this window — click any row for the address.</p>
+          <div id="td-recipients"></div>
+        </div>
+        <div class="tdash-panel">
+          <h3>All-time mining rewards</h3>
+          <p class="sub">Lifetime share of the fee pool — linear in proven work, sybil-neutral.</p>
+          <div id="td-recipients-all"></div>
+        </div>
+      </div>
+    </div>
+
+    <div data-tpane="flows" id="tpane-flows">
+      <div class="tdash-grid">
+        <div class="tdash-panel">
+          <h3>Recent distributions</h3>
+          <p class="sub">Settlement acts that drained the pool — open the tx for the full payout table.</p>
+          <div id="td-recent-pays"></div>
+        </div>
+        <div class="tdash-panel">
+          <h3>Journal activity</h3>
+          <p class="sub">Every fee credit and every distribution · filter · sort.</p>
+          <div class="tdash-tx-tools" id="td-flow-tools" data-tx-tools>
+            <div class="group" role="group" aria-label="Filter direction">
+              <span class="lab">Filter</span>
+              <button type="button" class="on" data-tfilter="all">All</button>
+              <button type="button" data-tfilter="in">Fees in</button>
+              <button type="button" data-tfilter="out">Paid out</button>
+            </div>
+            <div class="group" role="group" aria-label="Sort">
+              <span class="lab">Sort</span>
+              <button type="button" class="on" data-tsort="newest">Newest</button>
+              <button type="button" data-tsort="oldest">Oldest</button>
+              <button type="button" data-tsort="amt-desc">Amount ↓</button>
+              <button type="button" data-tsort="amt-asc">Amount ↑</button>
+            </div>
+            <div class="group">
+              <span class="lab">Kind</span>
+              <select data-tkind aria-label="Filter by kind">
+                <option value="all">All kinds</option>
+              </select>
+            </div>
+          </div>
+          <p class="tdash-tx-meta" id="td-flow-meta">—</p>
+          <div id="td-flow-list"><span class="eyebrow">reading the journal…</span></div>
+          <div class="actions" style="margin-top:var(--s3)">
+            <button class="btn" id="td-flow-more" hidden>load earlier</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 
 <div id="star-sheet" hidden>
     <div class="ss-card" role="dialog" aria-modal="true" aria-labelledby="ss-title">
@@ -1372,9 +1758,11 @@
   // Bind only if the element exists: a null target used to throw and kill
   // every listener registered after it (the studio tabs among them).
   var on=function(id,ev,fn){var el=$(id); if(el) el.addEventListener(ev,fn); return !!el;};
-  var m=/^\/(?:u|address|profile)\/([a-z0-9]{20,90})\/?$/.exec(location.pathname); // all three URL shapes (/u /address /profile)
+  var m=/^\/(?:u|address|profile)\/((?:[a-z0-9]{20,90})|(?:KRAY_[A-Z0-9_]+))\/?$/.exec(location.pathname);
+  // bech32 citizens OR protocol sinks (KRAY_TREASURY · …) — underscore / uppercase are real labels
   if(!m){ document.body.innerHTML='<div class="wrap"><p style="padding:40px 0">not an address — <a href="/">back to the explorer</a></p></div>'; return; }
   var ADDR=m[1], me=null, pub=null, offset=0, total=0, profile=null, relicStar=null;
+  var IS_TREASURY = ADDR === 'KRAY_TREASURY';
   (function(){
     var t=$('addr-txt'); if(t) t.textContent=ADDR; /* full address — never truncate on the plate */
     var a=$('addr'); if(a) a.title=ADDR;
@@ -1427,29 +1815,78 @@
     }
   }
 
-  function paintCitizenMouth(p){
-    var el=$('citizen-mouth'), edit=$('mouth-edit');
+  /** Living plate wins (hash in journal + atlas). Legacy set-profile mouth is fallback paint only. */
+  function livingMouth(p){
+    var plate=p && p.krayPlate && p.krayPlate.held ? p.krayPlate : null;
+    if(plate){
+      return {
+        kind:'plate',
+        description:plate.description||'',
+        url:plate.url||'',
+        bannerUrl:plate.bannerUrl||'',
+        actTo:plate.actTo||'',
+        actHint:plate.actHint||'',
+        actAmount:plate.actAmount||'',
+        banner:null,
+        hash:plate.hash||'',
+      };
+    }
     var mouth=p && p.mouth;
+    if(!mouth) return null;
+    return {
+      kind:'legacy',
+      description:mouth.description||'',
+      url:mouth.url||'',
+      bannerUrl:mouth.bannerUrl||'',
+      actTo:'',
+      actHint:'',
+      actAmount:'',
+      banner:mouth.banner||null,
+      hash:'',
+    };
+  }
+  function paintCitizenMouth(p){
+    var el=$('citizen-mouth'), edit=$('mouth-edit'), cinema=$('citizen-cinema'), plate=$('citizen-top');
+    var mouth=livingMouth(p);
     var mine=(me===ADDR);
     if(edit){
       edit.hidden=!mine;
-      edit.textContent=mouth?'Edit profile':'Set up profile';
+      edit.textContent=mouth?'Edit KRAY Plate':'Set KRAY Plate';
     }
-    if(!el) return;
     var hasDesc=!!(mouth && mouth.description);
     var hasUrl=!!(mouth && mouth.url);
     var hasBan=!!(mouth && mouth.banner && mouth.banner.url);
-    if(!hasDesc && !hasUrl && !hasBan){
+    var hasBanMedia=!!(mouth && mouth.bannerUrl && !hasBan);
+    var hasAct=!!(mouth && mouth.actTo);
+    var hasText=hasDesc || hasUrl || hasBan || hasAct;
+
+    // Elite cinema: full-bleed 16:9 under the identity row (not squeezed beside the sigil).
+    if(cinema){
+      if(hasBanMedia && window.KRAY && typeof KRAY.plateBannerHtml==='function'){
+        cinema.hidden=false;
+        cinema.innerHTML='<div class="plate-banner-lab"><span>Plate banner</span><b>16:9</b></div>'
+          +KRAY.plateBannerHtml(mouth.bannerUrl);
+        if(typeof KRAY.mountPlateBanners==='function') KRAY.mountPlateBanners(cinema);
+        if(plate) plate.classList.add('has-cinema');
+      } else {
+        cinema.hidden=true; cinema.innerHTML='';
+        if(plate) plate.classList.remove('has-cinema');
+      }
+    }
+
+    if(!el) return;
+    if(!hasText && !hasBanMedia){
       el.hidden=true; el.innerHTML='';
       return;
     }
+    if(!hasText){ el.hidden=true; el.innerHTML=''; return; }
     el.hidden=false;
     var html='';
     if(hasDesc) html+='<p class="mouth-bio">'+esc(mouth.description)+'</p>';
     if(hasUrl){
       var host='';
       try{ host=new URL(mouth.url).host; }catch(_){ host=mouth.url; }
-      html+='<a class="mouth-link" href="'+esc(mouth.url)+'" target="_blank" rel="noopener noreferrer">'+esc(host)+' ↗</a>';
+      html+='<a class="mouth-link" href="'+esc(mouth.url)+'" target="_blank" rel="noopener noreferrer">site · '+esc(host)+' ↗</a>';
     }
     if(hasBan){
       var href=mouth.bannerUrl||('/star/'+Number(mouth.banner.star));
@@ -1459,6 +1896,13 @@
         +' title="'+(ext?'Open link':'Open banner star')+'">'
         +'<img src="'+esc(mouth.banner.url)+'" alt="" loading="lazy" decoding="async">'
         +'</a>';
+    }
+    if(hasAct){
+      var hint=(mouth.actHint && String(mouth.actHint).trim()) || 'Support';
+      var sug=mouth.actAmount && String(mouth.actAmount).trim() && mouth.actAmount!=='0'
+        ? (' · '+mouth.actAmount+' ₭') : '';
+      html+='<button type="button" class="mouth-act" id="plate-act-go" data-act-to="'+esc(mouth.actTo)+'" data-act-hint="'+esc(hint)+'" data-act-amount="'+esc(mouth.actAmount||'')+'">'+esc(hint)+sug+'</button>';
+      html+='<div class="mouth-act-out" id="plate-act-out"></div>';
     }
     el.innerHTML=html;
   }
@@ -1497,14 +1941,15 @@
     if(!present()){ window.open('https://kray.network','_blank','noopener'); return; }
     var m=$('face-pick'); if(!m) return;
     m.hidden=false;
-    var g=$('fp-grid'), o=$('fp-out');
+    var g=$('fp-grid'), o=$('fp-out'), clr=$('fp-clear');
     if(o){ o.className='out'; o.textContent=''; }
+    var cur=profile && profile.face && profile.face.star;
+    if(clr) clr.hidden=!(cur!=null);
     var rows=(profile && profile.written) ? profile.written.slice() : [];
     if(!rows.length){
       g.innerHTML='<span class="eyebrow">no stars yet — inscribe or baptize one below, then choose it here</span>';
       return;
     }
-    var cur=profile && profile.face && profile.face.star;
     g.innerHTML=rows.map(function(w){
       var on=(cur!=null && Number(cur)===Number(w.star))?' on':'';
       var art=(window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(w) : ('★ '+Number(w.star).toLocaleString());
@@ -1531,11 +1976,49 @@
       out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused');
     }finally{ busy=false; }
   }
+  async function clearFace(){
+    if(me!==ADDR || busy) return;
+    if(!(profile && profile.face && profile.face.star!=null)) return;
+    var out=$('fp-out');
+    busy=true;
+    try{
+      if(out){ out.className='out'; out.textContent='preparing — clear face · 1 ₭…'; }
+      var res=await walletAct('clear-face', {}, out||{className:'',textContent:''});
+      if(out){
+        out.className='out ok';
+        out.innerHTML='✓ face cleared · default sigil'+(res && res.hash ? ' · <a href="/tx/'+esc(res.hash)+'">receipt</a>' : '');
+      }
+      await loadProfile();
+      setTimeout(closeFacePick, 700);
+    }catch(e){
+      if(out){ out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused'); }
+    }finally{ busy=false; }
+  }
   on('sigil-btn','click',function(){ if(me===ADDR) openFacePick(); });
   on('fp-close','click', closeFacePick);
+  on('fp-clear','click', clearFace);
   var fp=$('face-pick');
   if(fp) fp.addEventListener('click', function(ev){ if(ev.target===fp) closeFacePick(); });
 
+  function mouthByteLen(s){
+    try { return new TextEncoder().encode(String(s || '')).length; } catch (_) { return String(s || '').length; }
+  }
+  function paintMouthDescCount(){
+    var d=$('mouth-desc'), c=$('mouth-desc-count');
+    if(!c) return;
+    var max=(profile && profile.mouthDescMax) || 160;
+    c.textContent=mouthByteLen(d && d.value)+' / '+max;
+  }
+  function paintMouthCooldownHint(){
+    var h=$('mouth-cooldown-hint');
+    if(!h) return;
+    var plate=profile && profile.krayPlate;
+    if(plate && plate.hash){
+      h.textContent='Sealed hash '+String(plate.hash).slice(0,12)+'… · 1 ₭ · identical plate refused';
+    } else {
+      h.textContent='KRAY Plate · journal seals the hash · atlas holds the bytes · 1 ₭';
+    }
+  }
   function closeMouthPick(){
     var m=$('mouth-pick'); if(m) m.hidden=true;
     var o=$('mouth-out'); if(o){ o.className='out'; o.textContent=''; }
@@ -1545,55 +2028,53 @@
     if(!present()){ window.open('https://kray.network','_blank','noopener'); return; }
     var m=$('mouth-pick'); if(!m) return;
     m.hidden=false;
-    var mouth=profile && profile.mouth;
-    var d=$('mouth-desc'), u=$('mouth-url'), bu=$('mouth-banner-url'), bs=$('mouth-banner-star'), o=$('mouth-out');
+    var mouth=livingMouth(profile) || { description:'', url:'', bannerUrl:'', actTo:'', actHint:'', actAmount:'' };
+    var d=$('mouth-desc'), u=$('mouth-url'), bu=$('mouth-banner-url'), o=$('mouth-out');
+    var at=$('mouth-act-to'), ah=$('mouth-act-hint'), aa=$('mouth-act-amt');
     if(o){ o.className='out'; o.textContent=''; }
-    if(d) d.value=(mouth && mouth.description) || '';
-    if(u) u.value=(mouth && mouth.url) || '';
-    if(bu) bu.value=(mouth && mouth.bannerUrl) || '';
-    if(bs) bs.value=(mouth && mouth.bannerStar) || '';
+    if(d) d.value=mouth.description || '';
+    if(u) u.value=mouth.url || '';
+    if(bu) bu.value=mouth.bannerUrl || '';
+    if(at) at.value=mouth.actTo || '';
+    if(ah) ah.value=mouth.actHint || '';
+    if(aa) aa.value=mouth.actAmount || '';
+    paintMouthDescCount();
+    paintMouthCooldownHint();
     var g=$('mouth-banner-grid');
-    var rows=((profile && profile.written) ? profile.written.slice() : []).filter(function(w){
-      return w && w.media && w.ctype && /^image\//i.test(w.ctype) && w.url;
-    });
-    if(!rows.length){
-      g.innerHTML='<span class="eyebrow">no image stars yet — inscribe an image, then pick it here · or leave empty</span>';
-    } else {
-      var cur=bs ? bs.value : '';
-      g.innerHTML='<button type="button" class="fp-cell'+(cur===''?' on':'')+'" data-banner-star="">'
-        +'<div class="art"><span class="ph">∅</span></div><div class="lab">none</div></button>'
-        +rows.map(function(w){
-          var on=(cur!=='' && Number(cur)===Number(w.star))?' on':'';
-          var art=w.url ? ('<img src="'+esc(w.url)+'" alt="">') : ('★ '+Number(w.star).toLocaleString());
-          var lab=w.name ? esc(w.name) : ('#'+Number(w.star).toLocaleString());
-          return '<button type="button" class="fp-cell'+on+'" data-banner-star="'+w.star+'">'
-            +'<div class="art">'+art+'</div><div class="lab">'+lab+'</div></button>';
-        }).join('');
-      g.querySelectorAll('[data-banner-star]').forEach(function(b){
-        b.addEventListener('click', function(){
-          var v=b.getAttribute('data-banner-star')||'';
-          if(bs) bs.value=v;
-          g.querySelectorAll('.fp-cell').forEach(function(c){ c.classList.toggle('on', (c.getAttribute('data-banner-star')||'')===v); });
-        });
-      });
-    }
+    if(g) g.innerHTML='<span class="eyebrow">banner image media is later — optional click URL above</span>';
   }
   async function saveMouth(clearAll){
     if(me!==ADDR || busy) return;
     var out=$('mouth-out');
     var description=clearAll?'':(($('mouth-desc')&&$('mouth-desc').value)||'');
     var url=clearAll?'':(($('mouth-url')&&$('mouth-url').value.trim())||'');
-    var bannerStar=clearAll?'':(($('mouth-banner-star')&&$('mouth-banner-star').value)||'');
     var bannerUrl=clearAll?'':(($('mouth-banner-url')&&$('mouth-banner-url').value.trim())||'');
-    if(/[|\r\n]/.test(description) || /[|\r\n]/.test(url) || /[|\r\n]/.test(bannerUrl)){
-      out.className='out err'; out.textContent='✗ description / URLs must not contain | or newlines'; return;
+    var actTo=clearAll?'':(($('mouth-act-to')&&$('mouth-act-to').value.trim())||'');
+    var actHint=clearAll?'':(($('mouth-act-hint')&&$('mouth-act-hint').value)||'');
+    var actAmount=clearAll?'':(($('mouth-act-amt')&&$('mouth-act-amt').value.trim())||'');
+    var max=(profile && profile.mouthDescMax) || 160;
+    if(mouthByteLen(description) > max){
+      out.className='out err'; out.textContent='✗ description over '+max+' bytes'; return;
+    }
+    if(/[|\r\n]/.test(description) || /[|\r\n]/.test(url) || /[|\r\n]/.test(bannerUrl)
+      || /[|\r\n]/.test(actTo) || /[|\r\n]/.test(actHint) || /[|\r\n]/.test(actAmount)){
+      out.className='out err'; out.textContent='✗ fields must not contain | or newlines'; return;
+    }
+    if(!actTo && (actHint || actAmount)){
+      out.className='out err'; out.textContent='✗ action label / amount need a pay-to address'; return;
+    }
+    if(url && bannerUrl && url.replace(/\/$/,'')===bannerUrl.replace(/\/$/,'')){
+      if(!window.confirm('Official site and banner URL are the same.\nUse a different URL for the banner (YouTube / video / image) so the page does not look identical.\nContinue anyway?')) return;
     }
     busy=true;
     try{
-      out.className='out'; out.textContent='preparing — feeless seal (signature + nonce)…';
-      var res=await walletAct('set-profile', {description:description, url:url, bannerStar:bannerStar, bannerUrl:bannerUrl}, out);
+      out.className='out'; out.textContent='preparing — KRAY Plate (1 ₭)…';
+      var body=clearAll
+        ? {clear:true}
+        : {description:description, url:url, bannerUrl:bannerUrl, actTo:actTo, actHint:actHint, actAmount:actAmount};
+      var res=await walletAct('set-kray-plate', body, out);
       out.className='out ok';
-      out.innerHTML='✓ profile '+(clearAll?'cleared':'sealed')+(res && res.hash ? ' · <a href="/tx/'+esc(res.hash)+'">receipt</a>' : '');
+      out.innerHTML='✓ KRAY Plate '+(clearAll?'cleared':'sealed')+(res && res.hash ? ' · <a href="/tx/'+esc(res.hash)+'">receipt</a>' : '');
       await loadProfile();
       setTimeout(closeMouthPick, 700);
     }catch(e){
@@ -1604,8 +2085,49 @@
   on('mouth-close','click', closeMouthPick);
   on('mouth-save','click', function(){ saveMouth(false); });
   on('mouth-clear','click', function(){ saveMouth(true); });
+  var mouthDescEl=$('mouth-desc');
+  if(mouthDescEl) mouthDescEl.addEventListener('input', paintMouthDescCount);
   var mp=$('mouth-pick');
   if(mp) mp.addEventListener('click', function(ev){ if(ev.target===mp) closeMouthPick(); });
+  /* Plate action — sealed actTo invitation → existing transfer (confirm in wallet). Not a contract. */
+  var plateActBusy=false;
+  var citizenMouthEl=$('citizen-mouth');
+  if(citizenMouthEl) citizenMouthEl.addEventListener('click', async function(ev){
+    var btn=ev.target && ev.target.closest ? ev.target.closest('#plate-act-go') : null;
+    if(!btn) return;
+    var out=$('plate-act-out');
+    if(!present()){ window.open('https://kray.network','_blank','noopener'); return; }
+    if(!me){ if(out){ out.className='mouth-act-out err'; out.textContent='connect KrayWallet first'; } return; }
+    var to=btn.getAttribute('data-act-to')||'';
+    var hint=btn.getAttribute('data-act-hint')||'Support';
+    var sug=(btn.getAttribute('data-act-amount')||'').trim();
+    if(!to){ if(out){ out.className='mouth-act-out err'; out.textContent='no pay destination'; } return; }
+    if(me===to){ if(out){ out.className='mouth-act-out err'; out.textContent='cannot pay yourself'; } return; }
+    var amt=sug && sug!=='0' ? sug : '';
+    if(!amt){
+      var typed=window.prompt('How many ₭ for ['+hint+']? (whole number; fee is +1 ₭)', '1');
+      if(typed==null) return;
+      amt=String(typed).trim().replace(/[,\s]/g,'');
+    }
+    if(!/^\d+$/.test(amt) || BigInt(amt)<1n){
+      if(out){ out.className='mouth-act-out err'; out.textContent='amount must be a whole ₭ >= 1'; }
+      return;
+    }
+    if(!window.confirm('Send '+amt+' ₭ for ['+hint+']?\nTo '+to.slice(0,12)+'...\nFee 1 ₭ — confirm in KrayWallet.')) return;
+    if(plateActBusy) return;
+    plateActBusy=true;
+    if(out){ out.className='mouth-act-out'; out.textContent='preparing transfer…'; }
+    try{
+      var res=await walletAct('transfer', { to:to, amount:amt }, out || { className:'', textContent:'' });
+      if(out){
+        out.className='mouth-act-out ok';
+        out.innerHTML='✓ '+esc(hint)+' · '+amt+' ₭'+(res && res.hash ? ' · <a href="/tx/'+esc(res.hash)+'">receipt</a>' : '');
+      }
+      if(profile) loadProfile();
+    }catch(e){
+      if(out){ out.className='mouth-act-out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused'); }
+    }finally{ plateActBusy=false; }
+  });
   document.addEventListener('keydown', function(ev){
     if(ev.key!=='Escape') return;
     closeFacePick();
@@ -1670,7 +2192,12 @@
     var isFace=(faceStar!=null && Number(w.star)===faceStar);
     var html='<a class="btn" href="/star/'+encodeURIComponent(String(w.star))+'">Open star →</a>';
     if(mine){
-      html+='<button type="button" class="btn'+(isFace?'':' primary')+'" id="ss-face" '+(isFace?'disabled':'')+'>'+(isFace?'Current face':'Set as face')+'</button>';
+      if(isFace){
+        html+='<button type="button" class="btn" id="ss-face" disabled>Current face</button>';
+        html+='<button type="button" class="btn" id="ss-clear-face">Clear face · 1 ₭</button>';
+      } else {
+        html+='<button type="button" class="btn primary" id="ss-face">Set as face</button>';
+      }
       html+='<button type="button" class="btn" id="ss-send">Send star</button>';
       html+='<button type="button" class="btn danger" id="ss-freeze">Freeze forever</button>';
     } else {
@@ -1679,13 +2206,25 @@
     if(actions) actions.innerHTML=html;
     sh.hidden=false;
     var faceBtn=document.getElementById('ss-face');
-    if(faceBtn) faceBtn.addEventListener('click', async function(){
+    if(faceBtn && !isFace) faceBtn.addEventListener('click', async function(){
       if(!mine || busy) return;
       var o=document.getElementById('ss-out');
       try{
         if(o){ o.className='out'; o.textContent='preparing — the node builds the exact message…'; }
         var res=await walletAct('set-face', {star:String(w.star)}, o||{className:'',textContent:''});
         if(o){ o.className='out ok'; o.innerHTML='✓ face set · star #'+Number(w.star).toLocaleString()+(res&&res.hash?' · <a href="/tx/'+esc(res.hash)+'">receipt</a>':''); }
+        await loadProfile();
+        setTimeout(closeStarSheet, 700);
+      }catch(e){ if(o){ o.className='out err'; o.textContent='✗ '+(e&&e.message?e.message:'refused'); } }
+    });
+    var clearBtn=document.getElementById('ss-clear-face');
+    if(clearBtn) clearBtn.addEventListener('click', async function(){
+      if(!mine || busy) return;
+      var o=document.getElementById('ss-out');
+      try{
+        if(o){ o.className='out'; o.textContent='preparing — clear face · 1 ₭…'; }
+        var res=await walletAct('clear-face', {}, o||{className:'',textContent:''});
+        if(o){ o.className='out ok'; o.innerHTML='✓ face cleared · default sigil'+(res&&res.hash?' · <a href="/tx/'+esc(res.hash)+'">receipt</a>':''); }
         await loadProfile();
         setTimeout(closeStarSheet, 700);
       }catch(e){ if(o){ o.className='out err'; o.textContent='✗ '+(e&&e.message?e.message:'refused'); } }
@@ -1767,12 +2306,363 @@
     });
     var hash=(location.hash||'').replace(/^#/,'');
     var allowed={stars:1,luz:1,activity:1,operate:1,runes:1,write:1,xray:1};
-    if(allowed[hash]) showProfileTab(hash);
+    if(!IS_TREASURY && allowed[hash]) showProfileTab(hash);
+  })();
+
+  /* ── TREASURY ANALYTICS — 4 tabs · Overview · Sources · Recipients · Flows ── */
+  var treRange='all', treData=null, treFlowBefore=null, treFlowBusy=false;
+  var treFlowRows=[], treFlowDone=false;
+  var treTxFilter='all', treTxSort='newest', treTxKind='all';
+  function kFmt(n){
+    try{ return BigInt(String(n||'0')).toLocaleString(); }catch(_){
+      var x=Number(n); return isFinite(x)?x.toLocaleString():String(n||'0');
+    }
+  }
+  function shortAddr(a){
+    a=String(a||'');
+    if(a.length<=18) return a;
+    return a.slice(0,10)+'…'+a.slice(-6);
+  }
+  function treTxAmount(t){
+    var raw=t.feesPaid!=null?t.feesPaid:(t.amount!=null?t.amount:(t.treasuryCredit!=null?t.treasuryCredit:(t.fee!=null?t.fee:0)));
+    var n=Number(raw);
+    return isFinite(n)?n:0;
+  }
+  function treTxDir(t){
+    if(t.direction==='in'||t.direction==='out'||t.direction==='self') return t.direction;
+    if(t.kind==='settlement'||t.treasuryRole==='distribution') return 'out';
+    return 'in';
+  }
+  function syncTreasuryTxTools(){
+    document.querySelectorAll('[data-tx-tools]').forEach(function(box){
+      box.querySelectorAll('[data-tfilter]').forEach(function(b){
+        b.classList.toggle('on', b.getAttribute('data-tfilter')===treTxFilter);
+      });
+      box.querySelectorAll('[data-tsort]').forEach(function(b){
+        b.classList.toggle('on', b.getAttribute('data-tsort')===treTxSort);
+      });
+      var sel=box.querySelector('[data-tkind]');
+      if(sel) sel.value=treTxKind;
+    });
+  }
+  function refreshTreasuryKindOptions(){
+    var kinds={};
+    treFlowRows.forEach(function(t){ if(t&&t.kind) kinds[t.kind]=1; });
+    var keys=Object.keys(kinds).sort();
+    document.querySelectorAll('[data-tx-tools] [data-tkind]').forEach(function(sel){
+      var cur=treTxKind;
+      sel.innerHTML='<option value="all">All kinds</option>'
+        +keys.map(function(k){ return '<option value="'+esc(k)+'">'+esc(k)+'</option>'; }).join('');
+      sel.value=keys.indexOf(cur)>=0||cur==='all'?cur:'all';
+      if(sel.value!==treTxKind) treTxKind=sel.value;
+    });
+  }
+  function filteredTreasuryRows(){
+    var rows=treFlowRows.slice();
+    rows=rows.filter(function(t){
+      if(!t) return false;
+      if(treTxFilter==='in' && treTxDir(t)!=='in') return false;
+      if(treTxFilter==='out' && treTxDir(t)!=='out') return false;
+      if(treTxKind!=='all' && String(t.kind)!==treTxKind) return false;
+      return true;
+    });
+    rows.sort(function(a,b){
+      if(treTxSort==='oldest') return (Number(a.seq)||0)-(Number(b.seq)||0);
+      if(treTxSort==='amt-desc'){
+        var d=treTxAmount(b)-treTxAmount(a);
+        return d!==0?d:((Number(b.seq)||0)-(Number(a.seq)||0));
+      }
+      if(treTxSort==='amt-asc'){
+        var d2=treTxAmount(a)-treTxAmount(b);
+        return d2!==0?d2:((Number(b.seq)||0)-(Number(a.seq)||0));
+      }
+      // newest
+      return (Number(b.seq)||0)-(Number(a.seq)||0);
+    });
+    return rows;
+  }
+  function paintTreasuryTxLists(){
+    syncTreasuryTxTools();
+    var rows=filteredTreasuryRows();
+    var html=rows.map(txRow).join('');
+    var empty='<div class="tdash-empty">No transactions match these filters.</div>';
+    var loading=treFlowRows.length===0 && treFlowBusy;
+    var oList=$('td-overview-list'), list=$('td-flow-list');
+    if(loading){
+      if(oList) oList.innerHTML='<span class="eyebrow">reading the journal…</span>';
+      if(list) list.innerHTML='<span class="eyebrow">reading the journal…</span>';
+    } else {
+      if(oList) oList.innerHTML=html||empty;
+      if(list) list.innerHTML=html||empty;
+    }
+    var meta='Showing '+rows.length.toLocaleString()+' of '+treFlowRows.length.toLocaleString()+' loaded'
+      +(treFlowDone?'':' · more on disk');
+    var om=$('td-overview-meta'), fm=$('td-flow-meta');
+    if(om) om.textContent=meta;
+    if(fm) fm.textContent=meta;
+    var done=treFlowDone;
+    var more=$('td-flow-more'), oMore=$('td-overview-more');
+    if(more) more.hidden=done;
+    if(oMore) oMore.hidden=done;
+  }
+  function showTreasuryTab(id){
+    document.querySelectorAll('#ttabs [data-ttab]').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-ttab')===id);
+    });
+    document.querySelectorAll('#treasury-dash [data-tpane]').forEach(function(p){
+      p.classList.toggle('on', p.getAttribute('data-tpane')===id);
+    });
+    try{ history.replaceState(null,'','#treasury-'+id); }catch(_){ }
+    if(id==='overview' || id==='flows'){
+      if(!treFlowRows.length) loadTreasuryFlows(true);
+      else paintTreasuryTxLists();
+    }
+  }
+  function paintKindBars(host, rows, cls){
+    if(!host) return;
+    if(!rows || !rows.length){
+      host.innerHTML='<div class="tdash-empty">No fee credits in this window — the pool is quiet.</div>';
+      return;
+    }
+    var max=0;
+    rows.forEach(function(r){ var n=Number(r.amount)||0; if(n>max) max=n; });
+    if(max<=0) max=1;
+    host.innerHTML=rows.map(function(r){
+      var pct=Math.max(2, Math.round(100*(Number(r.amount)||0)/max));
+      return '<div class="tdash-barrow">'
+        +'<div class="meta"><div class="name">'+esc(r.kind)+' · '+Number(r.count||0).toLocaleString()+' acts</div></div>'
+        +'<div class="amt">'+kFmt(r.amount)+' ₭</div>'
+        +'<div class="track"><div class="fill '+(cls||'in')+'" style="width:'+pct+'%"></div></div>'
+        +'</div>';
+    }).join('');
+  }
+  function paintRecipientTable(host, rows){
+    if(!host) return;
+    if(!rows || !rows.length){
+      host.innerHTML='<div class="tdash-empty">No settlements yet — <b>'+kFmt((treData&&treData.balance)||0)+' ₭</b> waits in the pool until a seal with proven presence pays guardians.<br><br><a class="btn primary" href="/validate" style="display:inline-flex;margin-top:8px">Be the first name here →</a></div>';
+      return;
+    }
+    var max=0;
+    rows.forEach(function(r){ var n=Number(r.paid)||0; if(n>max) max=n; });
+    if(max<=0) max=1;
+    host.innerHTML='<table class="tdash-table"><thead><tr>'
+      +'<th class="rank">#</th><th>validator</th><th class="r">settlements</th><th class="r">earned ₭</th>'
+      +'</tr></thead><tbody>'
+      +rows.map(function(r,i){
+        var lab=(r.who&&r.who.label)?r.who.label:shortAddr(r.address);
+        var pct=Math.max(2, Math.round(100*(Number(r.paid)||0)/max));
+        return '<tr>'
+          +'<td class="rank">'+(i+1)+'</td>'
+          +'<td><a href="/address/'+encodeURIComponent(r.address)+'" title="'+esc(r.address)+'">'+esc(lab)+'</a>'
+          +'<div class="track" style="margin-top:6px"><div class="fill out" style="width:'+pct+'%"></div></div></td>'
+          +'<td class="r">'+Number(r.settlements||0).toLocaleString()+'</td>'
+          +'<td class="r"><b>'+kFmt(r.paid)+'</b></td>'
+          +'</tr>';
+      }).join('')
+      +'</tbody></table>';
+  }
+  function paintTreasuryChart(d){
+    var host=$('tdash-chart'), axis=$('tdash-axis');
+    if(!host) return;
+    var series=d.series||[];
+    if(!series.length){
+      host.innerHTML='<div class="tdash-empty" style="margin:auto">no movement in this window</div>';
+      if(axis) axis.innerHTML='';
+      return;
+    }
+    var max=1;
+    series.forEach(function(b){
+      var a=Number(b.in)||0, o=Number(b.out)||0;
+      if(a>max) max=a; if(o>max) max=o;
+    });
+    host.innerHTML=series.map(function(b){
+      var hi=Math.max(0, Math.round(100*(Number(b.in)||0)/max));
+      var ho=Math.max(0, Math.round(100*(Number(b.out)||0)/max));
+      return '<div class="col" title="'+esc(b.label)+' · in '+kFmt(b.in)+' · out '+kFmt(b.out)+'">'
+        +(ho?'<div class="bar out" style="height:'+ho+'%"></div>':'')
+        +(hi?'<div class="bar in" style="height:'+hi+'%"></div>':'')
+        +'</div>';
+    }).join('');
+    if(axis){
+      var step=Math.max(1, Math.floor(series.length/6));
+      axis.innerHTML=series.map(function(b,i){
+        return (i%step===0 || i===series.length-1) ? '<span>'+esc(b.label)+'</span>' : '<span></span>';
+      }).join('');
+    }
+  }
+  function paintTreasuryDash(d){
+    treData=d;
+    var setTxt=function(id, html){ var el=$(id); if(el) el.innerHTML=html; };
+    setTxt('td-bal', kFmt(d.balance)+' <small>₭</small>');
+    setTxt('td-life-in', kFmt(d.lifetimeIn)+' <small>₭</small>');
+    setTxt('td-life-out', kFmt(d.lifetimeOut)+' <small>₭</small>');
+    setTxt('td-life-in-s', Number(d.feeActs||0).toLocaleString()+' fee acts ever');
+    setTxt('td-life-out-s', Number(d.settlements||0).toLocaleString()+' settlements · '+Number(d.validatorsPaid||0).toLocaleString()+' validators');
+    var proof=$('td-proof'), proofK=$('td-proof-kpi'), proofS=$('td-proof-s');
+    if(proof){
+      if(d.conserves){
+        proof.textContent='HOLDS';
+        if(proofK){ proofK.classList.add('proof'); proofK.classList.remove('warn'); }
+        if(proofS) proofS.textContent='Σ in − Σ out = balance · '+kFmt(d.fold)+' ₭';
+      } else {
+        proof.textContent='CHECK';
+        if(proofK){ proofK.classList.add('warn'); proofK.classList.remove('proof'); }
+        if(proofS) proofS.textContent='fold '+kFmt(d.fold)+' ≠ balance '+kFmt(d.balance);
+      }
+    }
+    var w=d.window||{};
+    setTxt('td-win-in', kFmt(w.in)+' <small>₭</small>');
+    setTxt('td-win-out', kFmt(w.out)+' <small>₭</small>');
+    var net=Number(w.net||0);
+    var netEl=$('td-win-net');
+    if(netEl){
+      netEl.className='v'+(net>0?' pos':net<0?' neg':'');
+      netEl.innerHTML=(net>0?'+':'')+kFmt(w.net)+' <small>₭</small>';
+    }
+    setTxt('td-win-acts', Number(w.feeActs||0).toLocaleString()+' · '+Number(w.settlements||0).toLocaleString());
+    setTxt('td-win-acts-s', 'range · '+esc(String(d.range||treRange)));
+    setTxt('td-win-in-s', 'fees credited in '+esc(String(d.range||treRange)));
+    setTxt('td-win-out-s', Number(w.validatorsPaid||0).toLocaleString()+' validators paid in window');
+    var law=$('tdash-law');
+    if(law) law.innerHTML='<b>'+esc(d.law||'Σ fees − Σ settlements = balance')+'</b>'
+      +(d.node?' · block #'+Number(d.node.height||0).toLocaleString()+' · seq '+Number(d.node.seq||0).toLocaleString():'');
+    var meta=$('td-chart-meta');
+    if(meta) meta.textContent=(d.range||treRange)+' · '+Number((d.series||[]).length)+' buckets';
+    paintTreasuryChart(d);
+    paintKindBars($('td-sources'), d.byKind, 'in');
+    paintKindBars($('td-sources-all'), d.byKindAll, 'in');
+    paintRecipientTable($('td-recipients'), d.validatorsWindow||[]);
+    paintRecipientTable($('td-recipients-all'), d.validators||[]);
+    var recipTitle=$('td-recip-cta-title'), recipBody=$('td-recip-cta-body');
+    var paidN=Number(d.validatorsPaid||0);
+    if(recipTitle && recipBody){
+      if(paidN>0){
+        recipTitle.textContent='Join the '+paidN.toLocaleString()+' who already earned';
+        recipBody.innerHTML='The next settlement splits this pool by proven work. Open <b>/validate</b> on this site (Hold the library → up to 3×) or Start mining in <b>KrayWallet</b> (1×). Same address never doubles pay.';
+      } else {
+        recipTitle.textContent='Earn a seat on this table';
+        recipBody.innerHTML='<b>'+kFmt(d.balance)+' ₭</b> is waiting. When the pool settles, every name here was proven online. Start on <b>/validate</b> or in the wallet — key never leaves you.';
+      }
+    }
+    var pays=$('td-recent-pays');
+    if(pays){
+      var list=d.recentPays||[];
+      if(!list.length){
+        pays.innerHTML='<div class="tdash-empty">No distributions sealed yet — the pool accumulates.</div>';
+      } else {
+        pays.innerHTML='<table class="tdash-table"><thead><tr><th>settlement</th><th class="r">validators</th><th class="r">paid ₭</th></tr></thead><tbody>'
+          +list.map(function(p){
+            return '<tr>'
+              +'<td><a href="/tx/'+esc(p.hash)+'">'+esc(String(p.hash).slice(0,12))+'…</a>'
+              +(p.at?'<div style="color:var(--ink-4);font-size:10px;margin-top:4px">'+new Date(p.at).toISOString().slice(0,16).replace('T',' ')+'Z</div>':'')
+              +'</td>'
+              +'<td class="r">'+Number(p.validators||0).toLocaleString()+'</td>'
+              +'<td class="r"><b>'+kFmt(p.amount)+'</b></td>'
+              +'</tr>';
+          }).join('')
+          +'</tbody></table>';
+      }
+    }
+    var fn=$('tabn-flows'); if(fn) fn.textContent=String(Number(d.feeActs||0)+Number(d.settlements||0));
+    // Pulse strip mirrors the live balance
+    var bal=$('s-balance'); if(bal) bal.innerHTML=kFmt(d.balance)+' <small>₭</small>';
+    var lights=$('s-lights');
+    if(lights){
+      lights.innerHTML=
+        '<span class="pulse-chip"><b>'+kFmt(d.lifetimeIn)+'</b> in</span>'
+        +'<span class="pulse-chip"><b>'+kFmt(d.lifetimeOut)+'</b> out</span>'
+        +'<span class="pulse-chip'+(d.conserves?'':' quiet')+'"><b>'+(d.conserves?'Σ holds':'Σ check')+'</b></span>';
+    }
+  }
+  async function loadTreasuryDash(range){
+    if(range) treRange=range;
+    document.querySelectorAll('#tdash-ranges [data-range]').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-range')===treRange);
+    });
+    try{
+      var r=await fetch('/api/kraynet/treasury?range='+encodeURIComponent(treRange));
+      var d=await r.json();
+      if(d.error) throw new Error(d.error);
+      paintTreasuryDash(d);
+    }catch(e){
+      var law=$('tdash-law');
+      if(law) law.textContent='Treasury analytics unavailable — '+(e&&e.message?e.message:'node quiet');
+    }
+  }
+  async function loadTreasuryFlows(reset){
+    if(treFlowBusy) return;
+    treFlowBusy=true;
+    if(reset){
+      treFlowBefore=null;
+      treFlowRows=[];
+      treFlowDone=false;
+      paintTreasuryTxLists();
+    }
+    try{
+      var u='/api/kraynet/address-txs/'+encodeURIComponent(ADDR)+'?limit=50'+(treFlowBefore!=null?'&before='+treFlowBefore:'');
+      var r=await fetch(u); var d=await r.json();
+      var rows=d.transactions||[];
+      var seen={};
+      treFlowRows.forEach(function(t){ if(t&&t.hash) seen[t.hash]=1; });
+      rows.forEach(function(t){
+        if(!t||!t.hash||seen[t.hash]) return;
+        seen[t.hash]=1;
+        treFlowRows.push(t);
+      });
+      treFlowBefore=d.nextBefore;
+      treFlowDone=!!d.done || !rows.length;
+      refreshTreasuryKindOptions();
+      paintTreasuryTxLists();
+    }catch(_){
+      var err='<div class="tdash-empty">Could not read the journal feed.</div>';
+      var list=$('td-flow-list'), oList=$('td-overview-list');
+      if(list && !treFlowRows.length) list.innerHTML=err;
+      if(oList && !treFlowRows.length) oList.innerHTML=err;
+    }
+    treFlowBusy=false;
+  }
+  (function(){
+    var nav=document.getElementById('ttabs'); if(!nav) return;
+    nav.addEventListener('click', function(ev){
+      var b=ev.target.closest && ev.target.closest('[data-ttab]');
+      if(!b) return;
+      showTreasuryTab(b.getAttribute('data-ttab'));
+    });
+    var ranges=document.getElementById('tdash-ranges');
+    if(ranges) ranges.addEventListener('click', function(ev){
+      var b=ev.target.closest && ev.target.closest('[data-range]');
+      if(!b) return;
+      loadTreasuryDash(b.getAttribute('data-range'));
+    });
+    function bindMore(id){
+      var el=document.getElementById(id);
+      if(el) el.addEventListener('click', function(){ loadTreasuryFlows(false); });
+    }
+    bindMore('td-flow-more');
+    bindMore('td-overview-more');
+    var toFlows=document.getElementById('td-overview-to-flows');
+    if(toFlows) toFlows.addEventListener('click', function(){ showTreasuryTab('flows'); });
+    document.querySelectorAll('[data-tx-tools]').forEach(function(box){
+      box.addEventListener('click', function(ev){
+        var fb=ev.target.closest && ev.target.closest('[data-tfilter]');
+        if(fb){ treTxFilter=fb.getAttribute('data-tfilter'); paintTreasuryTxLists(); return; }
+        var sb=ev.target.closest && ev.target.closest('[data-tsort]');
+        if(sb){ treTxSort=sb.getAttribute('data-tsort'); paintTreasuryTxLists(); }
+      });
+      var sel=box.querySelector('[data-tkind]');
+      if(sel) sel.addEventListener('change', function(){
+        treTxKind=sel.value||'all';
+        // keep both selects in sync
+        document.querySelectorAll('[data-tx-tools] [data-tkind]').forEach(function(s){ s.value=treTxKind; });
+        paintTreasuryTxLists();
+      });
+    });
   })();
   document.addEventListener('click', function(ev){
     var a=ev.target.closest && ev.target.closest('a[href="#luz"]');
     if(!a) return;
     ev.preventDefault();
+    if(IS_TREASURY) return;
     showProfileTab('luz');
   });
 
@@ -2139,12 +3029,21 @@
     var other = mine ? t.to : t.from;
     var otherLab = mine ? t.toWho : t.fromWho;
     var dir = t.direction || (mine && other && String(other)!==String(ADDR) ? 'out' : (!mine ? 'in' : 'self'));
-    if(t.kind==='validator-reward' || t.kind==='settlement' || t.kind==='emit') dir='in';
+    // Only invent "in" when the API did not already name the direction (Treasury settlements are OUT).
+    if(!t.direction && (t.kind==='validator-reward' || t.kind==='emit')) dir='in';
+    if(!t.direction && t.kind==='settlement') dir=(IS_TREASURY || t.treasuryRole==='distribution') ? 'out' : 'in';
     var title='', sub='', ico='g-block', tags=[], rowCls=dir, amtSign=0, amtVal=null, amtUnit='', amtCls='';
     var party = other ? ((mine?'to ':'from ')+who(other,otherLab)) : '';
     var blk = t.blockNumber!=null ? ('#'+Number(t.blockNumber).toLocaleString()) : 'pending';
-    var feeBits = t.fee!=null ? ('fee '+kWhole(t.fee)+' ₭') : '';
-
+    var feeBits = t.fee!=null && String(t.fee)!=='0'
+      ? ('fee '+kWhole(t.fee)+' ₭ → Treasury')
+      : (t.treasuryCredit!=null && String(t.treasuryCredit)!=='0'
+        ? ('fee '+kWhole(t.treasuryCredit)+' ₭ → Treasury')
+        : '');
+    // Fee-only acts: party was blank because journal has no peer `to` — paint the real sink.
+    if(!party && (t.to==='KRAY_TREASURY' || t.feeTo==='KRAY_TREASURY')){
+      party = 'to '+who(t.to||t.feeTo, t.toWho||t.feeToWho||{label:'Treasury · fee pool → validators'});
+    }
     function moneySide(amount){
       if(dir==='in'){ amtSign=1; }
       else if(dir==='out'){ amtSign=-1; }
@@ -2230,9 +3129,21 @@
         break;
       case 'set-face':
         ico='g-star'; title='Set face · ★ '+Number(t.star).toLocaleString();
-        tags=[actTag('face'), actTag('self','dir-self')];
-        amtSign=-1; amtVal=kWhole(t.fee||1); amtUnit='₭';
-        sub=(t.starName||t.name?'“'+esc(t.starName||t.name)+'” · ':'')+'citizen mouth · '+blk;
+        tags=[actTag('face'), actTag('fee')];
+        amtSign=-1; amtVal=kWhole(t.fee||t.treasuryCredit||1); amtUnit='₭ → pool';
+        sub=(t.starName||t.name?'“'+esc(t.starName||t.name)+'” · ':'')+(party||'to Treasury · fee pool')+' · '+blk;
+        break;
+      case 'clear-face':
+        ico='g-star'; title='Cleared face';
+        tags=[actTag('face'), actTag('clear'), actTag('fee')];
+        amtSign=-1; amtVal=kWhole(t.fee||t.treasuryCredit||1); amtUnit='₭ → pool';
+        sub='default sigil · '+(party||'to Treasury · fee pool')+' · '+blk;
+        break;
+      case 'set-kray-plate':
+        ico='g-name'; title=t.star!=null?('KRAY Plate · ★ '+Number(t.star).toLocaleString()):'KRAY Plate';
+        tags=[actTag('plate'), actTag('fee')];
+        amtSign=-1; amtVal=kWhole(t.fee||t.treasuryCredit||1); amtUnit='₭ → pool';
+        sub=(party||'to Treasury · fee pool → validators')+' · '+blk;
         break;
       case 'set-profile':
         ico='g-name'; title='Updated profile';
@@ -2250,10 +3161,23 @@
         sub=(party||'self')+(feeBits?' · '+feeBits:'')+' · '+blk;
         break;
       case 'settlement':
-        ico='g-glow'; title='Settlement';
-        tags=[actTag('settle'), actTag('in','dir-in')];
-        amtSign=1; amtVal=kWhole(t.amount||0); amtUnit='₭';
-        sub='interval '+(t.interval!=null?t.interval:'—')+' · '+blk;
+        // Treasury book: this is the distribution — ₭ leave the fee pool to validators/guardians.
+        // Citizen views (rare) still read as an inbound share of the pool.
+        if(IS_TREASURY || dir==='out' || t.treasuryRole==='distribution'){
+          ico='g-glow'; title='Distributed to validators';
+          tags=[actTag('paid','paid'), actTag('distribution'), actTag('out','dir-out')];
+          rowCls='out';
+          amtSign=-1; amtVal=kWhole(t.feesPaid!=null?t.feesPaid:t.amount||0); amtUnit='₭';
+          var nPay=Number(t.payoutCount!=null?t.payoutCount:(t.payouts&&t.payouts.length)||0);
+          sub=(nPay?nPay.toLocaleString()+' validator'+(nPay===1?'':'s')+' · proven work · ':'')
+            +(t.beacon?'beacon '+esc(String(t.beacon).slice(0,10))+'… · ':'')
+            +blk;
+        } else {
+          ico='g-glow'; title='Settlement';
+          tags=[actTag('settle'), actTag('in','dir-in')];
+          amtSign=1; amtVal=kWhole(t.feesPaid!=null?t.feesPaid:t.amount||0); amtUnit='₭';
+          sub='interval '+(t.interval!=null?t.interval:'—')+' · '+blk;
+        }
         break;
       case 'emit':
         ico='g-glow'; title='Minted ₭';
@@ -2339,6 +3263,18 @@
     }
 
     if(t.createPool) tags.unshift(actTag('first writer'));
+    // Treasury mouth = pool book: fee-in is credit (+ green), distribution is debit (− red).
+    // Citizen cases above paint "₭ → pool" as the payer's outflow — flip when this mouth is the pool.
+    if(IS_TREASURY && amtSign!==0){
+      if(dir==='in' || t.treasuryRole==='fee-in'){
+        amtSign=1;
+        amtCls='pos';
+        if(String(amtUnit).indexOf('→ pool')>=0) amtUnit='₭';
+      } else if(dir==='out' || t.treasuryRole==='distribution'){
+        amtSign=-1;
+        amtCls='neg';
+      }
+    }
     var amtHtml;
     if(amtVal!=null && String(amtVal).indexOf('★ ')===0){
       amtHtml='<span class="act-amt '+(amtCls||(amtSign>0?'pos':'neg'))+'">'+(amtSign>0?'+':amtSign<0?'−':'')+esc(String(amtVal).replace(/^★\s*/,''))+'<small>'+esc(amtUnit||'star')+'</small></span>';
@@ -2392,7 +3328,8 @@
     if(!host) return;
     function actDir(t){
       if(!t) return 'self';
-      if(t.kind==='validator-reward'||t.kind==='settlement'||t.kind==='emit') return 'in';
+      if(t.kind==='validator-reward'||t.kind==='emit') return 'in';
+      if(t.kind==='settlement') return (t.direction==='out'||t.treasuryRole==='distribution'||IS_TREASURY)?'out':'in';
       if(t.direction==='in'||t.direction==='out'||t.direction==='self') return t.direction;
       var mine=String(t.from)===String(ADDR);
       var other=mine?t.to:t.from;
@@ -2492,7 +3429,37 @@
     paintCitizenMouth(p);
     try{ window.kraynetStudioBal=BigInt(String(p.balance==null?'0':p.balance).replace(/[^0-9]/g,'')||'0'); }catch(_){ window.kraynetStudioBal=0n; }
     if(typeof paintStudioTicket==='function') paintStudioTicket();
-    $('netlab').textContent='KRAY NET · '+p.network+' · block #'+p.node.height.toLocaleString();
+    if(IS_TREASURY){
+      $('netlab').textContent='PROTOCOL · fee pool · block #'+p.node.height.toLocaleString();
+      var dn=$('displayname'); if(dn){ dn.hidden=false; dn.textContent='Treasury'; }
+      var badges=$('badges');
+      if(badges) badges.innerHTML='<span class="chip">KRAY_TREASURY</span><span class="chip">fee pool → validators</span>';
+      var edit=$('mouth-edit'); if(edit) edit.hidden=true;
+      var mouth=$('citizen-mouth');
+      if(mouth){
+        mouth.hidden=false;
+        mouth.innerHTML='<p class="mouth-bio">Every act fee (and atlas wall-toll) credits this sink. The ₭ waits here until a settlement pays validators linear in proven work. No key owns it — every node that resyncs the journal recomputes the same balance.</p>'
+          +'<a class="mouth-link" href="/validate">earn from this pool · be a guardian ↗</a>'
+          +'<a class="mouth-link" href="/docs#receipt">how fees settle ↗</a>';
+      }
+      // Protocol sink: hide citizen chrome · open the 4-tab analytics dashboard.
+      var ptabs=$('ptabs'); if(ptabs) ptabs.hidden=true;
+      document.querySelectorAll('[data-ppane]').forEach(function(pane){ pane.classList.remove('on'); pane.hidden=true; });
+      var ttabs=$('ttabs'); if(ttabs) ttabs.hidden=false;
+      var tdash=$('treasury-dash'); if(tdash) tdash.hidden=false;
+      var pulseLab=document.querySelector('.pulse-k-lab');
+      if(pulseLab) pulseLab.innerHTML='Fee pool <span>living balance</span>';
+      var hash=(location.hash||'').replace(/^#/,'');
+      var tTab='overview';
+      if(hash.indexOf('treasury-')===0) tTab=hash.slice(9)||'overview';
+      else if(hash==='sources'||hash==='recipients'||hash==='flows'||hash==='overview') tTab=hash;
+      showTreasuryTab(tTab);
+      loadTreasuryDash(treRange||'all');
+    } else {
+      $('netlab').textContent='KRAY NET · '+p.network+' · block #'+p.node.height.toLocaleString();
+      var tt=$('ttabs'); if(tt) tt.hidden=true;
+      var td=$('treasury-dash'); if(td) td.hidden=true;
+    }
     // THE EXACT figure — ₭ is the hero of the plate (never abbreviated here).
     $('s-balance').innerHTML=Number(p.balance).toLocaleString()+' <small>₭</small>';
     var relics=(p.written||[]).length;
@@ -2505,7 +3472,7 @@
     var xsN=LT.xSpendable!=null?Number(LT.xSpendable):null, lxN=LT.laneX!=null?Number(LT.laneX):null;
     paintGlowRank(glowN, glowRank, glowRankTotal);
     var lightsEl=document.getElementById('s-lights');
-    if(lightsEl){
+    if(lightsEl && !IS_TREASURY){
       var glowChip='<a class="pulse-chip glow'+(glowN>0?'':' quiet')+'" href="/rank/glow" title="Glow — soulbound reputation from frozen stars">✦ <b>'+glowN.toLocaleString()+'</b> glow</a>';
       var fenyxChip='<a class="pulse-chip fenyx'+(xN>0?'':' quiet')+'" href="/rank/nyx" title="Fenyx / Nyx (Ӿ) — born 1:1 from burned ₭">Ӿ <b>'+xN.toLocaleString()+'</b> Fenyx</a>';
       lightsEl.innerHTML=glowChip+fenyxChip;
@@ -2543,9 +3510,13 @@
       var xls=document.getElementById('xray-luz-s'); if(xls) xls.textContent=luzRows.length?(luzTot.toLocaleString()+' ✧ across '+luzRows.length+' book'+(luzRows.length===1?'':'s')):'No Luz yet — receive ✧ or seal KRC-77 on a star';
       var xp=document.getElementById('xray-plain'); if(xp) xp.textContent=Number(p.plain!=null?p.plain:p.balance||0).toLocaleString()+' ₭';
     })();
-    var badges='';
-    if(me===ADDR) badges+='<span class="badge you">This is you</span>';
-    $('badges').innerHTML=badges;
+    if(IS_TREASURY){
+      $('badges').innerHTML='<span class="chip">KRAY_TREASURY</span><span class="chip">fee pool → validators</span>';
+    } else {
+      var badges='';
+      if(me===ADDR) badges+='<span class="badge you">This is you</span>';
+      $('badges').innerHTML=badges;
+    }
     var bs=$('bapt');
     if(p.baptisms.length) bs.innerHTML=p.baptisms.map(function(b){ return '<a class="b" href="/star/'+b.star+'"><b>'+esc(b.name)+'</b> · star #'+Number(b.star).toLocaleString()+'</a>'; }).join('');
     // the tenant card — this citizen's rune, bridged to its L2 life here
