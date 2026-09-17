@@ -110,6 +110,31 @@ async function main() {
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
   ok(steal.status === 403 && /SIGNED exit address/.test(steal.body.reason || ''), 'ATTACK: dest swapped on the wire → 403')
 
+  // the 2026-09-17 regression, over the REAL daemon: the withdraw door's stated 546-sat service output
+  // must cross the HTTP wire, or the pen rebuilds a 4-output payout and holds every withdraw.
+  const platPay = btc.p2tr(Buffer.from(keypair('http-platform').pk, 'hex'), undefined, NETWORKS.regtest)
+  const feePlan: ExitPayoutPlan = { ...plan, serviceFee: { scriptHex: hex(platPay.script!), sats: 546n } }
+  const feePayout = buildExitPayout(params, vaultUtxos, funding, feePlan)
+  const feeBundle = { ...bundle, plan: planToWire(feePlan), claimedSighashes: feePayout.sighashes.slice(0, feePayout.vaultInputCount) }
+  const fee = await fetch(BASE + '/sign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
+    body: JSON.stringify(feeBundle),
+  }).then(async (r) => ({ status: r.status, body: await r.json() }))
+  ok(fee.status === 200 && fee.body.ok === true && fee.body.depositorSigs.length === 1, 'REGRESSION: the stated service output crosses the HTTP wire — the pen rebuilds the node\'s 5-output payout and signs')
+  const drain = await fetch(BASE + '/sign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
+    body: JSON.stringify({ ...feeBundle, plan: { ...feeBundle.plan, serviceFee: { scriptHex: hex(platPay.script!), sats: '50000' } } }),
+  }).then(async (r) => ({ status: r.status, body: await r.json() }))
+  ok(drain.status === 403 && /signer ceiling/.test(drain.body.reason || ''), 'ATTACK: a 50 000-sat "service fee" on the wire → 403 (the ceiling holds over HTTP)')
+  const garbage = await fetch(BASE + '/sign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
+    body: JSON.stringify({ ...feeBundle, plan: { ...feeBundle.plan, serviceFee: 'yes' } }),
+  }).then(async (r) => ({ status: r.status, body: await r.json() }))
+  ok(garbage.status === 400 && /serviceFee must be/.test(garbage.body.reason || ''), 'a malformed service output on the wire → 400, the daemon stays up')
+
   console.log(`\n╚═ ${pass} passed — the pot-signer on 127.0.0.1 signs only an exit-bound rebuild. ₿₭`)
 }
 

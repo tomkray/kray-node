@@ -75,6 +75,13 @@ note — never claimed away.
 
 ## Known open items (tracked, not hidden)
 
+- **Closed 2026-09-17 — withdraws held by the signer wire:** since the withdraw door began stating a
+  546-sat service output (2026-09-01), the plan wire between the node and the remote pen/guardians dropped
+  that field, so every remote co-sign refused ("claimed sighashes do not match the rebuilt payout") and
+  every cooperative withdraw was held. Fail-closed held as designed (no exit was open on either public
+  network in that window; the mainnet pot was never funded). Fixed in `pot-signer.ts` (the field crosses,
+  under a 1 000-sat signer ceiling), pinned in three suites, proven live on regtest. Deploy law: the same
+  commit on the writer, both pens and all guardians — a mixed fleet holds, it never over-signs.
 - **DoS**: `/api/kraynet/star/<n>` re-parses the whole journal per request — needs a cache.
 - **File modes / PQ migration pieces** as above.
 - **E1 — the v1 `contract` seal (a law with no star)**: it paid no fee, burned nothing and carried no nonce,

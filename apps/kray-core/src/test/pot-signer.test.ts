@@ -188,4 +188,39 @@ ok(qNo.ok === false && /held for safety/.test(qNo.reason || ''), 'SAFETY: a guar
 const qDupe = decideGuardianQuorum([share(G[0]), share(G[0]), share(G[2])], 2)
 ok(qDupe.ok === true && qDupe.shares.length === 2, 'one daemon, one guardian: a repeated key is not double-counted toward the threshold')
 
+// ── THE SERVICE OUTPUT CROSSES THE WIRE — the 2026-09-17 Tier-1 finding, pinned ──────────────────
+// The withdraw door states a flat 546-sat platform output on the plan (2026-09-01). Until this pin the
+// wire dropped it: the node claimed sighashes over 5 outputs, every remote pen/guardian rebuilt 4, and
+// every withdraw was held (fail-closed — nothing lost, nothing paid). Never again.
+const platPay = btc.p2tr(Buffer.from(keypair('platform').pk, 'hex'), undefined, NETWORKS.regtest)
+const feePlan: ExitPayoutPlan = { ...plan, serviceFee: { scriptHex: hex(platPay.script!), sats: 546n } }
+const feePayout = buildExitPayout(params, vaultUtxos, funding, feePlan)
+ok(feePayout.outputs.length === 5 && payout.outputs.length === 4, 'fixture: the stated service output makes a 5-output payout (historic plan stays 4)')
+const feeWire = planToWire(feePlan)
+ok(typeof feeWire.serviceFee === 'object' && (feeWire.serviceFee as { sats: string }).sats === '546', 'planToWire ships the service output with stringified sats')
+const feeReq = { ...req, plan: planFromWire(feeWire), claimedSighashes: feePayout.sighashes.slice(0, feePayout.vaultInputCount) }
+const penFee = authorizePotSign(feeReq, DEP.sk)
+ok(penFee.ok === true, 'REGRESSION: the pen rebuilds the node\'s 5-output payout from the wire and signs')
+const gFee = authorizeGuardianSign(feeReq, G0.sk, bookOf({ [destAddr]: 100n }))
+ok(gFee.ok === true, 'REGRESSION: a guardian rebuilds the node\'s 5-output payout from the wire and co-signs')
+const { serviceFee: _dropped, ...hidden } = feeWire
+const penHidden = authorizePotSign({ ...feeReq, plan: planFromWire(hidden) }, DEP.sk)
+ok(penHidden.ok === false && /rebuilt/.test(penHidden.reason || ''), 'a wire that hides the service output cannot borrow the node\'s sighashes → refused (the old hold, now a deliberate one)')
+const drainPlan: ExitPayoutPlan = { ...plan, serviceFee: { scriptHex: hex(platPay.script!), sats: 1_001n } }
+const drainBuilt = buildExitPayout(params, vaultUtxos, funding, drainPlan)
+const drainReq = { ...req, plan: planFromWire(planToWire(drainPlan)), claimedSighashes: drainBuilt.sighashes.slice(0, drainBuilt.vaultInputCount) }
+const penDrain = authorizePotSign(drainReq, DEP.sk)
+ok(penDrain.ok === false && /signer ceiling/.test(penDrain.reason || ''), 'ATTACK: a "service fee" above the signer ceiling (1 001 > 1 000) → the pen refuses')
+const gDrain = authorizeGuardianSign(drainReq, G0.sk, bookOf({ [destAddr]: 100n }))
+ok(gDrain.ok === false && /signer ceiling/.test(gDrain.reason || ''), 'ATTACK: the same drain → a guardian refuses (independent execution of the same ceiling)')
+const ceilPlan: ExitPayoutPlan = { ...plan, serviceFee: { scriptHex: hex(platPay.script!), sats: 1_000n } }
+const ceilBuilt = buildExitPayout(params, vaultUtxos, funding, ceilPlan)
+ok(authorizePotSign({ ...req, plan: planFromWire(planToWire(ceilPlan)), claimedSighashes: ceilBuilt.sighashes.slice(0, ceilBuilt.vaultInputCount) }, DEP.sk).ok === true, 'boundary: exactly the ceiling (1 000) still signs')
+let malformed = ''
+try { planFromWire({ ...feeWire, serviceFee: { sats: '546' } }) } catch (e) { malformed = e instanceof Error ? e.message : String(e) }
+ok(/serviceFee must be/.test(malformed), 'a malformed service output on the wire throws (the daemon answers 400 — fail-closed, never a silent drop)')
+let notANumber = ''
+try { planFromWire({ ...feeWire, serviceFee: { scriptHex: hex(platPay.script!), sats: 'five' } }) } catch (e) { notANumber = e instanceof Error ? e.message : String(e) }
+ok(notANumber.length > 0, 'a non-numeric service sats on the wire throws (never coerced)')
+
 console.log(`\n╚═ ${pass} passed — the owner signs only the exit-bound payout, the guardian re-checks the book, remote shares beat lab, and the quorum tolerates a guardian down but holds on a book NO. ₿₭`)

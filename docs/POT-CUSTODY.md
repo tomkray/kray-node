@@ -89,6 +89,17 @@ compromised writer cannot over-drain the pot: the books say no.
 - **Any follower can serve a book:** `/api/kraynet/runes/of/<addr>` ships with
   follow. Mirrors stay anonymous — the qualification is the mirror, never a
   public list.
+- **The wire is the plan (2026-09-17):** every field `buildExitPayout` reads
+  must cross `planToWire → planFromWire` unchanged — a pen or guardian that
+  rebuilds from a wire missing one field produces different sighashes and
+  holds every withdraw (fail-closed: nothing lost, nothing paid). The stated
+  546-sat service output (withdraw door, 2026-09-01) did not cross until the
+  Tier-1 ceremony caught it; it now does, under a signer ceiling
+  (`MAX_SERVICE_FEE_SATS`, 1 000) both the pen and every guardian enforce
+  independently. Pinned in `pot-signer.test.ts` and `pot-signer-http.test.ts`;
+  the live proof is `guardian-golive-tier1-e2e.mjs` (real regtest withdraws
+  through three remote daemons). Same commit, two universes: the writer and
+  every signer must run the same `pot-signer.ts`, or the hold returns.
 
 Topology and ceremony live off this door.
 

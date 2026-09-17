@@ -7,6 +7,9 @@
  *
  *   S1 · all 3 daemons up      → a withdraw completes THROUGH the remote book-checking guardians;
  *   S2 · kill ONE (of 3)       → the next withdraw STILL completes (2-of-3 — the threshold IS the tolerance);
+ *   (topology = the fleet's: each guardian reads its OWN follower book of the node, never the writer —
+ *    a writer serves no /lineage, so a guardian pointed at it is a one-shot signer under rung 3;
+ *    the books must have caught up to the exit's seq before a submit, exactly as the fleet lags)
  *   S3 · kill TWO              → the withdraw is HELD (fail-closed), the exit lock survives, funds never move;
  *   S4 · a STALE-book guardian → the same withdraw is HELD FOR SAFETY (a book NO is never routed around);
  *   S5 · restore a good daemon → the SAME held withdraw completes — holds are liveness, never loss.
@@ -20,7 +23,7 @@
  */
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, readFileSync, rmSync, mkdtempSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, mkdtempSync, openSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import * as btc from '@scure/btc-signer'
@@ -33,9 +36,11 @@ const SERVER = new URL('../../../kray-net/server.mjs', import.meta.url).pathname
 const NODE_PORT = 4499
 const NODE = `http://127.0.0.1:${NODE_PORT}`
 const G_PORTS = [4493, 4494, 4495]
-const STALE_PORT = 4497
+const B_PORTS = [4531, 4532, 4533]                    // one follower book per guardian (the fleet's topology)
+const FROZEN_PORT = 4534                              // a book frozen at the deposit-era snapshot (S4: LAG ≠ THEFT)
+const FOLLOW = new URL('../../../../scripts/follow/kray-follow.mjs', import.meta.url).pathname
 const TOKEN = 'ceremony-tier1-token-0123456789'
-const RUNE = '146:1', RUNE_NAME = 'GOLD•HUNDREDTH'   // never credited on the :4477 bench → zero cross-talk
+const RUNE = process.env.RUNE || '146:1', RUNE_NAME = process.env.RUNE_NAME || 'GOLD•HUNDREDTH'   // env-overridable: a fresh regtest chain etches its own lab rune; never credited on the :4477 bench → zero cross-talk
 const DEPOSIT_DISPLAY = 50n                            // div 2 → 5000 base units land
 const EXIT = 2000n                                     // base units
 const NET = 'regtest', BNET = toBtcNet(NET)
@@ -60,6 +65,8 @@ const RPC_PASS = (conf.match(/^rpcpassword=(.+)$/m) || [])[1]?.trim()
 if (!RPC_PASS) { console.error('✗ no rpcpassword in harness conf'); process.exit(1) }
 
 const children = []
+const DATA = mkdtempSync(join(tmpdir(), 'kray-ceremony-'))
+const logOf = (name) => openSync(join(DATA, name + '.log'), 'a')
 function cleanup() { for (const c of children) { try { c.kill('SIGKILL') } catch {} } }
 process.on('exit', cleanup); process.on('SIGINT', () => { cleanup(); process.exit(1) })
 
@@ -73,17 +80,43 @@ async function waitHttp(url, tries = 60) {
 
 function spawnGuardian(port, seedIdx, bookUrl) {
   const child = spawn('node', [new URL('../../../../scripts/operator/guardian-signer.mjs', import.meta.url).pathname], {
-    env: { ...process.env, KRAY_VAULT_GUARDIAN_SECRET: gSecret(seedIdx), KRAY_GUARDIAN_SIGNER_TOKEN: TOKEN, KRAY_GUARDIAN_BOOK_URL: bookUrl, KRAY_GUARDIAN_SIGNER_PORT: String(port) },
-    stdio: 'ignore',
+    env: {
+      ...process.env, KRAY_VAULT_GUARDIAN_SECRET: gSecret(seedIdx), KRAY_GUARDIAN_SIGNER_TOKEN: TOKEN,
+      KRAY_GUARDIAN_BOOK_URL: bookUrl, KRAY_GUARDIAN_SIGNER_PORT: String(port),
+      KRAY_GUARDIAN_HEAD_FILE: join(DATA, `guardian-${seedIdx}-head.json`),   // one memory per guardian, never shared
+    },
+    stdio: ['ignore', logOf(`guardian-${port}`), logOf(`guardian-${port}`)],
   })
   children.push(child)
   return child
 }
 
-function spawnStaleBook(port) {
-  const child = spawn('node', ['-e', `require('http').createServer((q,s)=>{s.setHeader('content-type','application/json');s.end(JSON.stringify({runes:[]}))}).listen(${port},'127.0.0.1')`], { stdio: 'ignore' })
+/** A real follower of the ceremony node — the book a guardian reads (the fleet runs exactly this). */
+function spawnFollower(port, name, cycleMs, rpc) {
+  const child = spawn('node', [FOLLOW, '--from', NODE, '--dir', join(DATA, name), '--serve', String(port), '--watch'], {
+    env: { ...process.env, ...rpc, KRAY_FOLLOW_CYCLE_MS: String(cycleMs), KRAY_FOLLOW_INBOX: '0' },
+    stdio: ['ignore', logOf(name), logOf(name)],
+  })
   children.push(child)
   return child
+}
+
+/** The fleet lags: a book must have caught up to the node's head before a guardian may judge (minSeal). */
+async function waitBooks(ports, tries = 90) {
+  for (let i = 0; i < tries; i++) {
+    let target = -1
+    try { target = Number((await (await fetch(`${NODE}/api/kraynet/head`, { signal: AbortSignal.timeout(1500) })).json()).seq) } catch {}
+    let agree = target >= 0
+    for (const p of ports) {
+      try {
+        const h = await (await fetch(`http://127.0.0.1:${p}/api/kraynet/head`, { signal: AbortSignal.timeout(1500) })).json()
+        if (h.stale || Number(h.seq) !== target) agree = false
+      } catch { agree = false }
+    }
+    if (agree) return target
+    sleep(0.5)
+  }
+  return -1
 }
 
 async function main() {
@@ -94,16 +127,12 @@ async function main() {
   const benchRunes = JSON.parse(execFileSync('curl', ['-s', 'http://127.0.0.1:4477/api/kraynet/runes'], { encoding: 'utf8' }))
   ok(!((benchRunes.runes || []).some((r) => (r.runeId || r.id) === RUNE)), `isolation: the :4477 bench never credited ${RUNE_NAME} — zero cross-talk by construction`)
 
-  // ── 1 · boot: three real guardian daemons, then the node with the flag ON ──
-  const g = [spawnGuardian(G_PORTS[0], 0, NODE), spawnGuardian(G_PORTS[1], 1, NODE), spawnGuardian(G_PORTS[2], 2, NODE)]
-  for (const p of G_PORTS) ok(await waitHttp(`http://127.0.0.1:${p}/health`), `guardian daemon :${p} is up (loopback, token-gated, book-checking)`)
-
-  const DATA = mkdtempSync(join(tmpdir(), 'kray-ceremony-'))
+  // ── 1 · boot: the node with the flag ON, then three real guardian daemons — each on its OWN follower book ──
+  const RPC = { KRAY_BTC_RPC: 'http://127.0.0.1:18454', KRAY_BTC_RPC_USER: RPC_USER, KRAY_BTC_RPC_PASS: RPC_PASS }
   const node = spawn('node', [SERVER], {
     env: {
       ...process.env,
-      KRAY_NET: 'regtest', KRAY_PORT: String(NODE_PORT), KRAY_DATA: DATA,
-      KRAY_BTC_RPC: 'http://127.0.0.1:18454', KRAY_BTC_RPC_USER: RPC_USER, KRAY_BTC_RPC_PASS: RPC_PASS,
+      KRAY_NET: 'regtest', KRAY_PORT: String(NODE_PORT), KRAY_DATA: join(DATA, 'node'), ...RPC,
       KRAY_ORD_URL: 'http://127.0.0.1:8081',
       KRAY_POT_ADDRESS: 'bcrt1pjvnl3tq5mcpjmncpqwtr4lf5a0ukflvlj83jj3532hzl73rjyhvqqy5j2k',
       KRAY_SELF_ANCHOR: '1', KRAY_POT_INTERNAL_KEY: NUMS,
@@ -111,10 +140,12 @@ async function main() {
       KRAY_GUARDIAN_SIGNER_URLS: G_PORTS.map((p) => `http://127.0.0.1:${p}`).join(','),
       KRAY_GUARDIAN_SIGNER_TOKEN: TOKEN,
     },
-    stdio: 'ignore',
+    stdio: ['ignore', logOf('node'), logOf('node')],
   })
   children.push(node)
   ok(await waitHttp(`${NODE}/api/kraynet/supply`), `ceremony node :${NODE_PORT} is up — fresh journal, KRAY_GUARDIAN_SIGNER_URLS ON (3 remotes)`)
+  const g = [spawnGuardian(G_PORTS[0], 0, `http://127.0.0.1:${B_PORTS[0]}`), spawnGuardian(G_PORTS[1], 1, `http://127.0.0.1:${B_PORTS[1]}`), spawnGuardian(G_PORTS[2], 2, `http://127.0.0.1:${B_PORTS[2]}`)]
+  for (const p of G_PORTS) ok(await waitHttp(`http://127.0.0.1:${p}/health`), `guardian daemon :${p} is up (loopback, token-gated, book-checking — its book is a follower, not the writer)`)
   const info = jget('/api/kraynet/donation/info')
   ok(info.configured === true, 'the node has bitcoind + the pot wired')
 
@@ -158,6 +189,12 @@ async function main() {
     return { OWNER_ADDR, DEST_ADDR, landed, signedPsbt: Buffer.from(wtx.toPSBT(0)).toString('base64') }
   }
   const submit = (x) => jpost('/api/kraynet/rune/exit/payout-submit', { from: x.OWNER_ADDR, runeId: RUNE, psbt: x.signedPsbt })
+  // the fleet lags: only a book AT/PAST the exit's seq may judge (minSeal) — wait for the live books first
+  const submitWith = async (x, books) => {
+    const at = await waitBooks(books)
+    ok(at >= 0, `the live books (:${books.join(', :')}) agree with the node at seq ${at} — a guardian judges only a caught-up book`)
+    return submit(x)
+  }
   const lockedOf = (addr) => {
     const r = (jget('/api/kraynet/runes/of/' + addr).runes || []).find((q) => q.runeId === RUNE)
     return r && r.locked != null ? BigInt(String(r.locked.amount != null ? r.locked.amount : r.locked || '0')) : 0n
@@ -167,8 +204,12 @@ async function main() {
   // ── S1 · all three up: the withdraw completes THROUGH the remote book-checking guardians ──
   console.log('\n─ S1 · three remotes up — the machinery, live ─')
   const A = prepareExiter('alice')
-  const s1 = submit(A)
-  ok(s1.ok === true && /^[0-9a-f]{64}$/.test(s1.txid || ''), `S1: withdraw BROADCAST through the remote guardians (${String(s1.txid).slice(0, 12)}…)`)
+  // the books are born now (history exists): three live followers + one FROZEN at this snapshot (S4)
+  for (let i = 0; i < 3; i++) spawnFollower(B_PORTS[i], `book-${i}`, 1500, RPC)
+  spawnFollower(FROZEN_PORT, 'book-frozen', 3_600_000, RPC)
+  for (const p of [...B_PORTS, FROZEN_PORT]) ok(await waitHttp(`http://127.0.0.1:${p}/api/kraynet/head`), `follower book :${p} is up — replayed the node's history on its own`)
+  const s1 = await submitWith(A, B_PORTS)
+  ok(s1.ok === true && /^[0-9a-f]{64}$/.test(s1.txid || ''), `S1: withdraw BROADCAST through the remote guardians (${String(s1.txid).slice(0, 12)}…)${s1.ok ? '' : ' — error: ' + String(s1.error).slice(0, 220)}`)
   mine(Math.max(1, info.minConfirmations)); sync()
   ok(destGot(s1.txid) === EXIT, `S1: ord confirms the SIGNED destination received exactly ${EXIT} base units on L1`)
 
@@ -176,32 +217,33 @@ async function main() {
   console.log('\n─ S2 · one guardian DOWN (2-of-3) — the fallback ─')
   g[2].kill('SIGKILL'); sleep(1)
   const B = prepareExiter('bob')
-  const s2 = submit(B)
-  ok(s2.ok === true && /^[0-9a-f]{64}$/.test(s2.txid || ''), 'S2: one daemon dead → the other two cover — the withdraw STILL completes (bridge keeps working)')
+  const s2 = await submitWith(B, [B_PORTS[0], B_PORTS[1]])
+  ok(s2.ok === true && /^[0-9a-f]{64}$/.test(s2.txid || ''), `S2: one daemon dead → the other two cover — the withdraw STILL completes (bridge keeps working)${s2.ok ? '' : ' — error: ' + String(s2.error).slice(0, 220)}`)
   mine(Math.max(1, info.minConfirmations)); sync()
 
   // ── S3 · kill TWO: fail-closed hold, funds never move, the lock survives ──
   console.log('\n─ S3 · two guardians DOWN — fail-closed, never frozen ─')
   g[1].kill('SIGKILL'); sleep(1)
   const C = prepareExiter('carol')
-  const s3 = submit(C)
+  const s3 = await submitWith(C, [B_PORTS[0]])
   ok(!!s3.error && /held/.test(s3.error || ''), `S3: too few guardians → withdraw HELD (fail-closed): "${String(s3.error).slice(0, 72)}…"`)
   ok(lockedOf(C.OWNER_ADDR) === EXIT, 'S3: the exit lock SURVIVES the hold — funds never moved, nothing consumed (CSV backstop untouched)')
 
-  // ── S4 · a STALE-book guardian says NO: held for safety, never routed around ──
-  console.log('\n─ S4 · a stale-book guardian — safety beats liveness on a NO ─')
-  spawnStaleBook(STALE_PORT); sleep(1)
-  spawnGuardian(G_PORTS[1], 1, `http://127.0.0.1:${STALE_PORT}`)
-  ok(await waitHttp(`http://127.0.0.1:${G_PORTS[1]}/health`), 'S4: a guardian is back on :4494 — but its book is STALE (an empty follower)')
-  const s4 = submit(C)
-  ok(!!s4.error && /held for safety/.test(s4.error || ''), `S4: the stale book says NO → HELD FOR SAFETY, never routed around: "${String(s4.error).slice(0, 80)}…"`)
+  // ── S4 · a LAGGING-book guardian (LAG ≠ THEFT): it answers 503, the quorum is short, the withdraw is HELD ──
+  // (a book that CONTRADICTS — a NO on a caught-up book — is the hermetic pot-signer suite's job: it needs a forked writer)
+  console.log('\n─ S4 · a lagging-book guardian — LAG ≠ THEFT: it cannot judge, so the withdraw waits ─')
+  spawnGuardian(G_PORTS[1], 1, `http://127.0.0.1:${FROZEN_PORT}`)
+  ok(await waitHttp(`http://127.0.0.1:${G_PORTS[1]}/health`), 'S4: a guardian is back on :4494 — but its book is FROZEN at the deposit-era snapshot (behind the exit)')
+  const s4 = await submitWith(C, [B_PORTS[0]])
+  ok(!!s4.error && /held/.test(s4.error || '') && /lagging|only 1 of 2/.test(s4.error || ''), `S4: the lagging book cannot judge → 503 → the withdraw is HELD (never routed around, never a loss): "${String(s4.error).slice(0, 140)}…"`)
+  ok(lockedOf(C.OWNER_ADDR) === EXIT, 'S4: the exit lock still SURVIVES — a lag is a wait, the metal never moved')
 
   // ── S5 · restore a good daemon: the SAME held withdraw completes — holds are liveness, never loss ──
   console.log('\n─ S5 · recovery — the hold releases, nothing was lost ─')
-  const stale = children[children.length - 1]; stale.kill('SIGKILL'); sleep(1)
-  spawnGuardian(G_PORTS[1], 1, NODE)
-  ok(await waitHttp(`http://127.0.0.1:${G_PORTS[1]}/health`), 'S5: a GOOD guardian is back on :4494 (book = the node again)')
-  const s5 = submit(C)
+  const lagging = children[children.length - 1]; lagging.kill('SIGKILL'); sleep(1)
+  spawnGuardian(G_PORTS[1], 1, `http://127.0.0.1:${B_PORTS[1]}`)
+  ok(await waitHttp(`http://127.0.0.1:${G_PORTS[1]}/health`), 'S5: a GOOD guardian is back on :4494 (book = its live follower again; its head memory from S2 still descends)')
+  const s5 = await submitWith(C, [B_PORTS[0], B_PORTS[1]])
   ok(s5.ok === true && /^[0-9a-f]{64}$/.test(s5.txid || ''), 'S5: the SAME withdraw now completes — a hold is a wait, never a loss')
   mine(Math.max(1, info.minConfirmations)); sync()
   ok(destGot(s5.txid) === EXIT, `S5: ord confirms Carol's destination received exactly ${EXIT} — through the recovered quorum`)

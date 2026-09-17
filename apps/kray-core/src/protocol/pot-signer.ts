@@ -9,6 +9,12 @@
  * fails the rebuild.
  *
  * Pure: the HTTP daemon (scripts/pot-signer.mjs) is just I/O around this.
+ *
+ * THE WIRE IS THE PLAN. Every field buildExitPayout reads MUST cross planToWire →
+ * planFromWire unchanged, or a remote pen/guardian rebuilds a different transaction
+ * and holds every withdraw (fail-closed, nothing lost — but nothing paid either).
+ * The stated service output (withdraw door, 2026-09-01) was the field that did not
+ * cross; found by the Tier-1 ceremony on 2026-09-17 and pinned in pot-signer.test.ts.
  */
 import { buildExitPayout, signVaultSighash, type ExitPayoutPlan, type FundingUtxo } from './exit-payout.ts'
 import { verifySignature, runeExitMessage, scriptOfAddress, toBtcNet, _generateKeyPair } from './scheme.ts'
@@ -40,6 +46,35 @@ export interface PotSignRequest {
 
 function sameHex(a: string, b: string): boolean {
   return String(a || '').toLowerCase() === String(b || '').toLowerCase()
+}
+
+/**
+ * Signer ceiling on the stated service output. The writer states a flat 546 sats
+ * (server.mjs · MINT_SERVICE_FEE_SATS); a "service fee" that swallows the exiter's
+ * change or the pot's postage is a drain wearing a label. Mirrors P5 of the
+ * withdrawal validation engine (payout-policy): when both run, the lower wins.
+ */
+export const MAX_SERVICE_FEE_SATS = 1_000n
+
+function serviceFeeWithinCeiling(plan: ExitPayoutPlan): { ok: true } | { ok: false; reason: string } {
+  if (!plan.serviceFee) return { ok: true }
+  if (plan.serviceFee.sats > MAX_SERVICE_FEE_SATS) {
+    return { ok: false, reason: `the stated service fee ${plan.serviceFee.sats} sats is above the signer ceiling ${MAX_SERVICE_FEE_SATS} — refused (a fee that drains is a theft)` }
+  }
+  return { ok: true }
+}
+
+/**
+ * The service output on the wire: absent → the historic 4-output plan; present →
+ * { scriptHex, sats } with sats stringified (JSON cannot carry bigint). Malformed →
+ * throw, which the daemons answer as 400 (fail-closed, never a silent drop).
+ */
+function serviceFeeFromWire(raw: unknown): Pick<ExitPayoutPlan, 'serviceFee'> {
+  if (raw == null) return {}
+  if (typeof raw !== 'object') throw new Error('wire: serviceFee must be { scriptHex, sats } — refused')
+  const w = raw as Record<string, unknown>
+  if (typeof w.scriptHex !== 'string' || w.sats == null) throw new Error('wire: serviceFee must be { scriptHex, sats } — refused')
+  return { serviceFee: { scriptHex: w.scriptHex, sats: BigInt(String(w.sats)) } }
 }
 
 function bindSignedExit(
@@ -104,6 +139,8 @@ export function authorizePotSign(
     if (toXOnly(req.params.depositor) !== derived) {
       return { ok: false, reason: 'this signer does not hold the pot owner key for these vault params — refused' }
     }
+    const svc = serviceFeeWithinCeiling(req.plan)
+    if (!svc.ok) return svc
     const rebuilt = buildExitPayout(req.params, req.vaultUtxos, req.funding, req.plan)
     if (rebuilt.vaultInputCount !== req.claimedSighashes.length) {
       return { ok: false, reason: 'claimed sighash count does not match the rebuilt vault inputs — refused' }
@@ -198,6 +235,8 @@ export function authorizeGuardianSign(
     if (!req.params.guardians.some((g) => { try { return toXOnly(g) === gx } catch { return false } })) {
       return { ok: false, reason: 'this signer does not hold a guardian key for these vault params — refused' }
     }
+    const svc = serviceFeeWithinCeiling(req.plan)
+    if (!svc.ok) return svc
     const rebuilt = buildExitPayout(req.params, req.vaultUtxos, req.funding, req.plan)
     if (rebuilt.vaultInputCount !== req.claimedSighashes.length) {
       return { ok: false, reason: 'claimed sighash count does not match the rebuilt vault inputs — refused' }
@@ -302,6 +341,7 @@ export function planFromWire(w: Record<string, unknown>): ExitPayoutPlan {
     satsChangeScriptHex: String(w.satsChangeScriptHex),
     feeSats: BigInt(String(w.feeSats)),
     dust: BigInt(String(w.dust)),
+    ...serviceFeeFromWire(w.serviceFee),
     ...(destsRaw ? {
       dests: destsRaw.map((d) => {
         const x = d as Record<string, unknown>
@@ -323,6 +363,7 @@ export function planToWire(p: ExitPayoutPlan): Record<string, unknown> {
     satsChangeScriptHex: p.satsChangeScriptHex,
     feeSats: p.feeSats.toString(),
     dust: p.dust.toString(),
+    ...(p.serviceFee ? { serviceFee: { scriptHex: p.serviceFee.scriptHex, sats: p.serviceFee.sats.toString() } } : {}),
     ...(p.dests && p.dests.length > 1 ? {
       dests: p.dests.map((d) => ({ destScriptHex: d.destScriptHex, exitAmount: d.exitAmount.toString() })),
     } : {}),
