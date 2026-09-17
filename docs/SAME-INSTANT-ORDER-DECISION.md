@@ -1,5 +1,9 @@
 # THE SAME-INSTANT LAW — order by arithmetic, not by the writer's hand
 
+> **Post-reset note (v1.0.0 genesis, 2026-08-26):** the seq-175 pin below belongs to the retired
+> old Signet chain. On the reborn signet and on mainnet this law is **born active at seq 0**
+> (`SAME_INSTANT_ORDER_ACTIVATION_SEQ` in `ledger.ts`). The rite is history; the law is unchanged.
+
 > Status: **CROSSED LIVE ON SIGNET (2026-08-23)** — ratified by the Creator ("the writer
 > cannot choose; it must respect a mathematical, proven rule"), built additive, proven by
 > the three-tier chronology. Tier 1 (regtest): 17 unit checks + the 24×6 live HTTP swarm

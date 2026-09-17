@@ -2,8 +2,12 @@
 
 > **Status: DESIGN (standing plan) — parity map frozen 2026-08-02, partially overtaken by events.**
 > The strangler-fig intent (KRAYNET as the wallet's third network mode) still stands, and the third mode
-> now exists (the KRAYNET tab speaks regtest/signet). The parity table predates the v2 pivot and the live
-> signet node — re-verify every row against the current wallet + `server.mjs` before acting on it.
+> now exists **in production**: the extension and the mobile PWA speak the live Bitcoin **mainnet** writer
+> at `www.kray.network` (see `INTEGRATE.md`). Several 🔴 "build" rows below have since shipped as native
+> kinds — the star **marketplace** (`star-list` / `star-delist` / `star-buy` / `star-offer*`) and the
+> **AMM** (`amm-add` / `amm-remove` / `amm-swap` + `amm-rr-*`) live in the reducer, not as contracts.
+> The parity table predates the v2 pivot and the live node — re-verify every row against the current
+> wallet + `server.mjs` before acting on it.
 
 The plan to replace the wallet's **l2kray** (centralized: Supabase / `kray-local.onrender.com`
 + `kray.space`) with **KRAYNET** — the same ideas, but where every action is *proven*

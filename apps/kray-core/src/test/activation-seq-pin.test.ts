@@ -39,6 +39,11 @@ const GOLDEN: Record<string, Golden> = {
   UNIQUE_RELIC_REFUSE_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: MAX, signet: 0, main: 0 } },
   DIGIT_LAW_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: MAX, signet: 0, main: 0 } },
   SIZE_PROPORTION_ACTIVATION_SEQ: { kind: 'table', file: 'protocol/kray-primitives.ts', nets: { regtest: MAX, signet: 0, main: 0 } },
+  // Named with intent (2026-09-13): the paid profile law — 1 ₭ per set-face, bio ≤ 160 bytes, one rewrite a day —
+  // opens past every feeless mouth scar (signet tip ~155 → 200; main tip ~49 → 80); regtest born active.
+  PROFILE_VALUE_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: 0, signet: 200, main: 80 } },
+  // Once-ever like, one address × one star: born active on every net — the tip cannot buy a second like.
+  STAR_LIKE_ONCE_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: 0, signet: 0, main: 0 } },
   PRESENCE_WINDOW_FROM_SEQ: { kind: 'scalar', file: 'economics/presence-window.ts', value: 121 },
   BEAT_PAY_CAP_LIFTED_FROM_SEQ: { kind: 'scalar', file: 'economics/presence-window.ts', value: MAX },
 }

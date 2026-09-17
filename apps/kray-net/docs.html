@@ -183,7 +183,7 @@ main .cascade b{color:var(--btc);font-weight:500}
           <tr><td><a href="/inscribe">Inscribe</a></td><td>Name, file (folder batch), music, or law. One studio, four canvases, each its own signature.</td></tr>
           <tr><td><a href="/send">Send</a></td><td>₭ or a whole star. Fee is always extra fungible ₭.</td></tr>
           <tr><td><a href="/rune">Runes</a></td><td>The L2 book: bridged runes, reserves, credits.</td></tr>
-          <tr><td>DeFi</td><td>₭/rune and rune/rune books on the journal. Create pool is eternal; swaps re-derive from reserves. The first writer's product mouth is not this clone.</td></tr>
+          <tr><td><a href="/defi">DeFi</a></td><td>₭/rune and rune/rune books. Create pool is eternal; swaps re-derive from reserves.</td></tr>
           <tr><td><a href="/validate">Validate</a></td><td>Guardian in the browser. Hold the library for up to 3×. The key stays in KrayWallet — a powerless <code>signMessage</code> only.</td></tr>
         </table>
         <table class="dtable">
@@ -396,8 +396,8 @@ main .cascade b{color:var(--btc);font-weight:500}
       </section>
 
       <section id="defi">
-        <div class="shead"><span class="n">10b</span><h2>DeFi — books, not a hidden matching engine</h2><span class="sub">Create pool is eternal. Quotes re-derive from reserves.</span></div>
-        <p>DeFi acts are journal events. A <strong>₭ / rune</strong> book is unique forever once created. A <strong>rune / rune</strong> book is the same idea with two pot-backed runes. The ledger pot is a no-key escrow, not a wallet you can empty from the outside. The first writer's product mouth is not this clone.</p>
+        <div class="shead"><span class="n">10b</span><h2>DeFi — books, not a hidden matching engine</h2><span class="sub">Create pool is eternal. Quotes re-derive from reserves. /defi</span></div>
+        <p><a href="/defi">/defi</a> is the terminal. A <strong>₭ / rune</strong> book is unique forever once created. A <strong>rune / rune</strong> book is the same idea with two pot-backed runes. The ledger pot is a no-key escrow, not a wallet you can empty from the outside.</p>
         <table class="dtable">
           <tr><th>Act</th><th>Meaning</th></tr>
           <tr><td><strong>Create pool</strong></td><td>First add writes the pair. Floor: √(x·y) &gt; 100 dead shares. At 1:1 that is 101 of each, plus the 1 ₭ fee. Connect is the same KRAY.act path as Inscribe (prepare → extension popup → submit).</td></tr>
@@ -455,11 +455,13 @@ main .cascade b{color:var(--btc);font-weight:500}
           <tr><td><code>GET /api/kraynet/audit</code></td><td>is this node still telling the story Bitcoin witnessed?</td></tr>
           <tr><td><code>GET /api/kraynet/overview</code></td><td>the live network — head, blocks, anchors, supply, tenants, statistics</td></tr>
           <tr><td><code>GET /api/kraynet/runes</code> · <code>/amm/book</code> · <code>/amm/quote</code></td><td>bridged runes and DeFi books / quotes (quote is not a fill — the signed swap is)</td></tr>
-          <tr><td><code>POST /api/kraynet/speak</code></td><td>verify a hold proof. 0 ₭. Not journaled.</td></tr>
+          <tr><td><code>GET /api/kraynet/speak</code></td><td>issue a Speak challenge for <code>?star=N&amp;audience=house</code>. 0 ₭. Not journaled. The lock names the star.</td></tr>
+          <tr><td><code>POST /api/kraynet/speak</code></td><td>verify a hold proof (BIP-340). 0 ₭. Not journaled. Lock UI: <a href="/lock">/lock</a> · guide <a href="/docs/KRAY-LOCK.md">KRAY-LOCK.md</a>.</td></tr>
         </table>
         <p class="note">Writes require a taproot address of the running network; anything else is refused with <code>401</code> before reaching a handler. Every client is rate-limited; the machine running the node is not throttled against itself.</p>
         <div class="card btc tick" id="integrate"><div class="label">Integrate a wallet</div>
           <p>Putting KRAY.NETWORK inside your wallet or product — the way KrayWallet (extension and mobile) runs it in production — takes one HTTP base and a BIP-340 signer. No API key, no SDK, CORS open. The full guide covers the read endpoints, the prepare → verify → sign → submit arc, the donate mint with the local NUMS audit (including a live test vector), the rune bridge and Guardian mining, plus the integrator's fail-closed checklist: <a href="/docs/INTEGRATE.md">INTEGRATE.md</a> · <a href="https://github.com/tomkray/kray-network/blob/main/docs/INTEGRATE.md" rel="noopener">mirror on GitHub</a>.</p>
+          <p><strong>Social like</strong> is journal kind <code>star-like</code>: fee always 1 ₭ → Treasury (A2); tip optional (none · ₭ · Ӿ · rune) to the living owner. Default = no tip. Owner may seal a tip floor on the KRAY Plate. Browser: ♥ on <a href="/star/1">/star/N</a> or <code>await KRAY.likeStar(N, '0', { tipAsset: 'none' })</code>. Standing: <a href="/rank/likes">/rank/likes</a>. Recipe: INTEGRATE §3.6.</p>
         </div>
       </section>
 

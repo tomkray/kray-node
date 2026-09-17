@@ -102,24 +102,30 @@ nothing and none vanishes unaccounted. ₭ is BORN only by **proof-of-burn** —
 real satoshi destroyed at a keyless NUMS address, one ₭ per satoshi, at most
 10,000 ₭ per mint (the immutable anti-whale cap) — so the peg-of-sacrifice holds:
 total ₭ ever minted ≤ total satoshis ever burned. And ₭ is BURNED back when a
-star is born from fire (an inscription or baptism costs 1 ₭, destroyed): the
+star is born from fire — priced by weight (`starBurnOf`): 1 ₭ floor, one more ₭
+per 10,000 bytes of content, plus the atlas fee where it applies — and by the
+signed `burn` act, which destroys ₭ and mints Ӿ one-for-one to the burner: the
 money supply breathes with real use, uncapped in principle yet backed one-for-one
 by sacrifice. No premine, no emission schedule, no halving ladder for ₭ creation.
 
-**The black hole is the corollary, not the exception.** A citizen who wants
-something gone forever sends it to `KRAY_BLACK_HOLE`, and it is ENTOMBED rather
-than destroyed: the units keep existing, keep being counted in Σ, and lose every
-way out. Nothing can leave, for two independent reasons anyone can check — no
-public key encodes to that account, AND the reducer refuses to spend from it on
-any journal. An entombed star keeps its inscription, its name and its family
-tree: visible forever, beyond reach forever. Destroying units instead would
-break this axiom and force every future reader to trust a subtraction they
-cannot verify.
+**The black hole is the corollary, not the exception.** A citizen who wants a
+STAR gone forever freezes it at `KRAY_BLACK_HOLE`, and it is ENTOMBED rather
+than destroyed: the star keeps existing, keeps its inscription, its name and its
+family tree — visible forever, beyond reach forever (and the freeze mints one
+soulbound ✦ glow to the giver). Nothing can leave, for two independent reasons
+anyone can check — no public key encodes to that account, AND the reducer refuses
+to spend from it on any journal. Fungible ₭, by contrast, does not entomb: since
+THE BURN LAW (seq 1 on every net) the reducer refuses ₭ credits to the hole —
+fungible death is the signed `burn`, counted in `burned` and answered with Ӿ, so
+every subtraction stays a re-derivable fact instead of a trusted claim.
 
 ## A2 · The 1-KRAY fee is immutable
 
-Every action costs exactly 1 KRAY, indivisible. No auction, no MEV, nobody
-priced out — in any era.
+Where an action pays a fee, the fee is exactly 1 KRAY, indivisible — never an
+auction, never MEV, nobody priced out, in any era. What is not a fee does not
+wear its name: a star's birth is a **burn priced by weight** (A1), and a
+fireborn Ӿ move is prepaid by fire (THE FIREBORN LAW) so its fee line reads 0.
+The constant itself (`MIN_FEE = 1`) never moves.
 
 ## A3 · No hard fork, ever
 

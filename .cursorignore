@@ -1,0 +1,15 @@
+# Agent context — never index, never attach, never burn tokens on these.
+apps/kray-net/later/desk/
+**/*.mp3
+**/*.wav
+**/*.png
+**/*.jpg
+**/*.webp
+**/*.zip
+node_modules/
+apps/kray-net/data/
+apps/kray-net/data-*/
+archive/
+apps/kray-net/archive/
+docs/OPERATOR-SHIP.md
+docs/HANDOFF-*.md

@@ -22,6 +22,18 @@
  *     (every prefix root is re-derived event by event) — a seal of a foreign history counts for nothing.
  *
  * If all of it holds: there are TWO copies of the truth, each able to prove itself with no operator alive.
+ *
+ * ── THE STALE LAW (persist mode: --serve / --watch) ─────────────────────────
+ *   A cycle that fails ANY proof — the atlas incomplete, the history refusing to replay, a check failing,
+ *   the writer unreachable — never takes the mirror down and never serves an unverified byte: the last
+ *   VERIFIED snapshot stays online, marked `stale: true` with `staleSince` + `staleReason`, and the next
+ *   cycle retries. One-shot mode (no --serve/--watch) still exits 1 on any failure — the stranger's clear
+ *   verdict. A guardian's book therefore degrades to "lagging" (503 at the withdraw door), never to a
+ *   crash loop under Restart=always.
+ *   KRAY_FOLLOW_PREFIX=warn|refuse — a verified history that does NOT extend the last verified snapshot
+ *   (shorter, or diverging below it) is a rewrite as seen from this box: `warn` (default) adopts it but
+ *   labels every answer with `prefixBreak` and logs it; `refuse` keeps the last snapshot, stale, until restart.
+ *   KRAY_FOLLOW_CYCLE_MS — persist cycle (default 30000, floor 1000); a lab exam shortens it, the fleet does not.
  */
 import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, linkSync } from 'node:fs'
 import { createHash } from 'node:crypto'
@@ -62,7 +74,7 @@ const UI_PRETTY = {
   '/rank': 'rank.html',
   '/rank/kray': 'rank.html', '/rank/nyx': 'rank.html', '/rank/x': 'rank.html', '/rank/fenyx': 'rank.html',
   '/rank/glow': 'rank.html', '/rank/luz': 'rank.html', '/rank/rune': 'rank.html',
-  '/rank/stars': 'rank.html', '/rank/works': 'rank.html',
+  '/rank/stars': 'rank.html', '/rank/works': 'rank.html', '/rank/likes': 'rank.html',
   '/dashboard': 'dashboard.html', '/library': 'library.html',
   '/mind': 'mind.html',
   '/docs': 'docs.html', '/inscribe': 'inscribe.html', '/send': 'send.html',
@@ -106,6 +118,12 @@ const BTC_PASS = process.env.KRAY_BTC_RPC_PASS || ''
 // SHALLOW reorg cannot RELOCATE a seal tx to a different-height block and flip an honest seal from unprovable to
 // a false "lied height" (verify-council #2). A seal not yet this deep on MY node is weight-zero, never a lie.
 const SEAL_CONF = Math.max(1, parseInt(process.env.KRAY_SEAL_CONF || '6', 10) || 6)
+// Persist-mode cycle interval — 30 s on the fleet; a lab exam may shorten it, never below 1 s.
+const CYCLE_MS = Math.max(1000, parseInt(process.env.KRAY_FOLLOW_CYCLE_MS || '30000', 10) || 30000)
+// THE PREFIX GUARD — see the header. `warn` (default) = adopt + label + log; `refuse` = keep the last verified snapshot.
+const PREFIX_MODE = process.env.KRAY_FOLLOW_PREFIX === 'refuse' ? 'refuse' : 'warn'
+let staleReason = null   // persist mode: why the last cycle did not replace the snapshot (cleared on success)
+let prefixBreak = null   // sticky evidence of a non-extending verified history: { at, mode, prevHeight, prevRoot, newHeight, newRoot }
 
 /** ADR-3 3b · THE MIRROR'S MAILBOX — the one POST a mirror may hold. It stores a citizen's SIGNED
  *  act and relays it to the writer; it never applies, never journals, never judges (only the
@@ -303,7 +321,16 @@ async function main() {
   //          bytes it does not yet hold. (Watch mode reuses what a prior run already verified.) ──
   const atlasBytes = (h) => { try { const p = join(dataDir, 'content', h); return existsSync(p) ? new Uint8Array(readFileSync(p)) : null } catch { return null } }
   const wantContent = new Set()
-  for (const line of lines) { const e = JSON.parse(line); if ((e.kind === 'inscribe' || e.kind === 'origin') && /^[0-9a-f]{64}$/.test(String(e.contentHash || ''))) wantContent.add(e.contentHash) }
+  // Plate blobs (set-kray-plate seals SHA-256 only; atlas holds the bytes) are pulled BEST-EFFORT:
+  // replay is lawful without them (store.ts replays with plateAtlasStrict=false — tip hashes live in
+  // the journal), but a complete replica keeps every plate it can reach (100-year resync doctrine).
+  // A plate the writer no longer serves warns and never fail-closes the copy.
+  const wantPlates = new Set()
+  for (const line of lines) {
+    const e = JSON.parse(line)
+    if ((e.kind === 'inscribe' || e.kind === 'origin') && /^[0-9a-f]{64}$/.test(String(e.contentHash || ''))) wantContent.add(e.contentHash)
+    if (e.kind === 'set-kray-plate' && /^[0-9a-f]{64}$/.test(String(e.plateHash || ''))) wantPlates.add(String(e.plateHash).toLowerCase())
+  }
   let atlasHeld = 0, atlasJunk = 0, atlasMissing = 0, atlasReused = 0
   if (wantContent.size) {
     const contentDir = join(dataDir, 'content'); mkdirSync(contentDir, { recursive: true })
@@ -324,19 +351,50 @@ async function main() {
         // self-heals (mismatch → fetch fresh). Fall back to a plain write only if the FS refuses the link.
         try { const pp = join(priorContentDir, h); const pb = readFileSync(pp); if (createHash('sha256').update(pb).digest('hex') === h) { try { linkSync(pp, join(contentDir, h)) } catch { writeFileSync(join(contentDir, h), pb) } atlasHeld++; atlasReused++; continue } } catch { /* fall through to fetch */ }
       }
-      try {
-        const r = await fetch(FROM + '/content/' + h, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
-        if (!r.ok) { atlasMissing++; continue }
-        const buf = Buffer.from(await r.arrayBuffer())
-        if (createHash('sha256').update(buf).digest('hex') !== h) { atlasJunk++; console.log(`  ✗ content ${h.slice(0, 12)}… served bytes that do NOT hash to the journaled hash — junk refused`); continue }
-        writeFileSync(join(contentDir, h), buf); atlasHeld++
-      } catch { atlasMissing++ }
+      // Transient network faults (a CDN throttling a burst, a flaky link) are NOT a hole in the book:
+      // retry with backoff and only count MISSING on a definitive 404/410 or after every retry fails.
+      // Fail-closed semantics are unchanged — bytes that never arrive still refuse the whole replica.
+      let settled = false, definitiveMiss = false
+      for (let attempt = 0; attempt < 4 && !settled && !definitiveMiss; attempt++) {
+        if (attempt) await new Promise((res) => setTimeout(res, 500 * 2 ** attempt))   // 1s · 2s · 4s
+        try {
+          const r = await fetch(FROM + '/content/' + h, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+          if (r.status === 404 || r.status === 410) { definitiveMiss = true; break }
+          if (!r.ok) continue                                        // 429/5xx — throttled, retry
+          const buf = Buffer.from(await r.arrayBuffer())
+          if (createHash('sha256').update(buf).digest('hex') !== h) { atlasJunk++; console.log(`  ✗ content ${h.slice(0, 12)}… served bytes that do NOT hash to the journaled hash — junk refused`); settled = true; break }
+          writeFileSync(join(contentDir, h), buf); atlasHeld++; settled = true
+        } catch { /* network fault — the backoff above retries */ }
+      }
+      if (!settled) { atlasMissing++; if (definitiveMiss) console.log(`  ✗ content ${h.slice(0, 12)}… the writer answers 404 — the book does not serve these bytes`) }
     }
     if (atlasMissing || atlasJunk) {
       console.error(`\n  ✗ THE ATLAS IS INCOMPLETE — ${atlasHeld}/${wantContent.size} held (${atlasMissing} missing, ${atlasJunk} junk). A follower cannot replay windowed settlements without the inscribed bytes, and a partial replica would serve a history it never verified. Fail-closed.\n`)
-      if (persist) { staleSince = staleSince ?? Date.now(); if (existsSync(runRoot)) rmSync(runRoot, { recursive: true, force: true }); return false }
+      if (persist) { staleSince = staleSince ?? Date.now(); staleReason = `the atlas is incomplete — ${atlasHeld}/${wantContent.size} held (${atlasMissing} missing, ${atlasJunk} junk)`; if (existsSync(runRoot)) rmSync(runRoot, { recursive: true, force: true }); return false }
       process.exit(1)
     }
+  }
+  // ── 1c · PLATE BLOBS, best-effort — same content door, hash-checked, never fail-closed (see §1b note) ──
+  if (wantPlates.size) {
+    const contentDir = join(dataDir, 'content'); mkdirSync(contentDir, { recursive: true })
+    let plateHeld = 0, plateSkipped = 0
+    for (const h of wantPlates) {
+      if (existsSync(join(contentDir, h))) { plateHeld++; continue }
+      let got = false
+      for (let attempt = 0; attempt < 3 && !got; attempt++) {
+        if (attempt) await new Promise((res) => setTimeout(res, 500 * 2 ** attempt))
+        try {
+          const r = await fetch(FROM + '/content/' + h, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) })
+          if (r.status === 404 || r.status === 410) break
+          if (!r.ok) continue
+          const buf = Buffer.from(await r.arrayBuffer())
+          if (createHash('sha256').update(buf).digest('hex') !== h) break   // junk plate — skip, replay stays lawful
+          writeFileSync(join(contentDir, h), buf); plateHeld++; got = true
+        } catch { /* transient — retry */ }
+      }
+      if (!got && !existsSync(join(contentDir, h))) plateSkipped++
+    }
+    console.log(`  plates: ${plateHeld}/${wantPlates.size} sealed plate blob(s) held${plateSkipped ? ` (${plateSkipped} unreachable — lawful, tip hashes ride the journal)` : ''}\n`)
   }
 
   // ── 2 · THE REPLAY IS THE AUDIT — the same consensus reducer, every law, or nothing ──
@@ -351,7 +409,20 @@ async function main() {
     : /^0[23][0-9a-f]{64}$/.test(rawFollowKey) ? rawFollowKey.slice(2)
     : /^[0-9a-f]{64}$/.test(rawFollowKey) ? rawFollowKey : undefined
   try { node = new KrayNode(dataDir, network, undefined, potScript, false, potInternalKey) }
-  catch (e) { console.error(`  ✗ THE HISTORY DOES NOT REPLAY — this follower keeps nothing.\n    ${e.message}\n`); process.exit(1) }
+  catch (e) {
+    const why = (e && e.message) || String(e)
+    if (persist) {
+      // THE STALE LAW: a history that does not replay is NOT served — but the last VERIFIED snapshot stays
+      // online, marked stale with the reason, and the next cycle retries. Exiting here took a guardian's
+      // book down under Restart=always (crash loop → every withdraw held); staying up keeps the already-
+      // proven truth available and the failure visible. Nothing unverified is served either way.
+      staleSince = staleSince ?? Date.now(); staleReason = `the writer's history does not replay here — ${why}`
+      console.error(`  ✗ THE HISTORY DOES NOT REPLAY — ${why}\n    ${current ? `still serving the last verified snapshot (seq ${current.node.seq}, stale since ${new Date(staleSince).toISOString()})` : 'no verified snapshot yet — this mirror serves nothing'}; retrying in ${Math.round(CYCLE_MS / 1000)} s\n`)
+      if (existsSync(runRoot)) rmSync(runRoot, { recursive: true, force: true })
+      return false
+    }
+    console.error(`  ✗ THE HISTORY DOES NOT REPLAY — this follower keeps nothing.\n    ${why}\n`); process.exit(1)
+  }
   if (potScript || potInternalKey) console.log(`  · ADR-1 re-verify armed on this follower (${potScript ? 'pot script' : ''}${potScript && potInternalKey ? ' + ' : ''}${potInternalKey ? 'self-anchor internal key' : ''})`)
 
   const checks = []
@@ -372,6 +443,7 @@ async function main() {
   const rootSeq = new Map()
   {
     const fresh = new KrayLedger(undefined, network, undefined, false, atlasBytes)   // same atlas as §1b, or windowed settlements HALT here too
+    fresh.plateAtlasStrict = false   // journal replay law (store.ts:148): a cold copy rebuilds tip pointers from sealed hashes; strict stays for the live door only
     rootSeq.set(fresh.cascadeRoot().toLowerCase(), 0)           // the genesis root
     let s = 0
     for (const line of lines) {
@@ -385,20 +457,34 @@ async function main() {
   //         output value at the journaled outpoint. This closes the last door on a lying server: even a
   //         forger who rebuilt the whole hash chain cannot invent a satoshi Bitcoin never saw burned. ──
   if (BTC_RPC && BTC_PASS) {
-    let dProven = 0, dRefuted = 0
+    // POLARITY (0a-ii): only a CONTRADICTION refutes — the transaction is present on MY node and the journaled
+    // output is missing or holds a different value. "Unprovable from my node" (no txindex, pruned, not synced,
+    // RPC down) is SKIPPED and printed: weight zero, never a lie. A never-spent burn output lives in the UTXO
+    // set of every node, pruned or not, so `gettxout` is tried when `getrawtransaction` cannot look the tx up.
+    // The reducer already re-proved the burn from the journal-embedded SPV proof; this section binds it to MY
+    // chain — it never carries the verdict alone.
+    let dProven = 0, dRefuted = 0, dSkipped = 0
     for (const line of lines) {
       const e = JSON.parse(line)
       if (e.kind !== 'donate' || !e.outpoint) continue
+      const [txid, voutStr] = String(e.outpoint).split(':')
+      let sats = null, conf = 0, how = 'tx', v = null
       try {
-        const [txid, voutStr] = String(e.outpoint).split(':')
-        const v = await btc('getrawtransaction', [txid, true])
+        try { v = await btc('getrawtransaction', [txid, true]) }
+        catch (e1) {
+          const u = await btc('gettxout', [txid, Number(voutStr), false]).catch((e2) => { throw new Error(`${e1.message}; gettxout: ${e2.message}`) })
+          if (u == null) { dSkipped++; console.log(`  · donate ${String(txid).slice(0, 12)}… not indexed and not in MY UTXO set — unprovable from this node (${e1.message}); weight zero, never a lie`); continue }
+          sats = BigInt(Math.round(u.value * 1e8)); conf = u.confirmations ?? 0; how = 'utxo'
+        }
+      } catch (err) { dSkipped++; console.log(`  · donate ${String(txid).slice(0, 12)}… unprovable from MY bitcoind — ${err.message}; weight zero, never a lie`); continue }
+      if (v) {
         const out = v.vout?.[Number(voutStr)]
-        const sats = out ? BigInt(Math.round(out.value * 1e8)) : -1n
-        if (sats === BigInt(e.amount) && (v.confirmations ?? 0) >= 1) dProven++
-        else { dRefuted++; console.log(`  ✗ donate ${String(txid).slice(0, 12)}… journals ${e.amount} but Bitcoin holds ${sats} (${v.confirmations ?? 0} conf) — forged value`) }
-      } catch (err) { dRefuted++; console.log(`  ✗ donate outpoint ${String(e.outpoint).slice(0, 16)}… not provable from MY bitcoind — ${err.message}`) }
+        sats = out ? BigInt(Math.round(out.value * 1e8)) : -1n; conf = v.confirmations ?? 0
+      }
+      if (sats === BigInt(e.amount) && conf >= 1) dProven++
+      else { dRefuted++; console.log(`  ✗ donate ${String(txid).slice(0, 12)}… journals ${e.amount} but MY Bitcoin holds ${sats} (${conf} conf, via ${how}) — a contradiction, refused`) }
     }
-    check(dRefuted === 0, `${dProven} donation(s) re-proven against Bitcoin itself — every minted ₭ maps to a satoshi really burned (a lying server cannot invent one)`)
+    check(dRefuted === 0, `${dProven} donation(s) re-proven against Bitcoin itself — every minted ₭ maps to a satoshi really burned (a lying server cannot invent one)${dSkipped ? `; ${dSkipped} unprovable from this node (skipped, never asserted, never a lie)` : ''}`)
   }
 
   // ── 4 · the anchors — every seal re-proven from MY OWN Bitcoin, both shapes ──
@@ -422,13 +508,15 @@ async function main() {
           if (as !== undefined && (!lastProvenAnchor || as > lastProvenAnchor.seq)) lastProvenAnchor = { root: ar, seq: as }
         }
         else { refuted++; console.log(`  ✗ anchor ${String(a.txid).slice(0, 12)}… REFUTED from raw bytes: ${v.reason}`) }
-      } catch (e) { refuted++; console.log(`  ✗ anchor ${String(a.txid).slice(0, 12)}… could not be proven from MY bitcoind — ${e.message}`) }
+      } catch (e) { skipped++; console.log(`  · anchor ${String(a.txid).slice(0, 12)}… unprovable from MY bitcoind — ${e.message}; weight zero, never a lie`) }
     }
     // THE FORK-CHOICE POLICY, not panic: a refuted or foreign hint weighs ZERO and is reported — it can
-    // never poison the copy (else one junk entry would let a malicious server DoS every follower). What IS
-    // fatal: the server claims anchors and NONE survives — a history whose every seal refutes is not served.
-    check(proven > 0 || hints.length === 0,
-      `${proven}/${hints.length} Bitcoin seal(s) re-proven from MY OWN node — raw bytes, merkle path, real work${refuted + foreign ? ` (${refuted + foreign} hint(s) refuted/foreign — weight ZERO, reported, never served as proof)` : ''}`)
+    // never poison the copy (else one junk entry would let a malicious server DoS every follower). An
+    // UNPROVABLE hint (no txindex, pruned, not synced, RPC down) is skipped, never counted as refuted
+    // (0a-ii polarity). What IS fatal: the server claims anchors, at least one is a real refutation or a
+    // foreign root, and NONE survives — a history whose seals refute is not served.
+    check(refuted + foreign === 0 || proven > 0,
+      `${proven}/${hints.length} Bitcoin seal(s) re-proven from MY OWN node — raw bytes, merkle path, real work${refuted + foreign ? ` (${refuted + foreign} hint(s) refuted/foreign — weight ZERO, reported, never served as proof)` : ''}${skipped ? ` (${skipped} unprovable here — skipped, never asserted)` : ''}`)
   }
 
   // ── 4b · ADR-3 3d-a — every ACTIVATED seal's l1Height RE-PROVEN from MY OWN Bitcoin, bound to the root its
@@ -484,17 +572,34 @@ async function main() {
   const failed = checks.filter((c) => !c.ok)
   if (failed.length) {
     console.error(`\n  ✗ ${failed.length} check(s) failed — this follower SERVES NOTHING new. A replica that would serve an unverified history turns one operator's mistake into consensus.\n`)
-    if (persist) { staleSince = staleSince ?? Date.now(); if (existsSync(runRoot)) rmSync(runRoot, { recursive: true, force: true }); return false }
+    if (persist) { staleSince = staleSince ?? Date.now(); staleReason = `${failed.length} check(s) failed — ${failed[0].label}`; if (existsSync(runRoot)) rmSync(runRoot, { recursive: true, force: true }); return false }
     process.exit(1)
   }
-  console.log(`\n  ✓ VERIFIED, AND NOW THERE ARE TWO. ${lines.length} event(s) replayed under every law this network has, the whole cascade root re-derived from the journal alone, and ${proven} Bitcoin seal(s) re-proven against a chain nobody here controls${skipped ? ` (${skipped} skipped — no local bitcoind)` : ''}. This copy can prove it is the real history to anyone, forever, with no operator alive. Kept at ${dataDir} ₭\n`)
+  // ── THE PREFIX GUARD — a verified history must EXTEND the last verified snapshot (same bytes up to its
+  //    height; the journal is hash-chained, so equality of the snapshot's last line implies the whole prefix).
+  //    A shorter or diverging history is a rewrite as seen from this box: `warn` adopts + labels + logs,
+  //    `refuse` keeps the last verified snapshot (stale) until an operator restarts this follower. ──
+  if (persist && current) {
+    const prevLines = current.lines
+    const extendsPrev = lines.length >= prevLines.length && (prevLines.length === 0 || lines[prevLines.length - 1] === prevLines[prevLines.length - 1])
+    if (!extendsPrev) {
+      prefixBreak = { at: Date.now(), mode: PREFIX_MODE, prevHeight: current.node.seq, prevRoot: current.node.cascadeRoot().toLowerCase(), newHeight: node.seq, newRoot: mine }
+      console.error(`  ✗ PREFIX BREAK — the writer's verified history does NOT extend the last verified snapshot (had seq ${prefixBreak.prevHeight}, root ${prefixBreak.prevRoot.slice(0, 16)}…; now seq ${prefixBreak.newHeight}, root ${prefixBreak.newRoot.slice(0, 16)}…). ${PREFIX_MODE === 'refuse' ? 'REFUSED (KRAY_FOLLOW_PREFIX=refuse): the last verified snapshot stays online, marked stale, until this follower is restarted.' : 'ADOPTED (KRAY_FOLLOW_PREFIX=warn, the default) — labelled prefixBreak on every answer; a guardian\'s monotonic head judges it at the withdraw door.'}`)
+      if (PREFIX_MODE === 'refuse') {
+        staleSince = staleSince ?? Date.now(); staleReason = `prefix break — the writer's verified history does not extend the last verified snapshot (had seq ${prefixBreak.prevHeight}, now seq ${prefixBreak.newHeight}); refused by KRAY_FOLLOW_PREFIX=refuse`
+        if (existsSync(runRoot)) rmSync(runRoot, { recursive: true, force: true })
+        return false
+      }
+    }
+  }
+  console.log(`\n  ✓ VERIFIED, AND NOW THERE ARE TWO. ${lines.length} event(s) replayed under every law this network has, the whole cascade root re-derived from the journal alone, and ${proven} Bitcoin seal(s) re-proven against a chain nobody here controls${skipped ? ` (${skipped} skipped — ${BTC_RPC && BTC_PASS ? 'unprovable from this node' : 'no local bitcoind'})` : ''}. ${proven > 0 ? 'This copy can prove it is the real history to anyone, forever, with no operator alive.' : 'This copy re-derived the whole history from the journal alone; its Bitcoin binding is not yet re-proven on this node (bring a bitcoind to close that).'} Kept at ${dataDir} ₭\n`)
   if (persist) {
     const prev = current
     current = {
       node, dataDir, runRoot, lines, network, verifiedAt: Date.now(), rootSeq, lastProvenAnchor,
       events: lines.map((l) => JSON.parse(l)),
     }
-    staleSince = null
+    staleSince = null; staleReason = null
     try { writeFileSync(join(DIR, 'CURRENT'), dataDir + '\n') } catch { /* pointer is convenience, not consensus */ }
     // The atomic swap is complete: `current` (and CURRENT on disk) now point at the run just VERIFIED, and
     // the read-only mirror serves EVERY byte through `current` — /content reads current.dataDir SYNCHRONOUSLY
@@ -534,7 +639,7 @@ function contentTypeOf(node, hash) {
 function startMirror(port) {
   const BIND = process.env.KRAY_FOLLOW_BIND || '127.0.0.1'
   const send = (res, code, body, headers = {}) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', ...headers }); res.end(JSON.stringify(body, (_k, v) => typeof v === 'bigint' ? v.toString() : v)) }
-  const meta = () => current ? { mirror: true, of: FROM, verifiedAt: current.verifiedAt, verifiedHeight: current.node.seq, verifiedRoot: current.node.cascadeRoot(), ...(staleSince ? { stale: true, staleSince } : {}) } : null
+  const meta = () => current ? { mirror: true, of: FROM, verifiedAt: current.verifiedAt, verifiedHeight: current.node.seq, verifiedRoot: current.node.cascadeRoot(), ...(staleSince ? { stale: true, staleSince, ...(staleReason ? { staleReason } : {}) } : {}), ...(prefixBreak ? { prefixBreak } : {}) } : null
   const readBody = (req) => new Promise((resolve) => {
     let b = ''
     req.on('data', (c) => { b += c; if (b.length > 32 * 1024 * 1024) req.destroy() })
@@ -600,7 +705,7 @@ function startMirror(port) {
           }
         }
       }
-      if (!current) return send(res, 503, { error: 'the mirror has not verified a snapshot yet — try again shortly' })
+      if (!current) return send(res, 503, { error: 'the mirror has not verified a snapshot yet — try again shortly', ...(staleReason ? { reason: staleReason } : {}) })
       const n = current.node
       if (p === '/api/kraynet/head') { const o = n.overview(); return send(res, 200, { ...o, height: o.seq, ...meta() }) }
       // LINEAGE (custody doctrine rung 3) — "does YOUR verified history still pass through this root?"
@@ -751,15 +856,15 @@ if (SERVE) {
   // lying) keeps the LAST VERIFIED snapshot online, marked stale — availability, never unverified truth.
   startMirror(SERVE)
   const loop = async () => {
-    try { await main() } catch (e) { staleSince = staleSince ?? Date.now(); console.error('  ✗ ' + (e?.message || e) + (current ? ' — still serving the last verified snapshot (stale)' : '')) }
+    try { await main() } catch (e) { staleSince = staleSince ?? Date.now(); staleReason = String(e?.message || e); console.error('  ✗ ' + (e?.message || e) + (current ? ' — still serving the last verified snapshot (stale)' : '')) }
     await relayPending().catch(() => {})   // every cycle, mail held acts forward — the writer returning drains the world's mailboxes
-    setTimeout(loop, 30_000)
+    setTimeout(loop, CYCLE_MS)
   }
   loop()
 } else if (WATCH) {
   const loop = async () => {
-    try { await main() } catch (e) { console.error('  ✗ ' + (e?.message || e)) }
-    setTimeout(loop, 30_000)
+    try { await main() } catch (e) { staleSince = staleSince ?? Date.now(); staleReason = String(e?.message || e); console.error('  ✗ ' + (e?.message || e)) }
+    setTimeout(loop, CYCLE_MS)
   }
   loop()
 } else {

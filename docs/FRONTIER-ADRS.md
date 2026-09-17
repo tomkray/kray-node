@@ -7,10 +7,11 @@
 > software: no consensus code lands until its ADR is agreed. These promote articles of
 > `CONSENSUS-CONSTITUTION.md` from **[NAMED PATH]** to **[ENFORCED]**.
 
-> **Status 2026-08-23 (ADR-3):** Article XIV **RATIFIED** — the inclusion/window/nonce folds are
-> **LIVE on Signet from seq 155** (mainnet born activated at seq 0); Ӿ transfers activate at the same
-> seqs. The per-slice "wired into no live path" lines below were true at their dates and are left as
-> written; since activation those folds ARE the live path (`docs/PEN-ACTIVATION-DECISION.md`).
+> **Status 2026-08-23 (ADR-3):** Article XIV **RATIFIED** — the inclusion/window/nonce folds crossed
+> live on the old Signet chain at seq 155; after the v1.0.0 genesis reset (2026-08-26) they are
+> **born active at seq 0 on both nets**, and Ӿ transfers ride the same pin. The per-slice "wired into
+> no live path" lines below were true at their dates and are left as written; since activation those
+> folds ARE the live path (`docs/PEN-ACTIVATION-DECISION.md`).
 
 ---
 
@@ -18,7 +19,10 @@
 
 > **Status 2026-08-17:** slices 1a–1d proven (Signet `proofs.burn/rune=true`, `backingGate=true`).
 > Article X promoted to ENFORCED (machinery). Unset flags now default ON; force `=0` only to replay
-> a proofless past. The design text below is the original ADR — left as written.
+> a proofless past. **Update (v1.0.0 rebirth, 2026-08-28/29):** the proof is no longer merely
+> default-on — it is **mandatory born strict**: `PROOF_MANDATORY_SEQ` and `RUNE_ANCESTRY_MANDATORY_SEQ`
+> are **0 on signet and main**, so a proofless L1-peg event is refused by the reducer itself.
+> The design text below is the original ADR — left as written.
 
 **Invariant to make true.** Total ₭ minted ≤ total satoshis *provably and irreversibly* burned, and
 **any stranger holding only the journal + the anchored root re-verifies the peg from bytes alone** —

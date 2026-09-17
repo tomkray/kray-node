@@ -54,7 +54,7 @@ peg-of-sacrifice:  total ₭ ever minted ≤ total satoshis ever burned, asserte
   Full atlas = 3× the payout under the linear split. "To audit custody you must custody."
   Easy door: `/validate` → Hold the library (public bytes + a powerless wallet signature).
   The spending key never leaves KrayWallet. Follow `content/` is not read for pay.
-- **Signed presence only** (`protocol/node.ts:354-368`): opt-in (BIP-340 signed, on-chain) → live beats (per-beat
+- **Signed presence only** (`node.settleBeats` in `protocol/node.ts` + `economics/presence.ts`): opt-in (BIP-340 signed, on-chain) → live beats (per-beat
   proof-of-work, `economics/beat-pow.ts`) → signed work-claim receipt. *"Presence nobody signed is never paid"* —
   unsigned rows are skipped, not even diluting the pot.
 - **No difficulty retarget** — the budget is fixed by Bitcoin's clock, so per-validator reward falls ~1/N as the

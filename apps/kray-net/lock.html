@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>KRAY.NETWORK · Kray Lock</title>
+<meta name="description" content="The program on the door. It holds the policy. The key only answers the bounce — BIP-340 Speak · nothing journaled.">
+<link rel="icon" href="/kray-mark.svg?v=2" type="image/svg+xml">
+<link rel="icon" href="/favicon.png?v=3" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3">
+<link rel="stylesheet" href="/kray.css">
+<style>
+  body[data-page="lock"] .wrap-narrow{max-width:36rem;}
+  .lock-state{font:clamp(28px,6vw,44px)/1.1 var(--sans);font-weight:600;letter-spacing:-.03em;margin:0 0 var(--s3);}
+  .lock-state[data-s="LOCKED"]{color:var(--ink-2);}
+  .lock-state[data-s="WAITING"]{color:var(--signal);}
+  .lock-state[data-s="UNLOCKED"]{color:var(--good);}
+  .lock-meta{font:13px/1.5 var(--mono);color:var(--ink-3);margin:0 0 var(--s5);}
+  .lock-meta b{color:var(--ink);}
+  .lock-grid{display:grid;gap:var(--s3);}
+  .lock-grid label{display:block;font:12px/1.3 var(--sans);color:var(--ink-3);margin:0 0 6px;letter-spacing:.04em;text-transform:uppercase;}
+  .lock-actions{display:flex;flex-wrap:wrap;gap:var(--s2);margin-top:var(--s5);}
+  .lock-actions .btn{min-height:44px;}
+  .lock-ok-name{font:clamp(22px,4.5vw,32px)/1.15 var(--sans);font-weight:700;letter-spacing:-.03em;color:var(--ink);margin:8px 0 12px;}
+  .lock-qr{display:none;margin:var(--s4) auto 0;width:200px;height:200px;border-radius:12px;background:#fff;padding:10px;box-sizing:border-box;}
+  .lock-qr[data-on="1"]{display:block;}
+  .lock-qr img{width:100%;height:100%;display:block;}
+  #lock-out{margin-top:var(--s4);white-space:pre-wrap;word-break:break-word;font:12px/1.5 var(--mono);}
+</style>
+</head>
+<body data-page="lock">
+<div class="wrap-narrow">
+  <section class="hero" style="border-top:0">
+    <div class="eyebrow"><a href="/" style="color:var(--ink-3)">← explorer</a> &nbsp;·&nbsp; KRAY LOCK · THE KEY</div>
+    <h1>Kray Lock</h1>
+    <p class="lede" style="color:var(--ink-2);max-width:32rem">
+      The program on the door. It already holds which stars are welcome and the name you see on success.
+      The key never picks a door — it only answers the bounce.
+      Same bytes for camera Unlock today · NFC tap / BLE proximity next (Wallet-class). Nothing journaled.
+    </p>
+  </section>
+
+  <section style="border-top:0;padding-top:0">
+    <div class="card tick">
+      <p class="lock-state" id="lock-state" data-s="LOCKED">LOCKED</p>
+      <p class="lock-meta" id="lock-meta">Door name is set on the lock. Issue a bounce for a star this door accepts.</p>
+
+      <div class="lock-grid">
+        <div>
+          <label for="lk-door">Door name (configured here)</label>
+          <input class="input" id="lk-door" placeholder="Front door · Rooftop · Vault A" value="Front door" autocomplete="off" style="min-height:44px">
+        </div>
+        <div>
+          <label for="lk-star">Star this bounce asks for</label>
+          <input class="input" id="lk-star" inputmode="numeric" placeholder="42" autocomplete="off" style="min-height:44px">
+        </div>
+      </div>
+
+      <div class="lock-actions">
+        <button class="btn" id="lk-challenge" style="min-height:44px">Show bounce</button>
+        <button class="btn primary" id="lk-speak" style="min-height:44px" disabled>Send signal</button>
+      </div>
+      <div class="lock-qr" id="lock-qr" aria-hidden="true">
+        <img id="lock-qr-img" alt="Kray Lock bounce QR for KrayWallet Unlock">
+      </div>
+      <p class="dim" style="font-size:13px;margin-top:var(--s4);line-height:1.5">
+        In KrayWallet: <b>Unlock</b> → hold at this code → sign.
+        Physical agents: <code>apps/kray-lock/kray-lock.mjs</code> ·
+        <a href="/docs/KRAY-LOCK.md">KRAY-LOCK.md</a>
+      </p>
+      <pre class="lawprev" id="lock-out" hidden></pre>
+    </div>
+  </section>
+</div>
+<script src="/kray.js" defer></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var q = new URLSearchParams(location.search);
+  var challenge = null;
+  var busy = false;
+  /** Silent Speak audience tag — the door name is display-only on this demo. */
+  var SPEAK_AUDIENCE = 'hold';
+
+  function setState(s, meta) {
+    var el = $('lock-state');
+    el.setAttribute('data-s', s);
+    el.textContent = s;
+    if (meta != null) $('lock-meta').innerHTML = meta;
+  }
+  function out(txt, ok) {
+    var o = $('lock-out');
+    o.hidden = false;
+    o.style.color = ok === true ? 'var(--good)' : ok === false ? 'var(--crit, #c44)' : '';
+    o.textContent = txt;
+  }
+  function starVal() {
+    return String($('lk-star').value || '').trim().replace(/[#,\s]/g, '');
+  }
+  function doorName() {
+    return String($('lk-door').value || '').trim() || 'Door';
+  }
+  function pairUri(star) {
+    var q = new URLSearchParams();
+    q.set('star', star);
+    q.set('door', doorName());
+    return 'kraylock:1?' + q.toString();
+  }
+  function showQr(uri) {
+    var box = $('lock-qr');
+    var img = $('lock-qr-img');
+    if (!box || !img) return;
+    img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=8&data=' + encodeURIComponent(uri);
+    box.setAttribute('data-on', '1');
+    box.setAttribute('aria-hidden', 'false');
+  }
+  function paintBtn() {
+    var ok = !busy && /^\d+$/.test(starVal()) && !!challenge;
+    $('lk-speak').disabled = !ok;
+  }
+
+  if (q.get('star') && /^\d+$/.test(q.get('star'))) $('lk-star').value = q.get('star');
+  if (q.get('name') || q.get('door')) $('lk-door').value = String(q.get('name') || q.get('door'));
+
+  $('lk-star').addEventListener('input', function () {
+    challenge = null;
+    paintBtn();
+    setState('LOCKED', 'Star changed — ask for a fresh bounce.');
+  });
+  $('lk-door').addEventListener('input', function () {
+    /* Door name is local display config — does not invalidate an open challenge. */
+  });
+
+  $('lk-challenge').addEventListener('click', function () {
+    var star = starVal();
+    if (!/^\d+$/.test(star)) { out('Pick a star creation number.', false); return; }
+    busy = true; paintBtn();
+    setState('WAITING', 'Lock calling for the key that holds ★ ' + star + '…');
+    fetch('/api/kraynet/speak?star=' + encodeURIComponent(star) + '&audience=' + encodeURIComponent(SPEAK_AUDIENCE))
+      .then(function (r) { return r.json(); })
+      .then(function (ch) {
+        if (ch.error) throw new Error(ch.error);
+        challenge = ch;
+        var uri = pairUri(star);
+        showQr(uri);
+        setState('WAITING',
+          'Door <b>' + doorName().replace(/</g, '&lt;') + '</b> · ★ <b>' + ch.star + '</b><br>' +
+          'Scan with KrayWallet <b>Unlock</b> — or Speak here as the living owner.');
+        out('Bounce ready for wallet Unlock.\n' + uri + '\n\n' + ch.message, null);
+        paintBtn();
+      })
+      .catch(function (e) {
+        challenge = null;
+        setState('LOCKED', 'Bounce refused.');
+        out('LOCKED — ' + ((e && e.message) || 'refused'), false);
+        paintBtn();
+      })
+      .finally(function () { busy = false; paintBtn(); });
+  });
+
+  $('lk-speak').addEventListener('click', function () {
+    if (!challenge || busy) return;
+    var w = window.krayWallet;
+    if (!w) { out('Connect KrayWallet first — the key never leaves it.', false); return; }
+    busy = true; paintBtn();
+    out('sign in KrayWallet — BIP-340 · nothing is written…', null);
+    var getAddr = (w.getAccounts || w.getAddress)
+      ? (w.getAccounts ? w.getAccounts() : w.getAddress())
+      : Promise.resolve(window.__krayAddr);
+    Promise.resolve(getAddr).then(function (a) {
+      var me = Array.isArray(a) ? a[0] : (a && (a.address || a));
+      if (!me && window.__krayAddr) me = window.__krayAddr;
+      if (!me) throw new Error('connect KrayWallet — same key that holds the star');
+      return (w.signMessageWithConfirmation || w.signMessage).call(w, challenge.message).then(function (sig) {
+        return w.getPublicKey().then(function (pk) {
+          var pub = (pk && pk.publicKey) || pk;
+          return fetch('/api/kraynet/speak', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              message: challenge.message,
+              from: me,
+              signature: (sig && sig.signature) || sig,
+              publicKey: pub,
+              scheme: 'kraywallet',
+            }),
+          }).then(function (r) { return r.json(); });
+        });
+      });
+    }).then(function (res) {
+      if (res.error) throw new Error(res.error);
+      var name = doorName();
+      setState('UNLOCKED',
+        '<div class="lock-ok-name">' + name.replace(/</g, '&lt;') + '</div>' +
+        'Success · ★ <b>' + res.star + '</b><br>' +
+        'speakId <b>' + (res.speakId || '') + '</b> · nothing journaled');
+      out('UNLOCKED — ' + name +
+        '\nstar     ★ ' + res.star +
+        '\nspeakId  ' + (res.speakId || '') +
+        '\n\nThe lock named the success. The key only sent the signal.', true);
+      challenge = null;
+      paintBtn();
+    }).catch(function (e) {
+      setState('LOCKED', 'Math refused — wrong wallet or expired bounce.');
+      out('LOCKED — ' + ((e && e.message) || 'refused') +
+        '\n\nThis wallet is not the living owner, or the signature is not BIP-340 of that owner.', false);
+    }).finally(function () { busy = false; paintBtn(); });
+  });
+
+  if (starVal()) {
+    setState('LOCKED', 'Ready — ask for the key of ★ ' + starVal() + ' · door “' + doorName() + '”');
+  }
+})();
+</script>
+</body>
+</html>

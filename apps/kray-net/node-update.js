@@ -128,7 +128,7 @@
       var short = String(info.v || 'running').slice(0, 12)
       var repo = String(info.repo || 'https://github.com/tomkray/kray-node').replace(/^https:\/\//, '')
       var branch = info.branch || 'main'
-      meta.innerHTML = 'Official <a href="' + String(info.repo || 'https://github.com/tomkray/kray-node') + '" target="_blank" rel="noopener">' + repo + '</a> · ' + branch + ' · ' + short + ' · ' + (info.files || '?') + ' files · sha256 ' + String(info.sha256).slice(0, 12) + '…'
+      meta.innerHTML = 'This door · official <a href="' + String(info.repo || 'https://github.com/tomkray/kray-node') + '" target="_blank" rel="noopener">' + repo + '</a> · ' + branch + ' · ' + short + ' · ' + (info.files || '?') + ' files · sha256 ' + String(info.sha256).slice(0, 12) + '…'
     }
     var zipA = $('nodeUpZip')
     if (zipA) zipA.href = '/downloads/kray-node.zip'

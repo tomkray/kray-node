@@ -53,6 +53,7 @@ ships a product on KRAY.NETWORK):
 | **Guardian federation (2-of-3)** | Independent books that **gate a rune exit**. Fail-closed. | Required to donate, inscribe, move Ӿ, or earn Glow. |
 | **DeFi (AMM and kin)** | Markets sealed as acts on the book. | A second network. The validator’s default job. |
 | **A product mouth** | Optional wrap (wallet, site, bot): form, length, UI around a model. | The network. Required to follow. A stranger’s raw LLM. |
+| **Kray Lock (The Key)** | Door-side Speak verifier (sibling kit `tomkray/kray-lock`). Policy JSON: ids · quotas · true/false. BIP-340 unlock. Free, not journaled. | The ledger. A second writer. Pot / bakery. |
 
 Say it out loud to a stranger:
 

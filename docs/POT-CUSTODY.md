@@ -221,6 +221,13 @@ what changed one bit.
   burn of one txid, so the order is absolute: (1) ship this code to every journal-replaying box
   (every journal-replaying box, then the writer); (2) only then set
   `KRAY_EXIT_LOAF=1` on the writer. The flag OFF keeps every byte of today's behavior.
+- **Direction clause (2026-09-17):** "fleet first" is the order for a change whose *output* the old
+  writer cannot produce and the new follower must understand (a new kind, a new fold — the fleet
+  must already read it). For a change whose *output is a subset* of what old followers already
+  accept — a stricter refusal pin, a door refusal — the safe order is the **writer first**, then
+  the fleet: an old follower keeps following a stricter writer, while a stricter fleet behind an
+  old writer is the one fork path. Either way a follower that meets a refused event stays up on
+  its last verified snapshot, marked stale (the stale law in `RUN-NODE.md`) — it never crash-loops.
 - **Honest residues, named:** (1) value that never exits stays pot-backed — the loaf shrinks the pot per
   withdraw wave, it does not force anyone out; the pooled in-flight residue keeps its rung-4/FROST
   story unchanged. (2) A rider whose dest script duplicates another member's waits its own click —

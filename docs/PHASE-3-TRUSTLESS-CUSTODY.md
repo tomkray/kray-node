@@ -6,8 +6,7 @@
 > into a keyless BURN (NUMS key) that IS the anchor. Read this for levers 2–3 and the rationale; read the ADR
 > + `ANCHORING-UNIFICATION.md` for what actually runs.
 
-> Status: **design + proven core primitive** (lever 1). Nothing here is wired into the live anchor path yet.
-> The current pot/anchor flow is untouched and keeps working. Activation is gated and additive (see Rollout).
+> (Original 2026-08 header said "nothing here is wired yet" — retired by the status above; kept only in git history.)
 
 ## Why this phase exists
 
@@ -60,7 +59,8 @@ network anchors now.
 
 **Proven now** (`node src/test/self-anchor.test.ts`, 13/13): standard-taproot equivalence, honest commit→verify,
 tamper rejection (root, height, key), spendability (Schnorr key-path), determinism, and stealth address form.
-Module: [`self-anchor.ts`](../apps/kray-core/src/protocol/self-anchor.ts). **Pure, offline, wired nowhere.**
+Module: [`self-anchor.ts`](../apps/kray-core/src/protocol/self-anchor.ts). Pure and offline at the time of
+this design — **since wired live** (`/api/kraynet/self-anchors` + the dual-carrier `verifySealProof`).
 
 ### Compatibility matrix (Lever 1)
 

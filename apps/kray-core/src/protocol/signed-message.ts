@@ -29,6 +29,7 @@ import {
   ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, eternizeMessage,
   contractCallMessage, contractCallMessageV2, quantumCommitMessage,
   laneEnterMessage, laneExitMessage, foldSealMessage, setFaceMessage, clearFaceMessage, setProfileMessage,
+  starLikeMessage,
 } from './scheme.ts'
 import { setKrayPlateMessage } from './kray-plate.ts'
 import { sha256hex, type KrayEvent } from './kray-primitives.ts'
@@ -107,6 +108,13 @@ export function signedMessageOfEvent(e: KrayEvent, network: string): string | nu
     case 'eternize': return eternizeMessage(network, e.from!, BigInt(e.star!), e.l1InscriptionId!, e.nonce!)
     case 'set-face': return setFaceMessage(network, e.from!, BigInt(e.star!), e.nonce!)
     case 'clear-face': return clearFaceMessage(network, e.from!, e.nonce!)
+    case 'star-like': {
+      const tipRaw = typeof e.tipAsset === 'string' ? e.tipAsset : ''
+      const tip = (tipRaw === 'kray' || tipRaw === 'x' || tipRaw === 'rune') ? tipRaw : 'none'
+      const amount = tip === 'none' ? null : BigInt(e.amount!)
+      const runeId = tip === 'rune' ? String(e.runeId || '') : null
+      return starLikeMessage(network, e.from!, BigInt(e.star!), tip, amount, runeId, e.nonce!)
+    }
     case 'set-profile': return setProfileMessage(
       network, e.from!,
       typeof e.description === 'string' ? e.description : '',

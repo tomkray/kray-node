@@ -1,6 +1,14 @@
 # The Actions Map — where the two lights are born
 
-> **Purpose.** Before wiring **Ӿ** (money from burned ₭) into the bytes, map **every** action the ledger
+> **Status: HISTORICAL (pre-Ӿ snapshot, 2026-08-22).** This map was drawn BEFORE Ӿ was wired into the
+> bytes, when the reducer implemented 28 of 32 declared kinds — and it did its job: Ӿ shipped on this
+> map's lines. Since then the book grew: the live union is **46 kinds** (`KrayEventKind` in
+> `kray-primitives.ts`), including `burn`, `burn-thaw`, `x-send`, `cut-send`, `eternize`, the lanes
+> (`lane-enter` / `lane-exit` / `fold-seal`) and the star market (`star-list` / `star-delist` /
+> `star-buy` / `star-offer*`). The kind counts, "not yet built" claims and `ledger.ts` line numbers
+> below are the old chain's snapshot — **the reducer switch and the union type are the living map.**
+
+> **Purpose (as written).** Before wiring **Ӿ** (money from burned ₭) into the bytes, map **every** action the ledger
 > accepts and mark exactly where each of the two lights is born — so no act mints a false light and no act
 > that should mint one is missed. Grounded in `apps/kray-core/src/protocol/ledger.ts` (the reducer). The
 > discipline: verify in the code, not on paper; then the entities audit this map for completeness, correctness,
@@ -45,7 +53,7 @@ does that act's mutation — nothing else.
 | 23 | `amm-rr-add` | 1099 | — | — | rune↔rune liquidity |
 | 24 | `amm-rr-remove` | 1154 | — | — | rune↔rune remove |
 | 25 | `amm-rr-swap` | 1190 | — | — | rune↔rune swap |
-| 26 | `contract` | 1236 | **🔥 `1` (v2: `e.star` set)** | — | seal a **law** onto an owned star (the third canvas); v1 = no burn |
+| 26 | `contract` | 1236 | **🔥 `1` (v2: `e.star` set)** | — | seal a **law** onto an owned star (the third canvas); v1 (no star) = no burn, no nonce — **refused at the door since 2026-09-17 (E1)**; replays below the future `CONTRACT_V1_RETIRED_SEQ` pin |
 | 27 | `contract-call` | 1277 | — | — | call a sealed contract (state change) |
 | 28 | `settlement` | 1377 | — | — | beat-work settle → pay validators from the fee pool |
 

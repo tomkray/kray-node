@@ -1,5 +1,8 @@
 # KRAY.NETWORK — Security posture
 
+> **Status: NORMATIVE (living posture)** — updated as invariants move; the code and its
+> proofs win on any drift.
+
 Grounded, honest, and adversarially audited (2026-08-01, 8-agent red-team + line-by-line
 re-verification). Overclaiming security is treated as the worst possible failure.
 
@@ -74,6 +77,11 @@ note — never claimed away.
 
 - **DoS**: `/api/kraynet/star/<n>` re-parses the whole journal per request — needs a cache.
 - **File modes / PQ migration pieces** as above.
+- **E1 — the v1 `contract` seal (a law with no star)**: it paid no fee, burned nothing and carried no nonce,
+  so one signature could open a new pot on every re-submission (confirmed 5/5 on regtest and on a `main`-network
+  ledger, 2026-09-17). Refused at every writer door since 2026-09-17; the reducer still accepts it below the
+  future `CONTRACT_V1_RETIRED_SEQ` pin so history replays byte-identically — no v1 seal exists in any live
+  journal (main: 0 contracts; signet: 3, all on stars). Recipe and status: `RESIDUAL-VECTORS.md` §V9.
 
 ## Responsible disclosure
 

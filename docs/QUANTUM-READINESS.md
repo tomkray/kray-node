@@ -1,5 +1,8 @@
 # KRAY.NETWORK — Quantum Readiness
 
+> **Status: NORMATIVE (posture + staged plan)** — the migration primitives (`quantum-commit`,
+> `quantum-migrate`) already live in the reducer.
+
 > The honest posture, stated the way the whole network is: no comfort, no overclaim. A system that hid its
 > exposure could not be trusted at its core. This is exactly where KRAY stands against a cryptographically
 > relevant quantum computer (CRQC), and the staged plan that a *new* network can execute that Bitcoin cannot.

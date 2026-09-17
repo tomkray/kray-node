@@ -57,6 +57,11 @@ type, protocol version, network and a per-account monotonic nonce are all bound,
 replayable across action, network, or version. *(Named: an optional height/expiration bound on signed
 actions, to defeat a very-old offline-signed replay at the same nonce.)*
 
+*Exception named 2026-09-17 (E1, `RESIDUAL-VECTORS.md` §V9): the v1 `contract` message (a law with no star)
+carries no nonce and was re-submittable. It is refused at every writer door since that date and will be retired
+in consensus at `CONTRACT_V1_RETIRED_SEQ` (Art. XIV); below that pin the reducer replays it as written. v2 seals
+are nonce-less but latched — one law per star, 1 ₭ burned.*
+
 ### VIII — Guardians serve liveness; they never decide truth. **[ENFORCED]**
 A guardian cannot make an invalid user event valid — the reducer re-verifies every user signature and
 nonce regardless of any guardian. Custody only REDISTRIBUTES conserved Treasury ₭; a seal only opens a

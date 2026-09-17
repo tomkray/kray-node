@@ -87,10 +87,11 @@
   // after the twelve — parent-safe (satoshi before donation before bornstrict;
   // paper before its contract children; poll after glow)
   var LATER = [
-    'satoshi', 'donation', 'nums', 'psbt', 'rune', 'bridge', 'glow',
-    'whitepaper', 'bornstrict', 'witness',
-    'paper', 'being', 'escrow', 'tunnel', 'vest', 'scroll', 'raffle',
-    'mint', 'luz', 'poll', 'abundance', 'origin', 'eternize', 'library',
+    'satoshi', 'donation', 'star', 'glow', 'nums', 'psbt', 'ordinals', 'rune', 'bridge',
+    'bornstrict', 'whitepaper', 'energy', 'prayer', 'witness', 'queue', 'abundance',
+    'relic', 'origin', 'eternize', 'library', 'livemint', 'paper',
+    'being', 'escrow', 'tunnel', 'vest', 'scroll', 'raffle', 'mint', 'luz', 'poll',
+    'reader', 'hold', 'genome',
   ]
   var SPINE = SKELETON.concat(LATER)
 

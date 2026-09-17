@@ -26,7 +26,7 @@ import {
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, BODY_HASH_RE, ORIGIN_COHORT_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
-  runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, eternizeMessage, setFaceMessage, clearFaceMessage, setProfileMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES, PROFILE_DESC_MAX_BYTES_LEGACY, PROFILE_COOLDOWN_MS, quantumCommitMessage, quantumMigrateMessage,
+  runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, eternizeMessage, setFaceMessage, clearFaceMessage, setProfileMessage, starLikeMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES, PROFILE_DESC_MAX_BYTES_LEGACY, PROFILE_COOLDOWN_MS, quantumCommitMessage, quantumMigrateMessage,
 } from './scheme.ts'
 import { parseOriginProofs, verifyOriginProofs } from './ordinal-ancestry.ts'
 import { emptyLane, laneRoot, laneTotal, applyFoldDiffs, foldDiffsHash, parseLaneAmount, type FoldDiffs } from './tk-fold.ts'
@@ -55,7 +55,7 @@ import { StarOffers } from './star-offers.ts'   // escrowed bids — pot ₭ == 
 import { inclusionRoot as buildInclusionRoot, IncrementalInclusionTree } from './inclusion-tree.ts'   // ADR-3 3a (Slice A): the cumulative included-act SMT
 import { IncrementalNonceMap } from './nonce-map.ts'   // ADR-3 eligibility opening: the committed account→(nonce,height) map
 import { keyFromSignedMessage, orderWindow } from './window-order.ts'   // ADR-3 3c: the leaf key = SHA-256 of the SIGNED message ONLY (no envelope, no clock); orderWindow = THE SAME-INSTANT LAW's arithmetic
-import { setKrayPlateMessage, KRAY_PLATE_HASH_RE, assertKrayPlateBytes } from './kray-plate.ts'
+import { setKrayPlateMessage, KRAY_PLATE_HASH_RE, assertKrayPlateBytes, decodeKrayPlate } from './kray-plate.ts'
 import { signedBytesOfEvent } from './signed-message.ts'   // the MIRROR — requireSig is the REFEREE that re-proves parity on every act, every replay
 import { windowCommitment } from './censorship-evidence.ts'   // ADR-3 3d-a: binds a Bitcoin seal height to that seal's cumulative inclusion root
 import { cascadeRootFromParts, type CascadeParts } from './cascade-root.ts'   // ADR-3: the cascade root, from its parts — one law, no drift
@@ -340,6 +340,14 @@ export const PROFILE_VALUE_SEQ: Record<string, number> = {
   main: 80,     // tip ~49 — past any feeless mouth scar; paid law opens with margin
 }
 
+/** Once-ever like: one address × one star. Born active (0) on every net — tip cannot buy a second like.
+ *  Lab journals that double-liked before this law need a fresh exam bench (`--fresh`), not a soft pin. */
+export const STAR_LIKE_ONCE_SEQ: Record<string, number> = {
+  regtest: 0,
+  signet: 0,
+  main: 0,
+}
+
 /** ADR-3 eligibility opening — hard cap on the producedRoots lookback map (cascade root → {seq, inclusionRoot}).
  *  The seal case prunes below the last anchor seq, but a long PRE-activation run has no seals to prune, so this
  *  cap (evict-oldest) bounds memory regardless. Far larger than any real confirmation latency in events, so it
@@ -387,6 +395,9 @@ export class KrayLedger {
   // a PROVEN donation carries the L1 outpoint it was paid at — credited once, ever,
   // exactly like a rune deposit. Rebuilt from the journal on every replay (a pure set).
   private readonly creditedDonations = new Set<string>()
+  /** Read-only door for the writer's donation watch: has this L1 outpoint already minted? Pure lookup,
+   *  no state, no consensus effect — the reducer above stays the only judge. */
+  isDonationCredited(outpoint: string): boolean { return this.creditedDonations.has(outpoint) }
   /** Holder txids that have fathered at least one L1 child (index, not a one-shot gate). */
   private readonly originBlessings = new Set<string>()
   /** Open L1 origin cohorts — rebuilt from the journal. Key = originCohortRoot. */
@@ -444,6 +455,13 @@ export class KrayLedger {
    *  Folds into the cascade by presence (A3): empty book ⇒ field absent ⇒ genesis root untouched.
    *  Losing the star (send / buy / accept) clears the binding — paint never shows a face you do not hold. */
   private readonly faces = new Map<string, string>()
+  /** Derived like books — rebuilt on replay from star-like events (not a cascade fold). */
+  private readonly starLikes = new Map<string, { count: number; tipCount: number; feeOnly: number; tipKray: bigint; tipX: bigint; fees: bigint; tipRunes: Map<string, bigint> }>()
+  /** Once-ever: one wallet address may like each star at most once (re-derived from journal). */
+  private readonly starLikeOnce = new Set<string>()
+  private static starLikeOnceKey(star: string, from: string): string {
+    return star + '\0' + from
+  }
   /** CITIZEN MOUTH — address → bio / site URL / banner star / banner click. Feeless (quantum-commit pattern).
    *  Folds by presence (A3). Losing the banner star clears only the banner binding. */
   private readonly profiles = new Map<string, { description: string; url: string; bannerStar: string; bannerUrl: string }>()
@@ -487,7 +505,7 @@ export class KrayLedger {
    */
   plateAtlasStrict: boolean = true
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number, profileValueSeq?: number) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number, profileValueSeq?: number, starLikeOnceSeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -513,6 +531,7 @@ export class KrayLedger {
     this.runeBookOpenSeq = runeBookOpenSeq ?? (RUNE_BOOK_OPEN_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.digitLawSeq = digitLawSeq ?? (DIGIT_LAW_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.profileValueSeq = profileValueSeq ?? (PROFILE_VALUE_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.starLikeOnceSeq = starLikeOnceSeq ?? (STAR_LIKE_ONCE_SEQ[network] ?? 0)
     // main pin 0 is the law itself (not a signaling): start at 10_000. Donate never
     // reads the rate — an empty-of-stars journal keeps its cascade.
     if (this.sizeProportionSeq === 0) {
@@ -574,6 +593,7 @@ export class KrayLedger {
   private readonly digitLawSeq: number              // DIGIT LAW: at/after it, set / isqrt / args refuse past 78 digits
   private readonly uniqueRelicRefuseSeq: number     // THE UNIQUE-RELIC LAW: at/after it, a taken name/bytes refuse BEFORE fire (A3 below — cursed-burn still applies)
   private readonly profileValueSeq: number          // CITIZEN MOUTH VALUE: at/after it, set-profile pays 1 ₭ + hygiene (A3 below = feeless legacy)
+  private readonly starLikeOnceSeq: number          // once-ever like: at/after it, second like from same address×star HALTs
   /** THE JOURNAL'S ACCUMULATED TRUTH — outpoint → balances of ONE rune, re-derived by earlier
    *  proven deposits. Scoped per rune (the etch-root shortcut is exact only for the focused rune,
    *  so one rune's memo must never answer for another). Re-built identically on every replay from
@@ -2577,6 +2597,133 @@ export class KrayLedger {
         this.faces.delete(e.from)
         break
       }
+      case 'star-like': {
+        // KRAY Social like (β′) — fee 1 ₭ → Treasury always; optional tip to living owner.
+        // Tip: none | kray | x | rune. Never mint Ӿ. Never Fireborn feeless. Self-like OK.
+        this.checkNonce(e)
+        if (typeof e.from !== 'string') throw new Error('ledger: from must be a string')
+        if (typeof e.star !== 'string' || !STAR_RE.test(e.star)) throw new Error('ledger: star-like names one star, by its number')
+        const tipRaw = typeof e.tipAsset === 'string' ? e.tipAsset : ''
+        const tip = (tipRaw === '' || tipRaw === 'none') ? 'none'
+          : (tipRaw === 'kray' || tipRaw === 'x' || tipRaw === 'rune') ? tipRaw
+          : null
+        if (tip == null) throw new Error('ledger: star-like tip must be none, kray, x, or rune')
+        let tipAmt: bigint | null = null
+        let runeId: string | null = null
+        if (tip === 'none') {
+          if (e.amount != null && String(e.amount) !== '' && String(e.amount) !== '0') {
+            throw new Error('ledger: star-like with tip none must not carry a tip amount')
+          }
+          if (e.runeId) throw new Error('ledger: star-like with tip none must not carry runeId')
+        } else {
+          tipAmt = parseLaneAmount(e.amount ?? '')
+          if (tipAmt === undefined) throw new Error('ledger: star-like tip amount must be canonical decimal within u128')
+          if (tipAmt <= 0n) throw new Error('ledger: star-like tip amount must be positive')
+          if (tip === 'rune') {
+            if (!e.runeId) throw new Error('ledger: star-like rune tip needs runeId')
+            runeId = e.runeId
+          } else if (e.runeId) {
+            throw new Error('ledger: star-like non-rune tip must not carry runeId')
+          }
+        }
+        this.requireSig(e, starLikeMessage(this.network, e.from, BigInt(e.star), tip, tipAmt, runeId, e.nonce!))
+        const slFee = BigInt(e.fee ?? '0')
+        if (slFee !== MIN_FEE) throw new Error('ledger: star-like costs exactly 1 ₭ fee — always, never feeless')
+        const slStar = this.stars.star(BigInt(e.star))
+        if (!slStar) throw new Error(`ledger: star #${e.star} does not exist`)
+        if (slStar.owner === BLACK_HOLE) throw new Error('ledger: a frozen star cannot receive a like')
+        const living = slStar.owner
+        // Once-ever: one address × one star — tip cannot buy a second like (rank stays honest).
+        const onceKey = KrayLedger.starLikeOnceKey(e.star, e.from)
+        if (e.seq >= this.starLikeOnceSeq && this.starLikeOnce.has(onceKey)) {
+          throw new Error('ledger: this address already liked this star — one like per wallet per star, forever')
+        }
+        // Owner tip floor from sealed star plate (omit = no floor). Fail-closed when bytes present.
+        {
+          const ph = this.krayStarPlateOf(e.star)
+          if (ph && this.atlasBytes) {
+            const bytes = this.atlasBytes(ph)
+            if (bytes) {
+              const pf = decodeKrayPlate(bytes)
+              const floorTip = (pf.likeTip ?? '').trim()
+              if (floorTip === 'none') {
+                if (tip !== 'none') throw new Error('ledger: this star accepts fee-only likes (owner sealed likeTip=none)')
+              } else if (floorTip === 'kray' || floorTip === 'x' || floorTip === 'rune') {
+                const floor = BigInt(pf.likeAmount && pf.likeAmount !== '' ? pf.likeAmount : '0')
+                if (tip !== floorTip) throw new Error(`ledger: this star requires a ${floorTip} tip (owner sealed likeTip)`)
+                if (tipAmt == null || tipAmt < floor) {
+                  throw new Error(`ledger: tip below owner floor (${floor} ${floorTip})`)
+                }
+                if (floorTip === 'rune') {
+                  const want = (pf.likeRune ?? '').trim()
+                  if (!want || runeId !== want) throw new Error('ledger: tip rune must match the owner sealed likeRune')
+                }
+              }
+            }
+          }
+        }
+        let krayNeed = slFee
+        if (tip === 'kray') krayNeed += tipAmt!
+        if (this.balanceOf(e.from) < krayNeed) {
+          throw new Error(`ledger: insufficient ₭ for star-like (have ${this.balanceOf(e.from)}, need ${krayNeed})`)
+        }
+        if (tip === 'x') {
+          if (e.seq < this.xTransferActivationSeq) {
+            throw new Error('ledger: Ӿ tip on star-like needs Ӿ transfers active on this network')
+          }
+          if (this.xBalanceOf(e.from) < tipAmt!) {
+            throw new Error(`ledger: insufficient Ӿ for star-like tip (have ${this.xBalanceOf(e.from)}, need ${tipAmt})`)
+          }
+          this.requireFungibleRecipient(living, e.seq)
+        }
+        if (tip === 'kray') this.requireFungibleRecipient(living, e.seq)
+        if (tip === 'rune') {
+          const rid = parseRuneKey(runeId!)
+          this.requireRecipientNetwork(living)
+          if (isContractPotAddress(living)) {
+            throw new Error('ledger: a rune tip cannot enter a law pot')
+          }
+          if (this.runes.balanceOf(rid, e.from) < tipAmt!) {
+            throw new Error(`ledger: insufficient runes for star-like tip (have ${this.runes.balanceOf(rid, e.from)}, need ${tipAmt})`)
+          }
+          if (this.backingGate && tipAmt! > this.runes.transferableOf(rid, e.from)) {
+            throw new Error(`ledger: star-like rune tip would hand out credits still backed by the sender's PERSONAL vault`)
+          }
+        }
+        // ── validated → mutate ──
+        this.commitNonce(e)
+        this.starLikeOnce.add(onceKey)
+        this.balances.set(e.from, this.balanceOf(e.from) - slFee)
+        this.credit(TREASURY, slFee)
+        if (tip === 'kray') {
+          this.balances.set(e.from, this.balanceOf(e.from) - tipAmt!)
+          this.credit(living, tipAmt!)
+        } else if (tip === 'x') {
+          this.xBalance.set(e.from, this.xBalanceOf(e.from) - tipAmt!)
+          this.xBalance.set(living, this.xBalanceOf(living) + tipAmt!)
+        } else if (tip === 'rune') {
+          this.runes.send(parseRuneKey(runeId!), e.from, living, tipAmt!)
+        }
+        // valuation book (re-derivable; chrome rank / star header)
+        {
+          const key = e.star
+          let row = this.starLikes.get(key)
+          if (!row) {
+            row = { count: 0, tipCount: 0, feeOnly: 0, tipKray: 0n, tipX: 0n, fees: 0n, tipRunes: new Map() }
+            this.starLikes.set(key, row)
+          }
+          row.count += 1
+          row.fees += slFee
+          if (tip === 'none') row.feeOnly += 1
+          else row.tipCount += 1
+          if (tip === 'kray') row.tipKray += tipAmt!
+          else if (tip === 'x') row.tipX += tipAmt!
+          else if (tip === 'rune' && runeId) {
+            row.tipRunes.set(runeId, (row.tipRunes.get(runeId) ?? 0n) + tipAmt!)
+          }
+        }
+        break
+      }
       case 'set-profile': {
         // CITIZEN MOUTH — bio + site URL + banner (owned image star) + banner click URL.
         // Below PROFILE_VALUE_SEQ: feeless legacy (A3). At/after: eternal 1 ₭ → Treasury (set-face parity)
@@ -3040,6 +3187,58 @@ export class KrayLedger {
   /** Star living-plate hash, or null. */
   krayStarPlateOf(star: string | bigint): string | null {
     return this.krayPlatesByStar.get(String(star)) ?? null
+  }
+  /** True iff this address already sealed a star-like on this star (once-ever book). */
+  hasStarLiked(star: string | bigint, from: string): boolean {
+    return this.starLikeOnce.has(KrayLedger.starLikeOnceKey(String(star), from))
+  }
+  /** Like valuation for one star — rebuilt from journal star-like acts. */
+  starLikeStatsOf(star: string | bigint): {
+    count: number
+    tipCount: number
+    feeOnly: number
+    tipKray: string
+    tipX: string
+    fees: string
+    tipRunes: Record<string, string>
+  } {
+    const row = this.starLikes.get(String(star))
+    if (!row) return { count: 0, tipCount: 0, feeOnly: 0, tipKray: '0', tipX: '0', fees: '0', tipRunes: {} }
+    const tipRunes: Record<string, string> = {}
+    for (const [id, amt] of row.tipRunes) tipRunes[id] = amt.toString()
+    return {
+      count: row.count,
+      tipCount: row.tipCount,
+      feeOnly: row.feeOnly,
+      tipKray: row.tipKray.toString(),
+      tipX: row.tipX.toString(),
+      fees: row.fees.toString(),
+      tipRunes,
+    }
+  }
+  /** Rank stars by likes, then tip ₭, then tip Ӿ (desc). Pure view on derived book. */
+  starLikeRank(limit = 100): Array<{ star: string; count: number; tipKray: string; tipX: string; fees: string }> {
+    const rows = [...this.starLikes.entries()].map(([star, row]) => ({
+      star,
+      count: row.count,
+      tipKray: row.tipKray,
+      tipX: row.tipX,
+      fees: row.fees,
+    }))
+    rows.sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count
+      if (b.tipKray !== a.tipKray) return b.tipKray > a.tipKray ? 1 : -1
+      if (b.tipX !== a.tipX) return b.tipX > a.tipX ? 1 : -1
+      return a.star < b.star ? -1 : a.star > b.star ? 1 : 0
+    })
+    const n = Math.max(0, Math.min(Number(limit) || 100, 500))
+    return rows.slice(0, n).map((r) => ({
+      star: r.star,
+      count: r.count,
+      tipKray: r.tipKray.toString(),
+      tipX: r.tipX.toString(),
+      fees: r.fees.toString(),
+    }))
   }
   /**
    * Tip plate hashes currently live (address + star). Atlas GC may drop any

@@ -1,4 +1,4 @@
-# The Two Lights — ✦ Glow & Ӿ (BUILT + proven — Ӿ transfers RATIFIED, live on Signet from seq 155)
+# The Two Lights — ✦ Glow & Ӿ (BUILT + proven — Ӿ transfers RATIFIED, born active at seq 0 on both nets)
 
 > **Symbols (ratified by the Creator, 2026-08-22):** **✦** for **glow** — a star's shine, chosen *because it
 > is not a currency mark* (glow is soulbound reputation, never money, so it must not wear a currency's stroke
@@ -9,10 +9,12 @@
 > burned` on the tripwire, x-mint 29/29) and Ӿ **slice 2 — the transferable book** (`x-send` with its own
 > signature domain + `xBalance` + `xRoot` folded into the cascade root behind a per-network activation seq,
 > x-transfer 20/20). Genesis-safe under the 26k-act storm (the dormant root is byte-identical). Shown on the
-> web profile (the stone), the `/lights` dashboard, and the KrayWallet extension. Committed `5ace58e` (Ӿ core)
+> web profile (the stone), the `/rank` dashboard (`/lights` redirects there; the JSON stays at
+> `/api/kraynet/lights`), and the KrayWallet extension. Committed `5ace58e` (Ӿ core)
 > + `61ef51e` (the two lights UI) on kray-network `main`. **RATIFIED (2026-08-23, Article XIV rite):**
-> `X_TRANSFER_ACTIVATION_SEQ` = **155 on Signet** (fleet deployed before the writer) and **0 on mainnet**
-> (born activated — no history, no migration window). `x-send` is wired through the public door
+> `X_TRANSFER_ACTIVATION_SEQ` crossed at **155 on the old Signet chain** (fleet deployed before the writer);
+> after the v1.0.0 genesis reset (2026-08-26) both the reborn signet and mainnet are **born activated at
+> seq 0** (no history, no migration window). `x-send` is wired through the public door
 > (prepare → sign → submit), `xSpendable` shines on the profile lights, and `xRoot` folds into every anchored
 > cascade root at/after the activation seq. Regtest stays at MAX so old exam goldens replay byte-identically.
 
@@ -76,9 +78,9 @@ impossible; honor is what the network can SEE you sacrificed.*
      category error on a single sacrifice — all rejected.
   3. **The token type — a plain transferable value token,** a distinct token backed by sacrifice-history,
      **never redeemable for ₭** (the ₭ is truly gone; the Ӿ is the new life). Headed for DeFi + its own page.
-- **Open before ACTIVATION (not before code):** the *conserve-vs-deflate* doctrine is ratified as **conserve**
-  (every burn mints Ӿ). The atlas wall then needs a separate size-priced fee (to guardians, funding eternal
-  custody) before Ӿ transfers activate — else refunding the inscription burn as Ӿ softens the bound.
+- **Closed (was "open before activation"):** the *conserve-vs-deflate* doctrine is ratified as **conserve**
+  (every burn mints Ӿ), and the atlas wall it demanded is BUILT and born active — `ATLAS_FEE_ACTIVATION_SEQ = 0`
+  on signet and main (see `ATLAS-FEE-DECISION.md`), so the size-priced fee guards the bound from block zero.
 
 ## Why it fits the math (the entities' first read)
 
@@ -94,9 +96,10 @@ impossible; honor is what the network can SEE you sacrificed.*
 
 ## The discipline (the Creator's rule)
 
-**Nothing escapes the math; the end is the code.** This doc is the *idea*, grounded. When the Creator says
-build: (1) design the exact derivation + distribution + reducer — additive and genesis-safe; (2) prove by
-breaking (conservation, soulbound-invariance, provable-from-the-cascade, no free mint, no sybil/whale lever),
-convened before independent entities; (3) only then is it **code** — and only then is it "in the proof."
-Until then, honestly: the burns and freezes are proven and in the cascade; **glow and Ӿ are the dream ready to
-be born, not the born.**
+**Nothing escapes the math; the end is the code.** The discipline was honored in order: (1) exact
+derivation + distribution + reducer, additive and genesis-safe; (2) proven by breaking (conservation,
+soulbound-invariance, provable-from-the-cascade, no free mint, no sybil/whale lever), convened before
+independent entities; (3) then it became **code**. Today the two lights ARE the born: glow mints on the
+freeze, Ӿ mints on the burn and moves through the public door, and both fold into every anchored cascade
+root — the dream clause of the first draft is retired, kept here only as the record of the rule that
+built it.

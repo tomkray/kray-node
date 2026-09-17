@@ -62,6 +62,9 @@ data-signet-local/
 ops/
 logs/
 
+# Kray Lock local anti-replay store (speakIds consumed by this door)
+apps/kray-lock/.state/
+
 # Operator handoff / ship ritual — keep on this disk, never the public door
 docs/HANDOFF-*.md
 docs/OPERATOR-SHIP.md

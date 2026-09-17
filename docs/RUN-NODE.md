@@ -529,6 +529,17 @@ curl -s http://127.0.0.1:4480/api/kraynet/head
 Expect `mirror: true`, a `cascadeRoot`, and (if the writer is quiet)
 `stale: true`. That is honest: last **verified** snapshot, not a second pen.
 
+**The stale law (persist mode).** A cycle that fails any proof — the writer
+unreachable, the atlas incomplete, a history that does not replay here, a
+check failing — never takes the mirror down: it keeps serving the last
+verified snapshot with `stale: true`, `staleSince` and `staleReason`, and
+retries next cycle. A guardian's book therefore answers "lagging" at the
+withdraw door, never a crash loop. One-shot mode (no `--serve`/`--watch`)
+still exits 1 — the stranger's clear verdict. `KRAY_FOLLOW_PREFIX=refuse`
+makes the mirror keep its snapshot when the writer's verified history does
+not extend it (a rewrite as seen from this box); the default `warn` adopts
+it but labels every answer with `prefixBreak`.
+
 `--serve` is loopback, read-only. An inbox on a mirror, if enabled, **stores
 and relays** signed acts — it never applies them.
 

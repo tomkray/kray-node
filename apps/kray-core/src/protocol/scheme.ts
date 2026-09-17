@@ -470,6 +470,34 @@ export function clearFaceMessage(network: string, from: string, nonce: number): 
   return `kraynet.clear-face.v1|net=${network}|from=${from}|nonce=${nonce}`
 }
 
+/**
+ * KRAY Social like — star-named engagement on the journal (β′).
+ * Always pays fee 1 ₭ → Treasury (never Fireborn feeless). Optional tip to the living
+ * owner at apply time: none | kray | x | rune. Tip fields omitted when tip=none (A3).
+ * Never mints Ӿ. Self-like allowed (tip may loop; fee still taxes vanity).
+ */
+export type StarLikeTip = 'none' | 'kray' | 'x' | 'rune'
+export function starLikeMessage(
+  network: string,
+  from: string,
+  star: bigint,
+  tip: StarLikeTip,
+  amount: bigint | null,
+  runeId: string | null,
+  nonce: number,
+): string {
+  let m = `kraynet.star-like.v1|net=${network}|from=${from}|star=${star}`
+  if (tip !== 'none') {
+    if (amount == null || amount <= 0n) throw new Error('star-like: tip amount must be positive')
+    m += `|tip=${tip}|amount=${amount}`
+    if (tip === 'rune') {
+      if (!runeId) throw new Error('star-like: rune tip needs runeId')
+      m += `|rune=${runeId}`
+    }
+  }
+  return m + `|nonce=${nonce}`
+}
+
 /** CITIZEN MOUTH — bio + site URL + banner (owned image star) + banner click URL.
  *  At/after PROFILE_VALUE_SEQ: eternal 1 ₭ (set-face parity) + hygiene.
  *  Below the pin: feeless legacy (A3 — journals that sealed mouths without fee replay byte-identical).

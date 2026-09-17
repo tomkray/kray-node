@@ -41,7 +41,7 @@ const SIGNED_VALUE: Record<string, 'MIN_FEE' | 'prescribed' | 'burn1'> = {
   'rune-send': 'MIN_FEE', 'rune-exit': 'MIN_FEE', 'rune-cancel': 'MIN_FEE',
   'amm-add': 'MIN_FEE', 'amm-remove': 'MIN_FEE', 'amm-swap': 'MIN_FEE',
   'amm-rr-add': 'MIN_FEE', 'amm-rr-remove': 'MIN_FEE', 'amm-rr-swap': 'MIN_FEE',
-  'contract-call': 'MIN_FEE', eternize: 'MIN_FEE', 'set-face': 'MIN_FEE', 'clear-face': 'MIN_FEE', 'set-profile': 'MIN_FEE', 'set-kray-plate': 'MIN_FEE',
+  'contract-call': 'MIN_FEE', eternize: 'MIN_FEE', 'set-face': 'MIN_FEE', 'clear-face': 'MIN_FEE', 'set-profile': 'MIN_FEE', 'set-kray-plate': 'MIN_FEE', 'star-like': 'MIN_FEE',
   'x-send': 'prescribed',                                   // THE FIREBORN LAW — prescribed 1 ₭ (or 0 by allowance), never a choice
   inscribe: 'burn1', origin: 'burn1', name: 'burn1',        // BORN FROM FIRE — 1 ₭ burned into a permanent star
   contract: 'burn1',                                        // v2 burns 1 ₭ to seal a law on a star

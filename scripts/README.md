@@ -26,6 +26,15 @@ scripts/follow/mainnet.sh           # or scripts\follow\mainnet.cmd
 Stable aliases: `scripts/kray-follow.mjs`, `scripts/follow-signet.cmd`,
 `scripts/follow-this-network.cmd` (Signet), `scripts/follow-mainnet.cmd`.
 
+Environment (all optional): `KRAY_BTC_RPC` / `KRAY_BTC_RPC_USER` / `KRAY_BTC_RPC_PASS`
+(re-prove donations and seals on your own bitcoind), `KRAY_SEAL_CONF` (default 6),
+`KRAY_FOLLOW_BIND` (default `127.0.0.1`), `KRAY_FOLLOW_INBOX=0` (no mailbox),
+`KRAY_FOLLOW_PREFIX=warn|refuse` (a verified history that does not extend the last
+verified snapshot: label it, or keep the snapshot — default `warn`),
+`KRAY_FOLLOW_CYCLE_MS` (persist cycle, default 30000, floor 1000 — for lab exams).
+In `--serve`/`--watch` a failed cycle keeps the last verified snapshot online,
+marked `stale` with `staleReason`; one-shot exits 1.
+
 ## Folder (the TK-fold role — any house, never official)
 
 A breath of the lane lands with `fold-once.mjs`. Anyone with 1 ₭ may do it.

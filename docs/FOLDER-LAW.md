@@ -107,7 +107,9 @@ After ignition this page is closed. A rename is a fork.
 
 - Do not move the explorer into `web/` or `public/`. `APP_DIR` is
   `apps/kray-net/` on purpose — the `ord` analogue.
-- Do not split `docs/` into physical subfolders.
+- Do not split `docs/` into physical subfolders. One exception, named 2026-09-17: `docs/audit/<date>-<topic>/`
+  holds dated council records (historical, never law, never cited by code); the `/docs` door reads only the root, so
+  these are repository history, not served pages.
 - Do not rename `data-signet`, `data-main`, or `/api/kraynet`.
 - Do not defer a rename "until Signet is quieter." Pause it, finish, resume —
   or do not start. After mainnet, do not start.

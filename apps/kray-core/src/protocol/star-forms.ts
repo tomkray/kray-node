@@ -2,14 +2,16 @@
  * SEALED FORMS — escrow, tunnel, vest, scroll, raffle, mint, cut, poll. Same total IR as living law.
  *
  * Not a second VM. A catalog of beings that compile to contract.ts.
- * Hang on a star (v2, burn 1 ₭) or stand alone (v1, frozen, no burn).
+ * Hang on a star (v2, burn 1 ₭). Standing alone (v1: no star, no burn, no nonce) is REFUSED at the
+ * writer's doors since 2026-09-17 (E1) and stays in the reducer only so history replays byte-identically
+ * below the future CONTRACT_V1_RETIRED_SEQ pin.
  *
  * Living-mouth tools (toggle_*, collect, stamp, draw, skip) stay with ownerOf(N).
  * Form doors follow the IR: the sealed buyer accepts; anyone may refund
  * after the journal deadline; vest `release` pays the beneficiary;
  * scroll `claim` pays the living caller; raffle `enter` / `settle` are public;
  * mint `mint` is not a call — the reducer runs it as the blessing on an inscribe
- * (take price → pay the sealed dest or living owner → taken++).
+ * (take price → pay seller → optional pot `drop` to the caller → taken++).
  * poll `vote` is a public door: 1 ₭ fee, one ballot, weight = ✦ glow (the book).
  */
 import { callerInt } from './star-law.ts'
@@ -53,7 +55,7 @@ export type ContractForm =
   | { kind: 'vest'; beneficiary: string; start: string; duration: string; total: string }
   | { kind: 'scroll'; each: string; max: string; locked?: boolean; gate?: ScrollGate; allow?: string[] }
   | { kind: 'raffle'; price: string; period?: string; seats?: string }
-  | { kind: 'mint'; price: string; max: string; payTo?: string }
+  | { kind: 'mint'; price: string; max: string; payTo?: string; drop?: string }
   | { kind: 'cut'; supply?: string; infinite?: boolean; rain?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
   | { kind: 'luz'; supply?: string; infinite?: boolean; rain?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
   | { kind: 'poll'; title?: string; choices?: string[] }
@@ -513,8 +515,12 @@ export function compileRaffle(input: { price: string; period?: string; seats?: s
  * now to `payTo` (or the living owner), taken++. You do not need to own the face.
  * When taken == max the blessing dies. Not a contract-call — the birth IS the mint.
  * Collect remains the mouth for leftover pot (gifts), not the mint price.
+ *
+ * Optional `drop` (₭): escrow from the pot to the minter each edition — same
+ * spirit as scroll `each`. Fund the pot first; guard requires balance ≥ drop.
+ * Omit or `0` → byte-identical IR to the classic mint (A3). The IR pays only ₭.
  */
-export function compileMint(input: { price: string; max: string; payTo?: string }): ContractCode {
+export function compileMint(input: { price: string; max: string; payTo?: string; drop?: string }): ContractCode {
   const price = whole(input.price, 'price')
   const max = whole(input.max, 'max')
   if (max === '0') throw new Error('form: mint max must be greater than 0')
@@ -526,40 +532,70 @@ export function compileMint(input: { price: string; max: string; payTo?: string 
   const payTo = dest ? { addr: dest } : { living: 'owner' as const }
   const openOn: Expr = { op: 'eq', args: [{ var: 'open' }, { lit: '1' }] }
   const room: Expr = { op: 'lt', args: [{ var: 'taken' }, { var: 'max' }] }
-  return finish({
-    vars: { price, max, taken: '0', open: '1' },
-    rules: [
-      {
-        name: 'toggle_open',
-        when: callerIsHolder,
-        then: [{
-          set: {
-            var: 'open',
-            to: {
-              op: 'if',
-              args: [
-                { op: 'eq', args: [{ var: 'open' }, { lit: '1' }] },
-                { lit: '0' },
-                { lit: '1' },
-              ],
-            },
-          },
-        }],
+  const dropRaw = input.drop != null && String(input.drop).trim() !== ''
+    ? whole(String(input.drop), 'drop')
+    : '0'
+
+  const toggleOpen = {
+    name: 'toggle_open',
+    when: callerIsHolder,
+    then: [{
+      set: {
+        var: 'open',
+        to: {
+          op: 'if',
+          args: [
+            { op: 'eq', args: [{ var: 'open' }, { lit: '1' }] },
+            { lit: '0' },
+            { lit: '1' },
+          ],
+        },
       },
+    }],
+  }
+  const collect = {
+    name: 'collect',
+    when: { op: 'and', args: [callerIsHolder, { op: 'gt', args: [{ ctx: 'balance' }, { lit: '0' }] }] },
+    then: [{ pay: { to: { living: 'owner' as const }, amount: { ctx: 'balance' } } }],
+  }
+
+  // Classic path — keep vars/rules byte-identical when drop is absent/0 (A3).
+  if (dropRaw === '0') {
+    return finish({
+      vars: { price, max, taken: '0', open: '1' },
+      rules: [
+        toggleOpen,
+        {
+          name: 'mint',
+          when: { op: 'and', args: [openOn, room] },
+          then: [
+            { take: { amount: { var: 'price' } } },
+            { pay: { to: payTo, amount: { var: 'price' } } },
+            { set: { var: 'taken', to: { op: 'add', args: [{ var: 'taken' }, { lit: '1' }] } } },
+          ],
+        },
+        collect,
+      ],
+    })
+  }
+
+  // Escrow drop path — pot must fund each pack (scroll `each` fractal).
+  const canDrop: Expr = { op: 'ge', args: [{ ctx: 'balance' }, { var: 'drop' }] }
+  return finish({
+    vars: { price, max, taken: '0', open: '1', drop: dropRaw },
+    rules: [
+      toggleOpen,
       {
         name: 'mint',
-        when: { op: 'and', args: [openOn, room] },
+        when: { op: 'and', args: [openOn, room, canDrop] },
         then: [
           { take: { amount: { var: 'price' } } },
           { pay: { to: payTo, amount: { var: 'price' } } },
+          { pay: { to: { living: 'caller' as const }, amount: { var: 'drop' } } },
           { set: { var: 'taken', to: { op: 'add', args: [{ var: 'taken' }, { lit: '1' }] } } },
         ],
       },
-      {
-        name: 'collect',
-        when: { op: 'and', args: [callerIsHolder, { op: 'gt', args: [{ ctx: 'balance' }, { lit: '0' }] }] },
-        then: [{ pay: { to: { living: 'owner' as const }, amount: { ctx: 'balance' } } }],
-      },
+      collect,
     ],
   })
 }

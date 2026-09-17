@@ -1,5 +1,8 @@
 # WHERE KRAY STANDS — the mathematics, compared honestly
 
+> **Status: NORMATIVE (comparative essay, code-grounded)** — not operational law; where a
+> guarantee named here and the code disagree, the code wins.
+
 A network is only as strong as the weakest thing it asks you to *trust* instead
 of *check*. This document names, for KRAY and for the chains it is measured
 against, exactly which guarantees are mathematical, which are economic, and

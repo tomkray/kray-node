@@ -50,7 +50,7 @@
 }
 .citizen-cinema[hidden]{display:none!important}
 .citizen-cinema .plate-banner-stage{
-  max-width:none;width:100%;
+  width:100%;
   margin:0;
   border-radius:14px;
   border-color:color-mix(in srgb,var(--line) 70%,transparent);
@@ -58,6 +58,9 @@
     0 1px 0 color-mix(in srgb,var(--ink) 6%,transparent),
     0 24px 48px -28px rgba(0,0,0,.65);
 }
+.citizen-cinema .plate-banner-stage[data-plate-shape="wide"],
+.citizen-cinema .plate-banner-stage[data-plate-shape="square"]{max-width:none}
+.citizen-cinema .plate-banner-stage[data-plate-shape="tall"]{max-width:min(100%,28rem);margin-inline:auto}
 .citizen-cinema .plate-banner-lab{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
   margin:0 0 8px;
@@ -185,11 +188,8 @@
   color:var(--ink-4);border-bottom:1px solid var(--line)
 }
 .mouth-banner-preview-lab b{color:var(--ink-2);font-weight:600;letter-spacing:.04em;text-transform:none}
-.mouth-banner-preview-stage{aspect-ratio:16/9;background:#0a0c12}
-.mouth-banner-preview-stage .plate-banner-stage{width:100%;height:100%}
-.mouth-banner-preview-stage img,
-.mouth-banner-preview-stage video,
-.mouth-banner-preview-stage iframe{width:100%;height:100%;object-fit:cover;display:block;border:0}
+.mouth-banner-preview-stage{background:#0a0c12}
+.mouth-banner-preview-stage .plate-banner-stage{width:100%;max-width:100%;margin:0}
 .mouth-banner-preview-stage .preview-empty{
   height:100%;display:flex;align-items:center;justify-content:center;
   font-family:var(--mono);font-size:11px;color:var(--ink-4);padding:12px;text-align:center
@@ -994,7 +994,7 @@
         <div class="actchart" id="s-actchart" role="img" aria-label="Recent journal density"></div>
       </div>
     </div>
-    <!-- CINEMA — full-bleed 16:9 under identity · sealed bannerUrl (YouTube / video / image·gif) -->
+    <!-- CINEMA — full-bleed under identity · sealed bannerUrl; frame follows the media -->
     <div class="citizen-cinema" id="citizen-cinema" hidden></div>
     <span id="s-breakdown" hidden></span>
     <span id="s-luz" hidden></span>
@@ -1701,29 +1701,8 @@
     </div>
     <div class="kv" id="ct-kv">—</div>
     <details class="brlink" id="ct-pot">
-      <summary>Advanced · v1 pot (no star)</summary>
-      <p class="sub" style="margin-top:var(--s3)">Account with no key and no face. Escrow, tunnel, vest, locked scroll, or raw IR. Luz, raffle, mint need a star — use Law above.</p>
-    <div class="sendform" style="grid-template-columns:1fr 1fr;margin-top:var(--s4)">
-      <select class="input" id="ct-kind" disabled>
-        <option value="escrow">escrow — buyer / seller / lock</option>
-        <option value="tunnel">tunnel — optional dest</option>
-        <option value="vest">vest — beneficiary / total / duration</option>
-        <option value="scroll">scroll — each / max / gate · locked v1</option>
-      </select>
-      <input class="input" id="ct-a" placeholder="buyer · dest · beneficiary · scroll each" autocomplete="off" disabled>
-      <input class="input" id="ct-b" placeholder="seller · scroll max" autocomplete="off" disabled>
-      <input class="input" id="ct-c" placeholder="lock acts · vest total · scroll gate (open/list)" autocomplete="off" disabled>
-      <input class="input" id="ct-d" placeholder="vest duration · scroll allow (comma)" autocomplete="off" disabled>
-      <label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px"><input type="checkbox" id="ct-lock" checked disabled> locked scroll</label>
-      <button class="btn" id="ct-form" disabled>⚓ Seal the form</button>
-    </div>
-    <div class="sendform" style="grid-template-columns:1fr;margin-top:var(--s4)">
-      <textarea class="input" id="ct-code" rows="6" placeholder='or raw IR JSON'></textarea>
-    </div>
-    <div class="sendform" style="grid-template-columns:1fr auto;margin-top:var(--s3)">
-      <p class="note" style="align-self:center;margin-top:0">Signing the code is signing its canonical hash — you cannot approve one program and deploy another.</p>
-      <button class="btn" id="ct-go" disabled>⚓ Sign &amp; seal the contract</button>
-    </div>
+      <summary>Advanced · call a sealed law</summary>
+      <p class="sub" style="margin-top:var(--s3)">The v1 pot — a law with no star — is retired at this door since 2026-09-17: it paid no fee, burned nothing and carried no nonce. Seal a law onto a star you own in the Write studio (burns 1 ₭); calling any sealed law still works here.</p>
     <div class="out" id="ct-out"></div>
     <div class="sendform" style="grid-template-columns:1.4fr 1fr auto;margin-top:var(--s4)">
       <input class="input" id="ct-addr" placeholder="contract address (KRAY_CONTRACT_…)" autocomplete="off" disabled>
@@ -1769,7 +1748,7 @@
 
 </div>
 
-<script src="/kray.js" defer></script>
+<script src="/kray.js?v=site-card1" defer></script>
 <script src="/inscribe-batch.js"></script>
 <script>
 (function(){
@@ -1814,6 +1793,11 @@
       return '<a class="star-chip" href="/star/'+Number(n)+'" title="Open star #'+Number(n).toLocaleString()+'">'
         +'<span class="star-ico" aria-hidden="true">★</span><b>'+Number(n).toLocaleString()+'</b></a>';
     }
+    var faceSig=face && face.star!=null
+      ? String(face.star)+'\t'+(face.contentHash||'')+'\t'+(face.name||'')+'\t'+(face.url||'')+'\t'+(typeof face.media==='string'?face.media:'')
+      : '';
+    if(box && box.getAttribute('data-face-sig')===faceSig) return;
+    if(box) box.setAttribute('data-face-sig', faceSig);
     if(face && face.star!=null){
       if(img) img.hidden=true;
       if(box){
@@ -1877,30 +1861,47 @@
     var hasUrl=!!(mouth && mouth.url);
     var hasBan=!!(mouth && mouth.banner && mouth.banner.url);
     var hasBanMedia=!!(mouth && mouth.bannerUrl && !hasBan);
-    var hasAct=!!(mouth && mouth.actTo);
+    // Support is a transfer to THIS citizen's address — never star-like.
+    // Social ♥ stays on /star/N. A visitor may gift even if the owner never asked.
+    var dest=(!IS_TREASURY && ADDR) ? ADDR : '';
+    var canSupport=!!dest && me!==ADDR;
+    var hasAct=canSupport;
     var hasText=hasDesc || hasUrl || hasBan || hasAct;
 
-    // Elite cinema: full-bleed 16:9 under the identity row (not squeezed beside the sigil).
+    // Elite cinema: full-bleed under the identity row (not squeezed beside the sigil).
+    // Frame follows the sealed media. Poll must never remount a playing video.
     if(cinema){
-      if(hasBanMedia && window.KRAY && typeof KRAY.plateBannerHtml==='function'){
+      if(hasBanMedia && window.KRAY && typeof KRAY.syncPlateBanner==='function'){
         cinema.hidden=false;
-        cinema.innerHTML='<div class="plate-banner-lab"><span>Plate banner</span><b>16:9</b></div>'
+        KRAY.syncPlateBanner(cinema, mouth.bannerUrl, { lab:true });
+        if(plate) plate.classList.add('has-cinema');
+      } else if(hasBanMedia && window.KRAY && typeof KRAY.plateBannerHtml==='function'){
+        cinema.hidden=false;
+        cinema.innerHTML='<div class="plate-banner-lab"><span>Plate banner</span><b>—</b></div>'
           +KRAY.plateBannerHtml(mouth.bannerUrl);
         if(typeof KRAY.mountPlateBanners==='function') KRAY.mountPlateBanners(cinema);
         if(plate) plate.classList.add('has-cinema');
       } else {
-        cinema.hidden=true; cinema.innerHTML='';
+        cinema.hidden=true;
+        if(window.KRAY && typeof KRAY.syncPlateBanner==='function') KRAY.syncPlateBanner(cinema, '');
+        else cinema.innerHTML='';
         if(plate) plate.classList.remove('has-cinema');
       }
     }
 
     if(!el) return;
     if(!hasText && !hasBanMedia){
-      el.hidden=true; el.innerHTML='';
+      el.hidden=true; el.innerHTML=''; el.removeAttribute('data-mouth-sig');
       return;
     }
-    if(!hasText){ el.hidden=true; el.innerHTML=''; return; }
+    if(!hasText){ el.hidden=true; el.innerHTML=''; el.removeAttribute('data-mouth-sig'); return; }
     el.hidden=false;
+    var hint=(mouth && mouth.actHint && String(mouth.actHint).trim()) || 'Support';
+    var sug=mouth && mouth.actAmount && String(mouth.actAmount).trim() && mouth.actAmount!=='0'
+      ? (' · '+mouth.actAmount+' ₭') : '';
+    var mouthSig=[hasDesc,hasUrl,hasBan,hasAct,mouth&&mouth.description,mouth&&mouth.url,dest,hint,mouth&&mouth.actAmount].join('\0');
+    if(el.getAttribute('data-mouth-sig')===mouthSig) return;
+    el.setAttribute('data-mouth-sig', mouthSig);
     var html='';
     if(hasDesc) html+='<p class="mouth-bio">'+esc(mouth.description)+'</p>';
     if(hasUrl){
@@ -1918,10 +1919,7 @@
         +'</a>';
     }
     if(hasAct){
-      var hint=(mouth.actHint && String(mouth.actHint).trim()) || 'Support';
-      var sug=mouth.actAmount && String(mouth.actAmount).trim() && mouth.actAmount!=='0'
-        ? (' · '+mouth.actAmount+' ₭') : '';
-      html+='<button type="button" class="mouth-act" id="plate-act-go" data-act-to="'+esc(mouth.actTo)+'" data-act-hint="'+esc(hint)+'" data-act-amount="'+esc(mouth.actAmount||'')+'">'+esc(hint)+sug+'</button>';
+      html+='<button type="button" class="mouth-act" id="plate-act-go" data-act-to="'+esc(dest)+'" data-act-hint="'+esc(hint)+'" data-act-amount="'+esc((mouth&&mouth.actAmount)||'')+'" title="Gift ₭ to this address — a transfer, not a social like">'+esc(hint)+sug+'</button>';
       html+='<div class="mouth-act-out" id="plate-act-out"></div>';
     }
     el.innerHTML=html;
@@ -2050,11 +2048,19 @@
     var url=(urlEl && urlEl.value.trim()) || '';
     if(!url){
       wrap.hidden=true;
-      stage.innerHTML='';
+      if(window.KRAY && typeof KRAY.syncPlateBanner==='function') KRAY.syncPlateBanner(stage, '');
+      else stage.innerHTML='';
       return;
     }
     wrap.hidden=false;
-    if(window.KRAY && typeof KRAY.plateBannerHtml==='function'){
+    if(window.KRAY && typeof KRAY.syncPlateBanner==='function'){
+      KRAY.syncPlateBanner(stage, url);
+      var kind=(typeof KRAY.plateBannerKind==='function') ? KRAY.plateBannerKind(url) : '';
+      if(kind==='link' && !stage.querySelector('.preview-err')){
+        stage.insertAdjacentHTML('beforeend',
+          '<div class="preview-err" style="height:auto;padding:8px;background:rgba(0,0,0,.72)">link fallback — use a direct image / video / YouTube URL for cinema</div>');
+      }
+    } else if(window.KRAY && typeof KRAY.plateBannerHtml==='function'){
       var html=KRAY.plateBannerHtml(url);
       if(!html){
         stage.innerHTML='<div class="preview-err">URL not accepted as banner media</div>';
@@ -2062,11 +2068,6 @@
       }
       stage.innerHTML=html;
       if(typeof KRAY.mountPlateBanners==='function') KRAY.mountPlateBanners(stage);
-      var kind=(typeof KRAY.plateBannerKind==='function') ? KRAY.plateBannerKind(url) : '';
-      if(kind==='link'){
-        stage.insertAdjacentHTML('beforeend',
-          '<div class="preview-err" style="height:auto;padding:8px;background:rgba(0,0,0,.72)">link fallback — use a direct image / video / YouTube URL for cinema</div>');
-      }
     } else {
       stage.innerHTML='<div class="preview-empty">'+esc(url)+'</div>';
     }
@@ -2141,7 +2142,7 @@
   }
   var mp=$('mouth-pick');
   if(mp) mp.addEventListener('click', function(ev){ if(ev.target===mp) closeMouthPick(); });
-  /* Plate action — sealed actTo invitation → existing transfer (confirm in wallet). Not a contract. */
+  /* Plate Support — transfer ₭ to THIS profile address. Not star-like. Not a contract. */
   var plateActBusy=false;
   var citizenMouthEl=$('citizen-mouth');
   if(citizenMouthEl) citizenMouthEl.addEventListener('click', async function(ev){
@@ -2150,10 +2151,10 @@
     var out=$('plate-act-out');
     if(!present()){ window.open('https://kray.network','_blank','noopener'); return; }
     if(!me){ if(out){ out.className='mouth-act-out err'; out.textContent='connect KrayWallet first'; } return; }
-    var to=btn.getAttribute('data-act-to')||'';
+    var to=btn.getAttribute('data-act-to')||ADDR;
     var hint=btn.getAttribute('data-act-hint')||'Support';
     var sug=(btn.getAttribute('data-act-amount')||'').trim();
-    if(!to){ if(out){ out.className='mouth-act-out err'; out.textContent='no pay destination'; } return; }
+    if(!to || IS_TREASURY){ if(out){ out.className='mouth-act-out err'; out.textContent='no pay destination'; } return; }
     if(me===to){ if(out){ out.className='mouth-act-out err'; out.textContent='cannot pay yourself'; } return; }
     var amt=sug && sug!=='0' ? sug : '';
     if(!amt){
@@ -2165,7 +2166,7 @@
       if(out){ out.className='mouth-act-out err'; out.textContent='amount must be a whole ₭ >= 1'; }
       return;
     }
-    if(!window.confirm('Send '+amt+' ₭ for ['+hint+']?\nTo '+to.slice(0,12)+'...\nFee 1 ₭ — confirm in KrayWallet.')) return;
+    if(!window.confirm('Gift '+amt+' ₭ · '+hint+'\nTo this address\n'+to+'\nFee 1 ₭ — confirm in KrayWallet.')) return;
     if(plateActBusy) return;
     plateActBusy=true;
     if(out){ out.className='mouth-act-out'; out.textContent='preparing transfer…'; }
@@ -2200,6 +2201,11 @@
     var g=document.getElementById('ss-grid'); if(!g) return;
     var rows=(p && p.written) ? p.written.slice() : [];
     var faceStar=p && p.face && p.face.star!=null ? Number(p.face.star) : null;
+    var shelfSig=rows.length
+      ? rows.map(function(w){ return String(w.star)+':'+(w.contentHash||'')+':'+(w.name||'')+':'+(faceStar!=null&&Number(w.star)===faceStar?'1':'0'); }).join('|')
+      : 'empty';
+    if(g.getAttribute('data-shelf-sig')===shelfSig) return;
+    g.setAttribute('data-shelf-sig', shelfSig);
     if(!rows.length){
       g.innerHTML='<div class="ss-empty"><div class="eyebrow" style="margin-bottom:10px">no stars yet</div>'
         +'<a href="#studio">Write or baptize a star →</a></div>';
@@ -3745,7 +3751,7 @@
   var OPFIELDS=['send-to','send-amt','send-go','xsend-to','xsend-amt','xsend-go','lane-enter-amt','lane-enter-go','lane-to','lane-amt','lane-send-go','lane-exit-amt','lane-exit-go','relic-to','relic-go','hole-amt','hole-kray','br-rune','br-id','br-vault','br-go',
                 'rn-dep-tx','rn-dep-go','rn-add-pay','rn-paste','rn-send-go','rn-exit-l1','rn-exit-amt','rn-exit-go','rn-wd-custom','rn-wd-go',
                 'i-content','i-name','i-parent','i-oparent','i-osatpoint','i-metadata','i-metapick','i-go',
-                'ct-code','ct-go','ct-kind','ct-a','ct-b','ct-c','ct-d','ct-lock','ct-form','ct-addr','ct-rule','ct-call',
+                'ct-addr','ct-rule','ct-call',
                 'luz-to','luz-amt','luz-send-go'];
   function unlock(){
     var mine = me===ADDR;
@@ -4328,52 +4334,6 @@
       void mine;
     }catch(_){ $('ct-kv').textContent='\u2014'; }
   }
-  on('ct-form','click', async function(){
-    if(busy||me!==ADDR) return;
-    var out=$('ct-out'), kind=$('ct-kind').value, a=$('ct-a').value.trim(), b=$('ct-b').value.trim(), c=$('ct-c').value.trim(), d=$('ct-d').value.trim();
-    var form={ kind: kind };
-    if(kind==='escrow'){ form.buyer=a; form.seller=b; if(c) form.lock=c; }
-    else if(kind==='tunnel'){ if(a) form.dest=a; }
-    else if(kind==='scroll'){
-      form.each=a; form.max=b; form.gate=c||'open'; form.locked=!!($('ct-lock')&&$('ct-lock').checked);
-      var allow=d.split(/[\s,]+/).filter(Boolean); if(allow.length) form.allow=allow;
-    }
-    else { form.beneficiary=a; form.total=c; form.duration=d; }
-    busy=true; $('ct-form').disabled=true;
-    try{
-      out.className='out'; out.textContent='the node is compiling the form to IR\u2026';
-      var pr=await fetch('/api/kraynet/prepare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'contract',from:me,form:form})});
-      var prep=await pr.json(); if(!pr.ok||prep.error) throw new Error(prep.error||'refused');
-      out.textContent='sign in your KrayWallet \u2014 you are signing the hash of these exact rules\u2026';
-      var sig=await (window.krayWallet.signMessageWithConfirmation||window.krayWallet.signMessage).call(window.krayWallet, prep.message);
-      if(!pub){ var p2=await window.krayWallet.getPublicKey(); pub=(p2&&p2.publicKey)||p2; }
-      var r=await fetch('/api/kraynet/submit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'contract',from:me,form:form,publicKey:pub,signature:(sig&&sig.signature)||sig,scheme:'kraywallet'})});
-      var res=await r.json(); if(!r.ok||res.error) throw new Error(res.error||'refused');
-      out.className='out ok'; out.textContent='\u2713 '+kind+' sealed at '+res.address+' \u2014 rules: '+(res.rules||[]).join(', ')+'.';
-      $('ct-addr').value=res.address; loadContracts(); loadProfile();
-    }catch(e){ out.className='out err'; out.textContent='\u2717 '+((e&&e.message)||'refused'); }
-    finally{ busy=false; $('ct-form').disabled=false; }
-  });
-  on('ct-go','click', async function(){
-    if(busy||me!==ADDR) return;
-    var out=$('ct-out'), raw=$('ct-code').value.trim();
-    if(!raw){ out.className='out err'; out.textContent='\u2717 paste the rules as JSON'; return; }
-    var code; try{ code=JSON.parse(raw); }catch(e){ out.className='out err'; out.textContent='\u2717 that is not valid JSON'; return; }
-    busy=true; $('ct-go').disabled=true;
-    try{
-      out.className='out'; out.textContent='the node is validating the code and building its canonical hash\u2026';
-      var pr=await fetch('/api/kraynet/prepare',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'contract',from:me,code:code})});
-      var prep=await pr.json(); if(!pr.ok||prep.error) throw new Error(prep.error||'refused');
-      out.textContent='sign in your KrayWallet \u2014 you are signing the hash of these exact rules\u2026';
-      var sig=await (window.krayWallet.signMessageWithConfirmation||window.krayWallet.signMessage).call(window.krayWallet, prep.message);
-      if(!pub){ var p2=await window.krayWallet.getPublicKey(); pub=(p2&&p2.publicKey)||p2; }
-      var r=await fetch('/api/kraynet/submit',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'contract',from:me,code:code,publicKey:pub,signature:(sig&&sig.signature)||sig,scheme:'kraywallet'})});
-      var res=await r.json(); if(!r.ok||res.error) throw new Error(res.error||'refused');
-      out.className='out ok'; out.textContent='\u2713 sealed at '+res.address+' \u2014 rules: '+res.rules.join(', ')+'. It holds nothing yet; send it \u20ad and its rules decide the rest, forever.';
-      $('ct-addr').value=res.address; loadContracts(); loadProfile();
-    }catch(e){ out.className='out err'; out.textContent='\u2717 '+((e&&e.message)||'refused'); }
-    finally{ busy=false; $('ct-go').disabled=false; }
-  });
   on('ct-call','click', async function(){
     if(busy||me!==ADDR) return;
     var out=$('ct-callout'), addr=$('ct-addr').value.trim(), rule=$('ct-rule').value.trim();
@@ -5154,7 +5114,7 @@
   loadProfile();
   loadPage(); restore();
   if(present()) restore(); else { window.addEventListener('krayWalletReady', restore); setTimeout(restore, 1200); }
-  setInterval(function(){ loadProfile(); }, 12000);
+  setInterval(function(){ loadProfile(); }, 12000); // live book — paint skips remount when media/stars unchanged
   loadContracts(); // inside the IIFE — it is defined here, not on window
   // a rune NAME anywhere is a door to that rune's page — capture phase so it wins even
   // inside a row that is itself a link. The action chips (#rn-list) are selectors, not

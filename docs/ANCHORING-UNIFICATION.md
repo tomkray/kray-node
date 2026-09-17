@@ -11,7 +11,11 @@
 > `signature ‖ SPV proof ‖ Bitcoin anchor`. The security of anchoring never depended on WHO writes the anchor —
 > only on "the committed root must reproduce from a replay, and Bitcoin's work decides ties". That stays exact.
 
-## Where we are (three mechanisms today)
+## Where we were (three mechanisms — 2026-08-19 snapshot; NOT the live map)
+
+> Live map today: the operator OP_RETURN is **opt-in** (`KRAY_OPERATOR_ANCHOR`, default off), the
+> self-anchor **does** feed fork-choice (dual-carrier `verifySealProof` in `spv.ts` accepts OP_RETURN
+> or the NUMS self-anchor script), and the anchor pool is **wired** behind `KRAY_ANCHOR_POOL=1`.
 
 1. **Operator OP_RETURN anchor — LIVE.** `maybeAnchor` → `recordAnchor` → `broadcastAnchorSeal` writes a
    `KRAY.NETWORK|ver|blockNumber|cascadeRoot` OP_RETURN, funded from the operator's own Bitcoin wallet, every

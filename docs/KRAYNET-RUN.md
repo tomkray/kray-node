@@ -93,10 +93,13 @@ ledger · store · node · rune · contract · anchor · grand-exam · server.it
 donation-live.itest · concurrency-proof. Every act is signed, every invariant
 re-checked, a cold reboot is byte-exact.
 
-## What remains (not this page's job)
+## Beyond this page
 
-Live anchor broadcast and validator fee-pool settle **already ship**. What is
-left before Bitcoin mainnet is ignition: empty `data-main`, a new `bc1` pot,
-public TLS on `www.kray.network`, and the external audit
-([`AUDIT-DOSSIER.md`](AUDIT-DOSSIER.md)). The executed v1→v2 rename is
-historical: [`KRAYNET-CONSOLIDATION.md`](KRAYNET-CONSOLIDATION.md).
+Live anchor broadcast and validator fee-pool settle **already ship**, and the
+Bitcoin **mainnet writer is IGNITED** — `www.kray.network` answers
+`/api/kraynet/head` with `network: "main"`. Still open: the external audit
+([`AUDIT-DOSSIER.md`](AUDIT-DOSSIER.md)). The API table above is the short
+operator map — the full public surface (donate arc, beats, bridge, lanes,
+market, AMM) lives in [`INTEGRATE.md`](INTEGRATE.md) and on `/docs` of the
+node itself. The executed v1→v2 rename is historical:
+[`KRAYNET-CONSOLIDATION.md`](KRAYNET-CONSOLIDATION.md).

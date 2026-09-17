@@ -26,6 +26,7 @@
 | **V7** | integer dust in the split | **immaterial (E ≈ 0)** | none needed |
 | **V8** | governance √-weight sybil surface | **outside the reward pool** | rests on proof-of-personhood |
 | ↳ | phantom "uniform draw" | **GOOD phantom — the insight was TRUE** | it named the anchor draw (→ V5); the raffle it blamed is work-weighted |
+| **V9** | the v1 `contract` seal (E1): free, nonce-less, one signature re-submittable | **CLOSED at the door (2026-09-17); reducer pin `CONTRACT_V1_RETIRED_SEQ` next** | §V9 below |
 | **M** | phantom "unverified capacity" | **hallucination + a grain** | flat shape is correct; the grain: `perAnchor` is a magic-number level (§M) |
 
 ---
@@ -56,7 +57,7 @@ This is the value model made math: because the game is to **secure real value (s
 to farm yield**, there is no profit-race for a large actor to dominate — the thing Bitcoin never had.
 
 **The ONE real centralization that remains — the WRITER (the pen), orthogonal to hashpower/capital.** Since
-the Article XIV ratification (Signet activates at seq 155, 2026-08-23; mainnet born activated) the writer can
+the Article XIV ratification (2026-08-23; old-chain Signet pin 155 — born active at seq 0 on both nets after the v1.0.0 genesis reset) the writer can
 no longer censor **silently**: every seal folds the inclusion root, window commitment and nonce map into the
 anchored cascade root, so omitting a deadline-carrying act leaves a CENSORED verdict any follower proves from
 Bitcoin bytes (`buildCensorshipClaim` ↔ `verifyCensorshipAnchored`). What the writer still CAN do: **delay and
@@ -280,6 +281,26 @@ genesis — never an advantage vector.
 
 ---
 
+## V9 · the v1 contract seal (E1) — CLOSED at the door, the consensus pin next
+
+Found by the 2026-09-17 audit (report 04), confirmed twice by execution. A `contract` event **without a star**
+(the v1 seal, message `kray-core.contract.v1|net|from|code`) pays no fee, burns nothing and carries **no nonce**;
+its address includes `e.seq`, so the SAME signed event re-submitted is a NEW pot every time — the journal, the
+`contracts` map and `contractsRoot` grow for 0 ₭ forever. Constitution Art. VII ("no signature is replayable")
+did not hold for this kind.
+
+**Recipe (stamp an integer `at` — the same-instant law refuses byte-identical duplicates on main/signet, so an
+un-stamped recipe is a false negative):** one signature over the v1 message from a zero-balance key; apply it
+as seq 1..5 with distinct `at` on a `main`-network `KrayLedger` → 5 pots created, balance 0 → 0, burned 0 → 0,
+nonce 0, never refused. With identical `at` the second is refused by the same-instant law; regtest accepts all five.
+
+**Status:** refused at every writer door since 2026-09-17 — `prepareMessage` and `buildSubmitEvent`
+(`/submit`, `/submit-batch`, the inbox drain, every mirror relay converge there); the "Advanced · v1 pot"
+panel retired from the profile page. The reducer keeps accepting v1 below the future `CONTRACT_V1_RETIRED_SEQ`
+pin (regtest MAX, signet/main at tip + margin, writer door first, then the fleet) so every journaled byte
+replays as before. No v1 seal exists in any live journal (main: 0 `contract` events; signet: 3, all v2 on
+stars). Residue, named: v2 seals are nonce-less too, latched one-law-per-star with a 1-₭ burn.
+
 ## Conclusion
 
 Every vector the council named is accounted for. **V1 is fixed and proven.** The custody grind
@@ -308,7 +329,7 @@ near-invisible (no `from` field ⇒ absent from address feeds; `conserves()` tru
 replayed) holds **zero** `reward` events; the anchor backstop is disabled on every node. Decisive: ~8 s of
 laptop CPU reaches 2^24 under the LIVE pay-cap and takes ~99 % of the same pool through the *self-proving*
 `settlement` path — so `reward`'s marginal power was ≈ 0.06 ₭. The residue was real, conserved, negligible,
-and dominated by the true frontiers (omission/ordering — ADR-3, since ratified live on Signet at seq 155; the pot custody key).
+and dominated by the true frontiers (omission/ordering — ADR-3, since ratified and born active at seq 0 on both nets; the pot custody key).
 
 **THE VERDICT (both lenses converged): retire, don't armor.** The proposed SPV+draw hardening was REFUTED as
 a false-green — `AnchorPool`'s candidate set is writer-local and never journaled, so a journaled draw would

@@ -49,7 +49,10 @@ cascadeRoot = sha256(
   [ "nonce:"     + nonceRoot      + "\n" ] +            // ADR-3: eligibility opening
   [ "x:"         + xRoot          + "\n" ] +            // Ӿ transferable book (post x-transfer activation)
   [ "fire:"      + fireRoot       + "\n" ] +            // FIREBORN tank book (post feeless activation)
-  [ "lane:"      + laneRoot       + "\n" ]              // TK-fold lane — appended LAST (post fold activation)
+  [ "lane:"      + laneRoot       + "\n" ] +            // TK-fold lane (post fold activation)
+  [ "market:"    + marketCommitment + "\n" ] +          // star market listings (folds once a listing exists)
+  [ "offers:"    + offerCommitment  + "\n" ] +          // star offer book (folds once an offer exists)
+  [ "cut:"       + cutCommitment    + "\n" ]            // Luz CutBook — appended LAST today (A3: the stream only grows)
 )
 ```
 

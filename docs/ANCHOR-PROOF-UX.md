@@ -49,7 +49,7 @@ record via a third-party explorer the user picks. Recompute-then-match ≫ read-
 
 ## The one missing engine piece
 
-`apps/kray-net/kray-spv.js` — a dependency-free **browser port of the load-bearing core** of
+`apps/kray-net/kray-spv.mjs` — a dependency-free **browser port of the load-bearing core** of
 `apps/kray-core/src/anchor/spv.ts`, so the burial itself is re-proven in the browser (not read from an
 explorer's `confirmed` boolean): `parseTx` (segwit-stripped `sha256d` txid), `parseHeader`,
 `verifyTxOutProof` (BIP-37 merkle rebuild + the **CVE-2012-2459** duplicate-node refusal verbatim),
@@ -58,7 +58,7 @@ explorer's `confirmed` boolean): `parseTx` (segwit-stripped `sha256d` txid), `pa
 `proveTxBuried(rawTx, txoutproof, headersHex, {net, minConfirmations, minWork})` → `{ok, confirmations, work, powMeaningful}`.
 
 **The guarantee that it never breaks the math:** `apps/kray-core/src/test/kray-spv-parity.test.ts` feeds
-`kray-spv.js` and `spv.ts` the same vectors (the proven signet anchor `a66af956…` + a raw OP_RETURN seal +
+`kray-spv.mjs` and `spv.ts` the same vectors (the proven signet anchor `a66af956…` + a raw OP_RETURN seal +
 a regtest case) and asserts **byte-identical verdicts**. One algorithm, two runtimes, forever — exactly as
 `burn-proof.js` is guarded by `self-anchor.test.ts`.
 
@@ -79,7 +79,7 @@ chose), **[node claims]** (grey, never green).
 
 ## Build plan (ordered, additive — no consensus/math change)
 
-1. `kray-spv.js` (new) — the browser SPV port above; also runnable as `kray-spv.mjs` for the offline CLI.
+1. `kray-spv.mjs` (new) — the browser SPV port above; the same file is the offline CLI.
 2. `kray-spv-parity.test.ts` (new) — the byte-identical-verdict gate.
 3. `GET /api/kraynet/anchor-opening/:blockNumber` (server.mjs, additive) — one unified opening shape both
    carriers/pages consume `{carrier, txid, vout, blockNumber, root, internalKey?, keyIsNums?, net, explorerHints[]}`.
@@ -87,7 +87,7 @@ chose), **[node claims]** (grey, never green).
 4. Surface `carrier` as a first-class field in `headView()` and the anchor rows.
 5. `burn-proof.js` — add `scriptHex = '5120' + outputKey` to `derive()` (pure addition; parity test still passes).
 6. `anchor-verify.js` (new) — the shared "Verify on Bitcoin" widget (badge state machine over `BurnProof.derive`
-   + `kray-spv.js`, editable txid/root/block, explorer dropdown + paste-raw-tx zero-explorer mode).
+   + `kray-spv.mjs`, editable txid/root/block, explorer dropdown + paste-raw-tx zero-explorer mode).
 7. Wire the widget into `verify.html`, `anchor.html`, `block.html`/`blocks.html` (per sealed/golden block).
 8. `proof.html` at `/proof/<blockNumber>` (and `?tx=<txid>`) — the shareable, self-verifying per-anchor page.
 9. Copy pass — self-anchor-forward hero on `anchor.html`; "Share this proof ↗" → `/proof/<n>`; keep the
@@ -100,8 +100,9 @@ chose), **[node claims]** (grey, never green).
 ## Must never break (the invariants)
 
 - The frozen 49-byte payload: `TAG "KRAY.NETWORK"(12) ‖ 0x01 ‖ blockNumber(4 BE) ‖ cascadeRoot(32)`.
-- The self-anchor tweak tag `kray-core.self-anchor.v1` lives in THREE places (`self-anchor.ts`, `spv.ts`,
-  `burn-proof.js`) — they must stay byte-identical; never edit one alone.
+- The self-anchor tweak tag `kray-core.self-anchor.v1` lives in TWO places (`self-anchor.ts`,
+  `burn-proof.js`) — they must stay byte-identical; never edit one alone. `spv.ts` reaches it only
+  through `selfAnchorScriptHex`, so consensus has one source.
 - `BURN_INTERNAL_KEY` = `SHA256(uncompressed G)`, the authorless NUMS point. The keyless default is what
   makes the sacrifice real.
 - `spv.ts` stays **dual-carrier**; fork choice weighs **work** (`BigInt`), never a confirmation count.

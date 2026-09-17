@@ -79,8 +79,84 @@
 }
 .star-plate .sp-act-out{font-size:12px;color:var(--ink-4);margin-top:var(--s2)}
 .star-plate .sp-meta{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);margin-top:var(--s3)}
-/* Elite cinema — full-bleed 16:9 under starhead (official site stays a text link above) */
-.star-cinema{margin:0 0 var(--s5);min-width:0}
+/* Post like (X-style, on the living plate) + star social space (life of the star). */
+.star-like,.star-social{--like:#e11d48}
+.star-like{
+  display:flex;flex-direction:column;gap:8px;
+  margin-top:12px;padding:12px 0 0;
+  border-top:1px solid var(--line);
+  background:transparent;
+}
+.idn>.star-like{
+  margin-top:var(--s4);padding:12px 16px;max-width:42rem;
+  border:1px solid var(--line-2);border-radius:var(--r3);
+  background:color-mix(in srgb,var(--signal) 5%,var(--panel));
+}
+.star-like .sl-row{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+.star-like .sl-go{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:44px;min-width:44px;padding:8px 12px;
+  cursor:pointer;
+  color:var(--ink-2);background:transparent;
+  border:1px solid transparent;border-radius:999px;
+}
+.star-like .sl-go:hover{color:var(--like);background:color-mix(in srgb,var(--like) 10%,transparent)}
+.star-like .sl-go:active{transform:scale(.98)}
+.star-like .sl-heart{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;flex:0 0 auto}
+.star-like.is-liked .sl-go,
+.star-like .sl-go.is-liked{
+  color:var(--like);cursor:default;
+}
+.star-like.is-liked .sl-heart,
+.star-like .sl-go.is-liked .sl-heart{fill:var(--like);stroke:var(--like)}
+.star-like .sl-go[disabled]{opacity:1}
+.star-like .sl-go .sl-word{font-family:var(--sans);font-size:13px;font-weight:700;letter-spacing:.02em}
+.star-like .sl-count{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:-.02em;color:inherit}
+.star-like .sl-you{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--ink-4)}
+.star-like .sl-out{font-size:12px;color:var(--ink-4)}
+.star-like .sl-out a{color:var(--ink-2)}
+.star-social{
+  margin-top:var(--s4);padding:16px 20px;max-width:42rem;
+  display:flex;flex-direction:column;gap:12px;
+  border:1px solid var(--line-2);border-radius:var(--r3);
+  background:color-mix(in srgb,var(--signal) 6%,var(--panel));
+}
+.star-social .sl-energy-k{
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4);
+}
+.star-social .sl-energy-v{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;
+  font-size:15px;color:var(--ink-2);
+}
+.star-social .sl-energy-v b{font-family:var(--mono);font-size:18px;color:var(--ink)}
+.star-social .sl-usd{font-family:var(--mono);font-size:14px;color:var(--ink-3)}
+.star-social .sl-metrics{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;
+}
+.star-social .sl-metric{
+  display:flex;flex-direction:column;gap:4px;min-width:0;
+  padding:12px;border-radius:12px;background:color-mix(in srgb,var(--ink) 4%,transparent);
+}
+.star-social .sl-metric i{
+  font-style:normal;font-family:var(--mono);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-4);
+}
+.star-social .sl-metric b{font-family:var(--mono);font-size:18px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.star-social .sl-metric em{font-style:normal;font-size:11px;color:var(--ink-4);line-height:1.35}
+.star-social .sl-energy-s{font-family:var(--mono);font-size:11px;color:var(--ink-4);line-height:1.45}
+.star-social .sl-energy-s a{color:var(--ink-2)}
+.star-social .sl-tip{
+  display:inline-flex;flex-direction:column;gap:2px;
+  font-family:var(--mono);font-size:12px;line-height:1.35;color:var(--ink-3);
+}
+.star-social .sl-tip b{color:var(--ink);font-weight:700;font-size:13px}
+.star-social .sl-tip i{font-style:normal;color:var(--ink-4);font-size:11px}
+@media(max-width:640px){
+  .star-social .sl-metrics{grid-template-columns:1fr}
+}
+/* Elite cinema — full-bleed; frame follows the sealed media (official site stays a text link) */
+.star-cinema{margin:var(--s3) 0 var(--s4);min-width:0}
+.star-plate .star-cinema{margin:var(--s3) 0}
 .star-cinema .plate-banner-lab{
   display:flex;align-items:center;justify-content:space-between;gap:12px;
   margin:0 0 8px;
@@ -89,19 +165,24 @@
 }
 .star-cinema .plate-banner-lab b{color:var(--ink-3);font-weight:600;letter-spacing:.12em}
 .star-cinema .plate-banner-stage{
-  max-width:none;width:100%;margin:0;
+  width:100%;margin:0;
   border-radius:14px;
   box-shadow:0 1px 0 color-mix(in srgb,var(--ink) 6%,transparent),0 24px 48px -28px rgba(0,0,0,.65);
 }
-#star-plate-pick[hidden]{display:none!important}
-#star-plate-pick{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:var(--s5)}
-#star-plate-pick .sp-card{width:min(440px,100%);background:var(--panel);border:1px solid var(--line-2);border-radius:var(--r3);box-shadow:var(--shadow);padding:var(--s5)}
-#star-plate-pick .sp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--s4)}
-#star-plate-pick .sp-head b{font-size:15px}
-#star-plate-pick label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin:var(--s3) 0 var(--s2)}
-#star-plate-pick textarea,#star-plate-pick input{width:100%;box-sizing:border-box}
-#star-plate-pick .sp-foot{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s4);flex-wrap:wrap}
-#star-plate-pick .sp-hint{font-size:12px;color:var(--ink-4);margin-top:var(--s3);line-height:1.45}
+.star-cinema .plate-banner-stage[data-plate-shape="wide"],
+.star-cinema .plate-banner-stage[data-plate-shape="square"]{max-width:none}
+.star-cinema .plate-banner-stage[data-plate-shape="tall"]{max-width:min(100%,28rem);margin-inline:auto}
+#star-plate-pick[hidden],#star-like-pick[hidden]{display:none!important}
+#star-plate-pick,#star-like-pick{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:var(--s5)}
+#star-plate-pick .sp-card,#star-like-pick .sp-card{width:min(440px,100%);background:var(--panel);border:1px solid var(--line-2);border-radius:var(--r3);box-shadow:var(--shadow);padding:var(--s5)}
+#star-plate-pick .sp-head,#star-like-pick .sp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--s4)}
+#star-plate-pick .sp-head b,#star-like-pick .sp-head b{font-size:15px}
+#star-plate-pick label,#star-like-pick label{display:block;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-4);margin:var(--s3) 0 var(--s2)}
+#star-plate-pick textarea,#star-plate-pick input,#star-like-pick input,#star-like-pick select{width:100%;box-sizing:border-box}
+#star-plate-pick .sp-foot,#star-like-pick .sp-foot{display:flex;gap:var(--s2);justify-content:flex-end;margin-top:var(--s4);flex-wrap:wrap}
+#star-plate-pick .sp-hint,#star-like-pick .sp-hint{font-size:12px;color:var(--ink-4);margin-top:var(--s3);line-height:1.45}
+#star-like-pick .sl-bal{font-family:var(--mono);font-size:11px;color:var(--ink-3);line-height:1.45;margin-top:var(--s2)}
+#star-like-pick .sl-tip-extra[hidden]{display:none!important}
 
 /* live market offer — the loudest action on a listed star */
 .offer{margin-top:var(--s5);padding:var(--s5);border:1px solid var(--line-2);border-radius:var(--r3);background:var(--surface);display:flex;align-items:center;justify-content:space-between;gap:var(--s5);flex-wrap:wrap}
@@ -394,7 +475,7 @@
     <label for="sp-url">Official site</label>
     <input class="input" id="sp-url" type="url" placeholder="https://yoursite.example — not the banner" autocomplete="off">
     <label for="sp-banner">Banner media URL</label>
-    <input class="input" id="sp-banner" type="url" placeholder="https://… YouTube / .mp4 / .gif / image (different from site)" autocomplete="off">
+    <input class="input" id="sp-banner" type="url" placeholder="https://… YouTube / video / image (jpg png gif webp · or Twitter media)" autocomplete="off">
     <p class="sp-hint">Official site = your page. Banner = different media. Same URL looks identical — don't.</p>
     <label for="sp-act-to">Optional action · pay to</label>
     <input class="input" id="sp-act-to" type="text" placeholder="address (empty = off) — transfer only, not star law" autocomplete="off" spellcheck="false">
@@ -402,7 +483,19 @@
     <input class="input" id="sp-act-hint" type="text" maxlength="32" placeholder="like · gift · tip · support…" autocomplete="off">
     <label for="sp-act-amt">Suggested ₭</label>
     <input class="input" id="sp-act-amt" type="text" inputmode="numeric" placeholder="empty or 0 = visitor chooses" autocomplete="off">
-    <p class="sp-hint">Journal seals the hash · atlas holds the bytes · only the living owner · clears on send · <b>1 ₭</b> to validators. Action = transfer invite — star contracts stay on the law canvas.</p>
+    <label for="sp-like-tip">Like tip (optional · default = no tip)</label>
+    <select class="input" id="sp-like-tip">
+      <option value="">default — no tip (fee only)</option>
+      <option value="none">fee only (locked)</option>
+      <option value="kray">tip ₭</option>
+      <option value="x">tip Ӿ</option>
+      <option value="rune">tip rune</option>
+    </select>
+    <label for="sp-like-amt">Like tip amount</label>
+    <input class="input" id="sp-like-amt" type="text" inputmode="numeric" placeholder="≥ 1 when tip is set" autocomplete="off">
+    <label for="sp-like-rune">Like tip rune id</label>
+    <input class="input" id="sp-like-rune" type="text" placeholder="only when tip = rune" autocomplete="off" spellcheck="false">
+    <p class="sp-hint">Journal seals the hash · atlas holds the bytes · only the living owner · clears on send · <b>1 ₭</b> to validators. Like tip = sealed floor for ♥ (empty = fee-only default). Action = separate transfer invite.</p>
     <div class="out" id="sp-out"></div>
     <div class="sp-foot">
       <button type="button" class="btn" id="sp-clear">Clear plate</button>
@@ -411,7 +504,35 @@
   </div>
 </div>
 
-<script src="/kray.js?v=plate2" defer></script>
+<!-- ♥ Like — tip chooser (default = fee only; tip optional → living owner) -->
+<div id="star-like-pick" hidden>
+  <div class="sp-card" role="dialog" aria-modal="true" aria-labelledby="sl-title">
+    <div class="sp-head"><b id="sl-title">♥ Like ★</b><button type="button" id="sl-close" aria-label="Close">✕</button></div>
+    <p class="sp-hint" id="sl-owner-line">Tip goes to the living owner. Fee always 1 ₭ → Treasury. Counts toward /rank/likes.</p>
+    <label for="sl-tip-asset">Tip (optional)</label>
+    <select class="input" id="sl-tip-asset">
+      <option value="none">none — fee only (default)</option>
+      <option value="kray">tip ₭</option>
+      <option value="x">tip Ӿ</option>
+      <option value="rune">tip rune</option>
+    </select>
+    <div class="sl-tip-extra" id="sl-tip-extra" hidden>
+      <label for="sl-tip-amt">Tip amount</label>
+      <input class="input" id="sl-tip-amt" type="text" inputmode="numeric" placeholder="whole number ≥ 1" autocomplete="off">
+      <label for="sl-tip-rune" id="sl-tip-rune-lab" hidden>Rune</label>
+      <select class="input" id="sl-tip-rune" hidden></select>
+    </div>
+    <div class="sl-bal" id="sl-bal">your balances load after connect…</div>
+    <p class="sp-hint" id="sl-floor-hint" hidden></p>
+    <div class="out" id="sl-pick-out"></div>
+    <div class="sp-foot">
+      <button type="button" class="btn" id="sl-cancel">Cancel</button>
+      <button type="button" class="btn primary" id="sl-sign">Sign like · fee 1 ₭</button>
+    </div>
+  </div>
+</div>
+
+<script src="/kray.js?v=site-card1" defer></script>
 <script src="/contract-exam.js?v=rain2" defer></script>
 <script>
 (function(){
@@ -1736,7 +1857,7 @@
     var host=document.getElementById('speakcard');
     if(!host || !s.owner || s.owner==='KRAY_BLACK_HOLE'){ if(host) host.remove(); return; }
     host.innerHTML='<h2>The key</h2>'
-      +'<div class="sub">Star <b>#'+esc(String(s.star))+'</b> is the master id. A lock — car, house, vault — names this number. The living wallet signs with Bitcoin\'s own BIP-340. Nothing is journaled. Nothing is paid. A stranger re-derives the hold from the proof bytes + ownerOf(#'+esc(String(s.star))+').</div>'
+      +'<div class="sub">Star <b>#'+esc(String(s.star))+'</b> is the master id. <b>Kray Lock</b> — car, house, vault, Discord, game — names this number. The living wallet signs with Bitcoin\'s own BIP-340. Nothing is journaled. Nothing is paid. A stranger re-derives the hold from the proof bytes + ownerOf(#'+esc(String(s.star))+'). Door UI: <a href="/lock?star='+esc(String(s.star))+'&audience=house">/lock</a>.</div>'
       +'<div class="lawfields"><input class="input" id="speak-aud" placeholder="audience — car, house, vault, hold" value="hold" autocomplete="off" style="min-height:44px"></div>'
       +'<div class="actions" style="margin-top:var(--s3)"><button class="btn" id="speak-run" style="min-height:44px">Speak — prove you hold it · 0 ₭</button></div>'
       +'<pre class="lawprev" id="speak-out" hidden></pre>';
@@ -1802,6 +1923,10 @@
     if(at) at.value=(p && p.actTo) || '';
     if(ah) ah.value=(p && p.actHint) || '';
     if(aa) aa.value=(p && p.actAmount) || '';
+    var lt=document.getElementById('sp-like-tip'), la=document.getElementById('sp-like-amt'), lr=document.getElementById('sp-like-rune');
+    if(lt) lt.value=(p && p.likeTip) || '';
+    if(la) la.value=(p && p.likeAmount) || '';
+    if(lr) lr.value=(p && p.likeRune) || '';
     var c=document.getElementById('sp-desc-count');
     if(c) c.textContent=mouthByteLen(d && d.value)+' / 160';
     var o=document.getElementById('sp-out'); if(o){ o.className='out'; o.textContent=''; }
@@ -1819,13 +1944,26 @@
     var actTo=clearAll?'':(((document.getElementById('sp-act-to')||{}).value||'').trim());
     var actHint=clearAll?'':((document.getElementById('sp-act-hint')||{}).value||'');
     var actAmount=clearAll?'':(((document.getElementById('sp-act-amt')||{}).value||'').trim());
+    var likeTip=clearAll?'':(((document.getElementById('sp-like-tip')||{}).value||'').trim());
+    var likeAmount=clearAll?'':(((document.getElementById('sp-like-amt')||{}).value||'').trim());
+    var likeRune=clearAll?'':(((document.getElementById('sp-like-rune')||{}).value||'').trim());
     if(mouthByteLen(description)>160){ out.className='out err'; out.textContent='✗ description over 160 bytes'; return; }
     if(/[|\r\n]/.test(description)||/[|\r\n]/.test(url)||/[|\r\n]/.test(bannerUrl)
-      ||/[|\r\n]/.test(actTo)||/[|\r\n]/.test(actHint)||/[|\r\n]/.test(actAmount)){
+      ||/[|\r\n]/.test(actTo)||/[|\r\n]/.test(actHint)||/[|\r\n]/.test(actAmount)
+      ||/[|\r\n]/.test(likeTip)||/[|\r\n]/.test(likeAmount)||/[|\r\n]/.test(likeRune)){
       out.className='out err'; out.textContent='✗ fields must not contain | or newlines'; return;
     }
     if(!actTo && (actHint || actAmount)){
       out.className='out err'; out.textContent='✗ action label / amount need a pay-to address'; return;
+    }
+    if(likeTip && likeTip!=='none' && likeTip!=='kray' && likeTip!=='x' && likeTip!=='rune'){
+      out.className='out err'; out.textContent='✗ like tip must be none / kray / x / rune'; return;
+    }
+    if((likeTip==='kray'||likeTip==='x'||likeTip==='rune') && (!likeAmount || likeAmount==='0')){
+      out.className='out err'; out.textContent='✗ like tip amount must be ≥ 1'; return;
+    }
+    if(likeTip==='rune' && !likeRune){
+      out.className='out err'; out.textContent='✗ rune tip needs a rune id'; return;
     }
     if(url && bannerUrl && url.replace(/\/$/,'')===bannerUrl.replace(/\/$/,'')){
       if(!window.confirm('Official site and banner URL are the same.\nUse a different URL for the banner (YouTube / video / image) so the page does not look identical.\nContinue anyway?')) return;
@@ -1840,7 +1978,7 @@
       out.className='out'; out.textContent='preparing — KRAY Plate for ★ '+star+' (1 ₭)…';
       var body=clearAll
         ? {action:'set-kray-plate', from:me, star:String(star), clear:true}
-        : {action:'set-kray-plate', from:me, star:String(star), description:description, url:url, bannerUrl:bannerUrl, actTo:actTo, actHint:actHint, actAmount:actAmount};
+        : {action:'set-kray-plate', from:me, star:String(star), description:description, url:url, bannerUrl:bannerUrl, actTo:actTo, actHint:actHint, actAmount:actAmount, likeTip:likeTip, likeAmount:likeAmount, likeRune:likeRune};
       var res=await signAndSubmit(body);
       out.className='out ok';
       out.innerHTML='✓ star plate '+(clearAll?'cleared':'sealed')+(res && res.hash ? ' · <a href="/tx/'+esc(res.hash)+'">receipt</a>' : '');
@@ -1900,6 +2038,335 @@
       if(out) out.textContent='✗ '+(e&&e.message?e.message:'refused');
     }finally{ starPlateActBusy=false; }
   });
+
+  /* KRAY Social like — ♥ opens tip chooser (default none); then sign like a normal act. */
+  var starLikeBusy=false;
+  var starLikeCtx=null;
+  function likeTipFace(p){
+    var tip='none', amt='0', rune='';
+    if(p && p.held && p.likeTip){
+      tip=String(p.likeTip);
+      amt=(p.likeAmount && String(p.likeAmount).trim()) || '0';
+      rune=(p.likeRune && String(p.likeRune).trim()) || '';
+    }
+    if(tip!=='kray' && tip!=='x' && tip!=='rune' && tip!=='none') tip='none';
+    if(tip==='none') amt='0';
+    var label='no tip';
+    if(tip==='kray') label=amt+' ₭';
+    else if(tip==='x') label=amt+' Ӿ';
+    else if(tip==='rune') label=amt+' · '+(rune ? (rune.length>14 ? rune.slice(0,10)+'…' : rune) : 'rune');
+    return { tip:tip, amt:amt, rune:rune, label:label, hasTip:tip!=='none', locked:!!(p && p.held && p.likeTip) };
+  }
+  function socialFaceOf(s){
+    var soc=s.social || { count:0, tipKray:'0', tipX:'0', fees:'0' };
+    if(window.KRAY && typeof KRAY.socialFace==='function') return KRAY.socialFace(soc, s.history);
+    return {
+      likes:Number(soc.count)||0, fees:String(soc.fees||'0'),
+      tipKray:String(soc.tipKray||'0'), tipX:String(soc.tipX||'0'),
+      tipCount:null, feeOnly:Number(soc.count)||0, energyKray:String(soc.fees||'0')
+    };
+  }
+  function plateIsPost(p){
+    if(!p || !p.held) return false;
+    return !!(p.description || p.url || p.actTo || (p.bannerUrl && String(p.bannerUrl).trim()));
+  }
+  /* Compact heart on the living post (X-style). Same journal book as the star. */
+  function postLikeBarHtml(s, tip, face){
+    var likes=face.likes;
+    var heart=(window.KRAY && KRAY.HEART_SVG) ? KRAY.HEART_SVG : '<span aria-hidden="true">♥</span>';
+    return '<div class="star-like post-like" id="star-like">'
+      +'<div class="sl-row">'
+      +'<button type="button" class="sl-go" id="star-like-go" title="♥ Like this post" aria-label="Like this post" aria-pressed="false"'
+      +' data-owner="'+esc(s.owner)+'" data-star="'+esc(String(s.star))+'"'
+      +' data-tip="'+esc(tip.tip)+'" data-amt="'+esc(tip.amt)+'" data-rune="'+esc(tip.rune)+'">'
+      +heart+'<span class="sl-word">Like</span>'
+      +'<b class="sl-count" id="sl-count">'+likes+'</b></button>'
+      +'<i class="sl-you">connect to see if you liked</i>'
+      +'</div>'
+      +'<div class="sl-out" id="star-like-out"></div></div>';
+  }
+  /* Star life — every like on the living post feeds this book (fees + tips). */
+  function starSocialHtml(s, tip, face){
+    var likes=face.likes;
+    var tipAmt=[];
+    if(face.tipKray && face.tipKray!=='0') tipAmt.push(face.tipKray+' ₭');
+    if(face.tipX && face.tipX!=='0') tipAmt.push(face.tipX+' Ӿ');
+    var tipN=face.tipCount;
+    var feeN=face.feeOnly!=null ? face.feeOnly : likes;
+    return '<div class="star-social" id="star-social">'
+      +'<div class="sl-energy-k">Social space · life of this star</div>'
+      +'<div class="sl-energy-v"><b>'+esc(face.energyKray)+' ₭</b> energy'
+      +'<span class="sl-usd" id="sl-usd" data-kray="'+esc(face.energyKray)+'" hidden></span></div>'
+      +'<div class="sl-metrics">'
+      +'<div class="sl-metric"><i>post likes</i><b>'+likes+'</b><em>hearts on the living post</em></div>'
+      +'<div class="sl-metric"><i>tips</i><b>'+(tipN==null?'—':tipN)+'</b><em>'
+      +(tipAmt.length?esc(tipAmt.join(' · ')):'no tip yet')+'</em></div>'
+      +'<div class="sl-metric"><i>fee likes</i><b>'+feeN+'</b><em>'+esc(face.fees)+' ₭ → Treasury</em></div>'
+      +'</div>'
+      +'<div class="sl-energy-s">'+esc(face.fees)+' ₭ fees + '+esc(face.tipKray)+' ₭ tips'
+      +(face.tipX && face.tipX!=='0' ? ' · '+esc(face.tipX)+' Ӿ tips' : '')
+      +' · every like on this post feeds this star · 1 ₭ = 1 sat · <a href="/rank/likes">rank</a></div>'
+      +'<span class="sl-tip"><b>'+(tip.hasTip ? ('tip floor · '+esc(tip.label)) : 'no tip floor')+'</b>'
+      +'<i>'+(tip.hasTip ? 'min tip · fee 1 ₭ → Treasury' : 'or fee only · 1 ₭ → Treasury')+'</i></span>'
+      +'</div>';
+  }
+  function closeLikePick(){
+    var m=document.getElementById('star-like-pick');
+    if(m) m.hidden=true;
+    starLikeCtx=null;
+  }
+  function paintLikeTipFields(){
+    var sel=document.getElementById('sl-tip-asset');
+    var extra=document.getElementById('sl-tip-extra');
+    var runeLab=document.getElementById('sl-tip-rune-lab');
+    var runeSel=document.getElementById('sl-tip-rune');
+    var tip=sel ? sel.value : 'none';
+    if(extra) extra.hidden=(tip==='none');
+    if(runeLab) runeLab.hidden=(tip!=='rune');
+    if(runeSel) runeSel.hidden=(tip!=='rune');
+    var btn=document.getElementById('sl-sign');
+    if(btn){
+      btn.textContent=tip==='none' ? 'Sign like · fee 1 ₭' : 'Sign like · tip + fee 1 ₭';
+    }
+  }
+  function openLikePick(ctx){
+    starLikeCtx=ctx;
+    var m=document.getElementById('star-like-pick');
+    if(!m) return;
+    var title=document.getElementById('sl-title');
+    if(title) title.textContent='♥ Like this post · ★ '+ctx.starNo;
+    var ownerLine=document.getElementById('sl-owner-line');
+    if(ownerLine){
+      ownerLine.textContent='Like this post · to living owner '+ctx.to.slice(0,14)+'… · fee always 1 ₭ → Treasury · feeds this star on /rank/likes.';
+    }
+    var bal=document.getElementById('sl-bal');
+    if(bal){
+      var bits=['you hold '+ctx.balKray+' ₭','Ӿ '+ctx.balX];
+      if(ctx.runes && ctx.runes.length) bits.push(ctx.runes.length+' rune'+(ctx.runes.length===1?'':'s'));
+      bal.textContent=bits.join(' · ');
+    }
+    var floorHint=document.getElementById('sl-floor-hint');
+    var sel=document.getElementById('sl-tip-asset');
+    var amtEl=document.getElementById('sl-tip-amt');
+    var runeSel=document.getElementById('sl-tip-rune');
+    var out=document.getElementById('sl-pick-out');
+    if(out) out.textContent='';
+    if(sel){
+      // rebuild options — floor may lock asset
+      sel.innerHTML='';
+      function addOpt(v, lab){
+        var o=document.createElement('option');
+        o.value=v; o.textContent=lab; sel.appendChild(o);
+      }
+      if(ctx.floor.locked){
+        if(ctx.floor.tip==='none'){
+          addOpt('none','fee only (owner locked)');
+        } else {
+          addOpt(ctx.floor.tip,'tip '+ctx.floor.label+' (owner floor · min)');
+        }
+        sel.disabled=true;
+      } else {
+        addOpt('none','none — fee only (default)');
+        addOpt('kray','tip ₭');
+        addOpt('x','tip Ӿ');
+        addOpt('rune','tip rune');
+        sel.disabled=false;
+        sel.value='none';
+      }
+    }
+    if(amtEl){
+      amtEl.value=ctx.floor.locked && ctx.floor.tip!=='none' ? ctx.floor.amt : '';
+      amtEl.placeholder=ctx.floor.locked && ctx.floor.tip!=='none'
+        ? ('≥ '+ctx.floor.amt+' (owner floor)')
+        : 'whole number ≥ 1';
+    }
+    if(runeSel){
+      runeSel.innerHTML='';
+      (ctx.runes||[]).forEach(function(r){
+        var o=document.createElement('option');
+        o.value=r.runeId;
+        o.textContent=(r.rune||r.runeId)+' · '+(r.transferable||r.balance||'0');
+        runeSel.appendChild(o);
+      });
+      if(ctx.floor.locked && ctx.floor.tip==='rune' && ctx.floor.rune){
+        runeSel.value=ctx.floor.rune;
+        runeSel.disabled=true;
+      } else {
+        runeSel.disabled=false;
+      }
+    }
+    if(floorHint){
+      if(ctx.floor.locked){
+        floorHint.hidden=false;
+        floorHint.textContent=ctx.floor.tip==='none'
+          ? 'Owner sealed fee-only likes on this post.'
+          : ('Owner tip floor: '+ctx.floor.label+' — tip must meet or exceed it.');
+      } else {
+        floorHint.hidden=true;
+        floorHint.textContent='';
+      }
+    }
+    paintLikeTipFields();
+    m.hidden=false;
+  }
+  function applyStarLiked(on){
+    var box=document.getElementById('star-like');
+    var go=document.getElementById('star-like-go');
+    if(box) box.classList.toggle('is-liked', !!on);
+    if(go){
+      go.classList.toggle('is-liked', !!on);
+      go.disabled=!!on;
+      go.setAttribute('aria-pressed', on?'true':'false');
+      var word=go.querySelector('.sl-word');
+      if(word) word.textContent=on?'Liked':'Like';
+    }
+    var you=document.querySelector('#star-like .sl-you');
+    if(you) you.textContent=on?'you liked this post':'you have not liked this post';
+  }
+  function paintStarLikeUsd(){
+    var el=document.getElementById('sl-usd');
+    if(!el || !window.KRAY || typeof KRAY.fetchBtcUsd!=='function') return;
+    var k=el.getAttribute('data-kray')||'0';
+    KRAY.fetchBtcUsd().then(function(px){
+      var u=KRAY.kraySatsToUsd(k, px);
+      el.textContent=u ? ('≈ '+u) : '';
+      el.hidden=!u;
+    });
+  }
+  function wireStarLikeFace(s){
+    var box=document.getElementById('star-like');
+    if(!box) return;
+    paintStarLikeUsd();
+    var w=window.krayWallet;
+    if(!(w && w._isKrayWallet)) return;
+    Promise.resolve(w.getAccounts()).then(function(accs){
+      var me=Array.isArray(accs)?accs[0]:(accs&&(accs.address||(accs.accounts&&accs.accounts[0])));
+      if(!me) return;
+      var liked=false;
+      if(s && Array.isArray(s.history)){
+        liked=s.history.some(function(e){ return e && e.kind==='star-like' && e.from===me; });
+      }
+      applyStarLiked(liked);
+      return fetch('/api/kraynet/star/'+encodeURIComponent(String(s.star))+'?from='+encodeURIComponent(me))
+        .then(function(r){ return r.json(); })
+        .then(function(v){
+          if(v && v.social && typeof v.social.liked==='boolean') applyStarLiked(v.social.liked);
+        });
+    }).catch(function(){ /* wallet optional */ });
+  }
+  document.addEventListener('click', async function(ev){
+    var btn=ev.target && ev.target.closest ? ev.target.closest('#star-like-go') : null;
+    if(!btn) return;
+    if(btn.disabled || btn.classList.contains('is-liked')){
+      var already=document.getElementById('star-like-out');
+      if(already) already.textContent='you already liked this post — one like per wallet';
+      return;
+    }
+    var out=document.getElementById('star-like-out');
+    var w=window.krayWallet;
+    if(!(w && w._isKrayWallet)){
+      if(out) out.textContent='connect KrayWallet';
+      return;
+    }
+    var accs=await w.getAccounts();
+    var me=Array.isArray(accs)?accs[0]:(accs&&(accs.address||(accs.accounts&&accs.accounts[0])));
+    if(!me){ if(out) out.textContent='connect KrayWallet'; return; }
+    var starNo=btn.getAttribute('data-star')||'';
+    if(starLikeBusy) return;
+    if(out) out.textContent='reading living owner…';
+    try{
+      if(!(window.KRAY && typeof KRAY.likeStar==='function')){
+        throw new Error('KRAY.likeStar missing — reload /kray.js');
+      }
+      var view=await fetch('/api/kraynet/star/'+encodeURIComponent(String(starNo))).then(function(r){ return r.json(); });
+      var to=view && view.owner ? String(view.owner) : '';
+      if(!to || to==='KRAY_BLACK_HOLE') throw new Error('no living owner');
+      var floor=likeTipFace(view && view.krayPlate);
+      var prof=await fetch('/api/kraynet/profile/'+encodeURIComponent(me)).then(function(r){ return r.json(); }).catch(function(){ return {}; });
+      var balKray=String((prof && prof.balance) || '0');
+      var balX=String((prof && prof.lights && prof.lights.xSpendable) || '0');
+      var runes=Array.isArray(prof && prof.runes) ? prof.runes.filter(function(r){
+        try{ return BigInt(r.transferable||r.balance||'0')>0n; }catch(_){ return false; }
+      }) : [];
+      if(out) out.textContent='';
+      openLikePick({
+        starNo:String(starNo), me:me, to:to, floor:floor,
+        balKray:balKray, balX:balX, runes:runes,
+      });
+    }catch(e){
+      if(out) out.textContent='✗ '+(e&&e.message?e.message:'refused');
+    }
+  });
+  (function wireLikePick(){
+    var asset=document.getElementById('sl-tip-asset');
+    if(asset) asset.addEventListener('change', paintLikeTipFields);
+    var close=document.getElementById('sl-close');
+    var cancel=document.getElementById('sl-cancel');
+    if(close) close.addEventListener('click', closeLikePick);
+    if(cancel) cancel.addEventListener('click', closeLikePick);
+    var sign=document.getElementById('sl-sign');
+    if(!sign) return;
+    sign.addEventListener('click', async function(){
+      if(!starLikeCtx || starLikeBusy) return;
+      var out=document.getElementById('star-like-out');
+      var pout=document.getElementById('sl-pick-out');
+      var sel=document.getElementById('sl-tip-asset');
+      var amtEl=document.getElementById('sl-tip-amt');
+      var runeSel=document.getElementById('sl-tip-rune');
+      var tip=sel ? sel.value : 'none';
+      var amt='0';
+      var rune='';
+      if(tip!=='none'){
+        amt=String(amtEl && amtEl.value || '').trim().replace(/[,\s]/g,'');
+        if(!/^\d+$/.test(amt) || BigInt(amt)<1n){
+          if(pout) pout.textContent='tip must be a whole amount ≥ 1 (or choose none)';
+          return;
+        }
+        if(starLikeCtx.floor.locked && starLikeCtx.floor.tip===tip){
+          try{
+            if(BigInt(amt)<BigInt(starLikeCtx.floor.amt||'0')){
+              if(pout) pout.textContent='tip below owner floor ('+starLikeCtx.floor.amt+')';
+              return;
+            }
+          }catch(_){ /* keep */ }
+        }
+        if(tip==='rune'){
+          rune=runeSel ? String(runeSel.value||'').trim() : '';
+          if(!rune){
+            if(pout) pout.textContent='pick a rune you hold (or choose none / ₭ / Ӿ)';
+            return;
+          }
+        }
+      }
+      var tipLabel=tip==='none'?'no tip':(tip==='kray'?amt+' ₭':tip==='x'?amt+' Ӿ':(amt+' · '+rune));
+      var tipLine=tip==='none'
+        ? 'Tip: none — fee only'
+        : ('Tip: '+tipLabel+' → living owner\n'+starLikeCtx.to.slice(0,16)+'…');
+      var totalLine=tip==='kray'
+        ? ('Total from you: '+(BigInt(amt)+1n).toString()+' ₭  (tip '+amt+' + fee 1)')
+        : tip==='none'
+          ? 'Total from you: 1 ₭  (fee only)'
+          : ('Total from you: fee 1 ₭ + tip '+tipLabel);
+      var self=starLikeCtx.me===starLikeCtx.to;
+      var msg='♥ Like this post · ★ '+starLikeCtx.starNo+(self?' (your star)':'')+'\n\n'
+        +tipLine+'\nFee: 1 ₭ → Treasury (validators)\n'+totalLine+'\n\nConfirm in KrayWallet to sign.';
+      if(!window.confirm(msg)) return;
+      var ctx={ starNo:starLikeCtx.starNo, tip:tip, amt:amt, rune:rune, tipLabel:tipLabel };
+      starLikeBusy=true;
+      closeLikePick();
+      try{
+        var opts={ tipAsset: ctx.tip, onstep: function(s){ if(out) out.textContent=s; } };
+        if(ctx.tip==='rune') opts.runeId=ctx.rune;
+        var res=await KRAY.likeStar(ctx.starNo, ctx.tip==='none' ? '0' : ctx.amt, opts);
+        applyStarLiked(true);
+        if(out) out.innerHTML='✓ like · '+(ctx.tip==='none' ? 'fee 1 ₭' : ('tip '+esc(ctx.tipLabel)+' + fee 1 ₭'))
+          +(res && (res.hash || res.seq) ? ' · <a href="/tx/'+esc(String(res.hash||res.seq))+'">receipt</a>' : '');
+        setTimeout(function(){ location.reload(); }, 900);
+      }catch(e){
+        if(out) out.textContent='✗ '+(e&&e.message?e.message:'refused');
+      }finally{ starLikeBusy=false; }
+    });
+  })();
   function mountOwnerBar(s){
     var host=document.getElementById('ownerbar');
     if(!host || !s.owner) return;
@@ -2412,6 +2879,17 @@
       +(ins&&ins.category?'<span class="chip">'+esc(SHELF[ins.category]||'◇')+' '+esc(ins.category)+'</span>':'')
       +(s.written?'<span class="chip">relic · never spent as gas</span>':'<span class="chip">plain · moves as money</span>')
       +(s.contract?'<span class="chip">law · living</span>':'')
+      +(function(){
+        if(!s.owner || s.owner==='KRAY_BLACK_HOLE') return '';
+        var tip=likeTipFace(s.krayPlate);
+        var soc=s.social || { count:0, tipKray:'0', tipX:'0' };
+        var likes=Number(soc.count)||0;
+        var bits=[likes+' ♥', tip.hasTip ? ('tip · '+tip.label) : 'no tip'];
+        if(soc.fees && soc.fees!=='0') bits.push(soc.fees+' ₭ fees');
+        if(soc.tipKray && soc.tipKray!=='0') bits.push('raised '+soc.tipKray+' ₭');
+        if(soc.tipX && soc.tipX!=='0') bits.push(soc.tipX+' Ӿ');
+        return '<a class="chip" href="#star-social" title="Social space — likes on the post feed this star">'+esc(bits.join(' · '))+'</a>';
+      })()
       +(s.family.childCount?'<span class="chip">'+s.family.childCount+' child'+(s.family.childCount===1?'':'ren')+'</span>':'')
       +(s.name && s.family.childCount?'<a class="chip" href="/collection/'+esc(s.name)+'" title="Lineage collection — the children of this named star">collection · '+esc(s.name)+'</a>':'')
       +(function(){
@@ -2475,13 +2953,26 @@
         var p=s.krayPlate;
         if(!p || !p.held) return '<div id="star-plate-view" class="star-plate" hidden></div>';
         var hasText=!!(p.description || p.url || p.actTo);
-        if(!hasText) return '<div id="star-plate-view" class="star-plate" hidden></div>';
+        var hasBan=!!(p.bannerUrl && String(p.bannerUrl).trim());
+        if(!hasText && !hasBan) return '<div id="star-plate-view" class="star-plate" hidden></div>';
         var html='<div id="star-plate-view" class="star-plate">';
         if(p.description) html+='<p class="sp-bio">'+esc(p.description)+'</p>';
         if(p.url){
           var host='';
           try{ host=new URL(p.url).host; }catch(_){ host=p.url; }
           html+='<a class="sp-link" href="'+esc(p.url)+'" target="_blank" rel="noopener noreferrer">site · '+esc(host)+' ↗</a>';
+        }
+        if(hasBan){
+          html+='<div class="star-cinema" id="star-cinema">';
+          if(window.KRAY && typeof KRAY.plateBannerHtml==='function'){
+            html+='<div class="plate-banner-lab"><span>Plate banner</span><b>—</b></div>'
+              +KRAY.plateBannerHtml(p.bannerUrl);
+          } else {
+            var bh='';
+            try{ bh=new URL(p.bannerUrl).host; }catch(_){ bh=p.bannerUrl; }
+            html+='<a class="sp-link" href="'+esc(p.bannerUrl)+'" target="_blank" rel="noopener noreferrer">banner · '+esc(bh)+' ↗</a>';
+          }
+          html+='</div>';
         }
         if(p.actTo){
           var hint=(p.actHint && String(p.actHint).trim()) || 'Support';
@@ -2490,24 +2981,22 @@
           html+='<div><button type="button" class="sp-act" id="star-plate-act" data-act-to="'+esc(p.actTo)+'" data-act-hint="'+esc(hint)+'" data-act-amount="'+esc(p.actAmount||'')+'">'+esc(hint)+sug+'</button></div>';
           html+='<div class="sp-act-out" id="star-plate-act-out"></div>';
         }
+        if(s.owner && s.owner!=='KRAY_BLACK_HOLE'){
+          html+=postLikeBarHtml(s, likeTipFace(p), socialFaceOf(s));
+        }
         html+='<div class="sp-meta">KRAY Plate · '+esc(String(p.hash||'').slice(0,12))+'… · 1 ₭ seal</div></div>';
         return html;
       })()
+      +(s.owner && s.owner!=='KRAY_BLACK_HOLE'
+        ? (function(){
+            var tip=likeTipFace(s.krayPlate);
+            var face=socialFaceOf(s);
+            var like=plateIsPost(s.krayPlate) ? '' : postLikeBarHtml(s, tip, face);
+            return like+starSocialHtml(s, tip, face);
+          })()
+        : '')
       +'<div id="offerbar"></div>'
-      +'</div></div>'
-      +(function(){
-        var p=s.krayPlate;
-        if(!p || !p.held || !p.bannerUrl) return '';
-        if(window.KRAY && typeof KRAY.plateBannerHtml==='function'){
-          return '<div class="star-cinema" id="star-cinema">'
-            +'<div class="plate-banner-lab"><span>Plate banner</span><b>16:9</b></div>'
-            +KRAY.plateBannerHtml(p.bannerUrl)
-            +'</div>';
-        }
-        var bh='';
-        try{ bh=new URL(p.bannerUrl).host; }catch(_){ bh=p.bannerUrl; }
-        return '<div class="star-cinema" id="star-cinema"><a class="sp-link" href="'+esc(p.bannerUrl)+'" target="_blank" rel="noopener noreferrer">banner · '+esc(bh)+' ↗</a></div>';
-      })();
+      +'</div></div>';
 
     // what is written on it
     if(s.inscriptions.length || s.baptism){
@@ -2763,6 +3252,7 @@
       +'<a class="btn" href="/docs#inscribe">how stars work</a></div>';
 
     document.getElementById('body').innerHTML=h;
+    window.__krayStar=s;
     if(window.KRAY && typeof KRAY.mountPlateBanners==='function'){
       var cinema=document.getElementById('star-cinema');
       if(cinema) KRAY.mountPlateBanners(cinema);
@@ -2776,6 +3266,7 @@
     mountLuz(s);
     mountLaw(s);
     tellFreezeKind(s);
+    wireStarLikeFace(s);
 
     // every container gets its real content
     if(ins && ins.held){

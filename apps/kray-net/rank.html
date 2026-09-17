@@ -31,7 +31,24 @@
   .dtable td.who a{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
   .dtable td.who a.starwho{display:flex;align-items:center;gap:var(--s3);white-space:normal;overflow:visible;text-overflow:unset}
   .dtable td.who small{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-4);font-size:10px;letter-spacing:.02em}
-  .sface-sq{width:64px;height:64px;border-radius:var(--r2);border:1px solid var(--line);background:var(--surface-2);flex:0 0 64px;overflow:hidden}
+  .sface-sq{width:64px;height:64px;border-radius:var(--r2);border:1px solid var(--line);background:var(--surface-2);flex:0 0 64px;overflow:hidden;position:relative}
+  .sface-sq img,.sface-sq video,.sface-sq .music-cover{width:100%;height:100%;object-fit:cover;display:block}
+  .sface-sq iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+  .sface-sq .kv-nameplate,.sface-sq .kv-mark,.sface-sq .glyph{width:100%;height:100%}
+  .dtable td.heart{color:#e11d48;font-weight:600}
+  .dtable td.inv{color:var(--ink);font-weight:600}
+  .pager{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+  .pg-btn{
+    appearance:none;min-height:44px;min-width:44px;padding:0 12px;
+    border:1px solid var(--line);border-radius:var(--r2);
+    background:transparent;color:var(--ink);font:inherit;cursor:pointer;
+  }
+  .pg-btn.on{border-color:var(--ink-3);font-weight:600;background:var(--surface-2)}
+  .pg-btn:disabled{opacity:.4;cursor:not-allowed}
+  .pg-nums{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+  .pg-gap{color:var(--ink-4);padding:0 4px}
+  .pg-meta{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--ink-4)}
+  @media(max-width:639px){.pg-meta{width:100%;margin-left:0}}
   .rface{width:64px;height:64px;border-radius:var(--r2);object-fit:cover;flex:0 0 64px;background:var(--surface-2);border:1px solid var(--line)}
   .rface.fb{display:grid;place-items:center;font-size:22px;color:var(--btc);background:var(--btc-soft);border-color:var(--btc-line)}
   .starwho-m{min-width:0;flex:1}
@@ -121,6 +138,7 @@
     {id:'x',     label:'Ӿ',      path:'/rank/nyx',   title:'Ӿ'},
     {id:'glow',  label:'✦',      path:'/rank/glow',  title:'GLOW'},
     {id:'luz',   label:'✧ Luz',  path:'/rank/luz',   title:'Luz'},
+    {id:'likes', label:'♥',      path:'/rank/likes', title:'social'},
     {id:'rune',  label:'runes',  path:'/rank/rune',  title:'Runes L2'},
     {id:'stars', label:'stars',  path:'/rank/stars', title:'stars'},
     {id:'works', label:'works',  path:'/rank/works', title:'works'}
@@ -130,6 +148,7 @@
     if(h==='fenyx'||h==='nyx'||h==='fenix'||h==='phoinix'||h==='nix'||h==='x'||h==='Ӿ') return 'x';
     if(h==='glow'||h==='✦') return 'glow';
     if(h==='luz'||h==='krc-77'||h==='krc77'||h==='cut'||h==='✧') return 'luz';
+    if(h==='likes'||h==='like'||h==='♥'||h==='heart') return 'likes';
     if(h==='rune'||h==='runes'||h==='l2') return 'rune';
     if(h==='stars'||h==='star') return 'stars';
     if(h==='works'||h==='names') return 'works';
@@ -144,7 +163,7 @@
     var p=(location.pathname||'/rank').replace(/\/$/,'')||'/rank';
     var m;
     if((m=p.match(/^\/rank\/luz\/(\d+)$/))) return {book:'luz', luz:m[1]};
-    if((m=p.match(/^\/rank\/(kray|nyx|x|fenyx|glow|luz|rune|stars|works)$/))){
+    if((m=p.match(/^\/rank\/(kray|nyx|x|fenyx|glow|luz|likes|rune|stars|works)$/))){
       var id=m[1];
       if(id==='nyx'||id==='x'||id==='fenyx') id='x';
       return {book:id};
@@ -163,7 +182,14 @@
     }
   }
   migrateHash();
-  var cur=bookFromLoc(), last=null, deskStar=null;
+  var cur=bookFromLoc(), last=null, deskStar=null, libCache=null, libAt=0;
+
+  function fetchLib(){
+    if(libCache && Date.now()-libAt<20000) return Promise.resolve(libCache);
+    return fetch('/api/kraynet/library').then(function(r){ return r.json(); }).then(function(j){
+      libCache=j; libAt=Date.now(); return j;
+    }).catch(function(){ return libCache; });
+  }
 
   function setBook(id){
     cur=id;
@@ -172,6 +198,13 @@
       try{ history.pushState({book:id},'',dest); }catch(_){ location.href=dest; return; }
     }
     if(last) render(last);
+    if(id==='likes' && last && !last._lib){
+      fetchLib().then(function(lib){
+        if(!lib || !last) return;
+        last._lib=lib;
+        if(bookFromLoc()==='likes') render(last);
+      });
+    }
   }
 
   function shareOf(part, whole){
@@ -275,6 +308,25 @@
         return '<b>What this list is.</b> '+num((d.stars&&d.stars.total)||0)+' stars exist on this journal. This table orders ₭-holding citizens by how many they hold. Frozen stars live on the <a href="/blackhole">black-hole register</a>, and on the glow book.';
       }
     },
+    likes:{
+      eye:'KRAY SOCIAL · STAR-LIKE',
+      title:'Rank · Social stars',
+      lede:'Stars ordered by <b>♥ likes</b> then <b>involve</b> (fees + tips ₭ — journal energy). Kind <code>star-like</code> names the star. Fee always 1 ₭ → Treasury. Tip is optional. Click a row to open the star.',
+      head:'The social star standing',
+      sub:'Same standing as the other books — thumbnail, baptism, scores. 25 per page.',
+      note:function(d, rows){
+        var L=d.likes||{};
+        var inv;
+        try{ inv=(BigInt(L.fees||0)+BigInt(L.tipKray||0)).toString(); }catch(_){ inv=String(L.fees||'0'); }
+        return '<b>What this list is.</b> Stars scored by the social book — not a works catalog. '
+          +num(L.totalLikes||0)+' like'+(Number(L.totalLikes||0)===1?'':'s')
+          +' across '+num(L.totalStars||0)+' star'+(Number(L.totalStars||0)===1?'':'s')
+          +(rows&&rows.length?' · '+num(rows.length)+' on this book.':'. ')
+          +' Involve '+(ka(inv))+' ₭ (fees '+(ka(L.fees||0))+' + tips '+(ka(L.tipKray||0))+') · '
+          +(ka(L.tipX||0))+' Ӿ tips stay Ӿ. 1 ₭ = 1 sat. '
+          +'♥ lives on <a href="/star/1">/star/N</a>.';
+      }
+    },
     works:{
       eye:'INSCRIPTIONS WRITTEN · DERIVED',
       title:'Rank · works',
@@ -359,6 +411,17 @@
         stat(num(st.written||0),'inscribed')+
         stat(num(st.named||0),'named')+
         stat(num(d.rankTotal||0),'₭ holders');
+      return;
+    }
+    if(cur==='likes'){
+      var lk=d.likes||{};
+      var inv;
+      try{ inv=(BigInt(lk.fees||0)+BigInt(lk.tipKray||0)).toString(); }catch(_){ inv=String(lk.fees||'0'); }
+      el.innerHTML=
+        stat(num(lk.totalLikes||0),'♥ likes')+
+        stat(num(lk.totalStars||0),'stars liked')+
+        stat(ka(inv)+' ₭','involve · fees + tips')+
+        stat(ka(lk.fees||0)+' ₭','fees → Treasury');
       return;
     }
     if(cur==='works'){
@@ -529,6 +592,140 @@
         +'</tr>';
     });
     return {html:h+'</tbody></table></div>', rows:rows};
+  }
+
+  function hashFromUrl(u){
+    var m=String(u||'').match(/\/(?:content|cover|render)\/([0-9a-f]{64})/i);
+    return m?m[1].toLowerCase():null;
+  }
+  function starFaceMap(lib){
+    var by={};
+    if(!lib) return by;
+    (lib.works||[]).forEach(function(w){
+      var h=hashFromUrl(w.url);
+      by[String(w.star)]={
+        name:w.name||null,
+        contentHash:h,
+        contentType:w.contentType||null,
+        url:w.url||(h?'/content/'+h:null),
+        held:!!(w.url||h)
+      };
+    });
+    (lib.entries||[]).forEach(function(e){
+      var star=String(e.star);
+      var face=by[star]||(by[star]={name:null,contentHash:null,contentType:null,url:null,held:false});
+      if(!face.name && e.name) face.name=e.name;
+      if(!face.contentHash && e.inscription){
+        face.contentType=e.inscription.contentType||face.contentType;
+        face.url=e.inscription.url||face.url;
+        face.contentHash=hashFromUrl(face.url);
+        face.held=!!face.url;
+      }
+    });
+    return by;
+  }
+  function energyOf(r){
+    if(r.energyKray!=null && r.energyKray!=='') return String(r.energyKray);
+    try{ return (BigInt(r.fees||0)+BigInt(r.tipKray||0)).toString(); }
+    catch(_){ return String(r.fees||'0'); }
+  }
+  function likesRows(d){
+    var faces=starFaceMap(d._lib);
+    return ((d.likes&&d.likes.rank)||[]).map(function(r){
+      var star=String(r.star);
+      var f=faces[star]||{};
+      return {
+        star:star,
+        count:Number(r.count)||0,
+        tipKray:r.tipKray||'0',
+        tipX:r.tipX||'0',
+        fees:r.fees||'0',
+        energyKray:energyOf(r),
+        name:r.name||r.baptism||f.name||null,
+        contentHash:r.contentHash||f.contentHash||null,
+        contentType:r.contentType||f.contentType||null,
+        url:r.url||f.url||null,
+        held:r.held!=null?r.held:!!(f.held||f.url||f.contentHash)
+      };
+    });
+  }
+  var LK_PAGE=25;
+  function likesPageOf(total){
+    var pages=Math.max(1, Math.ceil((total||0)/LK_PAGE)||1);
+    var p=1;
+    try{ p=parseInt(new URL(location.href).searchParams.get('p')||'1', 10); }catch(_){ p=1; }
+    if(!Number.isFinite(p)||p<1) p=1;
+    if(p>pages) p=pages;
+    return {page:p, pages:pages};
+  }
+  function setLikesPage(n){
+    n=Math.max(1, Number(n)||1);
+    var u=new URL(location.href);
+    if(n<=1) u.searchParams.delete('p');
+    else u.searchParams.set('p', String(n));
+    try{ history.pushState({book:'likes', p:n}, '', u.pathname+u.search); }
+    catch(_){ location.search=u.search; return; }
+    if(last) render(last);
+    var box=document.getElementById('tbl');
+    if(box && box.scrollIntoView) box.scrollIntoView({block:'start', behavior:'smooth'});
+  }
+  function pagerPages(cur, lastN){
+    var mark={}; mark[1]=1; mark[lastN]=1;
+    for(var i=cur-1;i<=cur+1;i++) if(i>=1&&i<=lastN) mark[i]=1;
+    var keys=Object.keys(mark).map(Number).sort(function(a,b){ return a-b; });
+    var out=[];
+    keys.forEach(function(n, idx){
+      if(idx && n-keys[idx-1]>1) out.push('…');
+      out.push(n);
+    });
+    return out;
+  }
+  function pagerHtml(page, pages, total){
+    if(pages<=1) return '';
+    var from=(page-1)*LK_PAGE+1, to=Math.min(page*LK_PAGE, total);
+    var h='<nav class="pager" aria-label="Rank pages">'
+      +'<button type="button" class="pg-btn" data-lk-page="'+(page-1)+'"'+(page<=1?' disabled':'')+'>Previous</button>'
+      +'<div class="pg-nums">';
+    pagerPages(page, pages).forEach(function(x){
+      if(x==='…') h+='<span class="pg-gap" aria-hidden="true">…</span>';
+      else h+='<button type="button" class="pg-btn'+(x===page?' on':'')+'" data-lk-page="'+x+'" aria-current="'+(x===page?'page':'false')+'">'+x+'</button>';
+    });
+    return h+'</div>'
+      +'<button type="button" class="pg-btn" data-lk-page="'+(page+1)+'"'+(page>=pages?' disabled':'')+'>Next</button>'
+      +'<span class="pg-meta">'+num(from)+'–'+num(to)+' of '+num(total)+'</span></nav>';
+  }
+  function tableLikes(d){
+    var rows=likesRows(d);
+    if(!rows.length) return {html:'<div class="empty">No ♥ likes yet. Open any living <a href="/star/1">/star/N</a> — the heart is always there. Fee 1 ₭ → Treasury; tip only when the owner sealed one.</div>', rows:rows};
+    var pg=likesPageOf(rows.length);
+    var slice=rows.slice((pg.page-1)*LK_PAGE, pg.page*LK_PAGE);
+    var sig=pg.page+'|'+slice.map(function(r){ return r.star+':'+r.count+':'+r.energyKray+':'+(r.contentHash||'')+':'+(r.name||''); }).join('|');
+    var box=document.querySelector('#tbl .tblwrap[data-lk-sig]');
+    if(box && box.getAttribute('data-lk-sig')===sig) return {html:'', rows:rows, keep:true};
+    var h='<div class="tblwrap" data-lk-sig="'+esc(sig)+'"><table class="dtable"><thead><tr>'
+      +'<th class="rk">#</th><th>star</th>'
+      +'<th class="r">♥</th><th class="r">involve</th>'
+      +'<th class="r hidem">tip Ӿ</th>'
+      +'</tr></thead><tbody>';
+    slice.forEach(function(r,i){
+      var abs=(pg.page-1)*LK_PAGE+i;
+      var href='/star/'+encodeURIComponent(r.star);
+      var title=(r.name?r.name+' · ':'')+'★ '+r.star+' · '+r.count+' likes';
+      var face=(window.KRAY&&KRAY.faceHtml)
+        ? KRAY.faceHtml({star:r.star,name:r.name,contentHash:r.contentHash,contentType:r.contentType,url:r.url,held:r.held})
+        : '<span class="glyph">★ '+esc(r.star)+'</span>';
+      h+='<tr class="trow-click'+(abs===0?' top1':'')+'" data-href="'+esc(href)+'">'
+        +rkCell(abs)
+        +'<td class="who"><a class="starwho" href="'+esc(href)+'" title="'+esc(title)+'">'
+        +'<span class="face facefill fixed sface-sq">'+face+'</span>'
+        +'<span class="starwho-m"><b>'+esc(r.name||('★ '+r.star))+'</b>'
+        +'<small>★ '+esc(r.star)+(r.name?' · baptised':'')+' · star-like · open the star →</small></span></a></td>'
+        +'<td class="r heart" title="'+esc(String(r.count))+' likes">'+num(r.count)+'</td>'
+        +'<td class="r inv" title="fees + tips ₭ from the journal">'+ka(r.energyKray)+' ₭</td>'
+        +'<td class="r hidem" title="'+esc(full(r.tipX))+' Ӿ">'+ka(r.tipX)+' Ӿ</td>'
+        +'</tr>';
+    });
+    return {html:h+'</tbody></table>'+pagerHtml(pg.page, pg.pages, rows.length)+'</div>', rows:rows};
   }
 
   function shortA(a){
@@ -714,12 +911,15 @@
     if(cur==='x') out=tableX(d);
     else if(cur==='glow') out=tableGlow(d);
     else if(cur==='luz') out=tableLuz(d);
+    else if(cur==='likes') out=tableLikes(d);
     else if(cur==='rune') out=tableRune(d);
     else if(cur==='stars') out=tableKray(d,'stars');
     else if(cur==='works') out=tableKray(d,'works');
     else out=tableKray(d,'balance');
-    document.getElementById('tbl').innerHTML=out.html;
-    if(window.KRAY&&KRAY.hydratePortraits) KRAY.hydratePortraits(document.getElementById('tbl'));
+    if(!out.keep){
+      document.getElementById('tbl').innerHTML=out.html;
+      if(window.KRAY&&KRAY.hydratePortraits) KRAY.hydratePortraits(document.getElementById('tbl'));
+    }
 
     var note=(COPY[cur]||COPY.kray).note(d, out.rows);
     document.getElementById('note').innerHTML=note;
@@ -729,6 +929,13 @@
   }
 
   document.getElementById('tbl').addEventListener('click', function(e){
+    var btn=e.target.closest('[data-lk-page]');
+    if(btn){
+      e.preventDefault();
+      if(btn.disabled) return;
+      setLikesPage(btn.getAttribute('data-lk-page'));
+      return;
+    }
     var tr=e.target.closest('tr[data-href]');
     if(tr && !e.target.closest('a')) location.href=tr.getAttribute('data-href');
   });
@@ -764,13 +971,16 @@
   }
 
   function tick(){
+    var wantLib=bookFromLoc()==='likes';
     Promise.all([
       fetch('/api/kraynet/analytics').then(function(r){ return r.json(); }),
       fetch('/api/kraynet/lights').then(function(r){ return r.json(); }).catch(function(){ return null; }),
-      fetch('/api/kraynet/runes').then(function(r){ return r.json(); }).catch(function(){ return null; })
+      fetch('/api/kraynet/runes').then(function(r){ return r.json(); }).catch(function(){ return null; }),
+      wantLib?fetchLib():Promise.resolve(libCache)
     ]).then(function(pair){
       var d=attachLights(pair[0], pair[1]);
       if(pair[2]) d.runes=pair[2];
+      if(pair[3]) d._lib=pair[3];
       render(d);
     }).catch(function(){
       var s=document.getElementById('stamp');

@@ -1,5 +1,9 @@
 # Multi-writer objective — the pen as a role, not a machine
 
+> **Post-reset note:** where this pin cites "Article XIV … Signet seq 155", that seq belongs to the
+> retired old chain — after the v1.0.0 genesis reset the inclusion law is **born active at seq 0**
+> on both nets (`INCLUSION_ACTIVATION_SEQ` in `ledger.ts`).
+
 > **Status: LOCKED OBJECTIVE (the Creator, 2026-08-26).** Destination only. No consensus
 > change in this file. The math already lives in ADR-3 slices 3a–3e; this pin names the
 > live picture so a later wiring cannot invent a second consensus, a committee, or a

@@ -1,5 +1,10 @@
 # Pen Decentralization — the Creator's activation decision brief (ADR-3)
 
+> **Post-reset note (v1.0.0 genesis, 2026-08-26):** the seq-155 pin below belongs to the retired
+> old Signet chain. On the reborn signet and on mainnet this law is **born active at seq 0**
+> (`INCLUSION_ACTIVATION_SEQ` in `ledger.ts`, locked by `activation-seq-pin.test.ts`). The rite
+> recorded here is history; the law it activated is unchanged.
+
 > **Status: RATIFIED FOR SIGNET (the Creator, 2026-08-23).** H = seq **155**, pinned live while the tip stood
 > at 149 (the deploy-race rite). The Ӿ transfer activation rides the SAME seq — one upgrade, one story to
 > audit. Mainnet constants are set to **born-activated (0)** now, so mainnet genesis needs no future edit.

@@ -152,6 +152,8 @@
     'x-send': 'fenyx', 'lane-enter': 'fenyx', 'lane-exit': 'fenyx', 'fold-seal': 'fenyx',
     'contract': 'law', 'contract-call': 'law',
     'quantum-commit': 'quantum', 'quantum-migrate': 'quantum',
+    'set-face': 'identity', 'clear-face': 'identity', 'set-profile': 'identity', 'set-kray-plate': 'identity',
+    'star-like': 'social',
     'transfer-star': 'starmove',
     'star-list': 'market', 'star-delist': 'market', 'star-buy': 'market',
     'star-offer': 'market', 'star-offer-cancel': 'market', 'star-offer-accept': 'market',
@@ -169,6 +171,8 @@
     'contract': 0x5b8def, 'contract-call': 0x93c5fd,
     'quantum-commit': 0xd946ef, 'quantum-migrate': 0xe879f9,
     'transfer-star': 0xe8cd93, 'fire': 0xf5776b,
+    'star-like': 0xf472b6,
+    'set-face': 0x94a3b8, 'clear-face': 0x64748b, 'set-profile': 0xcbd5e1, 'set-kray-plate': 0xe2e8f0,
   };
   KRAY.actHue = function (kind, opts) {
     opts = opts || {};
@@ -184,6 +188,7 @@
     if (fam === 'law') return 0x5b8def;
     if (fam === 'quantum') return 0xd946ef;
     if (fam === 'starmove') return 0xe8cd93;
+    if (fam === 'social' || fam === 'identity') return 0xf472b6;
     return 0x8b5cf6;
   };
   KRAY.actCss = function (kind, opts) {
@@ -287,6 +292,101 @@
     var sr = await fetch('/api/kraynet/submit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(sub) });
     var res = await sr.json(); if (!sr.ok || res.error) throw new Error(res.error || 'refused');
     return res;
+  };
+
+  /* KRAY Social like — journal kind star-like (β′). Fee 1 → Treasury always.
+     tipAsset: none | kray | x | rune. tipAmount required when tip ≠ none.
+     Never mints Ӿ. Living owner resolved at prepare/apply. */
+  KRAY.likeStar = async function (star, tipAmount, opts) {
+    opts = opts || {}
+    var n = String(star == null ? '' : star).trim()
+    if (!/^\d+$/.test(n)) throw new Error('star must be a whole number')
+    var tip = opts.tipAsset != null ? String(opts.tipAsset) : null
+    if (tip == null) {
+      // Legacy: second arg as tip ₭ (positive) or 0 / empty ⇒ fee-only.
+      var legacy = tipAmount == null ? '0' : String(tipAmount).trim().replace(/[,\s]/g, '')
+      if (legacy === '' || legacy === '0') tip = 'none'
+      else tip = 'kray'
+      tipAmount = legacy === '' ? '0' : legacy
+    }
+    if (tip !== 'none' && tip !== 'kray' && tip !== 'x' && tip !== 'rune') {
+      throw new Error('tipAsset must be none, kray, x, or rune')
+    }
+    var fields = { star: n }
+    if (tip === 'none') {
+      fields.tipAsset = 'none'
+    } else {
+      var amt = String(tipAmount == null ? '' : tipAmount).trim().replace(/[,\s]/g, '')
+      if (!/^\d+$/.test(amt) || BigInt(amt) < 1n) throw new Error('tip must be a whole amount ≥ 1')
+      fields.tipAsset = tip
+      fields.amount = amt
+      if (tip === 'rune') {
+        var rid = opts.runeId != null ? String(opts.runeId).trim() : ''
+        if (!rid) throw new Error('rune tip needs runeId')
+        fields.runeId = rid
+      }
+    }
+    if (opts.onstep) opts.onstep('preparing star-like…')
+    return KRAY.act('star-like', fields, opts)
+  };
+
+  /** Outline heart — filled red by CSS when .is-liked. */
+  KRAY.HEART_SVG = '<svg class="sl-heart" viewBox="0 0 24 24" aria-hidden="true">'
+    + '<path d="M12.1 21.35l-1.1-1C5.14 14.24 2 11.39 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09C13.09 2.81 14.76 2 16.5 2 19.58 2 22 4.42 22 7.5c0 3.89-3.14 6.74-8.9 12.85l-1 1z"/>'
+    + '</svg>';
+  /** Journal face for the social space. Counts from the derived book; ₭ never invented. */
+  KRAY.socialFace = function (soc, history) {
+    soc = soc || {};
+    var likes = Number(soc.count) || 0;
+    var fees = String(soc.fees || '0');
+    var tipKray = String(soc.tipKray || '0');
+    var tipX = String(soc.tipX || '0');
+    var tipCount = soc.tipCount != null ? Number(soc.tipCount) : null;
+    var feeOnly = soc.feeOnly != null ? Number(soc.feeOnly) : null;
+    if ((tipCount == null || feeOnly == null) && Array.isArray(history)) {
+      var ev = history.filter(function (e) { return e && e.kind === 'star-like'; });
+      var tagged = ev.some(function (e) { return e.tipAsset != null; });
+      var noTipMoney = tipKray === '0' && tipX === '0';
+      if ((tagged || noTipMoney) && (ev.length === likes || likes === 0)) {
+        var tips = 0;
+        var feesN = 0;
+        ev.forEach(function (e) {
+          if (e.tipAsset && e.tipAsset !== 'none') tips++;
+          else feesN++;
+        });
+        if (tipCount == null) tipCount = tips;
+        if (feeOnly == null) feeOnly = feesN;
+      }
+    }
+    if (feeOnly == null) feeOnly = likes;
+    var energyKray = '0';
+    try { energyKray = (BigInt(fees) + BigInt(tipKray)).toString(); } catch (_) { energyKray = fees; }
+    return {
+      likes: likes, fees: fees, tipKray: tipKray, tipX: tipX,
+      tipCount: tipCount, feeOnly: feeOnly, energyKray: energyKray,
+      tipRunes: soc.tipRunes || {},
+    };
+  };
+  KRAY.kraySatsToUsd = function (kray, btcUsd) {
+    var n = Number(kray);
+    var px = Number(btcUsd);
+    if (!(n >= 0) || !(px > 0) || !isFinite(n) || !isFinite(px)) return '';
+    var usd = (n * px) / 1e8;
+    if (usd === 0) return '$0';
+    if (usd < 0.01) return '<$0.01';
+    if (usd < 1000) return '$' + usd.toFixed(2);
+    return '$' + usd.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  };
+  KRAY.fetchBtcUsd = function () {
+    if (KRAY._btcUsd > 0 && (Date.now() - (KRAY._btcUsdAt || 0) < 60000)) {
+      return Promise.resolve(KRAY._btcUsd);
+    }
+    return fetch('/api/kraynet/btc-price').then(function (r) { return r.json(); }).then(function (j) {
+      var u = Number(j && j.usd) || 0;
+      KRAY._btcUsd = u;
+      KRAY._btcUsdAt = Date.now();
+      return u;
+    }).catch(function () { return 0; });
   };
 
   /* ── MARKUP STARS (HTML + Markdown) ────────────────────────────────────────
@@ -822,11 +922,11 @@
       + '<em>name only</em></span>';
   };
 
-  /* ── KRAY PLATE bannerUrl — render the sealed HTTPS URL in the front (16:9 stage).
-     youtube → embed autoplay (muted; browser policy) · stop on ENDED
-     direct video → <video autoplay> · pause on ended
-     image / gif → <img> cover in the same wide frame
-     other https → quiet outbound link (never invent a second media kind) ── */
+  /* ── KRAY PLATE bannerUrl — paint the sealed HTTPS URL; the frame follows the bytes.
+     youtube → embed autoplay (muted; browser policy) · stop on ENDED · 16:9 or Shorts 9:16
+     direct video → <video autoplay> · pause on ended · native ratio
+     image / gif → <img> contain · square / wide / tall from natural size
+     other https → X-style site card (og:image via /api/kraynet/unfurl) · click opens the sealed URL ── */
   KRAY.plateYoutubeId = function (raw) {
     try {
       var u = new URL(String(raw || ''));
@@ -844,32 +944,103 @@
     } catch (_) { /* not a URL */ }
     return '';
   };
+  KRAY.plateYoutubeFrame = function (raw) {
+    var id = KRAY.plateYoutubeId(raw);
+    if (!id) return null;
+    var tall = false;
+    try {
+      var parts = (new URL(String(raw || ''))).pathname.split('/').filter(Boolean);
+      tall = parts[0] === 'shorts';
+    } catch (_) { /* */ }
+    return { id: id, w: tall ? 9 : 16, h: tall ? 16 : 9 };
+  };
+  KRAY.plateRatioLabel = function (w, h) {
+    w = Math.round(Number(w) || 0);
+    h = Math.round(Number(h) || 0);
+    if (w < 1 || h < 1) return '';
+    if (Math.abs(w / h - 1) <= 0.03) return '1:1';
+    function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+    var g = gcd(w, h);
+    var a = w / g;
+    var b = h / g;
+    if (a <= 32 && b <= 32) return a + ':' + b;
+    return w >= h
+      ? (Math.round((w / h) * 10) / 10) + ':1'
+      : '1:' + (Math.round((h / w) * 10) / 10);
+  };
+  KRAY.plateShapeOf = function (w, h) {
+    w = Number(w) || 0;
+    h = Number(h) || 0;
+    if (w < 1 || h < 1) return '';
+    var r = w / h;
+    if (r >= 0.97 && r <= 1.03) return 'square';
+    return r > 1 ? 'wide' : 'tall';
+  };
+  /** Size the stage to the media. Chrome only — sealed URL is untouched. */
+  KRAY.fitPlateBanner = function (stage, w, h) {
+    if (!stage || !w || !h) return;
+    var shape = KRAY.plateShapeOf(w, h);
+    var label = KRAY.plateRatioLabel(w, h);
+    if (!shape || !label) return;
+    stage.style.setProperty('--plate-ar', w + ' / ' + h);
+    stage.setAttribute('data-plate-shape', shape);
+    stage.setAttribute('data-plate-ratio', label);
+    var host = stage.parentNode;
+    var lab = host && host.querySelector && host.querySelector('.plate-banner-lab b');
+    if (lab) lab.textContent = label;
+  };
+  /** Paint src for an image banner. Sealed URL stays; twimg needs format= to decode. */
+  KRAY.plateImageSrc = function (raw) {
+    var s = String(raw || '').trim();
+    try {
+      var u = new URL(s);
+      var host = (u.hostname || '').replace(/^www\./, '').toLowerCase();
+      if (/(^|\.)twimg\.com$/.test(host) && /\/media\//.test(u.pathname || '')) {
+        if (!u.searchParams.get('format')) u.searchParams.set('format', 'jpg');
+        if (!u.searchParams.get('name')) u.searchParams.set('name', 'large');
+        return u.toString();
+      }
+    } catch (_) { /* sealed URL as-is */ }
+    return s;
+  };
   KRAY.plateBannerKind = function (raw) {
     var s = String(raw || '').trim();
     if (!s) return '';
     if (KRAY.plateYoutubeId(s)) return 'youtube';
     try {
-      var path = (new URL(s)).pathname || '';
+      var u = new URL(s);
+      var path = u.pathname || '';
       var ext = (path.split('.').pop() || '').toLowerCase();
+      if (ext.indexOf('/') !== -1) ext = '';
       if (/^(gif|png|jpe?g|webp|avif|svg)$/.test(ext)) return 'image';
       if (/^(mp4|webm|ogg|ogv|mov|m4v)$/.test(ext)) return 'video';
+      var host = (u.hostname || '').replace(/^www\./, '').toLowerCase();
+      var fmt = String(u.searchParams.get('format') || '').toLowerCase();
+      if (/^(jpe?g|png|webp|gif|avif)$/.test(fmt)) return 'image';
+      if (/(^|\.)twimg\.com$/.test(host) && /\/(media|tweet_video_thumb|ext_tw_video_thumb|amplify_video_thumb)\//.test(path)) return 'image';
+      if (/^(i\.imgur\.com|imgur\.com|pbs\.twitter\.com|images\.unsplash\.com|lh3\.googleusercontent\.com|media\.discordapp\.net|cdn\.discordapp\.com|i\.ibb\.co)$/.test(host)) {
+        return 'image';
+      }
     } catch (_) { /* */ }
-    // content-type unknown — treat image hosts lightly via common query-less paths
     if (/\.(gif|png|jpe?g|webp|avif)(\?|$)/i.test(s)) return 'image';
     if (/\.(mp4|webm|ogg|mov)(\?|$)/i.test(s)) return 'video';
     return 'link';
   };
-  /** HTML for one sealed bannerUrl — always the same 16:9 stage. */
+  /** HTML for one sealed bannerUrl — stage size is applied after the media decodes. */
   KRAY.plateBannerHtml = function (raw) {
     var url = String(raw || '').trim();
     if (!url) return '';
     var kind = KRAY.plateBannerKind(url);
     var esc = KRAY.esc;
     if (kind === 'youtube') {
-      var id = KRAY.plateYoutubeId(url);
+      var frame = KRAY.plateYoutubeFrame(url);
+      var id = frame.id;
+      var shape = frame.h > frame.w ? 'tall' : 'wide';
       var src = 'https://www.youtube.com/embed/' + encodeURIComponent(id)
         + '?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1';
-      return '<div class="plate-banner-stage" data-plate-banner="youtube" data-ytid="' + esc(id) + '">'
+      return '<div class="plate-banner-stage" data-plate-banner="youtube" data-ytid="' + esc(id) + '"'
+        + ' data-plate-shape="' + shape + '" data-plate-ratio="' + frame.w + ':' + frame.h + '"'
+        + ' style="--plate-ar:' + frame.w + ' / ' + frame.h + '">'
         + '<iframe class="plate-banner-frame" src="' + esc(src) + '" title="KRAY Plate banner" '
         + 'allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" '
         + 'allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin"></iframe>'
@@ -881,14 +1052,67 @@
         + 'preload="metadata"></video></div>';
     }
     if (kind === 'image') {
+      var imgSrc = KRAY.plateImageSrc(url);
       return '<div class="plate-banner-stage" data-plate-banner="image">'
         + '<a class="plate-banner-hit" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer" title="Open banner">'
-        + '<img class="plate-banner-img" src="' + esc(url) + '" alt="" loading="lazy" decoding="async">'
+        + '<img class="plate-banner-img" src="' + esc(imgSrc) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">'
         + '</a></div>';
     }
-    var host = url;
-    try { host = new URL(url).host; } catch (_) { /* */ }
-    return '<a class="mouth-link plate-banner-fallback" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">banner · ' + esc(host) + ' ↗</a>';
+    if (kind === 'link') {
+      var host = url;
+      try { host = new URL(url).hostname.replace(/^www\./, ''); } catch (_) { /* */ }
+      return '<a class="plate-linkcard" data-plate-banner="link" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">'
+        + '<span class="plate-linkcard-media" hidden><img alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"></span>'
+        + '<span class="plate-linkcard-meta">'
+        + '<b class="plate-linkcard-host">' + esc(host) + '</b>'
+        + '<em class="plate-linkcard-title">Open site</em>'
+        + '<span class="plate-linkcard-desc" hidden></span>'
+        + '</span></a>';
+    }
+    var fallHost = url;
+    try { fallHost = new URL(url).host; } catch (_) { /* */ }
+    return '<a class="mouth-link plate-banner-fallback" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">banner · ' + esc(fallHost) + ' ↗</a>';
+  };
+  KRAY.unfurlSite = function (url) {
+    var key = String(url || '').trim();
+    if (!key) return Promise.resolve({ ok: false });
+    KRAY._unfurlCache = KRAY._unfurlCache || {};
+    if (KRAY._unfurlCache[key]) return Promise.resolve(KRAY._unfurlCache[key]);
+    return fetch('/api/kraynet/unfurl?url=' + encodeURIComponent(key))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        KRAY._unfurlCache[key] = j && typeof j === 'object' ? j : { ok: false };
+        return KRAY._unfurlCache[key];
+      })
+      .catch(function () { return { ok: false }; });
+  };
+  /**
+   * Paint a plate banner into `host` only when the sealed URL changes.
+   * Live node polls must never remount a playing <video> / YouTube iframe.
+   * Returns true when the media node was (re)created.
+   */
+  KRAY.syncPlateBanner = function (host, raw, opts) {
+    if (!host) return false;
+    opts = opts || {};
+    var url = String(raw || '').trim();
+    var prev = host.getAttribute('data-plate-src') || '';
+    if (url === prev) {
+      if (!url) return false;
+      if (host.querySelector('.plate-banner-stage, a.plate-linkcard, a.plate-banner-fallback')) return false;
+    }
+    if (!url) {
+      host.innerHTML = '';
+      host.removeAttribute('data-plate-src');
+      return true;
+    }
+    var html = KRAY.plateBannerHtml(url);
+    var lab = opts.lab
+      ? '<div class="plate-banner-lab"><span>' + KRAY.esc(opts.labLabel || 'Plate banner') + '</span><b>—</b></div>'
+      : '';
+    host.innerHTML = lab + html;
+    host.setAttribute('data-plate-src', url);
+    if (typeof KRAY.mountPlateBanners === 'function') KRAY.mountPlateBanners(host);
+    return true;
   };
   /** Wire stop-on-end for youtube / native video inside a painted root. Idempotent. */
   KRAY.mountPlateBanners = function (root) {
@@ -897,9 +1121,70 @@
     scope.querySelectorAll('video.plate-banner-video').forEach(function (v) {
       if (v.__krayPlateWired) return;
       v.__krayPlateWired = true;
+      function fitVid() {
+        var stage = v.closest && v.closest('.plate-banner-stage');
+        if (stage && v.videoWidth && v.videoHeight) KRAY.fitPlateBanner(stage, v.videoWidth, v.videoHeight);
+      }
+      v.addEventListener('loadedmetadata', fitVid);
       v.addEventListener('ended', function () {
         try { v.pause(); } catch (_) { /* */ }
       });
+      if (v.readyState >= 1) fitVid();
+    });
+    // Site URL — X-style card: front image + title; click stays the sealed href.
+    scope.querySelectorAll('a.plate-linkcard[data-plate-banner="link"]').forEach(function (card) {
+      if (card.__krayPlateWired) return;
+      card.__krayPlateWired = true;
+      var href = card.getAttribute('href') || '';
+      KRAY.unfurlSite(href).then(function (j) {
+        if (!j || !j.ok) return;
+        var title = card.querySelector('.plate-linkcard-title');
+        var desc = card.querySelector('.plate-linkcard-desc');
+        var hostEl = card.querySelector('.plate-linkcard-host');
+        var media = card.querySelector('.plate-linkcard-media');
+        var img = media && media.querySelector('img');
+        if (hostEl && j.host) hostEl.textContent = j.host;
+        if (title && j.title) title.textContent = j.title;
+        if (desc && j.description) {
+          desc.textContent = j.description;
+          desc.hidden = false;
+        }
+        if (media && img && j.image) {
+          img.addEventListener('error', function () { media.hidden = true; }, { once: true });
+          img.src = j.image;
+          media.hidden = false;
+        }
+        var lab = card.parentNode && card.parentNode.querySelector && card.parentNode.querySelector('.plate-banner-lab b');
+        if (lab) lab.textContent = 'site';
+      });
+    });
+    // Extensionless / hotlinked images — if the bytes are not a picture, keep a quiet link.
+    scope.querySelectorAll('[data-plate-banner="image"] img.plate-banner-img').forEach(function (im) {
+      if (im.__krayPlateWired) return;
+      im.__krayPlateWired = true;
+      function fall() {
+        var stage = im.closest && im.closest('.plate-banner-stage');
+        var a = stage && stage.querySelector('a.plate-banner-hit');
+        var href = (a && a.getAttribute('href')) || '';
+        var host = href;
+        try { host = new URL(href).host; } catch (_) { /* */ }
+        var fb = '<a class="mouth-link plate-banner-fallback" href="' + KRAY.esc(href) + '" target="_blank" rel="noopener noreferrer">banner · ' + KRAY.esc(host) + ' ↗</a>';
+        if (stage && stage.parentNode) stage.outerHTML = fb;
+      }
+      function fitImg() {
+        var stage = im.closest && im.closest('.plate-banner-stage');
+        if (stage && im.naturalWidth && im.naturalHeight) KRAY.fitPlateBanner(stage, im.naturalWidth, im.naturalHeight);
+      }
+      im.addEventListener('error', fall);
+      im.addEventListener('load', fitImg);
+      if (im.complete && im.naturalWidth === 0) fall();
+      else if (im.complete && im.naturalWidth) fitImg();
+    });
+    scope.querySelectorAll('.plate-banner-stage[data-plate-banner="youtube"][data-plate-ratio]').forEach(function (stage) {
+      var bits = String(stage.getAttribute('data-plate-ratio') || '').split(':');
+      var w = Number(bits[0]) || 0;
+      var h = Number(bits[1]) || 0;
+      if (w && h) KRAY.fitPlateBanner(stage, w, h);
     });
     var ytStages = scope.querySelectorAll('[data-plate-banner="youtube"][data-ytid]');
     if (!ytStages.length) return;

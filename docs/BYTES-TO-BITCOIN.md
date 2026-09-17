@@ -60,14 +60,14 @@ into a single, human-readable, deterministic string. Three properties make it sa
 ```
 transfer  →  kray-core.transfer.v1|net=signet|from=tb1p…|to=tb1p…|amount=5|nonce=7
 burn      →  kray-core.burn.v1|net=signet|from=tb1p…|amount=100|nonce=43         (no recipient — ₭ dies)
-inscribe  →  kray-core.inscribe.v2|net=signet|from=…|contentHash=<sha256>|contentType=…|size=…|nonce=…
+inscribe  →  kraynet.inscribe.v2|net=signet|from=…|content=<sha256>|type=…|size=…|parent=…|nonce=…
 ```
 
 The **wallet BIP-340 Schnorr-signs the UTF-8 bytes of that exact string.** The signature is the proof that the
 private-key owner authorized *precisely this*, and only the client ever holds the key. **This is Supreme Law
 clause 1: signature.**
 
-> The `contentHash` above is itself a SHA-256 of the actual content — a 10 MB video and a one-line poem both
+> The `content=` hash above is itself a SHA-256 of the actual content — a 10 MB video and a one-line poem both
 > become 32 bytes here. The bytes ride the chain (integrity, forever); the raw content lives off-chain in the
 > atlas (availability). The hash is the handle.
 
@@ -111,7 +111,7 @@ That exact text IS the money commitment. Any stranger with the journal replays i
 gets the byte-identical string — so the number "you have 1200 ₭" is not a claim, it is a **re-derivable fact.**
 The same shape builds `starsRoot` (the NFT registry), the `potCommitment` (custody sats book),
 `runesCommitment`, `contractsRoot`, the `ammCommitment`, the seal window, and the **Ӿ-book** (`xRootFold` —
-sorted `addr:balance` + `|xtotal:N`). Conservation is checked here too: `Σ balances == emitted − burned`, and
+the SHA-256 of the sorted `addr:balance` lines + `|xtotal:N`). Conservation is checked here too: `Σ balances == emitted − burned`, and
 `Σ Ӿ == burned` — if a fold ever breaks the equality, the node HALTs rather than commit a lie.
 
 ---
@@ -133,7 +133,8 @@ h = sha256_stream(
       [ "seals:…"  "qcommits:…"  "qmigrated:…" ]      ← present ONLY if that subsystem folds today
       "runes:<runesCommitment>\n"
       "contracts:<contractsRoot>\n"
-      [ "amm:…"  "inclusion:…"  "window:…"  "nonce:…"  "x:…" ]   ← each appended, in this exact order
+      [ "amm:…"  "inclusion:…"  "window:…"  "nonce:…"  "x:…"
+        "fire:…"  "lane:…"  "market:…"  "offers:…"  "cut:…" ]    ← each appended, in this exact order
    )  →  a single 32-byte (64-hex) digest
 ```
 

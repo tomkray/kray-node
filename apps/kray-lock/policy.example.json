@@ -1,0 +1,24 @@
+{
+  "id": "house-front",
+  "name": "Front door",
+  "audience": "house",
+  "node": "https://www.kray.network",
+  "mode": "any",
+  "collection": null,
+  "keys": [
+    { "kind": "star", "id": "42", "maxEntries": null, "label": "house master" },
+    { "kind": "star", "id": "100", "maxEntries": 2, "label": "guest pass · event" },
+    { "kind": "star", "id": "101", "maxEntries": 1, "label": "VIP once" }
+  ],
+  "maxEntriesTotal": null,
+  "window": "forever",
+  "expiresAt": null,
+  "transport": {
+    "wifi": true,
+    "qr": true,
+    "nfc": false,
+    "ble": false,
+    "mesh": false
+  },
+  "onUnlock": "echo RELAY_OPEN"
+}

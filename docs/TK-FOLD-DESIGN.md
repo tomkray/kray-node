@@ -1,5 +1,12 @@
 # THE TK-FOLD — design record (stage 2 of the feeless Ӿ resonance)
 
+> **Post-reset note (v1.0.0 genesis, 2026-08-26):** the seq-255 pin below belongs to the retired old
+> Signet chain. On the reborn signet and on mainnet the fold is **born active at seq 0**
+> (`TK_FOLD_ACTIVATION_SEQ` in `ledger.ts`), and the proving stack the early sections call
+> "not yet wired" HAS since been wired (WASM verifier in consensus, `fold-verifier.ts`,
+> `scripts/folder/fold-once.mjs`, `POST /api/kraynet/lane-send`) — the later gate records in this
+> same file are the executed truth.
+
 > Status: **BUILT + PROVEN THROUGH GATE 3a (2026-08-24)** — the executable
 > specification, the SP1 guest (golden vectors byte-for-byte), real Groth16
 > fold proofs verified by the vendored WASM verifier in consensus (on apply

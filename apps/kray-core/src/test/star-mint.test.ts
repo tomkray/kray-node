@@ -110,6 +110,17 @@ function main() {
   rejects(() => parseMintShelf('http://[::ffff:169.254.169.254]/x.png'), /public/, 'IPv4-mapped link-local art URL is refused')
   rejects(() => parseMintShelf('ftp://cdn.example/x.png'), /http/, 'non-http art URL is refused')
 
+  // A3 — omit/0 drop keeps classic IR; drop>0 is an additive paper
+  const classic = compileMint({ price: '5', max: '8' })
+  const classic0 = compileMint({ price: '5', max: '8', drop: '0' })
+  ok(canonicalCode(classic) === canonicalCode(classic0), 'drop omitted|0 is byte-identical classic mint (A3)')
+  ok(classic.vars?.drop === undefined, 'classic mint has no drop var')
+  const withDrop = compileMint({ price: '5', max: '4', drop: '10' })
+  ok(withDrop.vars?.drop === '10', 'drop seals into vars')
+  ok(isMintPaper(withDrop), 'drop mint is still mint paper')
+  ok(JSON.stringify(withDrop.rules.find((r) => r.name === 'mint')).includes('caller'), 'drop pays the living caller')
+  rejects(() => compileMint({ price: '5', max: '2', drop: '-1' }), /drop|whole/, 'negative drop is refused')
+
   const J: KrayEvent[] = []
   const L = new KrayLedger(undefined, NET)
   fund(L, J)
@@ -259,6 +270,44 @@ function main() {
   ok(Pl.balanceOf(A.addr) === alice0, 'living owner does not receive when payTo is sealed')
   ok(Pl.balanceOf(pp) === 0n, 'payTo pot does not keep the price')
   ok(Pl.conserves(), 'conservation after payTo mint')
+
+
+  // ── escrow drop: fund pot → each mint pays caller `drop` ₭ ──
+  console.log('\n· escrow drop (pot → perPack to minter)')
+  const Dj: KrayEvent[] = []
+  const D = new KrayLedger(undefined, NET)
+  fund(D, Dj)
+  const dcode = compileMint({ price: '5', max: '2', drop: '10' })
+  const dh = sha256hex(canonicalCode(dcode))
+  apply(D, Dj, {
+    seq: 6, kind: 'contract', hash: 'mdrop', from: A.addr, code: dcode, star: '0',
+    publicKey: A.pk, signature: _signKrayWallet(contractMessageV2(NET, A.addr, dh, 0n), A.sk), scheme: 'kraywallet',
+  } as KrayEvent)
+  const dpot = D.stars.star(0n)!.contract!
+  rejects(() => { D.applyLive(child(D, B, '0', 'nodrop', 7) as unknown as KrayEvent) }, /blessing refused|guard|afford|balance/i, 'unfunded drop pot refuses the blessing')
+  apply(D, Dj, (() => {
+    const n = D.nonceOf(A.addr)
+    return {
+      seq: 7, kind: 'transfer', hash: 'fund', from: A.addr, to: dpot, amount: '20', fee: '1', nonce: n,
+      publicKey: A.pk, signature: _signKrayWallet(transferMessage(NET, A.addr, dpot, 20n, n), A.sk), scheme: 'kraywallet',
+    } as KrayEvent
+  })())
+  ok(D.balanceOf(dpot) === 20n, 'artist funded 20 ₭ escrow (2 packs × 10)')
+  const b0 = D.balanceOf(B.addr)
+  const a0 = D.balanceOf(A.addr)
+  apply(D, Dj, child(D, B, '0', 'drop-b', 8) as unknown as KrayEvent)
+  ok(D.contractAt(dpot)?.state.taken === '1', 'taken++ with drop')
+  ok(D.balanceOf(dpot) === 10n, 'pot paid 10 drop · price passed through')
+  ok(D.balanceOf(B.addr) === b0 - 1n - 5n + 10n, 'Bob paid burn+price and received the 10 ₭ drop — escrow drop pays the minter')
+  ok(D.balanceOf(A.addr) === a0 + 5n, 'Alice received the mint price')
+  ok(D.conserves(), 'conservation after drop mint')
+  apply(D, Dj, child(D, C, '0', 'drop-c', 9) as unknown as KrayEvent)
+  ok(D.balanceOf(dpot) === 0n, 'second pack empties the escrow')
+  rejects(() => { D.applyLive(child(D, Eve, '0', 'drop-x', 10) as unknown as KrayEvent) }, /blessing refused|guard|sold|taken/i, 'sold out or empty pot — no third pack')
+  const D2 = new KrayLedger(undefined, NET)
+  for (const e of Dj) D2.applyLive(e)
+  ok(D2.cascadeRoot() === D.cascadeRoot(), 'drop mint replay re-derives cascade')
+  ok(D2.balanceOf(dpot) === 0n && D2.contractAt(dpot)?.state.taken === '2', 'replay re-derives empty pot + taken')
 
   if (fail) { console.error(`\n✗ ${fail} failed, ${pass} passed`); process.exit(1) }
   console.log(`\n✓ ${pass} checks passed — MINT HOLDS: blessing take→pay in one act, unique bytes refuse before charge, no standalone mint call, sold out dies, owner consumes an edition, lineage without paper stays owned, replay is byte-exact. ⚖⭐`)

@@ -1,8 +1,11 @@
 # KRAYNET — Mainnet Readiness
 
-> **Status: NORMATIVE (plan of record) — the registration of how every piece must behave
-> identically to mainnet before mainnet exists.** When this doc and the code disagree, the code
-> and its proofs win, and this doc gets corrected.
+> **Status: HISTORICAL (plan of record, fulfilled) — mainnet has since IGNITED and the public
+> writer answers live at `www.kray.network` (`/api/kraynet/head` → `network: "main"`).** This is
+> the dated registration of how every piece had to behave before ignition; the Signet activation
+> seqs named below (155, 165, …) belong to the retired old chain — after the v1.0.0 genesis reset
+> (2026-08-26) every named law is **born active at seq 0** on both nets (`ledger.ts`, locked by
+> `activation-seq-pin.test.ts`). When this doc and the code disagree, the code and its proofs win.
 
 The whole system must work **exactly as it will on mainnet** — nothing dev-only, nothing
 disorganized, everything inside the one flow: **donor → proof → anchor → validator**, all
@@ -36,7 +39,7 @@ root: `node scripts/follow/kray-follow.mjs --from <writer>`.
 | **Second node** (survive the operator) | ✅ built | follower re-derives the whole root + re-proves anchors & donations from its own bitcoind; read-only mirror serves the last verified snapshot; succession proven (a follower becomes the writer at the byte-exact root) |
 | **Pen decentralization** (ADR-3) | ✅ **RATIFIED — LIVE on Signet** (Article XIV, seq 155, 2026-08-23; mainnet born activated at seq 0) | the omission path is trustless end to end — A (inclusion root) · B (deterministic window order) · C (OPT-IN signed deadline) · 3d-a (windowCommitment bound to the inclusion set the anchor ACTUALLY committed, via `l1Root`→`seq_anchor`) · availability witness (the citizen's own Bitcoin anchor) · the eligibility opening (nonce map with sticky first-anchor height, so a light client reads expected@deadline trustlessly) · the prover `buildCensorshipClaim` ↔ verifier `verifyCensorshipAnchored` (opens the anchored cascade so the window root is a Bitcoin fact) · D (succession) · and the **seal-height "enforced twice"**: the door proves `l1Height` (BIP-34 coinbase) and the follower (`kray-follow.mjs` §4b) INDEPENDENTLY re-proves it from its own bitcoind, bound to `l1Root` — closing old-anchor-reuse. Ships IDENTICALLY on every network; every fold is activation-gated OFF (`INCLUSION_ACTIVATION_SEQ[main] = MAX`) until the Creator ratifies a FUTURE height per network (Article XIV) — mainnet is byte-identical to Signet until then, and the reducer change is byte-identical in the synchronous case (goldens frozen). The deadline is OPT-IN (never mandatory — runs on today's wallet). Network-agnostic (SPV floor `MIN_BLOCK_WORK[net]`). Council-hardened at TWO levels (design + verify, each caught a real consensus-boundary defect). Verifiers pure — no consensus change until activation |
 
-**House status (2026-08-24):** recipe organized (`networks/mainnet/`) for the **whole L2** — donate SPV, rune pot-only deposit, remote 2-of-3 exit, ord required, no lab secrets. `data-main/` empty. Pins: `npm run preflight:mainnet` and `npm run verify:mainnet-bridge`. Writer dark. Extension already seats `www.kray.network` — do not ship an “it’s live” zip; igniting the writer is the public launch.
+**House status (2026-08-24):** recipe organized (`networks/mainnet/`) for the **whole L2** — donate SPV, rune pot-only deposit, remote 2-of-3 exit, ord required, no lab secrets. `data-main/` empty. Pin: `npm run preflight` (`scripts/follow/preflight.mjs --universe main`). Writer dark. Extension already seats `www.kray.network` — do not ship an “it’s live” zip; igniting the writer is the public launch.
 
 **Remaining before mainnet (decisions + one optional hardening), not blocking correctness:**
 - external audit (dossier ready: `docs/AUDIT-DOSSIER.md`) · light-value mainnet ignition (Creator's call)

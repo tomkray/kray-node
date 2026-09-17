@@ -1,5 +1,10 @@
 # THE FEELESS Ӿ — council decision brief
 
+> **Post-reset note (v1.0.0 genesis, 2026-08-26):** the Signet crossings below (seq 245, 255–256)
+> belong to the retired old chain. On the reborn signet and on mainnet THE FIREBORN LAW and the
+> TK-fold are **born active at seq 0** (`X_FEELESS_ACTIVATION_SEQ` / `TK_FOLD_ACTIVATION_SEQ` in
+> `ledger.ts`). The rite is history; the law is unchanged.
+
 **Status: RATIFIED + BUILT. Stage 1 — THE FIREBORN LAW — is LIVE ON SIGNET (crossed
 2026-08-24 at seq 245, fleet in unison). Stage 2 — the TK-fold lane — is BUILT and PROVEN
 end-to-end on regtest through Gate 3a (real Groth16 fold proofs verified in consensus,

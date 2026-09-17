@@ -182,10 +182,14 @@ database, computed by a **metashrew** indexer running the ALKANES WASM rules.
    provable from bytes (UTXO plus ancestry), so a rune bridge can be verified
    light. That door is open to us and closed to them by construction.
 
-**Where SUBFROST is genuinely ahead of us.** Programmability — they have WASM
-contracts and atomic composition in one transaction; we have no contracts at all.
-And they have a live signer ring doing real custody, while our vault is still a
-design. On that axis they ship and we specify; saying otherwise would be a lie.
+**Where SUBFROST is genuinely ahead of us.** Programmability breadth — they have
+Turing-complete WASM contracts and atomic composition in one transaction; KRAY
+ships a deliberately **total** contract IR (no loops, cannot mint ₭ — see
+`CONTRACTS.md` and the live `contract` / `contract-call` kinds in the reducer),
+so on raw expressive power they still reach further by design. On custody, both
+now ship: their signer ring runs live, and KRAY's vault modules (`vault.ts`,
+`vault-spend.ts`, `vault-watch.ts`, `vault-settlement.ts`) are built and tested,
+with the product deposit door running through the bakery pot today.
 
 **Where KRAY is ahead.**
 

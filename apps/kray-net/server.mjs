@@ -35,7 +35,7 @@ import {
   runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage, ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, quantumCommitMessage, contractMessage, contractMessageV2, contractCallMessage, contractCallMessageV2, scriptOfAddress, toBtcNet, normalizeAddr, verifySignature, addressOf,
   _generateKeyPair, isAddressOnNetwork, isSupportedScheme,
 } from '../kray-core/src/protocol/scheme.ts'
-import { eternizeMessage, setFaceMessage, clearFaceMessage, setProfileMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES, PROFILE_COOLDOWN_MS } from '../kray-core/src/protocol/scheme.ts'
+import { eternizeMessage, setFaceMessage, clearFaceMessage, setProfileMessage, starLikeMessage, assertProfileText, assertHttpsOrEmpty, PROFILE_DESC_MAX_BYTES, PROFILE_COOLDOWN_MS } from '../kray-core/src/protocol/scheme.ts'
 import {
   encodeKrayPlate, hashKrayPlate, setKrayPlateMessage, assertKrayPlateBytes, KRAY_PLATE_CONTENT_TYPE,
 } from '../kray-core/src/protocol/kray-plate.ts'
@@ -51,6 +51,7 @@ import { settleFromBeats } from '../kray-core/src/economics/settlement.ts'
 import { sha256hex, TREASURY, BLACK_HOLE, STAR_OFFER } from '../kray-core/src/protocol/kray-primitives.ts'
 import { readName, categoryOf, CATEGORIES } from '../kray-core/src/protocol/library.ts'
 import { id3TagTotalLength, readApic, READ_MIMES } from './id3-cover.js'
+import { unfurlHttps } from './unfurl.mjs'
 import { bodyHashOf } from './body-hash.js'
 import { isValidName } from '../kray-core/src/protocol/star-lore.ts'
 import { buildMerkleRoot, blockHash } from '../kray-core/src/protocol/block.ts'
@@ -2670,6 +2671,166 @@ function discoverSelfAnchor(rawTxHex) {
   return null
 }
 
+// ── THE ONE DOOR OF THE MINT — redeem a confirmed Bitcoin donation by its txid ────────────────────────────
+// Wallet, bare curl, and the writer's own donation watch all walk through here. The node fetches the tx from
+// its OWN bitcoind, re-proves burial (SPV), discovers which seal the output carries, and journals donate (+ seal
+// via recordSelfAnchor). Nothing here is a client field: sats, donor, outpoint, height all come from the bytes.
+// Returns { ok:true, body } or { ok:false, status, error } so an HTTP route and a background sweep read the
+// SAME verdict — no second judge, no drift between the two callers.
+async function redeemDonationTxid(txid, selfAnchorHint) {
+  const proof = await spvProofFor(txid, DONATION_MIN_CONF).catch((e) => ({ __err: e.message }))
+  if (!POT_SCRIPT_HEX) return { ok: false, status: 501, error: 'this node has no anchoring-pot address configured (KRAY_POT_ADDRESS) — it cannot verify a donation proof' }
+  if (proof.__err) return { ok: false, status: 400, error: 'could not fetch the donation proof from bitcoind — ' + proof.__err }
+  // PHASE 3 (gated): a self-anchoring donation paid the pot's internal key tweaked by (blockNumber, root),
+  // so verify against THAT script — a tx that did not pay it simply fails, exactly as a wrong pot would.
+  // Default OFF (or no hint) → the classic fixed pot script, byte-identical to before.
+  let expectScriptHex = POT_SCRIPT_HEX, sealed = null
+  if (selfAnchorReady() && selfAnchorHint && Number.isInteger(selfAnchorHint.blockNumber) && /^[0-9a-f]{64}$/i.test(String(selfAnchorHint.root || ''))) {
+    sealed = { blockNumber: selfAnchorHint.blockNumber, root: String(selfAnchorHint.root).toLowerCase() }
+    expectScriptHex = selfAnchorScriptHex(POT_INTERNAL_KEY, KrayAnchor.payload(sealed.blockNumber, sealed.root))
+  }
+  // REDEMPTION RESILIENCE — no client context? The proof is all on Bitcoin: discover which root the
+  // donation sealed from the tx bytes alone, so a bare {txid} redeems forever. Discovery only CHOOSES
+  // which script to verify against — verifyDonationProof below remains the sole judge of the mint.
+  if (!sealed && selfAnchorReady() && proof.rawTx) {
+    const foundSeal = discoverSelfAnchor(proof.rawTx)
+    if (foundSeal) { sealed = foundSeal; expectScriptHex = selfAnchorScriptHex(POT_INTERNAL_KEY, KrayAnchor.payload(sealed.blockNumber, sealed.root)) }
+  }
+  const v = verifyDonationProof(proof, { potScriptHex: expectScriptHex, minConfirmations: DONATION_MIN_CONF, net: toBtcNet(NET) })
+  if (!v.ok) return { ok: false, status: 400, error: 'donation proof refused — ' + v.reason }
+  try { assertNotAmmPot(v.donor, 'donate') } catch (e3) { return { ok: false, status: 400, error: e3.message } }
+  // THE LATCH, now a spoken fork (no silent branch): a PLAIN-pot proof attaches under ADR-1 as
+  // always; a SELF-ANCHOR proof attaches only when KRAY_CONSENSUS_SELF_ANCHOR_PROOF is on AND the
+  // sealed (blockNumber, root) ride the event, so the reducer re-derives the tweaked script instead
+  // of HALTing against the fixed pot. Flag OFF (default) ⇒ byte-identical to the old latch.
+  const isPlainPot = expectScriptHex === POT_SCRIPT_HEX
+  const attachSelfAnchor = !!(CONSENSUS_SELF_ANCHOR_PROOF && sealed && !isPlainPot)
+  const attachProof = (CONSENSUS_BURN_PROOF && (isPlainPot || attachSelfAnchor)) ? proof : undefined
+  // born strict: the reducer would refuse a proofless mint anyway — refuse HERE, named,
+  // before journaling a doomed event. The burn is not lost: the outpoint was never
+  // credited, so the same {txid} redeems the mint on a node whose proof flags are on.
+  if (PROOF_MANDATORY_LIVE && !attachProof) {
+    return { ok: false, status: 503, error: 'this network is born strict — a mint must journal its own SPV proof, but this node\'s proof flags are off (KRAY_CONSENSUS_BURN_PROOF / KRAY_CONSENSUS_SELF_ANCHOR_PROOF). Your burn is safe: the outpoint was never credited; redeem the same {txid} on a correctly configured node' }
+  }
+  let e
+  try { e = node.donate(v.donor, v.sats, 0, v.outpoint, attachProof, (attachProof && attachSelfAnchor) ? sealed : undefined) }
+  catch (e4) { return { ok: false, status: 400, error: e4 instanceof Error ? e4.message : String(e4) } }   // ledger verdict (already credited, pot full…) — named, never thrown past the door
+  // a self-anchoring donation that sealed a REAL cascade root is a keyless anchor — RECORD it in the
+  // self-anchor log (Slice 1). The seal already rides the output on Bitcoin; this makes it a proven,
+  // re-verifiable anchor the explorer can show, alongside the operator OP_RETURN anchor.
+  if (sealed) {
+    let sealHeight = v.btcHeight
+    if (!Number.isInteger(sealHeight) || sealHeight <= 0) {
+      const st = await readAnchorStatus(String(v.outpoint).split(':')[0])
+      if (st.ok && Number.isInteger(st.btcHeight) && st.btcHeight > 0) sealHeight = st.btcHeight
+    }
+    const [atxid, avout] = String(v.outpoint).split(':')
+    recordSelfAnchor(atxid, avout, sealed.blockNumber, sealed.root, v.sats, v.donor, sealHeight)
+  }
+  const isLiveSeal = !!(sealed && String(sealed.blockNumber) === String(Math.max(0, tipNumber())) && sealed.root === node.cascadeRoot())
+  return { ok: true, body: { ok: true, minted: node.pot().minted, seq: e.seq, credited: v.donor, sats: String(v.sats), outpoint: v.outpoint, pot: node.pot(), ...(sealed ? { selfAnchor: { ...sealed, liveSeal: isLiveSeal } } : {}) } }
+}
+
+// ── THE DONATION WATCH — the writer reads Bitcoin itself; no client has to "tell" it a burn confirmed ──────
+// The way every serious chain service works: the node watches the addresses it cares about and reacts as
+// blocks bury them. Ours are derivable — each self-anchor address is a pure function of (blockNumber, root) —
+// so the writer registers the address every /donate/prepare built (durable across restarts), always includes the
+// classic pot and the live tip's seal, and on every new Bitcoin block asks its own bitcoind / indexer which of
+// those addresses received a confirmed output. Each uncredited outpoint walks through redeemDonationTxid — the
+// SAME door the wallet uses — so the watch adds no second judge and no new event shape (non-consensus, additive).
+// A donor whose wallet closed before the 6th confirmation is therefore minted + sealed anyway, by the book alone.
+const DONATION_WATCH_FILE = join(DATA_DIR, 'donations-watch.json')
+const DONATION_WATCH_MS = Math.max(5000, parseInt(process.env.KRAY_DONATION_WATCH_MS || '20000', 10) || 20000)
+const DONATION_WATCH_TTL_MS = 30 * 24 * 3600 * 1000   // a prepared-but-never-sent address is forgotten after 30 days
+const DONATION_WATCH_MAX = 512                          // hard cap on registered addresses (prepare is a public door)
+const donationWatch = new Map()                         // potAddress → { blockNumber, root, at }
+function loadDonationWatch() {
+  if (!existsSync(DONATION_WATCH_FILE)) return
+  try { for (const w of JSON.parse(readFileSync(DONATION_WATCH_FILE, 'utf8'))) if (w && typeof w.address === 'string') donationWatch.set(w.address, { blockNumber: w.blockNumber ?? null, root: w.root ?? null, at: Number(w.at) || Date.now() }) }
+  catch (e) { console.error('donation watch: could not load ' + DONATION_WATCH_FILE + ' — ' + (e instanceof Error ? e.message : e)) }
+}
+function saveDonationWatch() {
+  try {
+    const out = [...donationWatch.entries()].map(([address, w]) => ({ address, ...w }))
+    const tmp = DONATION_WATCH_FILE + '.tmp'
+    const fd = openSync(tmp, 'w'); writeSync(fd, JSON.stringify(out)); fsyncSync(fd); closeSync(fd)
+    renameSync(tmp, DONATION_WATCH_FILE)
+  } catch (e) { console.error('donation watch: could not persist — ' + (e instanceof Error ? e.message : e)) }
+}
+/** Register an address a donation was PREPARED to pay. Idempotent; bounded; expired entries are pruned here. */
+function registerDonationWatch(address, blockNumber, root) {
+  if (typeof address !== 'string' || !address) return
+  const now = Date.now()
+  for (const [a, w] of donationWatch) if (now - w.at > DONATION_WATCH_TTL_MS) donationWatch.delete(a)
+  if (!donationWatch.has(address) && donationWatch.size >= DONATION_WATCH_MAX) {
+    // evict the oldest so a flood of prepares can never grow this without bound (the live tip + pot are always re-added)
+    let oldest = null; for (const [a, w] of donationWatch) if (!oldest || w.at < oldest[1].at) oldest = [a, w]
+    if (oldest) donationWatch.delete(oldest[0])
+  }
+  const prev = donationWatch.get(address)
+  donationWatch.set(address, { blockNumber: Number.isInteger(blockNumber) ? blockNumber : (prev ? prev.blockNumber : null), root: root || (prev ? prev.root : null), at: now })
+  saveDonationWatch()
+}
+/** The addresses the watch looks at this tick: registered ones + the classic pot + the live tip's own seal +
+ *  the seals of the last few sealed blocks (covers a donation prepared just before a restart or a re-segmentation,
+ *  when the registry file may not have it). All derivable; none secret. */
+const DONATION_WATCH_RECENT_BLOCKS = 12
+function donationWatchAddresses() {
+  const set = new Set(donationWatch.keys())
+  if (POT_ADDRESS) set.add(POT_ADDRESS)
+  if (selfAnchorReady()) {
+    const sealAddr = (n, root) => { try { set.add(addressFromOutputKey(selfAnchorScriptHex(POT_INTERNAL_KEY, KrayAnchor.payload(n, root)).slice(4), NET)) } catch { /* unknown net hrp — the registered set still runs */ } }
+    sealAddr(Math.max(0, tipNumber()), node.cascadeRoot())
+    for (let n = blocks.length - 1; n >= 0 && n >= blocks.length - DONATION_WATCH_RECENT_BLOCKS; n--) if (blocks[n] && blocks[n].cascadeRoot) sealAddr(n, blocks[n].cascadeRoot)
+  }
+  return [...set]
+}
+let _donationSweepRunning = false, _donationWatchTip = null, _donationWatchTipAt = 0
+/** After a new block, keep sweeping every tick for this long: the address indexer (signet/main) can trail the
+ *  writer's own bitcoind by seconds, and the local UTXO cache is 12 s — a single look right at the block edge
+ *  can miss a burial that is already final. Absorbing that lag costs a handful of indexed reads per block. */
+const DONATION_WATCH_GRACE_MS = 90_000
+const _donationRefused = new Map()   // outpoint → reason: permanent refusals, logged once, never retried in a loop
+async function sweepDonationWatch(force = false) {
+  if (_donationSweepRunning || !btcConfigured() || !POT_SCRIPT_HEX) return
+  _donationSweepRunning = true
+  try {
+    // block-clocked: do the work once per NEW Bitcoin block (like a deposit watcher), not on every timer tick
+    const tip = await btcRpc('getblockcount').catch(() => null)
+    if (!force && tip !== null && tip === _donationWatchTip && Date.now() - _donationWatchTipAt > DONATION_WATCH_GRACE_MS) return
+    if (tip !== _donationWatchTip) { _donationWatchTip = tip; _donationWatchTipAt = Date.now() }
+    for (const address of donationWatchAddresses()) {
+      // Indexed lookup ONLY where a public indexer exists (signet/main): a background sweep must never fall back
+      // to scantxoutset there — a dozen full-UTXO-set walks per block would starve real donors' /prepare scans.
+      // Indexer down → this block is simply skipped; the next block looks again (nothing is lost, only delayed).
+      // regtest has no indexer and a tiny UTXO set, so the queued scantxoutset path is the right tool there.
+      const utxos = ADDR_API ? ((await scanUtxosFast(address)) || []) : await scanUtxos(address).catch(() => [])
+      // THE HINT IS THE REGISTRY'S WHOLE POINT: /prepare tweaked this address with (blockNumber, root) at the live
+      // tip; by burial (6 blocks ≈ 1 h on mainnet) any act has moved the tip root and another seal may have closed
+      // the block — so that root is neither the tip nor a boundary and discoverSelfAnchor alone cannot name it
+      // (proven on lab: watched, found, then refused as "no output pays the anchoring pot"). Handing the registered
+      // pair back is exactly what the wallet does with its own selfAnchor field — same door, same judge; the
+      // reducer accepts any root this history produced (producedRoots), so the pair is consensus-valid.
+      const hint = donationWatch.get(address)
+      for (const u of utxos) {
+        const outpoint = u.txid + ':' + u.vout
+        if (node.ledger.isDonationCredited(outpoint) || _donationRefused.has(outpoint)) continue
+        const r = await redeemDonationTxid(u.txid, hint ? { blockNumber: hint.blockNumber, root: hint.root } : undefined)
+        if (r.ok) {
+          console.log(`₿ donation watch — ${String(u.txid).slice(0, 16)}… minted ${r.body.sats} ₭ at seq ${r.body.seq}${r.body.selfAnchor ? ` · sealed block #${r.body.selfAnchor.blockNumber}` : ''} (no client needed)`)
+          continue
+        }
+        if (/needs \d+ confirmations|not confirmed yet/.test(r.error || '')) continue   // still shallow — Bitcoin will bury it; next block, next look
+        if (/already credited/.test(r.error || '')) continue                            // credited between scan and redeem — nothing to say
+        _donationRefused.set(outpoint, r.error)
+        console.error(`⚠ donation watch — ${outpoint.slice(0, 20)}… refused, will not retry: ${r.error}`)
+      }
+    }
+  } catch (e) {
+    console.error('donation watch: sweep failed (will retry next block) — ' + (e instanceof Error ? e.message : e))
+  } finally { _donationSweepRunning = false }
+}
+
 // ── SLICE 2b — THE ANY-GUARDIAN ANCHOR BACKSTOP (flag-gated, additive, non-consensus) ─────────────────────
 // The COMMON case needs nobody: each burn donation IS the anchor (Slice 2a weighs it in fork-choice). This
 // pool is the LIVENESS backstop for quiet periods: guardians stand a SIGNED offer of sats; when a sealed
@@ -2775,17 +2936,38 @@ function journalMissingSeals() {
 async function settleFeePoolOnSeal(txid) {
   try {
     if (node.feePool() > 0n) {
-      const bcn = await bindSettleBeacon(txid)
+      const bcn = await settleBeaconWithPresence(txid)
       const tip = Math.max(0, tipNumber())
       const claims = bcn ? beatClaims(bcn) : []
       if (claims.length) {
         node.settleBeats(bcn, claims, Date.now(), tip)
         gcPresence(bcn)
-        console.log(`⚖ settled the fee pool across ${claims.length} validator(s) by proven work (tip ${tip})`)
+        console.log(`⚖ settled the fee pool across ${claims.length} validator(s) by proven work (tip ${tip}, beacon …${bcn.slice(-8)})`)
       }
-      // else: no proven presence this seal → the pool accumulates in the Treasury until a guardian earns it.
+      // else: no proven presence since the last settlement → the pool accumulates in the Treasury until a guardian earns it.
     }
   } catch (e) { console.error(`settle skipped — ${e.message}`) }
+}
+/** WHICH BEACON PAYS THIS SEAL. Beats are accepted only against the CURRENT Bitcoin tip hash, while a seal is
+ *  journaled only once its tx is buried (6 blocks on mainnet) — so the burial block's hash is usually a beacon
+ *  nobody could still be beating against. Binding the payout to it alone left proven presence UNPAID while the
+ *  pool "accumulated" (mainnet Land 2, 2026-09-12: two live validators, 15 ₭ held, no settlement). The law is
+ *  "validators are paid on EVERY proven seal": prefer the burial beacon when it carries beats; otherwise pay the
+ *  most recent beacon that does. Every candidate is a real Bitcoin block hash the node itself served as a
+ *  challenge; every beat was PoW-bound to it when it was the tip (no post-hoc grind), and the reducer re-derives
+ *  the whole table from those beats — the choice here picks WHICH proven work is paid, never HOW MUCH.
+ *  Read-only: never touches the live challenge beacon (`_beacon`), so miners keep beating the true tip. */
+async function settleBeaconWithPresence(txid) {
+  let burial = null
+  if (txid) {
+    try { const raw = await btcRpc('getrawtransaction', [txid, true]); if (raw && /^[0-9a-f]{64}$/.test(raw.blockhash || '')) burial = raw.blockhash } catch { /* pruned / RPC blip — fall through to presence */ }
+  }
+  if (burial && beatClaims(burial).length) return burial
+  // otherwise the beacon that gathered the BROADEST proven presence (most validators); ties → the newest
+  // (Map keeps insertion order). One settlement, one beacon — the reducer verifies every beat against it.
+  let best = null, bestRows = 0
+  for (const bcn of beatBook.keys()) { const n = beatClaims(bcn).length; if (n && n >= bestRows) { best = bcn; bestRows = n } }
+  return best || burial
 }
 /** THE SETTLEMENT TABLE, RE-DERIVED FOR THE EXPLORER — the exact table the reducer credited, rebuilt
  *  read-only so the tx page can SHOW who earned what. Single-law: the split itself is settleFromBeats
@@ -2797,7 +2979,7 @@ async function settleFeePoolOnSeal(txid) {
  *
  *  A missing treasury kind here is a VIEW lie, not a consensus hole: the first mainnet settlement
  *  (seq 49) paid 42 ₭ from atlas fees; omitting inscribe/origin painted "0 earned" over the journal. */
-const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'burn', 'x-send', 'cut-send', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate'])
+const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'burn', 'x-send', 'cut-send', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate', 'star-like'])
 /** ₭ this act credited to TREASURY — the fee pool the next settlement splits. View-only. */
 function treasuryCreditOf(e) {
   if (!e || !e.kind) return 0n
@@ -3453,21 +3635,8 @@ async function currentBeacon() {
   try { const h = await btcRpc('getbestblockhash'); if (/^[0-9a-f]{64}$/.test(h)) { _beacon = h; _beaconAt = Date.now() } } catch { /* keep the last known beacon on an RPC blip */ }
   return _beacon
 }
-/** F-05: one RPC shot at seal time — the block that buried the seal, else the live tip. Never the 60s cache. */
-async function bindSettleBeacon(txid) {
-  if (txid) {
-    try {
-      const raw = await btcRpc('getrawtransaction', [txid, true])
-      const h = raw && raw.blockhash
-      if (/^[0-9a-f]{64}$/.test(h)) { _beacon = h; _beaconAt = Date.now(); return h }
-    } catch { /* fall through to tip */ }
-  }
-  try {
-    const h = await btcRpc('getbestblockhash')
-    if (/^[0-9a-f]{64}$/.test(h)) { _beacon = h; _beaconAt = Date.now(); return h }
-  } catch { /* keep the last known beacon on an RPC blip */ }
-  return _beacon
-}
+// (F-05's bindSettleBeacon retired: the seal's payout beacon is chosen by settleBeaconWithPresence — burial block
+//  when it carries beats, else the beacon with the broadest proven presence — and never rewrites the live challenge.)
 const beatBook = new Map()     // beacon → Map<address, Map<block, { nonce, zeros, work }>>  (best per block)
 const custodyBook = new Map()  // beacon → Map<address, custodyHex>  — ONLY proofs verified against THIS node's atlas
 const PRESENCE_FILE = join(DATA_DIR, 'presence-beats.json')
@@ -3674,6 +3843,9 @@ function txSummary(e, block) {
     side: e.side ?? null, minOut: e.minOut ?? null,
     otherRuneId: e.otherRuneId ?? null, otherIn: e.otherIn ?? null,
     payRuneId: e.payRuneId ?? null, minOtherOut: e.minOtherOut ?? null,
+    // Social like — tipAsset + amount is the tip to the living owner (fee is separate).
+    tipAsset: e.kind === 'star-like' ? (e.tipAsset ?? null) : undefined,
+    runeId: e.kind === 'star-like' && e.runeId ? e.runeId : undefined,
   }
   // ── THE TWO LIGHTS on the tx (additive — the rich pages read these): a ₭ burn births Ӿ 1:1 to the
   //    burner (inscribe/origin/name via the size-burn, a law seal = 1, the signed burn = its amount);
@@ -3846,7 +4018,7 @@ function feeOnlyTreasuryDestination(e) {
     'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap',
   ])
   if (peerKinds.has(e.kind)) return false
-  return FEE_POOL_KINDS.has(e.kind) || e.kind === 'set-kray-plate' || e.kind === 'set-face' || e.kind === 'clear-face' || e.kind === 'eternize'
+  return FEE_POOL_KINDS.has(e.kind) || e.kind === 'set-kray-plate' || e.kind === 'set-face' || e.kind === 'clear-face' || e.kind === 'eternize' || e.kind === 'star-like'
 }
 // the minimal /api/state the explorer reads (network/simulation/latestBlock/mainnet), plus a
 // non-breaking supply + cascadeRoot for athe owner boxe else.
@@ -4111,6 +4283,9 @@ function ensureCallReceipts() {
   const L = openKrayLedger(NET, undefined, POT_SCRIPT_HEX || undefined, BACKING_GATE, (hash) => {
     try { const p = join(CONTENT_DIR, hash); return existsSync(p) ? new Uint8Array(readFileSync(p)) : null } catch { return null }
   })
+  // Same law as store.replay(): cold receipt rebuild may lack non-tip plate atlas blobs.
+  // Tip hashes still live in the journal; missing plaintext must not take the star door down.
+  L.plateAtlasStrict = false
   for (const e of events) {
     L.applyLive(e)
     if (e.kind === 'contract-call' && L.lastCall) {
@@ -4167,6 +4342,7 @@ function historyOfStar(nStr) {                           // every event that eve
       blockAt: blk && blk.at != null ? blk.at : null,
       burn: seqToBurn.get(e.seq) ?? null,
       ...(e.kind === 'contract-call' ? { rule: e.rule ?? null, contract: e.contract ?? null } : {}),
+      ...(e.kind === 'star-like' ? { tipAsset: e.tipAsset || 'none', runeId: e.runeId || null } : {}),
       ...(rec ? { take: rec.take, payments: rec.payments, interval: rec.interval, beacon: rec.beacon, paid } : {}),
     })
   }
@@ -4301,6 +4477,7 @@ function starView(nBig) {
     luz: luzFace(nStr, s.contract ? node.contract(s.contract) : null),
     poll: pollFace(nStr, s.contract ? node.contract(s.contract) : null),
     krayPlate,
+    social: node.ledger.starLikeStatsOf(nStr),
   }
 }
 
@@ -4803,6 +4980,15 @@ setInterval(() => {
 // the anchor watch: confirm broadcast anchors as Bitcoin buries them, retry any that never sent. Fires once
 // on boot too, so a seal left unconfirmed before a restart (or reloaded from the sidecar) gets promoted.
 if (btcConfigured()) { setInterval(() => { try { anchorWatch() } catch (_) { /* keep the watch alive */ } }, ANCHOR_WATCH_MS); anchorWatch() }
+// the donation watch: the writer reads Bitcoin for burns that paid its pot / its seals and redeems them itself,
+// block-clocked (sweeps for a grace window after each new Bitcoin block). A donor never has to keep a wallet open to be minted + sealed.
+// KRAY_DONATION_WATCH=0 turns it off (the wallet's own POST /donate still works — same door).
+if (btcConfigured() && POT_SCRIPT_HEX && process.env.KRAY_DONATION_WATCH !== '0') {
+  loadDonationWatch()
+  setInterval(() => { sweepDonationWatch().catch(() => { /* named inside the sweep */ }) }, DONATION_WATCH_MS).unref?.()
+  sweepDonationWatch(true).catch(() => { /* named inside the sweep */ })
+  console.log(`₿ donation watch armed — every ${Math.round(DONATION_WATCH_MS / 1000)}s tip check, sweeps for ${Math.round(DONATION_WATCH_GRACE_MS / 1000)}s after each new Bitcoin block, ${donationWatch.size} registered address(es) + pot + recent seals`)
+}
 
 // ── the Supreme-Law write flow ───────────────────────────────────────────────
 // inscribe: the wallet sends raw `content` (or a pre-hashed `contentHash`+`size`). We derive
@@ -4975,11 +5161,13 @@ function readContractCode(b, from, opts) {
     if (kind === 'mint') {
       const max = String(f.max || '')
       const payTo = String(f.payTo || '').trim()
+      const drop = String(f.drop || '').trim()
       const code = compileForm({
         kind: 'mint',
         price: String(f.price || ''),
         max,
         ...(payTo ? { payTo } : {}),
+        ...(drop && drop !== '0' ? { drop } : {}),
       })
       if (!exam) requireMintShelf(f.shelf, Number(max))
       return code
@@ -5145,6 +5333,45 @@ function prepareMessage(action, b, nonceOverride) {
       if (s.owner !== from) throw new Error(`only the owner of star #${star} may wear it as face`)
       return { message: setFaceMessage(NET, from, BigInt(star), nonce), nonce, star }
     }
+    case 'star-like': {
+      // KRAY Social like — fee 1 → Treasury; optional tip to living owner (none|kray|x|rune).
+      const star = readOnStar(b)
+      if (star == null) throw new Error('star-like needs the star number')
+      const s = node.ledger.stars.star(BigInt(star))
+      if (!s) throw new Error(`star #${star} does not exist`)
+      if (s.owner === 'KRAY_BLACK_HOLE') throw new Error('a frozen star cannot receive a like')
+      if (typeof node.ledger.hasStarLiked === 'function' && node.ledger.hasStarLiked(star, from)) {
+        throw new Error('this address already liked this star — one like per wallet per star')
+      }
+      const tipRaw = typeof b.tipAsset === 'string' ? b.tipAsset : (b.tip != null ? String(b.tip) : '')
+      const tip = (tipRaw === '' || tipRaw === 'none') ? 'none'
+        : (tipRaw === 'kray' || tipRaw === 'x' || tipRaw === 'rune') ? tipRaw
+        : null
+      if (tip == null) throw new Error('star-like tip must be none, kray, x, or rune')
+      let tipAmt = null
+      let runeId = null
+      if (tip === 'none') {
+        if (b.amount != null && String(b.amount) !== '' && String(b.amount) !== '0') {
+          throw new Error('star-like with tip none must not carry a tip amount')
+        }
+      } else {
+        const raw = String(b.amount ?? '').trim()
+        if (!/^(0|[1-9]\d{0,38})$/.test(raw) || raw === '0') throw new Error('star-like tip amount must be a positive whole number')
+        tipAmt = BigInt(raw)
+        if (tip === 'rune') {
+          runeId = String(b.runeId || b.rune || '').trim()
+          if (!runeId) throw new Error('star-like rune tip needs runeId')
+        }
+      }
+      if (node.ledger.balanceOf(from) < 1n) throw new Error('1 ₭ fee is needed to like')
+      return {
+        message: starLikeMessage(NET, from, BigInt(star), tip, tipAmt, runeId, nonce),
+        nonce, star, fee: '1', tipAsset: tip === 'none' ? undefined : tip,
+        amount: tip === 'none' ? undefined : String(tipAmt),
+        runeId: tip === 'rune' ? runeId : undefined,
+        owner: s.owner,
+      }
+    }
     case 'clear-face': {
       // CLEAR FACE — default sigil again. Door mirrors the reducer (1 ₭ · refuse if unset).
       if (node.ledger.faceOf(from) == null) throw new Error('clear-face refused — no face is set')
@@ -5219,7 +5446,10 @@ function prepareMessage(action, b, nonceOverride) {
         const actTo = typeof b.actTo === 'string' ? b.actTo.trim() : ''
         const actHint = typeof b.actHint === 'string' ? b.actHint : ''
         const actAmount = typeof b.actAmount === 'string' ? b.actAmount.trim() : ''
-        const plateFields = { description, url, bannerUrl, actTo, actHint, actAmount }
+        const likeTip = typeof b.likeTip === 'string' ? b.likeTip.trim() : ''
+        const likeAmount = typeof b.likeAmount === 'string' ? b.likeAmount.trim() : ''
+        const likeRune = typeof b.likeRune === 'string' ? b.likeRune.trim() : ''
+        const plateFields = { description, url, bannerUrl, actTo, actHint, actAmount, likeTip, likeAmount, likeRune }
         plateBuf = encodeKrayPlate(plateFields)
         plateHash = hashKrayPlate(plateFields)
         const cur = star !== '' ? node.ledger.krayStarPlateOf(star) : node.ledger.krayPlateOf(from)
@@ -5361,6 +5591,11 @@ function prepareMessage(action, b, nonceOverride) {
     }
     case 'quantum-commit': { const commit = String(b.commit || '').toLowerCase(); return { message: quantumCommitMessage(NET, from, commit, nonce), nonce, commit } }
     case 'contract': {
+      // E1 (2026-09-17): a v1 seal — a law with NO star — paid no fee, burned nothing and carried no nonce,
+      // so one signature could open a new pot on every re-submission. Retired at this door (and at
+      // buildSubmitEvent, the acceptance path). The reducer keeps replaying history below the future
+      // CONTRACT_V1_RETIRED_SEQ pin (A3: no journaled byte changes meaning).
+      if (readOnStar(b) == null) throw new Error('a law hangs on a star — the v1 pot (no star) is retired at this door: seal it onto a star you own (burns 1 ₭)')
       const code = readContractCode(b, from)
       const codeHash = sha256hex(canonicalCode(code))
       const onStar = readOnStar(b)
@@ -5430,6 +5665,30 @@ function buildSubmitEvent(action, b, atOverride) {
       action_ = { ...base, kind: 'set-face', star, fee: '1' }
       break
     }
+    case 'star-like': {
+      const star = readOnStar(b)
+      if (star == null) throw new Error('star-like needs the star number')
+      const tipRaw = typeof b.tipAsset === 'string' ? b.tipAsset : (b.tip != null ? String(b.tip) : '')
+      const tip = (tipRaw === '' || tipRaw === 'none') ? 'none'
+        : (tipRaw === 'kray' || tipRaw === 'x' || tipRaw === 'rune') ? tipRaw
+        : null
+      if (tip == null) throw new Error('star-like tip must be none, kray, x, or rune')
+      const s = node.ledger.stars.star(BigInt(star))
+      if (!s) throw new Error(`star #${star} does not exist`)
+      if (s.owner === 'KRAY_BLACK_HOLE') throw new Error('a frozen star cannot receive a like')
+      if (tip === 'none') {
+        action_ = { ...base, kind: 'star-like', star, fee: '1', to: s.owner }
+      } else {
+        const raw = String(b.amount ?? '').trim()
+        if (!/^(0|[1-9]\d{0,38})$/.test(raw) || raw === '0') throw new Error('star-like tip amount must be a positive whole number')
+        action_ = {
+          ...base, kind: 'star-like', star, fee: '1', tipAsset: tip, amount: raw, to: s.owner,
+          ...(tip === 'rune' ? { runeId: String(b.runeId || b.rune || '').trim() } : {}),
+        }
+        if (tip === 'rune' && !action_.runeId) throw new Error('star-like rune tip needs runeId')
+      }
+      break
+    }
     case 'clear-face': {
       action_ = { ...base, kind: 'clear-face', fee: '1' }
       break
@@ -5458,7 +5717,10 @@ function buildSubmitEvent(action, b, atOverride) {
         const actTo = typeof b.actTo === 'string' ? b.actTo.trim() : ''
         const actHint = typeof b.actHint === 'string' ? b.actHint : ''
         const actAmount = typeof b.actAmount === 'string' ? b.actAmount.trim() : ''
-        const plateFields = { description, url, bannerUrl, actTo, actHint, actAmount }
+        const likeTip = typeof b.likeTip === 'string' ? b.likeTip.trim() : ''
+        const likeAmount = typeof b.likeAmount === 'string' ? b.likeAmount.trim() : ''
+        const likeRune = typeof b.likeRune === 'string' ? b.likeRune.trim() : ''
+        const plateFields = { description, url, bannerUrl, actTo, actHint, actAmount, likeTip, likeAmount, likeRune }
         const plateBuf = encodeKrayPlate(plateFields)
         plateHash = hashKrayPlate(plateFields)
         // Staged before submit — ledger refuse-closes if atlasBytes cannot read this hash.
@@ -5527,6 +5789,9 @@ function buildSubmitEvent(action, b, atOverride) {
     case 'name': action_ = { ...base, kind: 'name', name: String(b.name ?? ''), ...(b.star != null && String(b.star) !== '' ? { star: String(b.star).replace(/[#,\s]/g, '') } : {}) }; break
     case 'quantum-commit': action_ = { ...base, kind: 'quantum-commit', quantumCommit: String(b.commit || '').toLowerCase() }; break
     case 'contract': {
+      // E1 (2026-09-17): the acceptance path — /submit, /submit-batch, the inbox drain and every mirror
+      // relay converge here. A contract without a star is refused BEFORE its code is read.
+      if (readOnStar(b) == null) throw new Error('a law hangs on a star — the v1 pot (no star) is retired at this door: seal it onto a star you own (burns 1 ₭)')
       const code = readContractCode(b, b.from)
       const onStar = readOnStar(b)
       if (isRafflePaper(code) && onStar == null) {
@@ -5902,9 +6167,10 @@ const server = createServer(async (req, res) => {
           '/rank': 'rank.html',
           '/rank/kray': 'rank.html', '/rank/nyx': 'rank.html', '/rank/x': 'rank.html', '/rank/fenyx': 'rank.html',
           '/rank/glow': 'rank.html', '/rank/luz': 'rank.html', '/rank/rune': 'rank.html',
-          '/rank/stars': 'rank.html', '/rank/works': 'rank.html',
+          '/rank/stars': 'rank.html', '/rank/works': 'rank.html', '/rank/likes': 'rank.html',
           '/dashboard': 'dashboard.html', '/library': 'library.html',
           '/mind': 'mind.html',
+          '/lock': 'lock.html', '/kray-lock': 'lock.html',
           '/docs': 'docs.html', '/inscribe': 'inscribe.html', '/send': 'send.html', '/baptize': 'baptize.html',
           '/mine': 'mine.html', '/rune': 'rune.html', '/runes': 'rune.html', '/runes/': 'rune.html', '/defi': 'defi.html', '/pool': 'pool.html',
           '/market': 'markets.html',
@@ -6219,6 +6485,12 @@ const server = createServer(async (req, res) => {
           const usd = await nodeBtcUsd().catch(() => 0)
           return ok(res, { usd, source: usd > 0 ? 'kraynet' : 'unavailable' })
         }
+        if (p === '/api/kraynet/unfurl' || p === '/api/unfurl') {
+          // Paint-only site card (og:image). Not a journal act. SSRF fail-closed in unfurl.mjs.
+          if (PUBLIC && publicWalletGetFlood(req)) return err(res, 429, 'slow down')
+          const q = new URL(req.url, 'http://x').searchParams.get('url') || ''
+          return ok(res, await unfurlHttps(q))
+        }
       }
       // ── THE WALLET's RUNE CHECK on THIS network — the same JSON shape kray-space's explorer serves
       // on mainnet, read from this node's OWN ord (the only indexer that knows a signet/regtest etch).
@@ -6389,6 +6661,7 @@ const server = createServer(async (req, res) => {
           'contract': 'law', 'contract-call': 'law',
           'quantum-commit': 'quantum', 'quantum-migrate': 'quantum',
           'set-face': 'identity', 'clear-face': 'identity', 'set-profile': 'identity', 'set-kray-plate': 'identity',
+          'star-like': 'social',
           'transfer-star': 'starmove',
           'eternize': 'starmove',   // ⚓ the eternal binding — a star fact, hung beside the moves
           // THE NATIVE STAR MARKET — list / delist / buy are user acts; the constellation
@@ -6529,6 +6802,32 @@ const server = createServer(async (req, res) => {
           lights,
           luz,
           stars: { total: L.stars.starCount, written: liveIns.length, named: liveNames.length },
+          likes: (() => {
+            try {
+              if (typeof L.starLikeRank !== 'function') return { totalStars: 0, totalLikes: 0, tipKray: '0', tipX: '0', fees: '0', rank: [] }
+              const rank = L.starLikeRank(200)
+              let totalLikes = 0
+              let tipKray = 0n
+              let tipX = 0n
+              let fees = 0n
+              for (const r of rank) {
+                totalLikes += Number(r.count) || 0
+                try { tipKray += BigInt(r.tipKray || 0) } catch { /* keep */ }
+                try { tipX += BigInt(r.tipX || 0) } catch { /* keep */ }
+                try { fees += BigInt(r.fees || 0) } catch { /* keep */ }
+              }
+              return {
+                totalStars: rank.length,
+                totalLikes,
+                tipKray: tipKray.toString(),
+                tipX: tipX.toString(),
+                fees: fees.toString(),
+                rank,
+              }
+            } catch (_) {
+              return { totalStars: 0, totalLikes: 0, tipKray: '0', tipX: '0', fees: '0', rank: [] }
+            }
+          })(),
           library: { works: liveIns.length, names: liveNames.length, bytes: writtenBytes, shelves, census: shelves },
           land: { totalLands: R.totalLands, totalLots: R.totalLots },
           blackHole: bh,
@@ -7180,7 +7479,13 @@ const server = createServer(async (req, res) => {
       }
       if ((m = p.match(/^\/api\/kraynet\/star\/(\d+)$/))) {
         try {
-          const v = starView(BigInt(m[1])); return v ? ok(res, v) : err(res, 404, 'no such star')
+          const v = starView(BigInt(m[1]))
+          if (!v) return err(res, 404, 'no such star')
+          const from = String(url.searchParams.get('from') || '').trim()
+          if (from.length >= 14 && v.social && typeof node.ledger.hasStarLiked === 'function') {
+            v.social = { ...v.social, liked: !!node.ledger.hasStarLiked(m[1], from) }
+          }
+          return ok(res, v)
         } catch (e) {
           return err(res, 500, e instanceof Error ? e.message : String(e))
         }
@@ -8307,6 +8612,7 @@ const server = createServer(async (req, res) => {
           const blockNumber = Math.max(0, tipNumber()), rootHex = node.cascadeRoot()
           const payload = KrayAnchor.payload(blockNumber, rootHex)
           const sa = buildSelfAnchorDonationPsbt({ net: NET, potInternalXOnly: POT_INTERNAL_KEY, anchorPayloadHex: payload, donor, donorXOnly: donorPubkey, sats, utxos, feeRate, dust: dustFromEnv(process.env, 'p2tr') })
+          registerDonationWatch(sa.potAddress, blockNumber, rootHex)   // the writer will see this burn land on its own — no wallet needed to redeem
           return ok(res, { ok: true, psbt: sa.psbtHex, psbtB64: sa.psbtB64, sats: sats.toString(), fee: sa.fee.toString(), change: sa.change.toString(), inputs: sa.inputs, feeRate: sa.feeRate, pot: sa.potAddress, protectedUtxos: guarded.length, selfAnchor: { blockNumber, root: rootHex, keyIsNums: POT_INTERNAL_KEY === BURN_INTERNAL_KEY } })
         }
         const built = buildDonationPsbt({ net: NET, potAddress: POT_ADDRESS, donor, donorXOnly: donorPubkey, sats, utxos, feeRate, dust: dustFromEnv(process.env, 'p2tr') })
@@ -8373,56 +8679,11 @@ const server = createServer(async (req, res) => {
         if (b.proof) {
           return err(res, 400, 'a client-supplied {proof} is never trusted — its headers are weighed against the work FLOOR, not the current difficulty, so they are forgeable below real burial cost. Send the confirmed {txid} and the node re-proves it against its own bitcoind')
         }
-        const proof = b.txid ? await spvProofFor(b.txid, DONATION_MIN_CONF).catch((e) => ({ __err: e.message })) : null
-        if (proof) {
-          if (!POT_SCRIPT_HEX) return err(res, 501, 'this node has no anchoring-pot address configured (KRAY_POT_ADDRESS) — it cannot verify a donation proof')
-          if (proof.__err) return err(res, 400, 'could not fetch the donation proof from bitcoind — ' + proof.__err)
-          // PHASE 3 (gated): a self-anchoring donation paid the pot's internal key tweaked by (blockNumber, root),
-          // so verify against THAT script — a tx that did not pay it simply fails, exactly as a wrong pot would.
-          // Default OFF (or no {selfAnchor}) → the classic fixed pot script, byte-identical to before.
-          let expectScriptHex = POT_SCRIPT_HEX, sealed = null
-          if (selfAnchorReady() && b.selfAnchor && Number.isInteger(b.selfAnchor.blockNumber) && /^[0-9a-f]{64}$/i.test(String(b.selfAnchor.root || ''))) {
-            sealed = { blockNumber: b.selfAnchor.blockNumber, root: String(b.selfAnchor.root).toLowerCase() }
-            expectScriptHex = selfAnchorScriptHex(POT_INTERNAL_KEY, KrayAnchor.payload(sealed.blockNumber, sealed.root))
-          }
-          // REDEMPTION RESILIENCE — no client context? The proof is all on Bitcoin: discover which root the
-          // donation sealed from the tx bytes alone, so a bare {txid} redeems forever. Discovery only CHOOSES
-          // which script to verify against — verifyDonationProof below remains the sole judge of the mint.
-          if (!sealed && selfAnchorReady() && proof.rawTx) {
-            const foundSeal = discoverSelfAnchor(proof.rawTx)
-            if (foundSeal) { sealed = foundSeal; expectScriptHex = selfAnchorScriptHex(POT_INTERNAL_KEY, KrayAnchor.payload(sealed.blockNumber, sealed.root)) }
-          }
-          const v = verifyDonationProof(proof, { potScriptHex: expectScriptHex, minConfirmations: DONATION_MIN_CONF, net: toBtcNet(NET) })
-          if (!v.ok) return err(res, 400, 'donation proof refused — ' + v.reason)
-          try { assertNotAmmPot(v.donor, 'donate') } catch (e3) { return err(res, 400, e3.message) }
-          // THE LATCH, now a spoken fork (no silent branch): a PLAIN-pot proof attaches under ADR-1 as
-          // always; a SELF-ANCHOR proof attaches only when KRAY_CONSENSUS_SELF_ANCHOR_PROOF is on AND the
-          // sealed (blockNumber, root) ride the event, so the reducer re-derives the tweaked script instead
-          // of HALTing against the fixed pot. Flag OFF (default) ⇒ byte-identical to the old latch.
-          const isPlainPot = expectScriptHex === POT_SCRIPT_HEX
-          const attachSelfAnchor = !!(CONSENSUS_SELF_ANCHOR_PROOF && sealed && !isPlainPot)
-          const attachProof = (CONSENSUS_BURN_PROOF && (isPlainPot || attachSelfAnchor)) ? proof : undefined
-          // born strict: the reducer would refuse a proofless mint anyway — refuse HERE, named,
-          // before journaling a doomed event. The burn is not lost: the outpoint was never
-          // credited, so the same {txid} redeems the mint on a node whose proof flags are on.
-          if (PROOF_MANDATORY_LIVE && !attachProof) {
-            return err(res, 503, 'this network is born strict — a mint must journal its own SPV proof, but this node\'s proof flags are off (KRAY_CONSENSUS_BURN_PROOF / KRAY_CONSENSUS_SELF_ANCHOR_PROOF). Your burn is safe: the outpoint was never credited; redeem the same {txid} on a correctly configured node')
-          }
-          const e = node.donate(v.donor, v.sats, 0, v.outpoint, attachProof, (attachProof && attachSelfAnchor) ? sealed : undefined)
-          // a self-anchoring donation that sealed a REAL cascade root is a keyless anchor — RECORD it in the
-          // self-anchor log (Slice 1). The seal already rides the output on Bitcoin; this makes it a proven,
-          // re-verifiable anchor the explorer can show, alongside the operator OP_RETURN anchor.
-          if (sealed) {
-            let sealHeight = v.btcHeight
-            if (!Number.isInteger(sealHeight) || sealHeight <= 0) {
-              const st = await readAnchorStatus(String(v.outpoint).split(':')[0])
-              if (st.ok && Number.isInteger(st.btcHeight) && st.btcHeight > 0) sealHeight = st.btcHeight
-            }
-            const [atxid, avout] = String(v.outpoint).split(':')
-            recordSelfAnchor(atxid, avout, sealed.blockNumber, sealed.root, v.sats, v.donor, sealHeight)
-          }
-          const isLiveSeal = !!(sealed && String(sealed.blockNumber) === String(Math.max(0, tipNumber())) && sealed.root === node.cascadeRoot())
-          return ok(res, { ok: true, minted: node.pot().minted, seq: e.seq, credited: v.donor, sats: String(v.sats), outpoint: v.outpoint, pot: node.pot(), ...(sealed ? { selfAnchor: { ...sealed, liveSeal: isLiveSeal } } : {}) })
+        if (b.txid) {
+          // ONE DOOR for the mint: the wallet, a bare curl, or the writer's own donation watch all walk through
+          // redeemDonationTxid — same proof, same judge, same event. The route only maps the verdict to HTTP.
+          const r = await redeemDonationTxid(b.txid, b.selfAnchor)
+          return r.ok ? ok(res, r.body) : err(res, r.status, r.error)
         }
         // DEV shortcut — trust {to, sats} and mint directly. FAIL-CLOSED like the other dev-trust paths:
         // a value-bearing node mints ONLY from a real proof-of-donation. The {to,sats} mint (no signature,

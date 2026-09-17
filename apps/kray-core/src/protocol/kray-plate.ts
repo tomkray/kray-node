@@ -15,11 +15,16 @@
  *   actTo=<bech32 address>\n
  *   actHint=<≤32 B label>\n
  *   actAmount=<decimal ₭ suggestion or empty>\n
+ *   [optional like tip block — omitted when likeTip empty (A3: default = fee-only like, no floor)]
+ *   likeTip=<none|kray|x|rune>\n
+ *   likeAmount=<decimal floor; 0/empty with none>\n
+ *   [optional] likeRune=<runeId>\n   — only when likeTip=rune
  *
  * Banner visual (product): https media URL (YouTube / video / image) via bannerUrl.
  * Optional bannerStar remains in the byte grammar (A3) so any tip sealed with it still
  * replays byte-identically; the living mouth uses bannerUrl. Action block is an invitation
  * only: chrome may prepare a `transfer` to actTo. It is NOT a paper/contract.
+ * Like tip block is the owner's sealed floor for star-like (set via plate · 1 ₭).
  */
 import { createHash } from 'node:crypto'
 import { assertHttpsOrEmpty, assertProfileText, PROFILE_DESC_MAX_BYTES, PROFILE_URL_MAX_BYTES } from './scheme.ts'
@@ -46,6 +51,13 @@ export type KrayPlateFields = {
   actHint?: string
   /** Suggested ₭ amount; empty or "0" ⇒ visitor chooses at confirm. */
   actAmount?: string
+  /**
+   * Sealed like tip floor for star-like (β′). Omit ⇒ no floor (chrome default tip 0 / fee-only).
+   * none = fee-only likes only; kray|x|rune + likeAmount = minimum tip of that asset.
+   */
+  likeTip?: string
+  likeAmount?: string
+  likeRune?: string
 }
 
 function assertActToOrEmpty(a: string): void {
@@ -75,6 +87,36 @@ function assertBannerStarOrEmpty(s: string): void {
   }
 }
 
+function normalizeLikeTip(fields: KrayPlateFields): { likeTip: string; likeAmount: string; likeRune: string } {
+  const likeTip = (fields.likeTip ?? '').trim()
+  const likeAmount = fields.likeAmount ?? ''
+  const likeRune = (fields.likeRune ?? '').trim()
+  assertProfileText(likeTip, 8, 'likeTip')
+  assertActAmountOrEmpty(likeAmount)
+  assertProfileText(likeRune, 128, 'likeRune')
+  if (likeTip === '') {
+    if (likeAmount !== '' || likeRune !== '') {
+      throw new Error('kray-plate: likeAmount / likeRune require likeTip')
+    }
+    return { likeTip: '', likeAmount: '', likeRune: '' }
+  }
+  if (likeTip !== 'none' && likeTip !== 'kray' && likeTip !== 'x' && likeTip !== 'rune') {
+    throw new Error('kray-plate: likeTip must be none, kray, x, or rune')
+  }
+  if (likeTip === 'none') {
+    if (likeRune !== '') throw new Error('kray-plate: likeRune requires likeTip=rune')
+    return { likeTip: 'none', likeAmount: likeAmount === '' ? '0' : likeAmount, likeRune: '' }
+  }
+  if (likeTip === 'rune') {
+    if (!likeRune) throw new Error('kray-plate: likeTip=rune needs likeRune')
+  } else if (likeRune !== '') {
+    throw new Error('kray-plate: likeRune only when likeTip=rune')
+  }
+  const floor = likeAmount === '' ? '0' : likeAmount
+  if (floor === '0') throw new Error('kray-plate: like tip floor must be ≥ 1 when likeTip is kray, x, or rune')
+  return { likeTip, likeAmount: floor, likeRune }
+}
+
 function normalizeAct(fields: KrayPlateFields): { actTo: string; actHint: string; actAmount: string } {
   const actTo = fields.actTo ?? ''
   const actHint = fields.actHint ?? ''
@@ -102,6 +144,7 @@ export function encodeKrayPlate(fields: KrayPlateFields): Buffer {
   assertHttpsOrEmpty(bannerUrl, 'bannerUrl')
   assertBannerStarOrEmpty(bannerStar)
   const { actTo, actHint, actAmount } = normalizeAct(fields)
+  const { likeTip, likeAmount, likeRune } = normalizeLikeTip(fields)
   let body =
     'kray-plate.v1\n' +
     `desc=${description}\n` +
@@ -113,6 +156,10 @@ export function encodeKrayPlate(fields: KrayPlateFields): Buffer {
       `actTo=${actTo}\n` +
       `actHint=${actHint}\n` +
       `actAmount=${actAmount}\n`
+  }
+  if (likeTip !== '') {
+    body += `likeTip=${likeTip}\n` + `likeAmount=${likeAmount}\n`
+    if (likeTip === 'rune') body += `likeRune=${likeRune}\n`
   }
   const buf = Buffer.from(body, 'utf8')
   if (buf.length > KRAY_PLATE_MAX_BYTES) {
@@ -150,6 +197,9 @@ export function decodeKrayPlate(buf: Uint8Array | Buffer): KrayPlateFields {
   let actTo = ''
   let actHint = ''
   let actAmount = ''
+  let likeTip = ''
+  let likeAmount = ''
+  let likeRune = ''
   let i = 4
   // Optional bannerStar (A3 — absent on tips sealed before this field).
   if (i < lines.length && lines[i]!.startsWith('bannerStar=')) {
@@ -167,6 +217,19 @@ export function decodeKrayPlate(buf: Uint8Array | Buffer): KrayPlateFields {
     actAmount = grab('actAmount=', lines[i]!)
     i++
   }
+  // Optional like tip floor (A3 — absent on tips sealed before social like).
+  if (i < lines.length && lines[i]!.startsWith('likeTip=')) {
+    likeTip = grab('likeTip=', lines[i]!)
+    i++
+    if (i >= lines.length) throw new Error('kray-plate: truncated like tip block')
+    likeAmount = grab('likeAmount=', lines[i]!)
+    i++
+    if (likeTip === 'rune') {
+      if (i >= lines.length) throw new Error('kray-plate: truncated like tip block')
+      likeRune = grab('likeRune=', lines[i]!)
+      i++
+    }
+  }
   while (i < lines.length) {
     if (lines[i] !== '') throw new Error('kray-plate: unexpected trailing content')
     i++
@@ -176,12 +239,18 @@ export function decodeKrayPlate(buf: Uint8Array | Buffer): KrayPlateFields {
   assertHttpsOrEmpty(bannerUrl, 'bannerUrl')
   assertBannerStarOrEmpty(bannerStar)
   normalizeAct({ description, url, bannerUrl, bannerStar, actTo, actHint, actAmount })
+  const like = normalizeLikeTip({ description, url, bannerUrl, likeTip, likeAmount, likeRune })
   const out: KrayPlateFields = { description, url, bannerUrl }
   if (bannerStar !== '') out.bannerStar = bannerStar
   if (actTo !== '') {
     out.actTo = actTo
     out.actHint = actHint
     out.actAmount = actAmount
+  }
+  if (like.likeTip !== '') {
+    out.likeTip = like.likeTip
+    out.likeAmount = like.likeAmount
+    if (like.likeRune) out.likeRune = like.likeRune
   }
   return out
 }
