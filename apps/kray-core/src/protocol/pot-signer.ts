@@ -20,6 +20,36 @@ import { buildExitPayout, signVaultSighash, type ExitPayoutPlan, type FundingUtx
 import { verifySignature, runeExitMessage, scriptOfAddress, toBtcNet, _generateKeyPair } from './scheme.ts'
 import { toXOnly, type VaultParams } from './vault.ts'
 import type { VaultUtxo } from './vault-spend.ts'
+import { auditPayoutPolicy, type PayoutPolicy } from './payout-policy.ts'
+
+/**
+ * THE SIGNER LAW v2 (2026-09-18 gauntlet). Everything a signer must ask beyond "dest and amount are the
+ * holder's": the plan pays the SAME rune the holder signed (P0); every other output is the pot's own or
+ * the funder's own and every number has a ceiling (P1–P8, payout-policy.ts); the exit is OPEN in the
+ * signer's book exactly as signed (the lock); one lock is delivered ONCE (the memory); a loaf never
+ * carries the same exit twice; the wire's network is the signer's own. Absent options keep the pure
+ * function byte-identical for older callers; the daemons pass every option.
+ */
+export interface SignedExitMemory {
+  get(key: string): string | null
+  set(key: string, spend: string): void
+}
+export function signedExitKey(network: string, e: SignedRuneExit): string {
+  return `${network}|${String(e.from).toLowerCase()}|${e.runeId}|${Number(e.nonce)}`
+}
+export function spendSetOf(vaultUtxos: { txid: string; vout: number }[]): string {
+  return vaultUtxos.map((u) => `${String(u.txid).toLowerCase()}:${Number(u.vout)}`).sort().join(',')
+}
+/** the OPEN lock the signer's book shows for (from, runeId): undefined = the book does not expose locks
+ *  (a pre-v2 follower), null = no open lock, else the lock as replayed */
+export type BookLockOf = (from: string, runeId: string) => { amount: bigint; l1Address: string } | null | undefined
+export interface SignerOptions {
+  policy?: PayoutPolicy
+  memory?: SignedExitMemory
+  lockOf?: BookLockOf
+  /** the signer's OWN network: the wire's `network` and `params.net` must equal it */
+  network?: string
+}
 
 export interface SignedRuneExit {
   from: string
@@ -67,7 +97,7 @@ export function requireBookCovers(
   exits: SignedRuneExit[],
   bookBalanceOf: (from: string, runeId: string) => bigint | null,
   who: 'guardian' | 'pen' = 'guardian',
-): { ok: true } | { ok: false; reason: string } {
+): { ok: true } | { ok: false; reason: string; lagging?: true } {
   const need = new Map<string, bigint>()
   for (const x of exits) {
     const k = String(x.from).toLowerCase() + '|' + String(x.runeId)
@@ -79,13 +109,81 @@ export function requireBookCovers(
     const rid = k.slice(sep + 1)
     const have = bookBalanceOf(from, rid)
     if (have == null) {
-      return { ok: false, reason: `the ${who} book cannot confirm the balance of ${from.slice(0, 12)}… for ${rid} — refused (fail-closed)` }
+      return { ok: false, lagging: true, reason: `the ${who} book cannot confirm the balance of ${from.slice(0, 12)}… for ${rid} — refused (fail-closed; the daemon answers 503 so the writer retries)` }
     }
     if (have < amt) {
       return { ok: false, reason: `exit amount ${amt} exceeds the exiter book balance ${have} for ${rid} — refused (over-balance drain blocked)` }
     }
   }
   return { ok: true }
+}
+
+const runeKeyOf = (id: { block: bigint; tx: bigint }): string => `${id.block}:${id.tx}`
+const canonicalExitRune = (s: string): string => { const [b, t] = String(s).split(':'); return `${BigInt(b)}:${BigInt(t)}` }
+
+/** The v2 law, identical for the pen and every guardian. Returns the first violated invariant. */
+export function signerLawV2(
+  req: PotSignRequest,
+  allExits: SignedRuneExit[],
+  opts: SignerOptions | undefined,
+  who: 'guardian' | 'pen',
+): { ok: true; spend: string } | { ok: false; reason: string; lagging?: true } {
+  const e = allExits[0]
+  // NETWORK PIN — the wire names a network; it must be THIS signer's, and the vault params must agree
+  if (opts && opts.network) {
+    if (String(req.network) !== opts.network) return { ok: false, reason: `the bundle names network ${req.network}; this ${who} signs only for ${opts.network} — refused` }
+    if (String(req.params.net) !== opts.network) return { ok: false, reason: `the vault params name network ${req.params.net}; this ${who} signs only for ${opts.network} — refused` }
+  }
+  // P0 · THE RUNE IS THE SIGNED RUNE — the plan's runeId must be the one inside every signed exit
+  const planRune = runeKeyOf(req.plan.runeId)
+  for (const x of allExits) {
+    let xr: string
+    try { xr = canonicalExitRune(x.runeId) } catch { return { ok: false, reason: 'a signed exit names a malformed rune id — refused' } }
+    if (xr !== planRune) return { ok: false, reason: `the payout moves rune ${planRune} but the holder signed for ${xr} — refused (the rune-id swap)` }
+  }
+  // NO EXIT TWICE — a loaf may not carry the same (from, rune, nonce) twice (one lock delivered twice in one tx)
+  const seen = new Set<string>()
+  for (const x of allExits) {
+    const k = signedExitKey(String(req.network), x)
+    if (seen.has(k)) return { ok: false, reason: `the same signed exit appears twice in the loaf (${String(x.from).slice(0, 12)}… nonce ${x.nonce}) — refused` }
+    seen.add(k)
+  }
+  // P1–P8 · every output not inside a holder's signature is the pot's own or the funder's own; every number ceilinged
+  if (opts && opts.policy) {
+    const pol = auditPayoutPolicy({ network: req.network, params: req.params, vaultUtxos: req.vaultUtxos, funding: req.funding, plan: req.plan, initiatorFrom: e.from, policy: opts.policy })
+    if (!pol.ok) return pol
+  }
+  // THE LOCK — the exit must be OPEN in this signer's book exactly as signed (amount + destination). A burned
+  // or cancelled lock has no open lock; a tampered one does not match. A book that does not expose locks
+  // (pre-v2 follower) answers undefined and the check is skipped — the balance predicate still runs.
+  if (opts && opts.lockOf) {
+    for (const x of allExits) {
+      const lock = opts.lockOf(String(x.from), String(x.runeId))
+      if (lock === undefined) continue
+      if (lock === null) return { ok: false, reason: `the ${who} book shows NO open exit for ${String(x.from).slice(0, 12)}… on ${x.runeId} — refused (a burned, cancelled or never-journaled lock cannot be paid)` }
+      if (lock.amount !== BigInt(x.amount) || String(lock.l1Address) !== String(x.l1Address)) {
+        return { ok: false, reason: `the ${who} book's open exit (${lock.amount} → ${String(lock.l1Address).slice(0, 12)}…) is not the signed exit (${x.amount} → ${String(x.l1Address).slice(0, 12)}…) — refused` }
+      }
+    }
+  }
+  // ONE LOCK, ONE DELIVERY — a signed exit already signed over a DIFFERENT pot-outpoint set is a double
+  // delivery (the book still shows the lock until settle). The identical set is an RBF re-sign: allowed.
+  const spend = spendSetOf(req.vaultUtxos)
+  if (opts && opts.memory) {
+    for (const x of allExits) {
+      const prior = opts.memory.get(signedExitKey(String(req.network), x))
+      if (prior != null && prior !== spend) {
+        return { ok: false, reason: `exit ${String(x.from).slice(0, 12)}… nonce ${x.nonce} was already signed over a different pot-outpoint set — one lock pays exactly once (refused)` }
+      }
+    }
+  }
+  return { ok: true, spend }
+}
+
+/** After a REAL signature: remember the outpoint set every exit was delivered over. */
+export function rememberDelivery(req: PotSignRequest, allExits: SignedRuneExit[], memory: SignedExitMemory | undefined, spend: string): void {
+  if (!memory) return
+  for (const x of allExits) memory.set(signedExitKey(String(req.network), x), spend)
 }
 
 function serviceFeeWithinCeiling(plan: ExitPayoutPlan): { ok: true } | { ok: false; reason: string } {
@@ -131,7 +229,8 @@ export function authorizePotSign(
   req: PotSignRequest,
   depositorSecret: Uint8Array,
   bookBalanceOf?: (from: string, runeId: string) => bigint | null,
-): { ok: true; depositorSigs: string[] } | { ok: false; reason: string } {
+  opts?: SignerOptions,
+): { ok: true; depositorSigs: string[] } | { ok: false; reason: string; lagging?: true } {
   try {
     const e = req.exit
     if (!e || !e.from || !e.runeId || !e.l1Address || e.amount == null || e.nonce == null) {
@@ -171,8 +270,11 @@ export function authorizePotSign(
     // THE PEN'S OWN BOOK (2026-09-18): when the daemon hands over a book, the pen runs the guardians'
     // predicate itself — every exiter must HOLD what they withdraw per a book THIS pen replayed. Without it
     // the owner key was a rubber stamp for anyone holding two guardian keys and the local token.
+    const penExits = loafExits && loafExits.length ? loafExits : [e]
+    const law = signerLawV2(req, penExits, opts, 'pen')
+    if (!law.ok) return law
     if (bookBalanceOf) {
-      const covered = requireBookCovers(loafExits && loafExits.length ? loafExits : [e], bookBalanceOf, 'pen')
+      const covered = requireBookCovers(penExits, bookBalanceOf, 'pen')
       if (!covered.ok) return covered
     }
     const derived = _generateKeyPair(depositorSecret).publicKeyHex
@@ -191,6 +293,7 @@ export function authorizePotSign(
       }
     }
     const depositorSigs = rebuilt.sighashes.slice(0, rebuilt.vaultInputCount).map((sh) => signVaultSighash(sh, depositorSecret))
+    rememberDelivery(req, penExits, opts && opts.memory, law.spend)
     return { ok: true, depositorSigs }
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) }
@@ -212,7 +315,8 @@ export function authorizeGuardianSign(
   req: PotSignRequest,
   guardianSecret: Uint8Array,
   bookBalanceOf: (from: string, runeId: string) => bigint | null,
-): { ok: true; guardianKey: string; guardianSigs: string[] } | { ok: false; reason: string } {
+  opts?: SignerOptions,
+): { ok: true; guardianKey: string; guardianSigs: string[] } | { ok: false; reason: string; lagging?: true } {
   try {
     const e = req.exit
     if (!e || !e.from || !e.runeId || !e.l1Address || e.amount == null || e.nonce == null) {
@@ -252,6 +356,8 @@ export function authorizeGuardianSign(
     // THE INDEPENDENT PREDICATE: every exiter must actually HOLD >= what they withdraw, per THIS guardian's
     // own book replay (shared with the pen since 2026-09-18 — requireBookCovers).
     const allExits = loafExits && loafExits.length ? loafExits : [e]
+    const law = signerLawV2(req, allExits, opts, 'guardian')
+    if (!law.ok) return law
     const covered = requireBookCovers(allExits, bookBalanceOf, 'guardian')
     if (!covered.ok) return covered
     // Bind a GUARDIAN secret — it must be one of the vault's sealed guardians, never the owner key.
@@ -271,6 +377,7 @@ export function authorizeGuardianSign(
       }
     }
     const guardianSigs = rebuilt.sighashes.slice(0, rebuilt.vaultInputCount).map((sh) => signVaultSighash(sh, guardianSecret))
+    rememberDelivery(req, allExits, opts && opts.memory, law.spend)
     return { ok: true, guardianKey: gx, guardianSigs }
   } catch (err) {
     return { ok: false, reason: err instanceof Error ? err.message : String(err) }

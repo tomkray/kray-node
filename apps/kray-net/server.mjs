@@ -68,7 +68,7 @@ import { decipher, runeName, spacedRuneName } from '../kray-core/src/protocol/ru
 import { parseRuneKey, canonicalRuneKey } from '../kray-core/src/economics/rune-book.ts'
 import { rrPairKey, isAmmPotAddress, ammPoolAddress, ammRrPoolAddress, parseAmmPotAddress } from '../kray-core/src/protocol/amm.ts'
 import { deriveVault, toXOnly, VAULT_TIMELOCK_BLOCKS as VAULT_TIMELOCK_BLOCKS_SRV } from '../kray-core/src/protocol/vault.ts'
-import { auditVaultSpend } from '../kray-core/src/protocol/vault-spend.ts'
+import { auditVaultSpend, verifySighash } from '../kray-core/src/protocol/vault-spend.ts'
 import { validateWatch, markReleased, sweep as vaultWatchSweep } from '../kray-core/src/protocol/vault-watch.ts'
 import { auditSettlementSafety, batchRunestoneFits } from '../kray-core/src/protocol/vault-settlement.ts'
 import { buildExitPayout, extractWalletSignatures, finalizeExitPayout, signVaultSighash } from '../kray-core/src/protocol/exit-payout.ts'
@@ -658,12 +658,15 @@ async function askPotSigner(pend) {
   const ownBook = (from, rid) => {
     try { const id = parseRuneKey(rid); const lock = node.ledger.runes.lockedOf(id, from); return node.ledger.runes.balanceOf(id, from) + (lock ? BigInt(lock.amount) : 0n) } catch { return null }
   }
+  const ownLock = (from, rid) => {
+    try { const lock = node.ledger.runes.lockedOf(parseRuneKey(rid), from); return lock ? { amount: BigInt(lock.amount), l1Address: String(lock.l1Address) } : null } catch { return null }
+  }
   return authorizePotSign({
     network: NET, exit: pend.exitEvent,
     ...(pend.exitEvents && pend.exitEvents.length > 1 ? { exits: pend.exitEvents } : {}),
     params: pend.params,
     vaultUtxos: pend.vaultUtxos, funding: pend.funding, plan: pend.plan, claimedSighashes: claimed,
-  }, csk, ownBook)
+  }, csk, ownBook, { lockOf: ownLock, network: NET })
 }
 /** the exit's journal seq for the pen's lag gate — the same figure the guardians receive (0 = unknown, gate off) */
 function penMinSeal(pend) {
@@ -680,7 +683,11 @@ function guardianSignerUrls() {
 async function askGuardians(pend) {
   const urls = guardianSignerUrls()
   const token = (process.env.KRAY_GUARDIAN_SIGNER_TOKEN || '').trim()
-  if (!token) return { ok: false, reason: 'KRAY_GUARDIAN_SIGNER_TOKEN is required when guardian signer URLs are set' }
+  // ONE TOKEN PER GUARDIAN (2026-09-18 gauntlet): KRAY_GUARDIAN_SIGNER_TOKENS, comma-separated in URL order, so a token
+  // read on one guardian box opens no other guardian's door. Absent → the single shared token (compatibility).
+  const tokens = String(process.env.KRAY_GUARDIAN_SIGNER_TOKENS || '').split(',').map((t) => t.trim())
+  const tokenFor = (i) => (tokens[i] && tokens[i].length >= 16 ? tokens[i] : token)
+  if (!token && !tokens.some((t) => t.length >= 16)) return { ok: false, reason: 'KRAY_GUARDIAN_SIGNER_TOKEN (or KRAY_GUARDIAN_SIGNER_TOKENS) is required when guardian signer URLs are set' }
   const claimed = pend.payout.sighashes.slice(0, pend.payout.vaultInputCount)
   // LAG≠THEFT (custody doctrine rung 2): carry the exit's journal seq so a guardian whose book is merely
   // BEHIND answers "syncing, retry" (503) instead of a refusal that would HOLD an honest withdraw. A book
@@ -707,7 +714,7 @@ async function askGuardians(pend) {
       return { ok: false, reason: 'every guardian URL must be loopback — the guardian key never answers the public internet' }
     }
   }
-  const outcomes = await Promise.all(urls.map(async (url) => {
+  const outcomes = await Promise.all(urls.map(async (url, gi) => {
     let parsed
     try { parsed = new URL(url) } catch { return { ok: false, refused: false, reason: 'invalid guardian URL' } }
     try {
@@ -718,7 +725,7 @@ async function askGuardians(pend) {
       for (let attempt = 0; ; attempt++) {
         r = await fetch(url + '/sign', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tokenFor(gi) },
           body: JSON.stringify(bundle),
           signal: AbortSignal.timeout(15000),
         })
@@ -731,6 +738,14 @@ async function askGuardians(pend) {
       if (!r.ok || !j.ok || !j.guardianKey || !Array.isArray(j.guardianSigs) || !j.guardianSigs.length) {
         return { ok: false, refused: false, reason: `guardian soft failure (${r.status})` }
       }
+      // VERIFY BEFORE COUNTING (2026-09-18 gauntlet): a share is a signature over EXACTLY the claimed sighashes by a key
+      // of this vault — anything else is a soft fault (never counted toward the threshold, never handed to finalize,
+      // where a garbage share used to throw and hold the whole withdraw: a one-guardian denial of service).
+      const gk = String(j.guardianKey).toLowerCase()
+      const isVaultKey = pend.params.guardians.some((g) => { try { return toXOnly(g) === gk } catch { return false } })
+      const sigsOk = isVaultKey && j.guardianSigs.length === claimed.length
+        && j.guardianSigs.every((sig, i) => { try { return verifySighash(claimed[i], String(sig), gk) } catch { return false } })
+      if (!sigsOk) return { ok: false, refused: false, reason: 'guardian share does not verify against the claimed sighashes — dropped as a fault' }
       return { ok: true, share: { guardianKey: j.guardianKey, guardianSigs: j.guardianSigs } }
     } catch (e) {
       return { ok: false, refused: false, reason: 'unreachable — ' + (e instanceof Error ? e.message : String(e)) }

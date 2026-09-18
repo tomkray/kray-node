@@ -83,12 +83,14 @@ async function waitHttp(url, tries = 60) {
   return false
 }
 
+let POLICY_ENV = {}   // the signer law v2 policy for every daemon: filled once the node publishes its pot (bridge/params)
 function spawnGuardian(port, seedIdx, bookUrl) {
   const child = spawn('node', [new URL('../../../../scripts/operator/guardian-signer.mjs', import.meta.url).pathname], {
     env: {
-      ...process.env, KRAY_VAULT_GUARDIAN_SECRET: gSecret(seedIdx), KRAY_GUARDIAN_SIGNER_TOKEN: TOKEN,
+      ...process.env, ...POLICY_ENV, KRAY_VAULT_GUARDIAN_SECRET: gSecret(seedIdx), KRAY_GUARDIAN_SIGNER_TOKEN: TOKEN,
       KRAY_GUARDIAN_BOOK_URL: bookUrl, KRAY_GUARDIAN_SIGNER_PORT: String(port),
       KRAY_GUARDIAN_HEAD_FILE: join(DATA, `guardian-${seedIdx}-head.json`),   // one memory per guardian, never shared
+      KRAY_GUARDIAN_MEMORY_FILE: join(DATA, `guardian-${seedIdx}-memory.json`),
     },
     stdio: ['ignore', logOf(`guardian-${port}`), logOf(`guardian-${port}`)],
   })
@@ -105,6 +107,8 @@ function spawnPen() {
       KRAY_POT_SIGNER_TOKEN: PEN_TOKEN, KRAY_POT_SIGNER_PORT: String(PEN_PORT),
       KRAY_POT_SIGNER_BOOK_URL: `http://127.0.0.1:${PEN_BOOK_PORT}`,
       KRAY_POT_SIGNER_HEAD_FILE: join(DATA, 'pen-head.json'),
+      KRAY_POT_SIGNER_MEMORY_FILE: join(DATA, 'pen-memory.json'),
+      ...POLICY_ENV,
     },
     stdio: ['ignore', logOf('pen'), logOf('pen')],
   })
@@ -166,6 +170,11 @@ async function main() {
   })
   children.push(node)
   ok(await waitHttp(`${NODE}/api/kraynet/supply`), `ceremony node :${NODE_PORT} is up — fresh journal, KRAY_GUARDIAN_SIGNER_URLS ON (3 remotes)`)
+  // THE SIGNER LAW v2 policy for every daemon: the node's own pot is the ONLY rune-change pad, the funder must be the exiter
+  const bridge = jget('/api/kraynet/bridge/params')
+  const potScriptHex = scriptOfAddress(bridge.pot, BNET)
+  POLICY_ENV = { KRAY_PAYOUT_ALLOWED_CHANGE_SCRIPTS: potScriptHex, KRAY_PAYOUT_REQUIRE_EXITER_FUNDING: '1' }
+  ok(/^5120[0-9a-f]{64}$/.test(potScriptHex), `signer law v2 policy: the pot ${String(bridge.pot).slice(0, 14)}… is the only change pad; exiter funding required`)
   const g = [spawnGuardian(G_PORTS[0], 0, `http://127.0.0.1:${B_PORTS[0]}`), spawnGuardian(G_PORTS[1], 1, `http://127.0.0.1:${B_PORTS[1]}`), spawnGuardian(G_PORTS[2], 2, `http://127.0.0.1:${B_PORTS[2]}`)]
   for (const p of G_PORTS) ok(await waitHttp(`http://127.0.0.1:${p}/health`), `guardian daemon :${p} is up (loopback, token-gated, book-checking — its book is a follower, not the writer)`)
   spawnPen()

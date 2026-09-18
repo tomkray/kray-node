@@ -77,13 +77,53 @@ export async function fetchLineage(bookUrl: string, root: string): Promise<Linea
 }
 
 /** Bootstrap head capture — works even against a pre-rung-3 follower (its /head already names cascadeRoot). */
-export async function bookHeadSnapshot(bookUrl: string): Promise<{ seq: number; root: string } | null> {
+export interface BookHeadSnapshot {
+  seq: number
+  root: string
+  network: string | null
+  /** the follower could not replace its snapshot (the stale law): it serves the last VERIFIED one */
+  stale: boolean
+  /** the follower saw a verified history that does NOT extend its previous snapshot (a fork it labelled) */
+  prefixBreak: boolean
+}
+export async function bookHeadSnapshot(bookUrl: string): Promise<BookHeadSnapshot | null> {
   const r = await getJson(`${bookUrl}/api/kraynet/head`, 5000)
   if (!r || r.status === 404) return null
-  const j = r.json as { seq?: unknown; cascadeRoot?: unknown } | null
-  const root = String((j && j.cascadeRoot) || '').toLowerCase()
-  if (!HEX64.test(root)) return null
-  return { seq: Number(j && j.seq) || 0, root }
+  const j = r.json as { seq?: unknown; cascadeRoot?: unknown; network?: unknown; stale?: unknown; prefixBreak?: unknown } | null
+  if (!j || typeof j !== 'object' || !Number.isFinite(Number(j.seq))) return null
+  const rawRoot = String(j.cascadeRoot || '').toLowerCase()
+  const root = HEX64.test(rawRoot) ? rawRoot : ''   // '' = a pre-rung-3 book that names no root (the seq still counts)
+  return {
+    seq: Number(j.seq) || 0, root,
+    network: j && typeof j.network === 'string' ? j.network : null,
+    stale: !!(j && j.stale === true),
+    prefixBreak: !!(j && j.prefixBreak),
+  }
+}
+
+/** The OPEN lock the book shows for (from, runeId): undefined = the book does not expose locks (pre-v2
+ *  follower: no `locked` key at all on a holding), null = no open lock, else {amount, l1Address}. */
+export async function fetchBookLock(bookUrl: string, from: string, runeId: string): Promise<{ amount: bigint; l1Address: string } | null | undefined> {
+  const r = await getJson(`${bookUrl}/api/kraynet/runes/of/${encodeURIComponent(from)}`, 6000)
+  if (!r || r.status === 404) return undefined
+  const j = r.json as { runes?: unknown[]; data?: unknown[] } | null
+  const list = ((j && (j.runes || j.data)) || []) as Array<Record<string, unknown>>
+  const hit = list.find((x) => (x.id || x.runeId || x.rune) === runeId)
+  if (!hit) return null
+  if (!Object.prototype.hasOwnProperty.call(hit, 'locked')) return undefined   // a pre-v2 follower never names locks
+  const lk = hit.locked as { amount?: unknown; l1Address?: unknown } | string | null | undefined
+  if (lk == null || lk === '') return null                                      // a v2 follower says: no open lock
+  if (typeof lk === 'object' && lk.amount != null && typeof lk.l1Address === 'string') {
+    try { return { amount: BigInt(String(lk.amount).split('.')[0] || '0'), l1Address: lk.l1Address } } catch { return null }
+  }
+  return undefined   // a legacy string-only `locked` names no destination: the lock check cannot run here
+}
+
+/** Prefetch every OPEN lock the bundle needs (sync lookup for the signer; absent pair → undefined). */
+export async function bookLocks(bookUrl: string, body: { exit?: unknown; exits?: unknown }): Promise<(from: string, runeId: string) => { amount: bigint; l1Address: string } | null | undefined> {
+  const locks = new Map<string, { amount: bigint; l1Address: string } | null | undefined>()
+  for (const p of exitPairs(body)) locks.set(p.from.toLowerCase() + '|' + p.runeId, await fetchBookLock(bookUrl, p.from, p.runeId))
+  return (from, runeId) => locks.get(String(from).toLowerCase() + '|' + String(runeId))
 }
 
 /** The signer's own book: the exiter's claim is spendable + LOCKED (once the book replays the rune-exit the
@@ -129,8 +169,12 @@ export async function bookBalances(bookUrl: string, body: { exit?: unknown; exit
 
 /** Rung 2: a book behind the exit's seq cannot judge yet → 503 lagging (retriable), never a sign. */
 export async function lagGate(bookUrl: string, minSeal: number, who = 'signer'): Promise<GateFault | null> {
-  if (!(minSeal > 0)) return null
   const snap = await bookHeadSnapshot(bookUrl)
+  // the follower's own honesty labels come first: a snapshot it could not replace is a liveness fault (503), a
+  // history that broke its prefix is a fork this signer will not judge (403) — regardless of minSeal
+  if (snap && snap.prefixBreak) return { ok: false, status: 403, equivocation: true, reason: `the ${who} book labelled its history a PREFIX BREAK (a fork it adopted under KRAY_FOLLOW_PREFIX=warn) — this ${who} will not judge on it; a person inspects` }
+  if (snap && snap.stale) return { ok: false, status: 503, lagging: true, bookSeq: snap.seq, minSeal, reason: `the ${who} book is STALE (serving its last verified snapshot at seq ${snap.seq}) — cannot judge; retry` }
+  if (!(minSeal > 0)) return null
   const bookSeq = snap ? snap.seq : null
   if (bookSeq == null || bookSeq < minSeal) {
     return { ok: false, status: 503, lagging: true, bookSeq, minSeal, reason: `book at seq ${bookSeq ?? 'unreachable'} — the exit needs seq ${minSeal}; this ${who} cannot judge yet (lagging, retry)` }
@@ -164,7 +208,8 @@ export async function headGate(bookUrl: string, lastHead: SignerHead | null, who
     return { ok: true, gateHead: lin.head, gateAnchor, lineageSupported: true }
   }
   // Bootstrap (no persisted head yet): capture the book's head now so the FIRST sign plants the memory.
-  const gateHead = await bookHeadSnapshot(bookUrl)
+  const snap = await bookHeadSnapshot(bookUrl)
+  const gateHead = snap && snap.root ? { seq: snap.seq, root: snap.root } : null   // no root = nothing to remember
   let gateAnchor: { root: string; seq: number } | null = null
   let lineageSupported = false
   if (gateHead) {

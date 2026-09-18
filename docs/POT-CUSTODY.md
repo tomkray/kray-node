@@ -133,6 +133,37 @@ the pen daemon on the pen's box, `KRAY_POT_SIGNER_BOOK_URL` in the pen's env, th
 then the phrase. Still open after this rung: the pens share a box with guardian-1 and the guardian relays —
 they belong on a box of their own; guardian keys stay sealed only when their phrase is not on disk.
 
+## The signer law v2 — BUILT + proven (2026-09-18 gauntlet), awaiting the rite
+
+The gauntlet showed that "dest and amount are the holder's" was the only output the signers bound. Every plan
+below was SIGNED by the pen and two guardians: the rune change to a writer script (the whole pot per withdraw),
+the rune-id swap, sats change / funding / fee unpinned, the same signed exit over two pot-outpoint sets, a
+burned lock paid again, the same exit twice in a loaf, a foreign network on the wire. The law v2 is ONE
+predicate (`signerLawV2` in `pot-signer.ts`) run by the pen and by every guardian before any key is touched:
+
+- **P0 · the rune is the signed rune:** `plan.runeId` equals the rune inside every signed exit.
+- **P1–P8 · `payout-policy.ts`:** the rune change returns to this vault or a pad the operator configured
+  (`KRAY_PAYOUT_ALLOWED_CHANGE_SCRIPTS` = the consolidation pot); the sats change returns to the funding script;
+  the funding is the exiter's own (`KRAY_PAYOUT_REQUIRE_EXITER_FUNDING=1`); ceilings on the miner fee, the service
+  output (and its script, `KRAY_PAYOUT_SERVICE_FEE_SCRIPTS`), the input count and the pot's own sats.
+- **The lock:** the exit must be OPEN in the signer's book exactly as signed (amount + destination). The follower
+  now always names `locked` (`null` when none) so a burned or cancelled lock is a refusal, never a skip; a pre-v2
+  follower (no `locked` key) skips the check while the balance predicate still runs.
+- **One lock, one delivery:** each daemon remembers the pot-outpoint set it signed every exit over
+  (`pot-memory.json` / `guardian-memory.json`); a different set for the same exit is refused, the same set (RBF)
+  is allowed.
+- **No exit twice** in a loaf; **one network** (the wire's `network` and `params.net` must be the book's own).
+- **Liveness, not verdicts:** an unknown balance, a STALE book or an unreachable book answer 503 (the writer
+  retries); a book that labelled a PREFIX BREAK answers 403. The writer verifies every guardian share against the
+  claimed sighashes before counting it (a garbage share is a fault, never a held withdraw), and speaks a token
+  per guardian (`KRAY_GUARDIAN_SIGNER_TOKENS`).
+
+Proven: `signer-law-v2.test.ts` (every mutation refused by both signers, the honest shape signed), `book-gate`
+37, `pot-signer` 46, `pot-signer-http` 17, `guardian-monotonic-head` 17, the Liquid-class gauntlet (seeded swarm),
+and the Tier-1 ceremony with the policy live on the pen and the three guardians. Deploy = the rite: every signer
+box gets kray-core + its daemon + the policy env, the followers restart once (they now name locks), the pens are
+restarted with their phrases on stdin. Signet first, mainnet after a clean signet day.
+
 ## Rung 4 verdict — pre-signed pot split: RE-RANKED, not shipped (council + adversary, 2026-08-23)
 
 Two lenses studied the real code. **The "auto-fail" promise is FALSE as stated** — it conflated

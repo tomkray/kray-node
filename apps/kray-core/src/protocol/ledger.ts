@@ -46,6 +46,7 @@ import { verifyDonationProof } from '../anchor/spv.ts'   // ADR-1: pure/offline 
 import { selfAnchorScriptHex, BURN_INTERNAL_KEY } from './self-anchor.ts'   // ADR-1 extended: re-derive a self-anchor burn script from (pot key, sealed payload) — pure, offline. NUMS is the book.
 import { KrayAnchor } from '../anchor/anchor.ts'         // KrayAnchor.payload — the one canonical anchor payload codec (static, offline)
 import { verifyRuneDepositProof, verifyRuneSettleProof } from './rune-bridge.ts'   // ADR-1 extended to the rune peg — same purity, same law
+import { POT_BINDING_SEQ, federationBindingVerdict } from './federation-consensus.ts'   // THE POT BINDING: the federation is a consensus constant, never the event's word
 import { proveInscription } from './inscription-proof.ts'   // ADR-1 extended to ETERNIZE — the L1 carving re-proven from raw bytes, offline
 import type { ProvenTx } from './rune-ancestry.ts'
 import type { RuneBalance } from './runestone.ts'   // THE KEYSTONE: the journal's accumulated per-rune outpoint truth
@@ -348,6 +349,19 @@ export const STAR_LIKE_ONCE_SEQ: Record<string, number> = {
   main: 0,
 }
 
+/** CONTRACT-V1 RETIREMENT (E1, 2026-09-18 — the reducer half of the 2026-09-17 door fix, f6aaa11) — at/after
+ *  this seq a `contract` with NO star (the v1 pot: no fee, no burn, no nonce, so one signature re-opened a new
+ *  pot on every re-submission) is refused in consensus: a law hangs on a star (v2 — 1 ₭ burned, latched
+ *  one-law-per-star). Below the pin a journaled v1 replays exactly as written (A3). Pinned ABOVE the live
+ *  heads at the rite (signet tip 226 → 227, main tip 81 → 82); no v1 seal exists in either journal (main:
+ *  0 contracts; signet: 3, all on stars). Regtest stays MAX — goldens and exams that still seal v1 pots
+ *  replay byte-exact; the lab injects KRAY_LAB_CONTRACT_V1_RETIRED_SEQ (store.ts) or a ctor seq. */
+const CONTRACT_V1_RETIRED_SEQ: Record<string, number> = {
+  regtest: Number.MAX_SAFE_INTEGER,
+  signet: 227,
+  main: 82,
+}
+
 /** ADR-3 eligibility opening — hard cap on the producedRoots lookback map (cascade root → {seq, inclusionRoot}).
  *  The seal case prunes below the last anchor seq, but a long PRE-activation run has no seals to prune, so this
  *  cap (evict-oldest) bounds memory regardless. Far larger than any real confirmation latency in events, so it
@@ -505,7 +519,7 @@ export class KrayLedger {
    */
   plateAtlasStrict: boolean = true
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number, profileValueSeq?: number, starLikeOnceSeq?: number) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number, profileValueSeq?: number, starLikeOnceSeq?: number, potBindingSeq?: number, contractV1RetiredSeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -532,6 +546,8 @@ export class KrayLedger {
     this.digitLawSeq = digitLawSeq ?? (DIGIT_LAW_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.profileValueSeq = profileValueSeq ?? (PROFILE_VALUE_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.starLikeOnceSeq = starLikeOnceSeq ?? (STAR_LIKE_ONCE_SEQ[network] ?? 0)
+    this.potBindingSeq = potBindingSeq ?? (POT_BINDING_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.contractV1RetiredSeq = contractV1RetiredSeq ?? (CONTRACT_V1_RETIRED_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     // main pin 0 is the law itself (not a signaling): start at 10_000. Donate never
     // reads the rate — an empty-of-stars journal keeps its cascade.
     if (this.sizeProportionSeq === 0) {
@@ -594,6 +610,8 @@ export class KrayLedger {
   private readonly uniqueRelicRefuseSeq: number     // THE UNIQUE-RELIC LAW: at/after it, a taken name/bytes refuse BEFORE fire (A3 below — cursed-burn still applies)
   private readonly profileValueSeq: number          // CITIZEN MOUTH VALUE: at/after it, set-profile pays 1 ₭ + hygiene (A3 below = feeless legacy)
   private readonly starLikeOnceSeq: number          // once-ever like: at/after it, second like from same address×star HALTs
+  private readonly potBindingSeq: number            // THE POT BINDING: at/after it, a proof-bearing rune deposit's journaled vault must be THIS network's pot / federation (A3 below)
+  private readonly contractV1RetiredSeq: number     // CONTRACT-V1 RETIREMENT (E1): at/after it, a law with no star is refused — the v1 pot is retired (A3 below)
   /** THE JOURNAL'S ACCUMULATED TRUTH — outpoint → balances of ONE rune, re-derived by earlier
    *  proven deposits. Scoped per rune (the etch-root shortcut is exact only for the focused rune,
    *  so one rune's memo must never answer for another). Re-built identically on every replay from
@@ -1854,6 +1872,19 @@ export class KrayLedger {
         // byte-identical to before (the door gates).
         let provenVaultBalance: bigint | undefined
         if (e.proof) {
+          // ── THE POT BINDING (2026-09-18) — the federation is a CONSENSUS CONSTANT, never the event's word.
+          // Until this pin the vault was re-derived from whatever `proof.vault` the writer journaled, and only
+          // the writer's door checked that a `pool:true` deposit had landed in the real consolidation pot — so a
+          // compromised writer could pay runes into a vault it alone controlled and every honest replayer would
+          // credit pot-backed transferable runes (the Liquid class). At/after the pin: a pot deposit's journaled
+          // vault must derive to THIS network's pot script; a personal-vault deposit must carry THIS network's
+          // guardians, threshold and timelock (the depositor stays the holder's own key — bound inside the
+          // verifier below). Pure, deterministic, fail-closed (no sealed federation ⇒ refuse). Below the pin the
+          // vault is the event's word, exactly as before (A3 — byte-identical history).
+          if (e.seq >= this.potBindingSeq) {
+            const bind = federationBindingVerdict(e.proof.vault, { network: this.network, pool: e.pool === true || e.proof.pool === true })
+            if (!bind.ok) throw new Error(`ledger: ${bind.reason}`)
+          }
           const known = this.provenRuneOutpoints.get(canonicalRuneKey(e.runeId))
           const v = verifyRuneDepositProof(e.proof, {
             runeId: parseRuneKey(e.runeId), outpoint: e.outpoint, to: e.to, amount: BigInt(e.amount),
@@ -2333,6 +2364,14 @@ export class KrayLedger {
         // v1 (no e.star) is FROZEN — no burn, no star (A3). v2 (e.star set) burns 1 ₭
         // onto an owned star that does not yet carry a law (the third canvas).
         if (!e.from || !e.code) throw new Error('ledger: a contract needs a creator and code')
+        // CONTRACT-V1 RETIREMENT (E1, 2026-09-18): the reducer half of the door fix (f6aaa11). A law with no
+        // star — the v1 pot: no fee, no burn, no nonce, one signature re-submittable — is refused in consensus
+        // at/after the pin, before its code is read. The door's definition (`readOnStar(b) == null`) journals
+        // as an ABSENT `star`, which is exactly the reducer's v1 (`useV2` below). Below the pin a journaled
+        // v1 replays as written (A3).
+        if (e.star === undefined && e.seq >= this.contractV1RetiredSeq) {
+          throw new Error('ledger: at/after contract-v1 retirement a law must hang on a star — the v1 pot is retired')
+        }
         const v = validateContract(e.code)
         if (!v.ok) throw new Error(`ledger: the contract is not valid (${v.reason}) — code that cannot be checked never enters history`)
         const codeHash = sha256hex(canonicalCode(e.code))

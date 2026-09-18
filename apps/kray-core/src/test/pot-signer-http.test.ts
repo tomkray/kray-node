@@ -83,6 +83,7 @@ const child = spawn('node', [SCRIPT], {
     KRAY_POT_SIGNER_PORT: String(PORT),
     KRAY_POT_SIGNER_BOOK_URL: `http://127.0.0.1:${BOOK_PORT}`,
     KRAY_POT_SIGNER_HEAD_FILE: HEAD_FILE,
+    KRAY_POT_SIGNER_MEMORY_FILE: HEAD_FILE.replace('head', 'memory'),
   },
   stdio: 'ignore',
 })
@@ -112,21 +113,21 @@ async function main() {
   ok(health.ok === true && !JSON.stringify(health).includes(TOKEN.slice(0, 12)), 'health never leaks the token')
 
   const noAuth = await fetch(BASE + '/sign', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bundle) })
-  ok(noAuth.status === 401, 'ATTACK: no token → 401')
+  ok(noAuth.status === 401, 'ATTACK: no token → 401' + ' ← ' + noAuth.status + ' ' + JSON.stringify(noAuth.body).slice(0, 160))
 
   const badTok = await fetch(BASE + '/sign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + '00'.repeat(32) },
     body: JSON.stringify(bundle),
   })
-  ok(badTok.status === 401, 'ATTACK: wrong token → 401')
+  ok(badTok.status === 401, 'ATTACK: wrong token → 401' + ' ← ' + badTok.status + ' ' + JSON.stringify(badTok.body).slice(0, 160))
 
   const good = await fetch(BASE + '/sign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
     body: JSON.stringify(bundle),
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
-  ok(good.status === 200 && good.body.ok === true && Array.isArray(good.body.depositorSigs) && good.body.depositorSigs.length === 1, 'a genuine rebuild bundle is signed over HTTP — the pen consulted its book (balance 100 ≥ exit 100)')
+  ok(good.status === 200 && good.body.ok === true && Array.isArray(good.body.depositorSigs) && good.body.depositorSigs.length === 1, 'a genuine rebuild bundle is signed over HTTP — the pen consulted its book (balance 100 ≥ exit 100)' + ' ← ' + good.status + ' ' + JSON.stringify(good.body).slice(0, 160))
   ok(existsSync(HEAD_FILE) && JSON.parse(readFileSync(HEAD_FILE, 'utf8')).root === book.root, 'the pen persisted the head it signed against (monotonic memory)')
   const h2 = await fetch(BASE + '/health').then((r) => r.json())
   ok(h2.book === `http://127.0.0.1:${BOOK_PORT}` && h2.monotonicHead && h2.monotonicHead.root === book.root, '/health names the book and the remembered head')
@@ -135,26 +136,26 @@ async function main() {
   const overBalance = await fetch(BASE + '/sign', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN }, body: JSON.stringify(bundle),
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
-  ok(overBalance.status === 403 && /over-balance/.test(overBalance.body.reason || ''), 'ATTACK: exit 100 vs book 99 → 403 over-balance (the pen refuses on its OWN book)')
+  ok(overBalance.status === 403 && /over-balance/.test(overBalance.body.reason || ''), 'ATTACK: exit 100 vs book 99 → 403 over-balance (the pen refuses on its OWN book)' + ' ← ' + overBalance.status + ' ' + JSON.stringify(overBalance.body).slice(0, 160))
   book.balance = 100n
   // lag ≠ theft: the exit's journal seq is past the book → 503 retriable, never a signature
   const lag = await fetch(BASE + '/sign', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN }, body: JSON.stringify({ ...bundle, minSeal: 60 }),
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
-  ok(lag.status === 503 && lag.body.lagging === true && lag.body.bookSeq === 50, 'a book behind the exit (seq 50 < 60) → 503 lagging, retried by the writer')
+  ok(lag.status === 503 && lag.body.lagging === true && lag.body.bookSeq === 50, 'a book behind the exit (seq 50 < 60) → 503 lagging, retried by the writer' + ' ← ' + lag.status + ' ' + JSON.stringify(lag.body).slice(0, 160))
   // a rewrite: the book\'s history no longer passes through the remembered head → 403 that never auto-clears
   const oldRoot = book.root; book.root = 'cd'.repeat(32); book.seq = 51
   const rewrite = await fetch(BASE + '/sign', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN }, body: JSON.stringify(bundle),
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
-  ok(rewrite.status === 403 && rewrite.body.equivocation === true, 'a book whose history abandons the remembered head → 403 EQUIVOCATION (held until a person inspects)')
+  ok(rewrite.status === 403 && rewrite.body.equivocation === true, 'a book whose history abandons the remembered head → 403 EQUIVOCATION (held until a person inspects)' + ' ← ' + rewrite.status + ' ' + JSON.stringify(rewrite.body).slice(0, 160))
   book.root = oldRoot; book.seq = 50
   // the book goes dark → 503, never a signature on a guess
   book.up = false
   const dark = await fetch(BASE + '/sign', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN }, body: JSON.stringify(bundle),
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
-  ok(dark.status === 503 && dark.body.lagging === true, 'an unreachable book → 503 (the pen cannot judge; it does not sign)')
+  ok(dark.status === 503 && dark.body.lagging === true, 'an unreachable book → 503 (the pen cannot judge; it does not sign)' + ' ← ' + dark.status + ' ' + JSON.stringify(dark.body).slice(0, 160))
   book.up = true
 
   const steal = await fetch(BASE + '/sign', {
@@ -162,7 +163,7 @@ async function main() {
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
     body: JSON.stringify({ ...bundle, plan: { ...bundle.plan, destScriptHex: hex(btc.p2tr(Buffer.from(keypair('http-thief').pk, 'hex'), undefined, NETWORKS.regtest).script!) } }),
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
-  ok(steal.status === 403 && /SIGNED exit address/.test(steal.body.reason || ''), 'ATTACK: dest swapped on the wire → 403')
+  ok(steal.status === 403 && /SIGNED exit address/.test(steal.body.reason || ''), 'ATTACK: dest swapped on the wire → 403' + ' ← ' + steal.status + ' ' + JSON.stringify(steal.body).slice(0, 160))
 
   // the 2026-09-17 regression, over the REAL daemon: the withdraw door's stated 546-sat service output
   // must cross the HTTP wire, or the pen rebuilds a 4-output payout and holds every withdraw.
@@ -181,15 +182,15 @@ async function main() {
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
     body: JSON.stringify({ ...feeBundle, plan: { ...feeBundle.plan, serviceFee: { scriptHex: hex(platPay.script!), sats: '50000' } } }),
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
-  ok(drain.status === 403 && /signer ceiling/.test(drain.body.reason || ''), 'ATTACK: a 50 000-sat "service fee" on the wire → 403 (the ceiling holds over HTTP)')
+  ok(drain.status === 403 && /ceiling/.test(drain.body.reason || ''), 'ATTACK: a 50 000-sat "service fee" on the wire → 403 (the ceiling holds over HTTP)' + ' ← ' + drain.status + ' ' + JSON.stringify(drain.body).slice(0, 160))
   const garbage = await fetch(BASE + '/sign', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
     body: JSON.stringify({ ...feeBundle, plan: { ...feeBundle.plan, serviceFee: 'yes' } }),
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
-  ok(garbage.status === 400 && /serviceFee must be/.test(garbage.body.reason || ''), 'a malformed service output on the wire → 400, the daemon stays up')
+  ok(garbage.status === 400 && /serviceFee must be/.test(garbage.body.reason || ''), 'a malformed service output on the wire → 400, the daemon stays up' + ' ← ' + garbage.status + ' ' + JSON.stringify(garbage.body).slice(0, 160))
 
   console.log(`\n╚═ ${pass} passed — the pot-signer on 127.0.0.1 signs only an exit-bound rebuild. ₿₭`)
 }
 
-main().catch((e) => { console.error(e); process.exit(1) }).finally(() => { try { child.kill('SIGKILL') } catch { /* already gone */ } try { bookServer.close() } catch { /* already closed */ } try { rmSync(HEAD_FILE, { force: true }) } catch { /* gone */ } })
+main().catch((e) => { console.error(e); process.exit(1) }).finally(() => { try { child.kill('SIGKILL') } catch { /* already gone */ } try { bookServer.close() } catch { /* already closed */ } try { rmSync(HEAD_FILE, { force: true }); rmSync(HEAD_FILE.replace('head', 'memory'), { force: true }) } catch { /* gone */ } })

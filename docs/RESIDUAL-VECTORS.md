@@ -26,7 +26,7 @@
 | **V7** | integer dust in the split | **immaterial (E ≈ 0)** | none needed |
 | **V8** | governance √-weight sybil surface | **outside the reward pool** | rests on proof-of-personhood |
 | ↳ | phantom "uniform draw" | **GOOD phantom — the insight was TRUE** | it named the anchor draw (→ V5); the raffle it blamed is work-weighted |
-| **V9** | the v1 `contract` seal (E1): free, nonce-less, one signature re-submittable | **CLOSED at the door (2026-09-17); reducer pin `CONTRACT_V1_RETIRED_SEQ` next** | §V9 below |
+| **V9** | the v1 `contract` seal (E1): free, nonce-less, one signature re-submittable | **CLOSED at the door (2026-09-17); retired in the reducer at `CONTRACT_V1_RETIRED_SEQ` (2026-09-18: signet 227 / main 82, regtest inactive)** | §V9 below |
 | **M** | phantom "unverified capacity" | **hallucination + a grain** | flat shape is correct; the grain: `perAnchor` is a magic-number level (§M) |
 
 ---
@@ -296,8 +296,9 @@ nonce 0, never refused. With identical `at` the second is refused by the same-in
 
 **Status:** refused at every writer door since 2026-09-17 — `prepareMessage` and `buildSubmitEvent`
 (`/submit`, `/submit-batch`, the inbox drain, every mirror relay converge there); the "Advanced · v1 pot"
-panel retired from the profile page. The reducer keeps accepting v1 below the future `CONTRACT_V1_RETIRED_SEQ`
-pin (regtest MAX, signet/main at tip + margin, writer door first, then the fleet) so every journaled byte
+panel retired from the profile page. The reducer refuses v1 at/after `CONTRACT_V1_RETIRED_SEQ` (pinned
+2026-09-18: regtest MAX, signet 227, main 82 — one above each live head; the writer door went first, the fleet
+follows by the sanctioned rite) and keeps accepting it below the pin so every journaled byte
 replays as before. No v1 seal exists in any live journal (main: 0 `contract` events; signet: 3, all v2 on
 stars). Residue, named: v2 seals are nonce-less too, latched one-law-per-star with a 1-₭ burn.
 

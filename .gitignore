@@ -113,3 +113,6 @@ apps/kray-net/works/
 apps/kray-net/PARENTS.md
 apps/kray-net/library/MANIFEST.md
 **/.vscode/
+
+# signer delivery memories are runtime state, never source
+*-memory.json

@@ -58,8 +58,10 @@ replayable across action, network, or version. *(Named: an optional height/expir
 actions, to defeat a very-old offline-signed replay at the same nonce.)*
 
 *Exception named 2026-09-17 (E1, `RESIDUAL-VECTORS.md` §V9): the v1 `contract` message (a law with no star)
-carries no nonce and was re-submittable. It is refused at every writer door since that date and will be retired
-in consensus at `CONTRACT_V1_RETIRED_SEQ` (Art. XIV); below that pin the reducer replays it as written. v2 seals
+carries no nonce and was re-submittable. It is refused at every writer door since that date and is retired
+in consensus at `CONTRACT_V1_RETIRED_SEQ` (Art. XIV — pinned 2026-09-18 one above each live head: signet 227,
+main 82; regtest inactive): at/after it the reducer refuses a `contract` with no star; below it the reducer
+replays a journaled v1 as written — none exists in either live journal. v2 seals
 are nonce-less but latched — one law per star, 1 ₭ burned.*
 
 ### VIII — Guardians serve liveness; they never decide truth. **[ENFORCED]**
@@ -90,6 +92,23 @@ does not embed its own SPV proof; and input ancestry is no longer "the next slic
 `proof.ancestry` is refused (THE KEYSTONE). `inputRunes` remains ord's attestation, but allocation math
 and ancestry are re-derived. Do not say the peg is trustless while a federation holds the pot
 (Article XIII).
+
+**The pot binding (pinned 2026-09-18 — `POT_BINDING_SEQ`: signet 227, main 82, one above each live head;
+regtest inactive):** until this pin the reducer re-proved a deposit from bytes but took the VAULT from the
+event — `deriveVault({ ...proof.vault })` was whatever the writer journaled, and only the writer's door checked
+that a `pool:true` deposit had landed in the network's real consolidation pot. A compromised writer could
+therefore pay runes into a vault it alone controlled, journal the credit as `pool:true`, and every honest
+replayer would mint pot-backed transferable credit (the Liquid class: unbacked credit every verifier accepts);
+a personal-vault deposit could likewise carry an attacker-chosen guardian set. At/after the pin the federation
+is a consensus constant (`federation-consensus.ts`: each network's pot address, guardian set, threshold and
+timelock — byte-for-byte what `/api/kraynet/bridge/params` publishes): a `pool:true` deposit whose journaled
+vault does not derive to THIS network's pot script is refused, and a personal-vault deposit whose guardians,
+threshold or timelock are not THIS network's is refused (the depositor stays the holder's own key, bound by the
+verifier). Pure, deterministic, fail-closed — a network with no sealed federation refuses every bound deposit.
+The settle proof carries no vault params (a payout is proven to the exit's SIGNED destination), so nothing
+binds there. Below the pin every journaled deposit replays byte-identically; all six live signet deposits
+already pay the sealed pot. Proven: `pot-binding-pin` (42/42); one-shot follows of both networks re-derive the
+claimed heads through the pinned reducer.
 
 ### XI — Ordering is single-writer today; objective multi-writer ordering is a named path. **[ENFORCED (inclusion evidence) · NAMED PATH (multi-writer ordering)]**
 One writer assigns global order (`LedgerStore.append` in `store.ts`); the reducer only validates. This

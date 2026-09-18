@@ -30,6 +30,14 @@ re-verification). Overclaiming security is treated as the worst possible failure
   root and the anchor are SHA-256; the anchor's SPV proof re-derives tx→txid→merkle→PoW header
   chain→root from bytes and cannot be forged or replayed. Conservation (Σ balances == emitted −
   burned) is re-asserted after every event, or the node HALTs.
+- **A rune credit is backed by THIS network's pot, in consensus.** At/after `POT_BINDING_SEQ` (signet 227,
+  main 82 — one above each live head at the 2026-09-18 rite; regtest inactive) the reducer refuses a
+  `pool:true` rune deposit whose journaled vault does not derive to the sealed consolidation pot, and a
+  personal-vault deposit whose guardians / threshold / timelock are not the sealed federation
+  (`federation-consensus.ts` — the pot address, guardian set, threshold and timelock each writer publishes).
+  Before the pin the vault was the event's word: only the writer's door checked the pot, so a compromised
+  writer could journal pot-backed credit against a vault it alone controlled (the Liquid class). Below the
+  pin history replays byte-identically. Proven: `pot-binding-pin.test.ts` (42/42).
 
 ## Post-quantum posture — the honest truth
 
@@ -75,6 +83,11 @@ note — never claimed away.
 
 ## Known open items (tracked, not hidden)
 
+- **Built 2026-09-18, awaiting the rite — the signer law v2.** The gauntlet proved the signers bound only the
+  holder's destination and amount: rune change, rune id, sats change, funding, fees, the open lock and single
+  delivery were the writer's word. `signerLawV2` + `payout-policy.ts` (P0–P8, the lock, one delivery, one network)
+  now run in the pen and in every guardian; the writer verifies shares before counting and speaks a token per
+  guardian. Live on a network only after every signer box runs it (see POT-CUSTODY, "the signer law v2").
 - **Built 2026-09-18, awaiting the rite — the pen consults its own book.** The owner signer never checked the
   book: with two guardian keys and the pen's local token, a self-signed over-balance exit drained the pot. The pen
   now runs the guardians' gate (`book-gate.ts`): its own follower, lag ≠ theft, monotonic head + lineage, the
@@ -103,8 +116,9 @@ note — never claimed away.
 - **File modes / PQ migration pieces** as above.
 - **E1 — the v1 `contract` seal (a law with no star)**: it paid no fee, burned nothing and carried no nonce,
   so one signature could open a new pot on every re-submission (confirmed 5/5 on regtest and on a `main`-network
-  ledger, 2026-09-17). Refused at every writer door since 2026-09-17; the reducer still accepts it below the
-  future `CONTRACT_V1_RETIRED_SEQ` pin so history replays byte-identically — no v1 seal exists in any live
+  ledger, 2026-09-17). Refused at every writer door since 2026-09-17 and retired in the reducer at
+  `CONTRACT_V1_RETIRED_SEQ` (pinned 2026-09-18: signet 227, main 82 — one above each live head; regtest
+  inactive); below the pin history replays byte-identically — no v1 seal exists in any live
   journal (main: 0 contracts; signet: 3, all on stars). Recipe and status: `RESIDUAL-VECTORS.md` §V9.
 
 ## Responsible disclosure

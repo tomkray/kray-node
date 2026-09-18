@@ -43,7 +43,7 @@ export function labActivationPins(network: string) {
   const proof = network === 'regtest' || (network === 'signet' && process.env.KRAY_TRUSTED_DEV === '1')
     ? n('KRAY_LAB_PROOF_MANDATORY_SEQ')
     : undefined   // main: the env is dead code — born strict is not liftable
-  if (network !== 'regtest') return { x: undefined, burn: undefined, same: undefined, fire: undefined, tk: undefined, relic: undefined, mintw: undefined, proof, dscript: undefined, rbook: undefined, digits: undefined }
+  if (network !== 'regtest') return { x: undefined, burn: undefined, same: undefined, fire: undefined, tk: undefined, relic: undefined, mintw: undefined, proof, dscript: undefined, rbook: undefined, digits: undefined, contractV1: undefined }
   return {
     x: n('KRAY_LAB_X_SEQ'),
     burn: n('KRAY_LAB_BURN_LAW_SEQ'),
@@ -56,6 +56,7 @@ export function labActivationPins(network: string) {
     dscript: n('KRAY_LAB_DONATION_SCRIPT_SEQ'),
     rbook: n('KRAY_LAB_RUNE_BOOK_SEQ'),
     digits: n('KRAY_LAB_DIGIT_LAW_SEQ'),
+    contractV1: n('KRAY_LAB_CONTRACT_V1_RETIRED_SEQ'),   // E1: a regtest bench may retire the v1 pot early (signet/main are table-pinned)
   }
 }
 
@@ -68,7 +69,7 @@ export function openKrayLedger(
   potInternalKeyHex?: string,
 ) {
   const p = labActivationPins(network)
-  return new KrayLedger(potTarget, network, potScriptHex, backingGate, atlasBytes, undefined, p.x, p.burn, undefined, undefined, p.same, p.fire, p.tk, undefined, potInternalKeyHex, p.proof, undefined, p.relic, p.mintw, p.dscript, p.rbook, p.digits)
+  return new KrayLedger(potTarget, network, potScriptHex, backingGate, atlasBytes, undefined, p.x, p.burn, undefined, undefined, p.same, p.fire, p.tk, undefined, potInternalKeyHex, p.proof, undefined, p.relic, p.mintw, p.dscript, p.rbook, p.digits, undefined, undefined, undefined, p.contractV1)
 }
 
 export class LedgerStore {

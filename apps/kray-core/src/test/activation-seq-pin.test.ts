@@ -44,6 +44,14 @@ const GOLDEN: Record<string, Golden> = {
   PROFILE_VALUE_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: 0, signet: 200, main: 80 } },
   // Once-ever like, one address × one star: born active on every net — the tip cannot buy a second like.
   STAR_LIKE_ONCE_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: 0, signet: 0, main: 0 } },
+  // Named with intent (2026-09-18): THE POT BINDING — a proof-bearing rune deposit's journaled vault must be THIS
+  // network's sealed pot / federation (federation-consensus.ts). Pinned above the live heads at the rite (signet
+  // tip 226 → 227, main tip 81 → 82) so every journaled deposit replays byte-identically; regtest has no sealed
+  // federation (the lab's varies) and stays MAX.
+  POT_BINDING_SEQ: { kind: 'table', file: 'protocol/federation-consensus.ts', nets: { regtest: MAX, signet: 227, main: 82 } },
+  // E1 (2026-09-18): a law with no star (the v1 pot) is refused in the reducer at/after this pin — the same rite,
+  // the same heads (227 / 82); no v1 seal exists in either live journal. Regtest stays MAX (goldens seal v1 pots).
+  CONTRACT_V1_RETIRED_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: MAX, signet: 227, main: 82 } },
   PRESENCE_WINDOW_FROM_SEQ: { kind: 'scalar', file: 'economics/presence-window.ts', value: 121 },
   BEAT_PAY_CAP_LIFTED_FROM_SEQ: { kind: 'scalar', file: 'economics/presence-window.ts', value: MAX },
 }
@@ -168,6 +176,8 @@ function main() {
 
   const sizeWired = /SIZE_PROPORTION_ACTIVATION_SEQ\[/.test(ledger)
   ok(sizeWired, 'SIZE_PROPORTION_ACTIVATION_SEQ is read in the ledger (imported table, same ctor law)')
+  const potWired = /POT_BINDING_SEQ\[/.test(ledger) && /federationBindingVerdict\(/.test(ledger)
+  ok(potWired, 'POT_BINDING_SEQ is read in the ledger and the binding verdict is consulted there (imported table, same ctor law)')
 
   console.log(`\n╚═ ${pass} passed${fail ? `, ${fail} FAILED` : ''} — catalog; RUNE_BOOK_OPEN_SEQ is 0 on every named net (Porta 2 open). ₭\n`)
   process.exit(fail ? 1 : 0)

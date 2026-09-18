@@ -53,7 +53,7 @@ does that act's mutation — nothing else.
 | 23 | `amm-rr-add` | 1099 | — | — | rune↔rune liquidity |
 | 24 | `amm-rr-remove` | 1154 | — | — | rune↔rune remove |
 | 25 | `amm-rr-swap` | 1190 | — | — | rune↔rune swap |
-| 26 | `contract` | 1236 | **🔥 `1` (v2: `e.star` set)** | — | seal a **law** onto an owned star (the third canvas); v1 (no star) = no burn, no nonce — **refused at the door since 2026-09-17 (E1)**; replays below the future `CONTRACT_V1_RETIRED_SEQ` pin |
+| 26 | `contract` | 1236 | **🔥 `1` (v2: `e.star` set)** | — | seal a **law** onto an owned star (the third canvas); v1 (no star) = no burn, no nonce — **refused at the door since 2026-09-17 (E1)** and in the reducer at/after `CONTRACT_V1_RETIRED_SEQ` (signet 227 / main 82; regtest inactive); replays below the pin |
 | 27 | `contract-call` | 1277 | — | — | call a sealed contract (state change) |
 | 28 | `settlement` | 1377 | — | — | beat-work settle → pay validators from the fee pool |
 

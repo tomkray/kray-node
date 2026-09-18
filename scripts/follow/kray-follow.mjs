@@ -768,7 +768,7 @@ function startMirror(port) {
           const bal = n.ledger.runes.balanceOf(rid, addr)
           const lock = n.ledger.runes.lockedOf(rid, addr)
           if (bal > 0n || lock) {
-            out.push({ runeId: `${rid.block}:${rid.tx}`, amount: bal.toString(), ...(lock ? { locked: { amount: lock.amount.toString(), l1Address: lock.l1Address } } : {}) })
+            out.push({ runeId: `${rid.block}:${rid.tx}`, amount: bal.toString(), locked: lock ? { amount: lock.amount.toString(), l1Address: lock.l1Address } : null })
           }
         }
         return send(res, 200, { runes: out, ...meta() })

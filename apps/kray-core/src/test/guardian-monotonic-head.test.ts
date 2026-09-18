@@ -108,6 +108,7 @@ const child = spawn('node', [SCRIPT], {
     KRAY_GUARDIAN_SIGNER_PORT: String(DPORT),
     KRAY_GUARDIAN_BOOK_URL: `http://127.0.0.1:${BPORT}`,
     KRAY_GUARDIAN_HEAD_FILE: HEAD_FILE,
+    KRAY_GUARDIAN_MEMORY_FILE: String(HEAD_FILE).replace('head', 'memory'),
   },
   stdio: 'ignore',
 })

@@ -23,7 +23,7 @@ const H = (n: number): string => n.toString(16).padStart(64, '0')
 
 // ── a mock follower book whose answers the test steers ──────────────────────────────────────────
 const state = {
-  seq: 100, root: H(100), lineageSupported: true, unreachable: false,
+  seq: 100, root: H(100), lineageSupported: true, unreachable: false, stale: false, prefixBreak: false,
   history: new Set<string>([H(90), H(100)]),          // roots the current history passes through
   anchors: [{ root: H(90), seq: 90 }] as Array<{ root: string; seq: number }>,
   balances: new Map<string, { amount: string; locked?: unknown }>(),
@@ -32,7 +32,7 @@ const book = createServer((req, res) => {
   if (state.unreachable) { req.socket.destroy(); return }
   const u = req.url || '/'
   res.setHeader('content-type', 'application/json')
-  if (u === '/api/kraynet/head') { res.end(JSON.stringify({ seq: state.seq, cascadeRoot: state.root, network: 'regtest' })); return }
+  if (u === '/api/kraynet/head') { res.end(JSON.stringify({ seq: state.seq, cascadeRoot: state.root, network: 'regtest', ...(state.stale ? { stale: true, staleSince: 1, staleReason: 'the history does not replay' } : {}), ...(state.prefixBreak ? { prefixBreak: { at: 1 } } : {}) })); return }
   const lin = /^\/api\/kraynet\/lineage\/([0-9a-f]{64})$/.exec(u)
   if (lin) {
     if (!state.lineageSupported) { res.statusCode = 404; res.end('{}'); return }
@@ -89,6 +89,16 @@ async function main() {
   const lookup = await bookBalances(URL, { exit: { from: 'alice', runeId: '1:1' }, exits: [{ from: 'alice', runeId: '1:1' }, { from: 'bob', runeId: '1:1' }] })
   ok(lookup('ALICE', '1:1') === 100n && lookup('bob', '1:1') === 12n && lookup('dave', '1:1') === null, 'the prefetched lookup answers every pair, null for anything it did not fetch')
 
+  // ── the OPEN lock (signer law v2): key absent = a pre-v2 follower (skip), null = no open lock, object = the lock ──
+  state.balances.set('erin', { amount: '10', locked: { amount: '90', l1Address: 'tb1erin' } })
+  state.balances.set('frank', { amount: '10', locked: null })
+  const { fetchBookLock: lockOf } = await import('../protocol/book-gate.ts')
+  const erin = await lockOf(URL, 'erin', '1:1')
+  ok(!!erin && erin.amount === 90n && erin.l1Address === 'tb1erin', 'lock: a v2 follower names the open exit (amount + destination)')
+  ok((await lockOf(URL, 'frank', '1:1')) === null, 'lock: `locked: null` = the v2 follower says NO open exit (the signer refuses to pay it)')
+  ok((await lockOf(URL, 'bob', '1:1')) === undefined, 'lock: a holding with NO `locked` key = a pre-v2 follower — the lock check is skipped, the balance predicate still runs')
+  ok((await lockOf(URL, 'nobody', '1:1')) === null, 'lock: an address that holds nothing has no open exit')
+
   // ── rung 2: lag ≠ theft ──
   ok((await lagGate(URL, 0)) === null, 'no minSeal → no lag gate')
   ok((await lagGate(URL, 100)) === null, 'book at the exit seq → passes')
@@ -98,6 +108,18 @@ async function main() {
   const lagDown = await lagGate(URL, 5)
   ok(!!lagDown && lagDown.status === 503 && lagDown.bookSeq === null, 'unreachable book with a minSeal → 503 lagging')
   state.unreachable = false
+
+  // ── the follower's own honesty labels come first (signer law v2) ──
+  state.stale = true
+  const staleGate = await lagGate(URL, 0, 'pen')
+  ok(!!staleGate && staleGate.status === 503 && staleGate.lagging === true && /STALE/.test(staleGate.reason), 'a STALE book (serving its last verified snapshot) → 503, even with no minSeal')
+  state.stale = false
+  state.prefixBreak = true
+  const forkGate = await lagGate(URL, 0, 'pen')
+  ok(!!forkGate && forkGate.status === 403 && forkGate.equivocation === true && /PREFIX BREAK/.test(forkGate.reason), 'a book that labelled a PREFIX BREAK (a fork adopted under warn) → 403, a person inspects')
+  state.prefixBreak = false
+  const snapNet = await bookHeadSnapshot(URL)
+  ok(!!snapNet && snapNet.network === 'regtest' && snapNet.stale === false && snapNet.prefixBreak === false, 'the head snapshot names the network and the honesty labels')
 
   // ── rung 3: bootstrap, then descendance, then the rewrite ──
   ok(loadHeadFile(headFile) === null, 'no head file yet → no memory (bootstrap)')
