@@ -56,6 +56,38 @@ function sameHex(a: string, b: string): boolean {
  */
 export const MAX_SERVICE_FEE_SATS = 1_000n
 
+/**
+ * THE INDEPENDENT PREDICATE: every exiter must actually HOLD >= what they withdraw, per THIS signer's own
+ * book replay (spendable + locked). A forged over-balance exit drains the pot only if every signer skips
+ * this check — so the signer refuses fail-closed (an unknown balance is a refusal). Run by every guardian
+ * and, since 2026-09-18, by the pen: a pen that skipped it was a rubber stamp for anyone holding two
+ * guardian keys and a local token.
+ */
+export function requireBookCovers(
+  exits: SignedRuneExit[],
+  bookBalanceOf: (from: string, runeId: string) => bigint | null,
+  who: 'guardian' | 'pen' = 'guardian',
+): { ok: true } | { ok: false; reason: string } {
+  const need = new Map<string, bigint>()
+  for (const x of exits) {
+    const k = String(x.from).toLowerCase() + '|' + String(x.runeId)
+    need.set(k, (need.get(k) ?? 0n) + BigInt(x.amount))
+  }
+  for (const [k, amt] of need) {
+    const sep = k.lastIndexOf('|')
+    const from = k.slice(0, sep)
+    const rid = k.slice(sep + 1)
+    const have = bookBalanceOf(from, rid)
+    if (have == null) {
+      return { ok: false, reason: `the ${who} book cannot confirm the balance of ${from.slice(0, 12)}… for ${rid} — refused (fail-closed)` }
+    }
+    if (have < amt) {
+      return { ok: false, reason: `exit amount ${amt} exceeds the exiter book balance ${have} for ${rid} — refused (over-balance drain blocked)` }
+    }
+  }
+  return { ok: true }
+}
+
 function serviceFeeWithinCeiling(plan: ExitPayoutPlan): { ok: true } | { ok: false; reason: string } {
   if (!plan.serviceFee) return { ok: true }
   if (plan.serviceFee.sats > MAX_SERVICE_FEE_SATS) {
@@ -98,6 +130,7 @@ function bindSignedExit(
 export function authorizePotSign(
   req: PotSignRequest,
   depositorSecret: Uint8Array,
+  bookBalanceOf?: (from: string, runeId: string) => bigint | null,
 ): { ok: true; depositorSigs: string[] } | { ok: false; reason: string } {
   try {
     const e = req.exit
@@ -134,6 +167,13 @@ export function authorizePotSign(
       if (!sameHex(loaf[0].destScriptHex, req.plan.destScriptHex) || loaf[0].exitAmount !== req.plan.exitAmount) {
         return { ok: false, reason: 'loaf dest 0 must be the initiator — refused' }
       }
+    }
+    // THE PEN'S OWN BOOK (2026-09-18): when the daemon hands over a book, the pen runs the guardians'
+    // predicate itself — every exiter must HOLD what they withdraw per a book THIS pen replayed. Without it
+    // the owner key was a rubber stamp for anyone holding two guardian keys and the local token.
+    if (bookBalanceOf) {
+      const covered = requireBookCovers(loafExits && loafExits.length ? loafExits : [e], bookBalanceOf, 'pen')
+      if (!covered.ok) return covered
     }
     const derived = _generateKeyPair(depositorSecret).publicKeyHex
     if (toXOnly(req.params.depositor) !== derived) {
@@ -209,27 +249,11 @@ export function authorizeGuardianSign(
         return { ok: false, reason: 'loaf dest 0 must be the initiator — refused' }
       }
     }
-    // THE INDEPENDENT PREDICATE the owner signer never ran: every exiter must actually HOLD >= what they
-    // withdraw, per THIS guardian's own book replay. A forged over-balance exit drains the pot only if every
-    // signer skips this check — so the guardian refuses fail-closed (an unknown balance is a refusal).
+    // THE INDEPENDENT PREDICATE: every exiter must actually HOLD >= what they withdraw, per THIS guardian's
+    // own book replay (shared with the pen since 2026-09-18 — requireBookCovers).
     const allExits = loafExits && loafExits.length ? loafExits : [e]
-    const need = new Map<string, bigint>()
-    for (const x of allExits) {
-      const k = String(x.from).toLowerCase() + '|' + String(x.runeId)
-      need.set(k, (need.get(k) ?? 0n) + BigInt(x.amount))
-    }
-    for (const [k, amt] of need) {
-      const sep = k.lastIndexOf('|')
-      const from = k.slice(0, sep)
-      const rid = k.slice(sep + 1)
-      const have = bookBalanceOf(from, rid)
-      if (have == null) {
-        return { ok: false, reason: `the guardian book cannot confirm the balance of ${from.slice(0, 12)}… for ${rid} — refused (fail-closed)` }
-      }
-      if (have < amt) {
-        return { ok: false, reason: `exit amount ${amt} exceeds the exiter book balance ${have} for ${rid} — refused (over-balance drain blocked)` }
-      }
-    }
+    const covered = requireBookCovers(allExits, bookBalanceOf, 'guardian')
+    if (!covered.ok) return covered
     // Bind a GUARDIAN secret — it must be one of the vault's sealed guardians, never the owner key.
     const gx = toXOnly(_generateKeyPair(guardianSecret).publicKeyHex)
     if (!req.params.guardians.some((g) => { try { return toXOnly(g) === gx } catch { return false } })) {

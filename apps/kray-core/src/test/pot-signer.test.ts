@@ -188,6 +188,23 @@ ok(qNo.ok === false && /held for safety/.test(qNo.reason || ''), 'SAFETY: a guar
 const qDupe = decideGuardianQuorum([share(G[0]), share(G[0]), share(G[2])], 2)
 ok(qDupe.ok === true && qDupe.shares.length === 2, 'one daemon, one guardian: a repeated key is not double-counted toward the threshold')
 
+// ── THE PEN'S OWN BOOK — the 2026-09-18 finding, pinned: without a book the owner key is a rubber stamp ──
+// An attacker holding two guardian keys and the pen's local token signs a self-exit far above their balance;
+// the pen used to check signature, dest, amount and bytes — never the book. Now it runs the guardians' predicate.
+const penCovered = authorizePotSign(req, DEP.sk, bookOf({ [destAddr]: 100n }))
+ok(penCovered.ok === true, 'PEN + BOOK: the pen signs when its OWN book confirms balance >= the signed exit')
+const penExact = authorizePotSign(req, DEP.sk, bookOf({ [destAddr]: 100n }))
+ok(penExact.ok === true, 'PEN + BOOK: exact balance passes (100 book vs 100 exit — boundary)')
+const penOver = authorizePotSign(req, DEP.sk, bookOf({ [destAddr]: 50n }))
+ok(penOver.ok === false && /over-balance/.test(penOver.reason || ''), 'ATTACK: a self-signed exit above the book balance → the PEN refuses (the drain the guardians alone used to stop)')
+const penUnknown = authorizePotSign(req, DEP.sk, () => null)
+ok(penUnknown.ok === false && /pen book cannot confirm/.test(penUnknown.reason || ''), 'PEN + BOOK: a balance the book cannot answer → refused (fail-closed, never a guess)')
+const penLoafRider = authorizePotSign(loafReq, DEP.sk, bookOf({ [destAddr]: 100n, [dest2Addr]: 199n }))
+ok(penLoafRider.ok === false && /over-balance/.test(penLoafRider.reason || ''), 'PEN + BOOK: a loaf rider one unit short → the whole loaf is refused')
+const penLoafGood = authorizePotSign(loafReq, DEP.sk, bookOf({ [destAddr]: 100n, [dest2Addr]: 200n }))
+ok(penLoafGood.ok === true, 'PEN + BOOK: every loaf member covered → signed')
+ok(authorizePotSign(req, DEP.sk).ok === true, 'without a book the pure function still signs (the daemon is what makes the book mandatory — pot-signer-http.test.ts)')
+
 // ── THE SERVICE OUTPUT CROSSES THE WIRE — the 2026-09-17 Tier-1 finding, pinned ──────────────────
 // The withdraw door states a flat 546-sat platform output on the plan (2026-09-01). Until this pin the
 // wire dropped it: the node claimed sighashes over 5 outputs, every remote pen/guardian rebuilt 4, and

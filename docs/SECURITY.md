@@ -75,6 +75,11 @@ note — never claimed away.
 
 ## Known open items (tracked, not hidden)
 
+- **Built 2026-09-18, awaiting the rite — the pen consults its own book.** The owner signer never checked the
+  book: with two guardian keys and the pen's local token, a self-signed over-balance exit drained the pot. The pen
+  now runs the guardians' gate (`book-gate.ts`): its own follower, lag ≠ theft, monotonic head + lineage, the
+  balance predicate, the anti-TOCTOU confirm; a pen without a book refuses to start. Live on a network only after
+  the pen's box holds the fixed daemon + kray-core and the pen is restarted with its phrase (see POT-CUSTODY).
 - **Proven 2026-09-18 — our reading of the Runes protocol equals ord's on live transactions.** The L2 credits runes
   by re-deriving the allocation law from raw bytes with its own decoder (`runestone.ts`); a reading that differed from
   ord's in any edge case would let a transaction be credited one way here and settled another on Bitcoin (unbacked

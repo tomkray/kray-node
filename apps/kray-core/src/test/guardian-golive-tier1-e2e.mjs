@@ -7,7 +7,9 @@
  *
  *   S1 · all 3 daemons up      → a withdraw completes THROUGH the remote book-checking guardians;
  *   S2 · kill ONE (of 3)       → the next withdraw STILL completes (2-of-3 — the threshold IS the tolerance);
- *   (topology = the fleet's: each guardian reads its OWN follower book of the node, never the writer —
+ *   (the PEN is remote too since 2026-09-18: the real pot-signer daemon on :4470 with its OWN follower book on
+ *    :4535 — the owner key never sits in the node, and the pen refuses anything its book does not cover;
+ *    topology = the fleet's: each guardian reads its OWN follower book of the node, never the writer —
  *    a writer serves no /lineage, so a guardian pointed at it is a one-shot signer under rung 3;
  *    the books must have caught up to the exit's seq before a submit, exactly as the fleet lags)
  *   S3 · kill TWO              → the withdraw is HELD (fail-closed), the exit lock survives, funds never move;
@@ -37,6 +39,9 @@ const NODE_PORT = 4499
 const NODE = `http://127.0.0.1:${NODE_PORT}`
 const G_PORTS = [4493, 4494, 4495]
 const B_PORTS = [4531, 4532, 4533]                    // one follower book per guardian (the fleet's topology)
+const PEN_PORT = 4470, PEN_BOOK_PORT = 4535            // the remote pen (real pot-signer daemon) and ITS own follower book
+const PEN_TOKEN = 'ceremony-tier1-pen-token-0123456789'
+const PEN = new URL('../../../../scripts/pot-signer.mjs', import.meta.url).pathname
 const FROZEN_PORT = 4534                              // a book frozen at the deposit-era snapshot (S4: LAG ≠ THEFT)
 const FOLLOW = new URL('../../../../scripts/follow/kray-follow.mjs', import.meta.url).pathname
 const TOKEN = 'ceremony-tier1-token-0123456789'
@@ -91,6 +96,22 @@ function spawnGuardian(port, seedIdx, bookUrl) {
   return child
 }
 
+/** The REAL pen daemon (scripts/pot-signer.mjs) with the lab's owner key and its own follower book. */
+function spawnPen() {
+  const child = spawn('node', [PEN], {
+    env: {
+      ...process.env,
+      KRAY_CONSOLIDATION_SECRET: createHash('sha256').update('kray-dev-consolidation-owner').digest('hex'),   // the lab's documented owner seed
+      KRAY_POT_SIGNER_TOKEN: PEN_TOKEN, KRAY_POT_SIGNER_PORT: String(PEN_PORT),
+      KRAY_POT_SIGNER_BOOK_URL: `http://127.0.0.1:${PEN_BOOK_PORT}`,
+      KRAY_POT_SIGNER_HEAD_FILE: join(DATA, 'pen-head.json'),
+    },
+    stdio: ['ignore', logOf('pen'), logOf('pen')],
+  })
+  children.push(child)
+  return child
+}
+
 /** A real follower of the ceremony node — the book a guardian reads (the fleet runs exactly this). */
 function spawnFollower(port, name, cycleMs, rpc) {
   const child = spawn('node', [FOLLOW, '--from', NODE, '--dir', join(DATA, name), '--serve', String(port), '--watch'], {
@@ -139,6 +160,7 @@ async function main() {
       KRAY_TRUSTED_DEV: '1', KRAY_DONATION_CONF: '1', KRAY_ANCHOR_EVERY: '999999',
       KRAY_GUARDIAN_SIGNER_URLS: G_PORTS.map((p) => `http://127.0.0.1:${p}`).join(','),
       KRAY_GUARDIAN_SIGNER_TOKEN: TOKEN,
+      KRAY_POT_SIGNER_URL: `http://127.0.0.1:${PEN_PORT}`, KRAY_POT_SIGNER_TOKEN: PEN_TOKEN,   // the owner key lives in the pen, never here
     },
     stdio: ['ignore', logOf('node'), logOf('node')],
   })
@@ -146,6 +168,8 @@ async function main() {
   ok(await waitHttp(`${NODE}/api/kraynet/supply`), `ceremony node :${NODE_PORT} is up — fresh journal, KRAY_GUARDIAN_SIGNER_URLS ON (3 remotes)`)
   const g = [spawnGuardian(G_PORTS[0], 0, `http://127.0.0.1:${B_PORTS[0]}`), spawnGuardian(G_PORTS[1], 1, `http://127.0.0.1:${B_PORTS[1]}`), spawnGuardian(G_PORTS[2], 2, `http://127.0.0.1:${B_PORTS[2]}`)]
   for (const p of G_PORTS) ok(await waitHttp(`http://127.0.0.1:${p}/health`), `guardian daemon :${p} is up (loopback, token-gated, book-checking — its book is a follower, not the writer)`)
+  spawnPen()
+  ok(await waitHttp(`http://127.0.0.1:${PEN_PORT}/health`), `the REAL pen daemon :${PEN_PORT} is up — owner key in that process only, book :${PEN_BOOK_PORT} (the node holds no owner key)`)
   const info = jget('/api/kraynet/donation/info')
   ok(info.configured === true, 'the node has bitcoind + the pot wired')
 
@@ -207,8 +231,11 @@ async function main() {
   // the books are born now (history exists): three live followers + one FROZEN at this snapshot (S4)
   for (let i = 0; i < 3; i++) spawnFollower(B_PORTS[i], `book-${i}`, 1500, RPC)
   spawnFollower(FROZEN_PORT, 'book-frozen', 3_600_000, RPC)
-  for (const p of [...B_PORTS, FROZEN_PORT]) ok(await waitHttp(`http://127.0.0.1:${p}/api/kraynet/head`), `follower book :${p} is up — replayed the node's history on its own`)
-  const s1 = await submitWith(A, B_PORTS)
+  spawnFollower(PEN_BOOK_PORT, 'book-pen', 1500, RPC)
+  for (const p of [...B_PORTS, FROZEN_PORT, PEN_BOOK_PORT]) ok(await waitHttp(`http://127.0.0.1:${p}/api/kraynet/head`), `follower book :${p} is up — replayed the node's history on its own`)
+  const s1 = await submitWith(A, [...B_PORTS, PEN_BOOK_PORT])
+  const penHead = await (await fetch(`http://127.0.0.1:${PEN_PORT}/health`)).json()
+  ok(!!penHead.monotonicHead && /^[0-9a-f]{64}$/.test(String(penHead.monotonicHead.root || '')), 'S1: the pen planted its head memory — it signed against ITS book, not the node\'s word')
   ok(s1.ok === true && /^[0-9a-f]{64}$/.test(s1.txid || ''), `S1: withdraw BROADCAST through the remote guardians (${String(s1.txid).slice(0, 12)}…)${s1.ok ? '' : ' — error: ' + String(s1.error).slice(0, 220)}`)
   mine(Math.max(1, info.minConfirmations)); sync()
   ok(destGot(s1.txid) === EXIT, `S1: ord confirms the SIGNED destination received exactly ${EXIT} base units on L1`)
@@ -217,7 +244,7 @@ async function main() {
   console.log('\n─ S2 · one guardian DOWN (2-of-3) — the fallback ─')
   g[2].kill('SIGKILL'); sleep(1)
   const B = prepareExiter('bob')
-  const s2 = await submitWith(B, [B_PORTS[0], B_PORTS[1]])
+  const s2 = await submitWith(B, [B_PORTS[0], B_PORTS[1], PEN_BOOK_PORT])
   ok(s2.ok === true && /^[0-9a-f]{64}$/.test(s2.txid || ''), `S2: one daemon dead → the other two cover — the withdraw STILL completes (bridge keeps working)${s2.ok ? '' : ' — error: ' + String(s2.error).slice(0, 220)}`)
   mine(Math.max(1, info.minConfirmations)); sync()
 
@@ -225,7 +252,7 @@ async function main() {
   console.log('\n─ S3 · two guardians DOWN — fail-closed, never frozen ─')
   g[1].kill('SIGKILL'); sleep(1)
   const C = prepareExiter('carol')
-  const s3 = await submitWith(C, [B_PORTS[0]])
+  const s3 = await submitWith(C, [B_PORTS[0], PEN_BOOK_PORT])
   ok(!!s3.error && /held/.test(s3.error || ''), `S3: too few guardians → withdraw HELD (fail-closed): "${String(s3.error).slice(0, 72)}…"`)
   ok(lockedOf(C.OWNER_ADDR) === EXIT, 'S3: the exit lock SURVIVES the hold — funds never moved, nothing consumed (CSV backstop untouched)')
 
@@ -234,7 +261,7 @@ async function main() {
   console.log('\n─ S4 · a lagging-book guardian — LAG ≠ THEFT: it cannot judge, so the withdraw waits ─')
   spawnGuardian(G_PORTS[1], 1, `http://127.0.0.1:${FROZEN_PORT}`)
   ok(await waitHttp(`http://127.0.0.1:${G_PORTS[1]}/health`), 'S4: a guardian is back on :4494 — but its book is FROZEN at the deposit-era snapshot (behind the exit)')
-  const s4 = await submitWith(C, [B_PORTS[0]])
+  const s4 = await submitWith(C, [B_PORTS[0], PEN_BOOK_PORT])
   ok(!!s4.error && /held/.test(s4.error || '') && /lagging|only 1 of 2/.test(s4.error || ''), `S4: the lagging book cannot judge → 503 → the withdraw is HELD (never routed around, never a loss): "${String(s4.error).slice(0, 140)}…"`)
   ok(lockedOf(C.OWNER_ADDR) === EXIT, 'S4: the exit lock still SURVIVES — a lag is a wait, the metal never moved')
 
@@ -243,7 +270,7 @@ async function main() {
   const lagging = children[children.length - 1]; lagging.kill('SIGKILL'); sleep(1)
   spawnGuardian(G_PORTS[1], 1, `http://127.0.0.1:${B_PORTS[1]}`)
   ok(await waitHttp(`http://127.0.0.1:${G_PORTS[1]}/health`), 'S5: a GOOD guardian is back on :4494 (book = its live follower again; its head memory from S2 still descends)')
-  const s5 = await submitWith(C, [B_PORTS[0], B_PORTS[1]])
+  const s5 = await submitWith(C, [B_PORTS[0], B_PORTS[1], PEN_BOOK_PORT])
   ok(s5.ok === true && /^[0-9a-f]{64}$/.test(s5.txid || ''), 'S5: the SAME withdraw now completes — a hold is a wait, never a loss')
   mine(Math.max(1, info.minConfirmations)); sync()
   ok(destGot(s5.txid) === EXIT, `S5: ord confirms Carol's destination received exactly ${EXIT} — through the recovered quorum`)

@@ -105,6 +105,34 @@ Topology and ceremony live off this door.
 
 ---
 
+## The pen's own book — BUILT + proven (2026-09-18), awaiting the rite
+
+Until this rung the owner signer (the pen) checked the holder's exit signature, the destination and amount
+binding, the rebuilt bytes and the fee ceiling — **never the book**. The balance predicate was the guardians'
+job alone. So an attacker holding two guardian keys and the pen's local token could sign a self-exit far above
+their balance and the pen would carimba: the phrase protected the key at rest and the creation of pens, not the
+pot while a pen ran on a shared box.
+
+Now the pen runs the guardians' law itself (`book-gate.ts`, shared; `requireBookCovers` in `pot-signer.ts`):
+
+- **A book of its own:** `KRAY_POT_SIGNER_BOOK_URL` names a follower on the pen's box (loopback only); a pen
+  without a book refuses to start. `KRAY_POT_SIGNER_HEAD_FILE` (default `pot-head.json` beside the env file)
+  is its monotonic memory.
+- **Lag ≠ theft:** the writer sends the exit's journal seq (`minSeal`); a book behind it answers 503, retried.
+- **Monotonic head + lineage:** a history that abandons the remembered head or anchored root is 403
+  EQUIVOCATION, never auto-cleared; a book that cannot answer is 503.
+- **The balance:** spendable + locked ≥ the exit for the initiator and every loaf rider, else refused;
+  an unknown balance is a refusal.
+- **Anti-TOCTOU:** the balances must come from the snapshot the gate judged.
+- The in-process pen (a lab node holding the dev owner key) runs the same predicate against its own ledger.
+
+Proven: `pot-signer.test.ts` (46), `book-gate.test.ts` (30), `pot-signer-http.test.ts` (17, the real daemon
+refusing an over-balance self-exit, a lagging book, a rewrite, a dark book, and refusing to start without a
+book), and the Tier-1 ceremony with the real pen daemon + its own follower. **Deploy = the rite:** kray-core +
+the pen daemon on the pen's box, `KRAY_POT_SIGNER_BOOK_URL` in the pen's env, the writer sending `minSeal`,
+then the phrase. Still open after this rung: the pens share a box with guardian-1 and the guardian relays —
+they belong on a box of their own; guardian keys stay sealed only when their phrase is not on disk.
+
 ## Rung 4 verdict — pre-signed pot split: RE-RANKED, not shipped (council + adversary, 2026-08-23)
 
 Two lenses studied the real code. **The "auto-fail" promise is FALSE as stated** — it conflated

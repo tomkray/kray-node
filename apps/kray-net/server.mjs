@@ -636,6 +636,8 @@ async function askPotSigner(pend) {
           vaultUtxos: pend.vaultUtxos.map((u) => ({ txid: u.txid, vout: u.vout, amountSats: u.amountSats.toString() })),
           funding: { ...pend.funding, amountSats: pend.funding.amountSats.toString() },
           plan: planToWire(pend.plan), claimedSighashes: claimed,
+          // the pen's own book gate (2026-09-18): the exit's journal seq, so a lagging book answers 503 (retried), never a refusal
+          ...(penMinSeal(pend) ? { minSeal: penMinSeal(pend) } : {}),
         }),
         signal: AbortSignal.timeout(15000),
       })
@@ -652,12 +654,20 @@ async function askPotSigner(pend) {
   }
   const csk = consolidationDepositorSecret()
   if (!csk) return { ok: false, reason: 'this node does not hold the consolidation owner key — start scripts/pot-signer.mjs on localhost and set KRAY_POT_SIGNER_URL' }
+  // the in-process pen runs the pen's book predicate against THIS node's own ledger (spendable + locked)
+  const ownBook = (from, rid) => {
+    try { const id = parseRuneKey(rid); const lock = node.ledger.runes.lockedOf(id, from); return node.ledger.runes.balanceOf(id, from) + (lock ? BigInt(lock.amount) : 0n) } catch { return null }
+  }
   return authorizePotSign({
     network: NET, exit: pend.exitEvent,
     ...(pend.exitEvents && pend.exitEvents.length > 1 ? { exits: pend.exitEvents } : {}),
     params: pend.params,
     vaultUtxos: pend.vaultUtxos, funding: pend.funding, plan: pend.plan, claimedSighashes: claimed,
-  }, csk)
+  }, csk, ownBook)
+}
+/** the exit's journal seq for the pen's lag gate — the same figure the guardians receive (0 = unknown, gate off) */
+function penMinSeal(pend) {
+  return Math.max(Number(pend.exitSeq) || 0, ...((pend.exitEvents || []).map((e) => Number(e.seq) || 0))) || 0
 }
 // ── BOOK-REPLAYING REMOTE GUARDIANS (dormant capability; default OFF) ──────────────────────────────
 // The pot's cooperative co-sign, hardened. Today labCosignPerInput signs with LAB keys on THIS writer — one

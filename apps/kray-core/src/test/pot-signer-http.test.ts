@@ -3,7 +3,10 @@
  *   node src/test/pot-signer-http.test.ts
  */
 import { createHash, randomBytes } from 'node:crypto'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
+import { createServer } from 'node:http'
+import { existsSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as btc from '@scure/btc-signer'
@@ -58,12 +61,28 @@ const bundle = {
 }
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), '../../../../scripts/pot-signer.mjs')
+// THE PEN'S OWN BOOK (2026-09-18): a mock follower the daemon must consult before every signature
+const BOOK_PORT = 4489
+const book = { seq: 50, root: 'ab'.repeat(32), balance: 100n, up: true }
+const bookServer = createServer((req, res) => {
+  if (!book.up) { req.socket.destroy(); return }
+  const u = req.url || '/'
+  res.setHeader('content-type', 'application/json')
+  if (u === '/api/kraynet/head') { res.end(JSON.stringify({ seq: book.seq, cascadeRoot: book.root, network: NET })); return }
+  const lin = /^\/api\/kraynet\/lineage\/([0-9a-f]{64})$/.exec(u)
+  if (lin) { res.end(JSON.stringify({ root: lin[1], known: lin[1] === book.root, seq: book.seq, head: { seq: book.seq, root: book.root }, lastProvenAnchor: null })); return }
+  if (u.startsWith('/api/kraynet/runes/of/')) { res.end(JSON.stringify({ runes: [{ id: '1:1', amount: book.balance.toString(), locked: '0' }] })); return }
+  res.statusCode = 404; res.end('{}')
+})
+const HEAD_FILE = join(tmpdir(), `kray-pen-head-${process.pid}.json`)
 const child = spawn('node', [SCRIPT], {
   env: {
     ...process.env,
     KRAY_CONSOLIDATION_SECRET: Buffer.from(DEP.sk).toString('hex'),
     KRAY_POT_SIGNER_TOKEN: TOKEN,
     KRAY_POT_SIGNER_PORT: String(PORT),
+    KRAY_POT_SIGNER_BOOK_URL: `http://127.0.0.1:${BOOK_PORT}`,
+    KRAY_POT_SIGNER_HEAD_FILE: HEAD_FILE,
   },
   stdio: 'ignore',
 })
@@ -73,6 +92,12 @@ const BASE = `http://127.0.0.1:${PORT}`
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 async function main() {
+  await new Promise<void>((r) => bookServer.listen(BOOK_PORT, '127.0.0.1', () => r()))
+  // a pen WITHOUT a book must refuse to start — the rubber stamp is gone
+  const noBook = spawnSync('node', [SCRIPT], { env: { ...process.env, KRAY_CONSOLIDATION_SECRET: Buffer.from(DEP.sk).toString('hex'), KRAY_POT_SIGNER_TOKEN: TOKEN, KRAY_POT_SIGNER_PORT: String(PORT + 1), KRAY_POT_SIGNER_BOOK_URL: '' }, encoding: 'utf8', timeout: 8000 })
+  ok(noBook.status !== 0 && /KRAY_POT_SIGNER_BOOK_URL/.test(noBook.stderr || ''), 'a pen without a book REFUSES TO START (no rubber stamp, ever)')
+  const remoteBook = spawnSync('node', [SCRIPT], { env: { ...process.env, KRAY_CONSOLIDATION_SECRET: Buffer.from(DEP.sk).toString('hex'), KRAY_POT_SIGNER_TOKEN: TOKEN, KRAY_POT_SIGNER_PORT: String(PORT + 1), KRAY_POT_SIGNER_BOOK_URL: 'http://10.0.0.5:4480' }, encoding: 'utf8', timeout: 8000 })
+  ok(remoteBook.status !== 0, 'a pen pointed at a book OFF this box refuses to start — the book must be one this box replayed')
   let up = false
   for (let i = 0; i < 40; i++) {
     try {
@@ -101,7 +126,36 @@ async function main() {
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN },
     body: JSON.stringify(bundle),
   }).then(async (r) => ({ status: r.status, body: await r.json() }))
-  ok(good.status === 200 && good.body.ok === true && Array.isArray(good.body.depositorSigs) && good.body.depositorSigs.length === 1, 'a genuine rebuild bundle is signed over HTTP')
+  ok(good.status === 200 && good.body.ok === true && Array.isArray(good.body.depositorSigs) && good.body.depositorSigs.length === 1, 'a genuine rebuild bundle is signed over HTTP — the pen consulted its book (balance 100 ≥ exit 100)')
+  ok(existsSync(HEAD_FILE) && JSON.parse(readFileSync(HEAD_FILE, 'utf8')).root === book.root, 'the pen persisted the head it signed against (monotonic memory)')
+  const h2 = await fetch(BASE + '/health').then((r) => r.json())
+  ok(h2.book === `http://127.0.0.1:${BOOK_PORT}` && h2.monotonicHead && h2.monotonicHead.root === book.root, '/health names the book and the remembered head')
+  // THE DRAIN the pen used to carimba: a self-signed exit above the book balance
+  book.balance = 99n
+  const overBalance = await fetch(BASE + '/sign', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN }, body: JSON.stringify(bundle),
+  }).then(async (r) => ({ status: r.status, body: await r.json() }))
+  ok(overBalance.status === 403 && /over-balance/.test(overBalance.body.reason || ''), 'ATTACK: exit 100 vs book 99 → 403 over-balance (the pen refuses on its OWN book)')
+  book.balance = 100n
+  // lag ≠ theft: the exit's journal seq is past the book → 503 retriable, never a signature
+  const lag = await fetch(BASE + '/sign', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN }, body: JSON.stringify({ ...bundle, minSeal: 60 }),
+  }).then(async (r) => ({ status: r.status, body: await r.json() }))
+  ok(lag.status === 503 && lag.body.lagging === true && lag.body.bookSeq === 50, 'a book behind the exit (seq 50 < 60) → 503 lagging, retried by the writer')
+  // a rewrite: the book\'s history no longer passes through the remembered head → 403 that never auto-clears
+  const oldRoot = book.root; book.root = 'cd'.repeat(32); book.seq = 51
+  const rewrite = await fetch(BASE + '/sign', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN }, body: JSON.stringify(bundle),
+  }).then(async (r) => ({ status: r.status, body: await r.json() }))
+  ok(rewrite.status === 403 && rewrite.body.equivocation === true, 'a book whose history abandons the remembered head → 403 EQUIVOCATION (held until a person inspects)')
+  book.root = oldRoot; book.seq = 50
+  // the book goes dark → 503, never a signature on a guess
+  book.up = false
+  const dark = await fetch(BASE + '/sign', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + TOKEN }, body: JSON.stringify(bundle),
+  }).then(async (r) => ({ status: r.status, body: await r.json() }))
+  ok(dark.status === 503 && dark.body.lagging === true, 'an unreachable book → 503 (the pen cannot judge; it does not sign)')
+  book.up = true
 
   const steal = await fetch(BASE + '/sign', {
     method: 'POST',
@@ -138,4 +192,4 @@ async function main() {
   console.log(`\n╚═ ${pass} passed — the pot-signer on 127.0.0.1 signs only an exit-bound rebuild. ₿₭`)
 }
 
-main().catch((e) => { console.error(e); process.exit(1) }).finally(() => { try { child.kill('SIGKILL') } catch { /* already gone */ } })
+main().catch((e) => { console.error(e); process.exit(1) }).finally(() => { try { child.kill('SIGKILL') } catch { /* already gone */ } try { bookServer.close() } catch { /* already closed */ } try { rmSync(HEAD_FILE, { force: true }) } catch { /* gone */ } })
