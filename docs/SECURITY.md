@@ -75,6 +75,18 @@ note — never claimed away.
 
 ## Known open items (tracked, not hidden)
 
+- **Proven 2026-09-18 — our reading of the Runes protocol equals ord's on live transactions.** The L2 credits runes
+  by re-deriving the allocation law from raw bytes with its own decoder (`runestone.ts`); a reading that differed from
+  ord's in any edge case would let a transaction be credited one way here and settled another on Bitcoin (unbacked
+  runes — the protocol-interpretation twin of the 2026-09-06 Liquid exploit, where a validation cache let 4,000
+  unbacked L-BTC through an honest federation). `runestone-ord-differential-e2e.mjs` builds runestone transactions
+  byte by byte, mines each one on regtest and compares every output and every burn with ord 0.27.1, taking the input
+  state from ord's own view: 31 deterministic edge cases (edicts, amount 0, spreads with remainder, clamping, pointers
+  at the OP_RETURN, every cenotaph flaw the specification names, mints and a mint inside a cenotaph, a nameless
+  etching, two-rune delta encoding, two runestone outputs, PUSHDATA1 payloads) plus seeded random cases. Three runs,
+  211 real transactions, 0 divergences. Run it before touching the decoder: `HARNESS=<regtest harness>
+  npm run live:runestone-ord` in `apps/kray-core`. It is a proof against ord's implementation, not against the
+  specification text; a divergence would be pinned by activation seq, never hot-fixed.
 - **Closed 2026-09-17 — withdraws held by the signer wire:** since the withdraw door began stating a
   546-sat service output (2026-09-01), the plan wire between the node and the remote pen/guardians dropped
   that field, so every remote co-sign refused ("claimed sighashes do not match the rebuilt payout") and

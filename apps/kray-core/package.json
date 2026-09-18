@@ -78,6 +78,7 @@
     "test:pot-signer-http": "node src/test/pot-signer-http.test.ts",
     "test:pot-key-box": "node src/test/pot-key-box.test.ts",
     "test:pot-key-share": "node src/test/pot-key-share.test.ts",
+    "live:runestone-ord": "node src/test/runestone-ord-differential-e2e.mjs",
     "live:exit-payout-node": "node src/test/exit-payout-node-e2e.mjs",
     "live:exit-payout-burst": "node src/test/exit-payout-burst-e2e.mjs",
     "test:rune-ancestry": "node src/test/rune-ancestry.test.ts && node src/test/rune-ancestry-law.test.ts"
