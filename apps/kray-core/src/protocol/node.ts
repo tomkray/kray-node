@@ -28,7 +28,7 @@ import { custodyFromHex, hitCount } from '../economics/custody.ts'
 import { readPresenceTip } from '../economics/presence-window.ts'
 
 /** the user-signed actions the submit path accepts (donate/anchor/reward/rune-deposit are system paths) */
-const USER_KINDS = new Set(['transfer', 'transfer-star', 'burn', 'inscribe', 'name', 'origin', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate', 'star-like', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'quantum-commit', 'contract', 'contract-call', 'x-send', 'cut-send', 'lane-enter', 'lane-exit', 'fold-seal', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept'])
+const USER_KINDS = new Set(['transfer', 'transfer-star', 'burn', 'inscribe', 'name', 'origin', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate', 'star-like', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'quantum-commit', 'contract', 'contract-call', 'x-send', 'cut-send', 'lane-enter', 'lane-exit', 'fold-seal', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'packet-list', 'packet-delist', 'packet-take', 'claim-open', 'claim-take', 'claim-close', 'mint-open', 'mint-take', 'pool-fund', 'pool-season', 'pool-close'])
 
 export interface SupplyView { emitted: bigint; burned: bigint; circulating: bigint }
 export interface PotView { held: bigint; target: bigint; deficit: bigint; donated: bigint; spent: bigint; minted: bigint; open: boolean }

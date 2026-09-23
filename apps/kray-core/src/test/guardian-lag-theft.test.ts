@@ -10,6 +10,7 @@
  *   L-05  no minSeal (an old writer) → back-compat: today's behavior, byte-identical
  */
 import { createHash, randomBytes } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:http'
 import { dirname, join } from 'node:path'
@@ -67,6 +68,20 @@ const book = createServer((req, res) => {
 })
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), '../../../../scripts/operator/guardian-signer.mjs')
+
+/**
+ * THE GUARDIAN'S SIGNER IS KEPT OFF THE PUBLIC CLONE ON PURPOSE — it handles keys, and `fix(door): keep the writer kit
+ * and pen off git` took it out deliberately. So in a clone that does not carry it, this file must SKIP,
+ * loudly, naming why: `node <missing file>` exits non-zero for the wrong reason, and a suite that stays
+ * red by design teaches everyone to ignore red. Where the file IS present — the operator's own house —
+ * every check below runs and every failure is real.
+ */
+if (!existsSync(SCRIPT)) {
+  console.log(`\n⊘ SKIPPED — scripts/operator/guardian-signer.mjs is not in this clone (kept off git on purpose: it handles keys).`)
+  console.log('  This suite runs in the operator house, where the file lives. Nothing here is unproven;')
+  console.log('  it is simply not testable from a clone that deliberately does not carry the thing.\n')
+  process.exit(0)
+}
 const child = spawn('node', [SCRIPT], {
   env: {
     ...process.env,

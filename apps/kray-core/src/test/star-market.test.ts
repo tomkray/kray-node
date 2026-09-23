@@ -10,6 +10,7 @@
  */
 import { KrayLedger } from '../protocol/ledger.ts'
 import { NETWORKS, toBtcNet, _generateKeyPair, _signKrayWallet, _hexToBytes, starListMessage, starDelistMessage, starBuyMessage, sendStarMessage, inscribeMessageV2 } from '../protocol/scheme.ts'
+import { starListV2Message, type ListingTerms } from '../protocol/star-market.ts'
 import type { KrayEvent } from '../protocol/kray-primitives.ts'
 import * as btc from '@scure/btc-signer'
 import { createHash } from 'node:crypto'
@@ -41,6 +42,19 @@ const listEv = (L: KrayLedger, w: W, star: bigint, price: bigint): KrayEvent => 
   const nonce = L.nonceOf(w.addr)
   return { seq: ++seq, kind: 'star-list', hash: 'h' + seq, at: seq, from: w.addr, star: star.toString(), amount: price.toString(), fee: '1', nonce, publicKey: w.pk, signature: sign(starListMessage(NET, w.addr, star, price, nonce), w), scheme: 'kraywallet' } as unknown as KrayEvent
 }
+/** A listing WITH terms: left for a name, opened by a star, or waiting for a Bitcoin height. */
+const listTermsEv = (L: KrayLedger, w: W, star: bigint, price: bigint, terms: ListingTerms, opts?: { unsignedTerms?: boolean }): KrayEvent => {
+  const nonce = L.nonceOf(w.addr)
+  // `unsignedTerms` signs the OLD (termless) line while carrying terms — the relay-add attack, which must refuse.
+  const msg = opts?.unsignedTerms ? starListMessage(NET, w.addr, star, price, nonce) : starListV2Message(NET, w.addr, star, price, terms, nonce)
+  const e: Record<string, unknown> = { seq: ++seq, kind: 'star-list', hash: 'h' + seq, at: seq, from: w.addr, star: star.toString(), amount: price.toString(), fee: '1', nonce, publicKey: w.pk, signature: sign(msg, w), scheme: 'kraywallet' }
+  if (terms.to) e.to = terms.to
+  if (terms.gate !== undefined) e.gateStar = terms.gate.toString()
+  if (terms.notBefore !== undefined) e.notBefore = terms.notBefore
+  return e as unknown as KrayEvent
+}
+const listToEv = (L: KrayLedger, w: W, star: bigint, price: bigint, to: string, opts?: { unsignedName?: boolean }): KrayEvent =>
+  listTermsEv(L, w, star, price, { to }, opts?.unsignedName ? { unsignedTerms: true } : undefined)
 const delistEv = (L: KrayLedger, w: W, star: bigint): KrayEvent => {
   const nonce = L.nonceOf(w.addr)
   return { seq: ++seq, kind: 'star-delist', hash: 'h' + seq, at: seq, from: w.addr, star: star.toString(), fee: '1', nonce, publicKey: w.pk, signature: sign(starDelistMessage(NET, w.addr, star, nonce), w), scheme: 'kraywallet' } as unknown as KrayEvent
@@ -236,6 +250,137 @@ function main() {
     halts(() => D.applyLive(buyStale), /not listed/, '9 · a buy signed before delist is refused after delist — buyer ₭ untouched')
     ok(D.balanceOf(buyers[0].addr) === bobK, '9 · the stale-signed buyer lost nothing')
     ok(D.stars.ownerOf(ds) === seller.addr, '9 · delist-then-buy: the star stayed with the seller')
+  }
+
+  // ── 10 · THE GIFT — a listing at zero is a drop: the taker pays the eternal fee and nothing else ──
+  {
+    const G = new KrayLedger(undefined, NET)
+    const giver = wallet('gift-giver'), taker = wallet('gift-taker'), other = wallet('gift-other')
+    mint(G, giver.addr, '20'); mint(G, taker.addr, '20'); mint(G, other.addr, '20')
+    const gs = bornStar(G, giver, 'a-thing-left-behind')
+    const giverBefore = G.balanceOf(giver.addr), takerBefore = G.balanceOf(taker.addr), tre = G.balanceOf('KRAY_TREASURY')
+    G.applyLive(listEv(G, giver, gs, 0n))
+    ok(G.market.get(gs)?.price === 0n && G.market.get(gs)?.seller === giver.addr, '10 · a star listed at 0 — the drop is a signed offer anyone may take')
+    ok(G.stars.ownerOf(gs) === giver.addr && G.balanceOf(giver.addr) === giverBefore - 1n, '10 · listing it moved no star and cost the giver only the eternal 1 ₭')
+    // A gift is still a signed offer: the taker signs the same exact terms, and a wrong price refutes the take.
+    halts(() => G.applyLive(buyEv(G, taker, gs, 1n, giver.addr)), /price/, '10 · a take signed for another price is refused — no phantom price, even at zero')
+    G.applyLive(buyEv(G, taker, gs, 0n, giver.addr))
+    ok(G.stars.ownerOf(gs) === taker.addr, '10 · the taker signed, paid nothing, and the star is theirs')
+    ok(G.balanceOf(taker.addr) === takerBefore - 1n, '10 · the taker paid the eternal 1 ₭ and no price')
+    ok(G.balanceOf(giver.addr) === giverBefore - 1n && G.balanceOf('KRAY_TREASURY') === tre + 2n, '10 · the giver received nothing; both eternal fees went to the validators')
+    ok(!G.market.get(gs), '10 · the offer is consumed once')
+    ok(G.conserves(), '10 · conservation holds on a gift (nothing minted, nothing lost)')
+    // Two bodies reaching for the same thing: the journal's order is the referee, and the loser loses nothing.
+    const otherBefore = G.balanceOf(other.addr)
+    halts(() => G.applyLive(buyEv(G, other, gs, 0n, giver.addr)), /not listed/, '10 · the second taker is refused — one thing, one taker')
+    ok(G.balanceOf(other.addr) === otherBefore && G.stars.ownerOf(gs) === taker.addr, '10 · the one who lost the race paid nothing, not even the fee')
+    // The giver may take the gift back while nobody has claimed it: it is a standing offer, not a sealed escrow.
+    const gs2 = bornStar(G, giver, 'a-thing-taken-back')
+    G.applyLive(listEv(G, giver, gs2, 0n))
+    G.applyLive(delistEv(G, giver, gs2))
+    ok(!G.market.get(gs2) && G.stars.ownerOf(gs2) === giver.addr, '10 · a gift can be withdrawn before it is taken (a standing offer, honestly named)')
+    halts(() => G.applyLive(buyEv(G, taker, gs2, 0n, giver.addr)), /not listed/, '10 · and after the withdrawal nobody can take it')
+  }
+
+  // ── 11 · A3 — below the pin, a zero listing is refused word for word, so old journals replay identically ──
+  {
+    const O = new KrayLedger(undefined, NET, undefined, false, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, Number.MAX_SAFE_INTEGER)
+    const giver = wallet('old-era-giver')
+    mint(O, giver.addr, '20')
+    const os = bornStar(O, giver, 'before-the-gift')
+    halts(() => O.applyLive(listEv(O, giver, os, 0n)), /positive price/, '11 · below the pin a zero listing is refused exactly as before (A3)')
+    ok(!O.market.get(os) && O.conserves(), '11 · nothing mutated on the refusal')
+    O.applyLive(listEv(O, giver, os, 5n))
+    ok(O.market.get(os)?.price === 5n, '11 · a priced listing still works below the pin — only the gift waits for its era')
+    // Below the pin an offer WITH terms is refused as a shape that did not exist in that era — and the refusal
+    // comes before any mutation. (The signed line always follows the act's own fields, so the door, the reducer
+    // and the signed-bytes mirror agree byte for byte at every height — the referee would refuse them otherwise.)
+    const old2 = bornStar(O, giver, 'a-term-from-the-future')
+    const heirOld = wallet('old-era-heir')
+    const rootBefore = O.cascadeRoot()
+    halts(() => O.applyLive(listTermsEv(O, giver, old2, 6n, { to: heirOld.addr })), /not yet the law/, '11 · below the pin an offer with terms is refused (the shape did not exist in that era)')
+    ok(!O.market.get(old2) && O.cascadeRoot() === rootBefore && O.conserves(), '11 · and that refusal moved nothing')
+  }
+
+  // ── 12 · THE NAMED DROP — left for one address; nobody else may take it, and no relay may strip the name ──
+  {
+    const G = new KrayLedger(undefined, NET)
+    const giver = wallet('named-giver'), friend = wallet('named-friend'), stranger = wallet('named-stranger')
+    mint(G, giver.addr, '20'); mint(G, friend.addr, '20'); mint(G, stranger.addr, '20')
+    const ns = bornStar(G, giver, 'for-a-friend')
+    halts(() => G.applyLive(listToEv(G, giver, ns, 0n, friend.addr, { unsignedName: true })), /signature/i,
+      '12 · a name carried but not signed is refused — a relay cannot add or strip who it was left for')
+    ok(!G.market.get(ns), '12 · nothing was listed by the refused act')
+    halts(() => G.applyLive(listToEv(G, giver, ns, 0n, giver.addr)), /nobody/i, '12 · a listing named for yourself is refused')
+    G.applyLive(listToEv(G, giver, ns, 0n, friend.addr))
+    ok(G.market.get(ns)?.to === friend.addr && G.market.get(ns)?.price === 0n, '12 · the offer carries the name it was left for')
+    const strangerBefore = G.balanceOf(stranger.addr)
+    halts(() => G.applyLive(buyEv(G, stranger, ns, 0n, giver.addr)), /left for another address/, '12 · a stranger cannot take what was left for somebody')
+    ok(G.balanceOf(stranger.addr) === strangerBefore && G.stars.ownerOf(ns) === giver.addr, '12 · the refused stranger paid nothing and moved nothing')
+    const friendBefore = G.balanceOf(friend.addr)
+    G.applyLive(buyEv(G, friend, ns, 0n, giver.addr))
+    ok(G.stars.ownerOf(ns) === friend.addr && G.balanceOf(friend.addr) === friendBefore - 1n, '12 · the one it was left for takes it for the eternal fee alone')
+    ok(!G.market.get(ns) && G.conserves(), '12 · the offer is consumed once and conservation holds')
+    // A named listing is not only for gifts: the same guard holds at a price.
+    const ps = bornStar(G, giver, 'a-private-sale')
+    G.applyLive(listToEv(G, giver, ps, 7n, friend.addr))
+    halts(() => G.applyLive(buyEv(G, stranger, ps, 7n, giver.addr)), /left for another address/, '12 · a priced private sale refuses the stranger too')
+    ok(G.market.all().find((l) => l.star === ps.toString())?.to === friend.addr, '12 · the marketplace page can see who it is for')
+  }
+
+  // ── 13 · THE STAR THAT OPENS IT — the right travels with a star, not with a name ──
+  {
+    const G = new KrayLedger(undefined, NET)
+    const giver = wallet('gate-giver'), keeper = wallet('gate-keeper'), stranger = wallet('gate-stranger')
+    mint(G, giver.addr, '30'); mint(G, keeper.addr, '30'); mint(G, stranger.addr, '30')
+    const key = bornStar(G, keeper, 'the-key-star')        // whoever holds THIS may take the offer
+    const prize = bornStar(G, giver, 'behind-the-key')
+    halts(() => G.applyLive(listTermsEv(G, giver, prize, 0n, { gate: prize })), /very star it offers/, '13 · an offer cannot be opened by the very star it offers')
+    halts(() => G.applyLive(listTermsEv(G, giver, prize, 0n, { gate: key }, { unsignedTerms: true })), /signature/i, '13 · terms carried but not signed are refused — a relay cannot add a condition')
+    G.applyLive(listTermsEv(G, giver, prize, 0n, { gate: key }))
+    ok(G.market.get(prize)?.gate === key, '13 · the offer says which star opens it')
+    const strangerBefore = G.balanceOf(stranger.addr)
+    halts(() => G.applyLive(buyEv(G, stranger, prize, 0n, giver.addr)), /whoever holds star/, '13 · someone who does not hold the key star is refused')
+    ok(G.balanceOf(stranger.addr) === strangerBefore, '13 · and pays nothing for trying')
+    const keeperBefore = G.balanceOf(keeper.addr)
+    G.applyLive(buyEv(G, keeper, prize, 0n, giver.addr))
+    ok(G.stars.ownerOf(prize) === keeper.addr && G.balanceOf(keeper.addr) === keeperBefore - 1n, '13 · the holder of the key star takes it for the eternal fee alone')
+    ok(G.conserves(), '13 · conservation holds')
+    // The right MOVES with the star: give the key away, and the new holder is the one who may take the next offer.
+    const prize2 = bornStar(G, giver, 'behind-the-key-again')
+    G.applyLive(listTermsEv(G, giver, prize2, 0n, { gate: key }))
+    const sendNonce = G.nonceOf(keeper.addr)
+    G.applyLive({ seq: ++seq, kind: 'transfer-star', hash: 'h' + seq, at: seq, from: keeper.addr, to: stranger.addr, star: key.toString(), fee: '1', nonce: sendNonce, publicKey: keeper.pk, signature: sign(sendStarMessage(NET, keeper.addr, stranger.addr, key, sendNonce), keeper), scheme: 'kraywallet' } as unknown as KrayEvent)
+    halts(() => G.applyLive(buyEv(G, keeper, prize2, 0n, giver.addr)), /whoever holds star/, '13 · the old holder can no longer open it — the right went with the star')
+    G.applyLive(buyEv(G, stranger, prize2, 0n, giver.addr))
+    ok(G.stars.ownerOf(prize2) === stranger.addr, '13 · the new holder of the key star opens it')
+  }
+
+  // ── 14 · THE BEQUEST — not before a Bitcoin height the chain itself proves ──
+  {
+    const G = new KrayLedger(undefined, NET)
+    const giver = wallet('will-giver'), heir = wallet('will-heir')
+    mint(G, giver.addr, '30'); mint(G, heir.addr, '30')
+    const estate = bornStar(G, giver, 'the-estate')
+    // A height that Bitcoin can never reach is NOT a height: the ONE reader drops it, so the law's line says
+    // `notBefore=0` while this act signed `notBefore=0.5`. The refusal is the signature itself — which is
+    // exactly what stops a relay from killing an honest act by appending an ill-formed term to it.
+    halts(() => G.applyLive(listTermsEv(G, giver, estate, 0n, { to: heir.addr, notBefore: 0.5 as unknown as number })), /signature|verify|mirror/i, '14 · a height that is not a whole height is not a height — the signed line never carried it')
+    G.applyLive(listTermsEv(G, giver, estate, 0n, { to: heir.addr, notBefore: 900_000 }))
+    const l = G.market.get(estate)
+    ok(l?.to === heir.addr && l?.notBefore === 900_000, '14 · the bequest names the heir AND the height it opens at')
+    const heirBefore = G.balanceOf(heir.addr)
+    halts(() => G.applyLive(buyEv(G, heir, estate, 0n, giver.addr)), /opens at Bitcoin height 900000/, '14 · the heir cannot take it while the chain has not reached the height')
+    ok(G.balanceOf(heir.addr) === heirBefore && G.stars.ownerOf(estate) === giver.addr, '14 · nothing moved, and the heir paid nothing for trying')
+    // While they live, the giver may withdraw it or push the height forward — a re-list replaces the offer.
+    G.applyLive(listTermsEv(G, giver, estate, 0n, { to: heir.addr, notBefore: 950_000 }))
+    ok(G.market.get(estate)?.notBefore === 950_000, '14 · re-listing pushes the height forward (the living hand moves the date)')
+    G.applyLive(delistEv(G, giver, estate))
+    ok(!G.market.get(estate) && G.stars.ownerOf(estate) === giver.addr, '14 · and the bequest can be revoked entirely while they live')
+    // A bequest with no height at all is claimable now — that difference is the whole point of the height.
+    G.applyLive(listTermsEv(G, giver, estate, 0n, { to: heir.addr }))
+    G.applyLive(buyEv(G, heir, estate, 0n, giver.addr))
+    ok(G.stars.ownerOf(estate) === heir.addr && G.conserves(), '14 · without a height the named heir takes it at once')
   }
 
   console.log(`\n╚═ ${pass} passed${fail ? `, ${fail} FAILED` : ''} — the market is atomic, trustless, conserved, and folds only when it lives. ⛓₭\n`)

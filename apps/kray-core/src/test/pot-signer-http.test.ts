@@ -61,6 +61,20 @@ const bundle = {
 }
 
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), '../../../../scripts/pot-signer.mjs')
+
+/**
+ * THE PEN IS KEPT OFF THE PUBLIC CLONE ON PURPOSE — it handles keys, and `fix(door): keep the writer kit
+ * and pen off git` took it out deliberately. So in a clone that does not carry it, this file must SKIP,
+ * loudly, naming why: `node <missing file>` exits non-zero for the wrong reason, and a suite that stays
+ * red by design teaches everyone to ignore red. Where the file IS present — the operator's own house —
+ * every check below runs and every failure is real.
+ */
+if (!existsSync(SCRIPT)) {
+  console.log(`\n⊘ SKIPPED — scripts/pot-signer.mjs is not in this clone (kept off git on purpose: it handles keys).`)
+  console.log('  This suite runs in the operator house, where the file lives. Nothing here is unproven;')
+  console.log('  it is simply not testable from a clone that deliberately does not carry the thing.\n')
+  process.exit(0)
+}
 // THE PEN'S OWN BOOK (2026-09-18): a mock follower the daemon must consult before every signature
 const BOOK_PORT = 4489
 const book = { seq: 50, root: 'ab'.repeat(32), balance: 100n, up: true }

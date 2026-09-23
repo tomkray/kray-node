@@ -37,6 +37,10 @@ const SIGNED_VALUE: Record<string, 'MIN_FEE' | 'prescribed' | 'burn1'> = {
   'star-list': 'MIN_FEE', 'star-delist': 'MIN_FEE', 'star-buy': 'MIN_FEE',
   'star-offer': 'MIN_FEE', 'star-offer-cancel': 'MIN_FEE', 'star-offer-accept': 'MIN_FEE',
   'cut-send': 'MIN_FEE', 'lane-enter': 'MIN_FEE', 'lane-exit': 'MIN_FEE',
+  'packet-list': 'MIN_FEE', 'packet-delist': 'MIN_FEE', 'packet-take': 'MIN_FEE',   // THE PACKET MARKET — ₭ / Luz / rune
+  'claim-open': 'MIN_FEE', 'claim-take': 'MIN_FEE', 'claim-close': 'MIN_FEE',      // THE CLAIM ESCROW — a harvest, its hands, its close
+  'mint-open': 'MIN_FEE', 'mint-take': 'MIN_FEE',                                  // THE MINT DROP — opening the pots, and taking one
+  'pool-fund': 'MIN_FEE', 'pool-season': 'MIN_FEE', 'pool-close': 'MIN_FEE',      // THE STANDING POOL — pour, attest, draw back
   'fold-seal': 'MIN_FEE', burn: 'MIN_FEE',
   'rune-send': 'MIN_FEE', 'rune-exit': 'MIN_FEE', 'rune-cancel': 'MIN_FEE',
   'amm-add': 'MIN_FEE', 'amm-remove': 'MIN_FEE', 'amm-swap': 'MIN_FEE',
@@ -102,8 +106,14 @@ function main() {
 
   // ── FC-1 · CATALOG: every reducer case is classified ──
   console.log('FC-1 — catalog: every reducer `case` is classified (no kind escapes the law unseen)')
+  const unionSrc = readFileSync(new URL('../protocol/kray-primitives.ts', import.meta.url), 'utf8')
+  const unionLine = /export type KrayEventKind = ([^\n]+)/.exec(unionSrc)?.[1] ?? ''
+  const KINDS = new Set([...unionLine.matchAll(/'([a-z0-9][a-z0-9-]*)'/g)].map((m) => m[1]!))
   const found = new Set<string>()
-  for (const m of src.matchAll(/case '([a-z0-9][a-z0-9-]*)':/g)) found.add(m[1])
+  // Only labels that are REAL event kinds: the reducer also switches on lanes and assets inside its
+  // helpers, and those are not acts. A kind cannot hide here — to exist at all it must be in the union.
+  for (const m of src.matchAll(/case '([a-z0-9][a-z0-9-]*)':/g)) if (KINDS.has(m[1]!)) found.add(m[1]!)
+  ok(KINDS.size > 40, `the event-kind union names ${KINDS.size} kinds — the guardian reads it, not a hand-copied list`)
   const catalog = new Set<string>([...Object.keys(SIGNED_VALUE), ...Object.keys(SIGNED_NO_VALUE), ...Object.keys(SYSTEM)])
   const uncatalogued = [...found].filter((k) => !catalog.has(k))
   const stale = [...catalog].filter((k) => !found.has(k))

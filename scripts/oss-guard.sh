@@ -17,12 +17,17 @@ cd "$ROOT"
 # assignments. None of these spell a real identity.
 SHAPES='100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}|[0-9a-z-]+\.ts\.net|\b10\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\b|\b192\.168\.[0-9]{1,3}\.|C:\\\\Users\\\\[A-Za-z]|/Users/[a-z0-9_-]+/|/home/[a-z0-9_-]+/|[a-z0-9]+-umbrel\b|mac-mini-[a-z0-9]+|[a-z0-9._%+-]+@(gmail|hotmail|outlook|yahoo|icloud|proton)\.[a-z]+|KRAY_CONSOLIDATION_SECRET=[0-9a-f]{64}|KRAY_VAULT_GUARDIAN_SECRETS?=[0-9a-f]{64}|KRAY_(POT|GUARDIAN)_SIGNER_TOKEN=[A-Za-z0-9+/]{16,}|KRAY_BTC_RPC_PASS=[A-Za-z0-9+/]{8,}|BEGIN (OPENSSH |RSA )?PRIVATE KEY'
 
+# docs/audit/<date>-<topic>/ is a dated PRIVATE council record. It names hosts, tailnet
+# addresses and unit paths ON PURPOSE — that is the point of a council record — and it is
+# stripped from every public mirror (verified 2026-09-22: zero such files on the public door).
+# So it is skipped by the scan below and REFUSED HARD by the public-door check at the end.
 # tracked files only — working-tree secrets that are gitignored must stay ignored.
 # Placeholder doc paths (/Users/you, /home/user, <user>) are allowed.
 # Proof fixtures used to be excluded — that hid /Users/… paths in fold artifacts.
 # Tests may still use RFC1918 / CGNAT as hostile examples.
 LEAK="$(git grep -nI -E "$SHAPES" \
   -- ':!apps/kray-core/src/test/*' ':!*.test.ts' ':!*.test.mjs' ':!scripts/oss-guard.sh' \
+     ':!docs/audit/*' \
   | grep -vE '/Users/you/|/home/you/|/home/user/|/Users/<|/home/<' || true)"
 
 # A public-door file must never point at the operator house. The house itself
@@ -47,6 +52,22 @@ TLS="$(git grep -nI 'NODE_TLS_REJECT_UNAUTHORIZED' -- ':!scripts/oss-guard.sh' |
 if [[ -n "$TLS" ]]; then
   LEAK="${LEAK}"$'\n'"${TLS}"
 fi
+
+# BINARY LEAK — `git grep -I` cannot see inside a compiled artifact, so every scan above walks
+# straight past a .wasm / .png / .mp3. Found 2026-09-22: the fold verifier wasm shipped in the
+# PUBLIC repo carrying 16 `/Users/<name>/.cargo/registry/...` paths baked in by the Rust build —
+# the very shape this guard exists to catch, in the one place it could not look. A binary is a
+# published file like any other: read it as bytes.
+while IFS= read -r f; do
+  [[ -f "$f" ]] || continue
+  if grep -Iq . "$f" 2>/dev/null; then continue; fi   # text — already covered above
+  # `set -euo pipefail` is in force: a grep that finds nothing exits 1 and would kill the guard
+  hits="$(strings "$f" 2>/dev/null | grep -aoE "$SHAPES" \
+          | grep -vE '/Users/you/|/home/you/|/home/user/|/Users/<|/home/<' | sort -u | head -3 || true)"
+  if [[ -n "$hits" ]]; then
+    LEAK="${LEAK}"$'\n'"${f}: $(printf '%s' "$hits" | tr '\n' ' ')  ← inside a BINARY (rebuild it with --remap-path-prefix)"
+  fi
+done <<< "$(git ls-files)"
 
 if [[ -n "$LEAK" ]]; then
   echo "✗ oss-guard: leak-shaped content in tracked files:"
@@ -87,10 +108,18 @@ fi
 REMOTE="$(git remote get-url origin 2>/dev/null || true)"
 if [[ "$REMOTE" == *kray-node* ]]; then
   VIT="$(git ls-files 'apps/kray-net/defi.html' 'apps/kray-net/market.html' \
-    'apps/kray-net/markets.html' 'apps/kray-net/pool.html' || true)"
+    'apps/kray-net/markets.html' 'apps/kray-net/pool.html' \
+    'apps/kray-net/drops.html' 'apps/kray-net/harvests.html' || true)"
   if [[ -n "$VIT" ]]; then
     echo "✗ oss-guard: tracked creator-vitrine path on the public door:"
     echo "$VIT"
+    exit 1
+  fi
+  # The council records are private by design; on the public door they are a topology map.
+  AUD="$(git ls-files 'docs/audit/' || true)"
+  if [[ -n "$AUD" ]]; then
+    echo "✗ oss-guard: private council record on the public door — docs/audit/ is never mirrored:"
+    echo "$AUD" | head -5
     exit 1
   fi
 fi

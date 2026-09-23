@@ -22,6 +22,10 @@
  *   · quantum-migrate (Lamport, verified outside requireSig) returns null too: it never enters the
  *     inclusion SMT today, so it stays exempt from the run law — consistent, and named honestly.
  */
+import { hasTerms, starListV2Message, termsOfEvent } from './star-market.ts'
+import { isPacketLane, packetAssetOfEvent, packetDelistMessage, packetListMessage, packetTakeMessage } from './packet-market.ts'
+import { claimOpenMessage, claimTakeMessage, claimCloseMessage, mintOpenMessage, mintTakeMessage, type MintTerms } from './claim-book.ts'
+import { poolFundMessage, poolSeasonMessage, poolCloseMessage } from './pool-book.ts'
 import {
   transferMessage, xSendMessage, cutSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6,
@@ -53,12 +57,86 @@ export function signedMessageOfEvent(e: KrayEvent, network: string): string | nu
     case 'transfer': return transferMessage(network, e.from!, e.to!, BigInt(e.amount!), e.nonce!)
     case 'transfer-star': return sendStarMessage(network, e.from!, e.to!, BigInt(e.star!), e.nonce!)
     // THE STAR MARKET — verbatim twins of the reducer's cases (the referee re-proves parity on every replay)
-    case 'star-list': return starListMessage(network, e.from!, BigInt(e.star!), BigInt(e.amount!), e.nonce!)
+    // An offer with terms (a name, a star that opens it, a height it waits for) signs them all into its own
+    // line; an offer without terms keeps the v1 line, byte for byte (A3). The referee re-proves the same choice.
+    case 'star-list': {
+      // The SAME reader the reducer uses: the signed line is a function of the act's own fields, so the mirror
+      // and the law can never disagree about which bytes were signed (the referee refuses any divergence).
+      const terms = termsOfEvent(e)
+      // VERBATIM twin of the reducer's own line: it reads a missing amount as the gift price 0
+      // (`BigInt(e.amount ?? '0')`), so the mirror must too — or that act refuses with a TypeError
+      // from inside the referee instead of the law's own named answer.
+      const price = BigInt(e.amount ?? '0')
+      return hasTerms(terms)
+        ? starListV2Message(network, e.from!, BigInt(e.star!), price, terms, e.nonce!)
+        : starListMessage(network, e.from!, BigInt(e.star!), price, e.nonce!)
+    }
     case 'star-delist': return starDelistMessage(network, e.from!, BigInt(e.star!), e.nonce!)
-    case 'star-buy': return starBuyMessage(network, e.from!, BigInt(e.star!), BigInt(e.amount!), e.to!, e.nonce!)
+    // VERBATIM twin, like star-list above: the reducer reads a missing amount as the gift price 0
+    // (`BigInt(e.amount ?? '0')`), so a buy that omits it must reach the law's named answer, never a
+    // TypeError thrown from inside the referee.
+    case 'star-buy': return starBuyMessage(network, e.from!, BigInt(e.star!), BigInt(e.amount ?? '0'), e.to!, e.nonce!)
     case 'star-offer': return starOfferMessage(network, e.from!, BigInt(e.star!), BigInt(e.amount!), e.nonce!)
     case 'star-offer-cancel': return starOfferCancelMessage(network, e.from!, BigInt(e.star!), e.nonce!)
     case 'star-offer-accept': return starOfferAcceptMessage(network, e.from!, BigInt(e.star!), BigInt(e.amount!), e.to!, e.nonce!)
+    // THE PACKET MARKET — verbatim twins of the reducer's cases. Every field is in the line (each term empty
+    // when absent), so there is no version fork to agree about: the bytes are a function of the act alone.
+    case 'packet-list': {
+      if (!isPacketLane(e.lane)) throw new Error('ledger: unknown packet lane')
+      const asset = packetAssetOfEvent(e.lane, e)
+      return packetListMessage(network, e.from!, e.lane, asset, posAmt(e.amount, 'a packet amount'), posAmt(e.price, 'a packet price'), termsOfEvent(e), e.nonce!)
+    }
+    case 'packet-delist': {
+      if (!isPacketLane(e.lane)) throw new Error('ledger: unknown packet lane')
+      return packetDelistMessage(network, e.from!, e.lane, packetAssetOfEvent(e.lane, e), e.nonce!)
+    }
+    case 'packet-take': {
+      if (!isPacketLane(e.lane)) throw new Error('ledger: unknown packet lane')
+      const asset = packetAssetOfEvent(e.lane, e)
+      return packetTakeMessage(network, e.from!, e.to!, e.lane, asset, posAmt(e.amount, 'a packet amount'), posAmt(e.price, 'a packet price'), typeof e.termsHash === 'string' ? e.termsHash : '', e.nonce!)
+    }
+    // THE CLAIM ESCROW — verbatim twins of the reducer's cases. The merkle PROOF never enters the line: it
+    // is a witness that proves itself against the root, exactly like an SPV bag.
+    case 'claim-open': {
+      if (!isPacketLane(e.lane)) throw new Error('ledger: unknown packet lane')
+      const asset = packetAssetOfEvent(e.lane, e)
+      const expires = e.expires === undefined || e.expires === null || Number(e.expires) === 0 ? 0 : Number(e.expires)
+      return claimOpenMessage(network, e.from!, e.lane, asset, posAmt(e.amount, 'a harvest total'), String(e.claimRoot ?? ''), expires, e.nonce!)
+    }
+    case 'claim-take': return claimTakeMessage(network, e.from!, String(e.claimRoot ?? ''), posAmt(e.amount, 'a share'), e.nonce!)
+    case 'claim-close': return claimCloseMessage(network, e.from!, String(e.claimRoot ?? ''), e.nonce!)
+    // THE MINT DROP — verbatim twins of the reducer's cases. The gate is IN the open's line (it decides who
+    // may be paid) and the star is IN the take's line (it decides whether THIS hand may be). No amount ever
+    // rides on a take: a pot is what the giver signed, never what a taker asks for.
+    case 'mint-open': {
+      if (!isPacketLane(e.lane)) throw new Error('ledger: unknown packet lane')
+      const asset = packetAssetOfEvent(e.lane, e)
+      const gate: MintTerms['gate'] = e.gateChildOf !== undefined && e.gateChildOf !== null && String(e.gateChildOf) !== ''
+        ? { kind: 'childOf', star: posAmt(e.gateChildOf, 'a gate star') }
+        : null
+      return mintOpenMessage(network, e.from!, e.lane, asset, posAmt(e.perHand, 'a pot'), Number(e.hands), gate, Number(e.expires), e.nonce!)
+    }
+    case 'mint-take': {
+      const star = e.star !== undefined && e.star !== null && String(e.star) !== '' ? posAmt(e.star, 'the star you hold') : null
+      return mintTakeMessage(network, e.from!, String(e.claimRoot ?? ''), star, e.nonce!)
+    }
+    // THE STANDING POOL — verbatim twins of the reducer's cases.
+    case 'pool-fund': {
+      if (!isPacketLane(e.lane)) throw new Error('ledger: unknown packet lane')
+      const asset = packetAssetOfEvent(e.lane, e)
+      const expires = e.expires === undefined || e.expires === null || Number(e.expires) === 0 ? 0 : Number(e.expires)
+      return poolFundMessage(network, e.from!, e.lane, asset, posAmt(e.amount, 'a pool amount'), expires, e.nonce!)
+    }
+    case 'pool-season': {
+      if (!isPacketLane(e.lane)) throw new Error('ledger: unknown packet lane')
+      const asset = packetAssetOfEvent(e.lane, e)
+      const expires = e.expires === undefined || e.expires === null || Number(e.expires) === 0 ? 0 : Number(e.expires)
+      return poolSeasonMessage(network, e.from!, e.lane, asset, posAmt(e.amount, 'a season ceiling'), String(e.claimRoot ?? ''), expires, e.nonce!)
+    }
+    case 'pool-close': {
+      if (!isPacketLane(e.lane)) throw new Error('ledger: unknown packet lane')
+      return poolCloseMessage(network, e.from!, e.lane, packetAssetOfEvent(e.lane, e), posAmt(e.amount, 'a pool return'), e.nonce!)
+    }
     case 'x-send': return xSendMessage(network, e.from!, e.to!, BigInt(e.amount!), e.nonce!)
     case 'cut-send': return cutSendMessage(network, e.from!, e.to!, BigInt(e.star!), BigInt(e.amount!), e.nonce!)
     case 'burn': return burnMessage(network, e.from!, BigInt(e.amount!), e.nonce!)

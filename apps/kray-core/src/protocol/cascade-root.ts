@@ -40,6 +40,17 @@ export interface CascadeParts {
   profileCommitment?: string // CITIZEN MOUTH — address→bio/url/banner; present iff at least one mouth is set (A3 by presence)
   /** KRAY PLATE — living plate (addr→hash and/or star→hash); present iff at least one plate is set (A3 by presence) */
   krayPlateCommitment?: string
+  /** THE PACKET MARKET order book (₭ / Luz / rune packets) — present iff a listing exists (by presence,
+   *  the AMM pattern; appended LAST, A3): with no packet listed the field is absent, so every anchored root
+   *  before this law — and an empty genesis — opens byte-identically. */
+  packetCommitment?: string
+  /** THE CLAIM ESCROW book — present iff a harvest is open (by presence, appended LAST, A3). It commits the
+   *  root, what it holds, what it has paid and the chain of hands that took, so a stranger can verify a
+   *  claim from the anchored bytes alone. */
+  claimCommitment?: string
+  /** THE STANDING POOLS — present iff a pool exists (by presence, appended LAST, A3). It commits what each
+   *  pool holds, what its live seasons may still draw, and the horizon its owner may draw back at. */
+  poolCommitment?: string
 }
 
 /** Re-derive the cascade root from its parts — byte-identical to `ledger.cascadeRoot()`, which IS this. */
@@ -69,5 +80,8 @@ export function cascadeRootFromParts(p: CascadeParts): string {
   if (p.faceCommitment !== undefined) h.update(`faces:${p.faceCommitment}\n`, 'utf8')       // CITIZEN FACE (A3): undefined when no face is set ⇒ byte-identical genesis
   if (p.profileCommitment !== undefined) h.update(`profiles:${p.profileCommitment}\n`, 'utf8') // CITIZEN MOUTH (A3): undefined when no mouth is set ⇒ byte-identical genesis
   if (p.krayPlateCommitment !== undefined) h.update(`kray-plates:${p.krayPlateCommitment}\n`, 'utf8') // KRAY PLATE (A3): undefined when no plate ⇒ byte-identical genesis
+  if (p.packetCommitment !== undefined) h.update(`packets:${p.packetCommitment}\n`, 'utf8') // PACKET MARKET (A3): undefined when no packet is listed ⇒ byte-identical to every pre-packet history
+  if (p.claimCommitment !== undefined) h.update(`claims:${p.claimCommitment}\n`, 'utf8') // CLAIM ESCROW (A3): undefined when no harvest is open ⇒ byte-identical to every pre-claim history
+  if (p.poolCommitment !== undefined) h.update(`pools:${p.poolCommitment}\n`, 'utf8') // STANDING POOLS (A3): undefined when none exists ⇒ byte-identical to every pre-pool history
   return h.digest('hex')
 }

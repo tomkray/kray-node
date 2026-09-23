@@ -2433,7 +2433,7 @@
     var v=prompt(label, current!=null?String(current).replace(/[^0-9]/g,''):'');
     if(v==null) return null;
     var price=String(v).replace(/[^0-9]/g,'');
-    if(!price || Number(price)<=0){ toast('Enter a positive whole number of ₭.'); return null; }
+    if(price==='' || !(Number(price)>=0)){ toast('Enter a whole number of ₭ — zero makes it a drop.'); return null; }
     return price;
   }
   function mountMarketBar(s){
@@ -2462,7 +2462,8 @@
         }
       } else if(mine){
         html+='<div class="offer"><div><div class="ok">market</div><div class="osub">This star is not listed. You hold it — set an ask.</div></div>'
-          +'<div class="oacts"><button type="button" class="btn" data-list="1">List for sale</button></div></div>';
+          +'<div class="oacts"><button type="button" class="btn" data-list="1">List for sale</button>'
+          +'<a class="btn" href="/market/drops?star='+encodeURIComponent(s.star)+'">Leave as a drop</a></div></div>';
       }
       if(addr && !mine){
         html+='<div class="offer"><div><div class="ok">offer</div><div class="osub">Lock ₭ in the protocol pot. Cancel returns it. Accept is atomic. Fee 1 ₭.</div></div>'

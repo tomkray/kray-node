@@ -121,6 +121,7 @@ main .cascade b{color:var(--btc);font-weight:500}
       <h4>Building on it</h4>
       <a href="#bridge">Bridge your rune</a>
       <a href="#defi">DeFi</a>
+      <a href="#market">The market — drops, harvests, mints</a>
       <a href="#land">Land</a>
       <a href="#library">Library &amp; rank</a>
       <a href="#blackhole">The black hole</a>
@@ -176,6 +177,8 @@ main .cascade b{color:var(--btc);font-weight:500}
           <tr><td><a href="/library">Library</a></td><td>Every named work and relic on this journal, browsable.</td></tr>
           <tr><td><a href="/mind">Mind</a></td><td>Talk to the book. The book is memory (<code>GET /docs/pack.json</code>). Local Llama or a Claude / Grok / GPT key — the key never hits the node. No persona hardness. Law: <a href="/docs/book-and-apps.md">book vs apps</a>.</td></tr>
           <tr><td><a href="/blackhole">Black hole</a></td><td>What was entombed at <code>KRAY_BLACK_HOLE</code> — counted forever, spendable never (A1).</td></tr>
+          <tr><td><a href="/market/drops">Drops</a></td><td>The floor where the price is zero. A standing offer of a whole packet — ₭, a star's Luz, or an L2 rune — that stays the seller's until a hand takes it.</td></tr>
+          <tr><td><a href="/harvests">Harvests</a></td><td>One signed root, many hands. And mints: N equal pots, one per hand, nobody named. Both rest in the keyless pot <code>KRAY_CLAIM</code>.</td></tr>
         </table>
         <table class="dtable">
           <tr><th>Act</th><th>What you sign</th></tr>
@@ -407,6 +410,122 @@ main .cascade b{color:var(--btc);font-weight:500}
         <p>Open a pair at <code>/pool/IRON</code> or <code>/pool/IRON/GOLD</code>. Tape and LP rank are on that page. No rune on this L2 yet? Bridge one first.</p>
       </section>
 
+      <section id="market">
+        <div class="shead"><span class="n">10b1</span><h2>The market — offers, promises, and mints</h2><span class="sub">Three shapes, one law. The difference between them is WHO holds the value while it waits. /market/drops · /harvests</span></div>
+        <p>There are three ways to move a thing to somebody else without knowing them yet, and the only real difference
+        is custody — who holds it while it stands. Get that difference and the rest follows.</p>
+        <table class="dtable">
+          <tr><th>Shape</th><th>What it is</th><th>Who holds it while it waits</th></tr>
+          <tr><td><strong>A drop</strong><br><a href="/market/drops">/market/drops</a></td>
+              <td>A standing offer of a whole packet — ₭, a star's Luz, or an L2 rune — at any price. <strong>Price zero IS the drop.</strong> One taker takes it whole.</td>
+              <td><strong>You do.</strong> Listing costs only the eternal 1 ₭; the packet never leaves your hand. So you keep the use of it — and the offer can go stale if you spend it.</td></tr>
+          <tr><td><strong>A harvest</strong><br><a href="/harvests">/harvests</a></td>
+              <td>A pot with a <strong>list</strong> inside it. One signed merkle root, many hands, each proving its own line and taking exactly what that line says, once.</td>
+              <td><strong>Nobody.</strong> The whole total leaves you at the signature, into <code>KRAY_CLAIM</code> — a keyless pot. A promise that can be spent from behind is not a promise.</td></tr>
+          <tr><td><strong>A mint</strong><br><a href="/harvests">/harvests</a></td>
+              <td>A harvest whose root commits <strong>terms</strong> instead of names: N pots of one size, one to any hand that has not taken, while pots remain. Nobody is named in advance.</td>
+              <td><strong>Nobody.</strong> Same keyless pot, same instant.</td></tr>
+        </table>
+
+        <h3>What you can build with this</h3>
+        <p>The chain never learns what the work was. It handles a list, or a root, or an offer — and the arithmetic
+        does the rest. That is exactly why a game, a radio station and a payroll can all use the same pot.</p>
+        <table class="dtable">
+          <tr><th>You want to…</th><th>Use</th><th>Because</th></tr>
+          <tr><td><strong>Reward what a player earned in your world</strong> — they watered the beds, they finished the quest, they mined the vein</td>
+              <td>A harvest</td>
+              <td>You know exactly who and how much. You attest a list, the total leaves your hand at once, and every hand proves its own line. A land's farm is a pure reducer over a request log, so a stranger can replay your world, rebuild the same root, and catch you if you signed a list your own journal does not produce.</td></tr>
+          <tr><td><strong>Give the first 100 players a starter pack</strong> — you have no idea who they will be</td>
+              <td>A mint, ungated</td>
+              <td>Nobody is named. 100 pots, one per address, first come. The button goes on the NPC; the player clicks, connects, takes.</td></tr>
+          <tr><td><strong>Give it only to people who own land in your world</strong></td>
+              <td>A mint gated <code>childOf</code></td>
+              <td>Any hand holding a star whose parent is your land may take one pot. The taker names the star they hold and the chain checks owner AND parent — O(1), never a scan. It does not stop somebody with fifty plots taking fifty pots; it prices a second pot at a second plot.</td></tr>
+          <tr><td><strong>Leave a treasure on the ground for whoever finds it</strong></td>
+              <td>A drop at price 0</td>
+              <td>Costs you 1 ₭ and nothing leaves your hand until somebody takes it. One taker takes it whole. Put the link on a chest, an NPC, a bench.</td></tr>
+          <tr><td><strong>Hand something to ONE named person</strong></td>
+              <td>A drop with <code>to</code></td>
+              <td>Only that address may take it. Everyone else is refused by the law, not by a page hiding a button.</td></tr>
+          <tr><td><strong>Sell an item, a rune or a star's Luz</strong></td>
+              <td>A drop at a price</td>
+              <td>The same law with the price set above zero. The buyer signs the exact amount, the exact price and a hash of your terms — so you cannot re-price under them and they cannot haggle under you.</td></tr>
+          <tr><td><strong>Open a prize at a certain moment</strong> — a launch, a raid window, a season start</td>
+              <td><code>notBefore</code> on a drop</td>
+              <td>A Bitcoin height. Before it, the law refuses every take — the button is not there to be pressed.</td></tr>
+          <tr><td><strong>Run a tournament pot and pay it out at the end</strong></td>
+              <td>A harvest, opened when you know the winners</td>
+              <td>The total is the sum of the list, so you cannot promise more than you are paying or less than you owe.</td></tr>
+          <tr><td><strong>Split revenue across a team, every month</strong></td>
+              <td>A harvest per month</td>
+              <td>Each person claims once, whenever they want. Nobody has to be online at the same time, and nobody can be paid twice.</td></tr>
+          <tr><td><strong>Give something away that must NEVER come back to you</strong></td>
+              <td>A harvest with <code>expires = 0</code></td>
+              <td>The law reads: <em>what it holds belongs to the hands in its root, forever</em>. You could not take it back if you wanted to. (A mint may not say 0 — with nobody named, pots nobody takes would belong to no one and never move.)</td></tr>
+        </table>
+
+        <h3>Putting it in your game or site</h3>
+        <p>Whoever opens one gets a kit on their own row — the link, and a paste-ready button. Drop that into an NPC's
+        dialogue, a workbench, a chest, a Discord message, a landing page:</p>
+        <pre><code>&lt;a href="https://kray.network/harvests?h=&lt;root&gt;" target="_blank" rel="noopener"&gt;
+  Claim what you earned
+&lt;/a&gt;</code></pre>
+        <p>The player clicks, their wallet is read, their line is found, and they sign for themselves. <strong>Nothing
+        in that link can pay anybody</strong> — it carries no key and no authority, so it is safe on a public page, safe
+        in a screenshot, and safe to hand to a stranger. And because the list lives under its own content address on the
+        chain's own nodes, <strong>it keeps working when your server does not</strong>.</p>
+        <p>For anything that would rather read than render, a harvest's list is JSON at
+        <code>/api/kraynet/claim/list/&lt;root&gt;</code> — so a bot, a spreadsheet or another game can consume the same
+        truth the page shows.</p>
+
+        <h3>The keyless pot — why this is not an escrow</h3>
+        <p>An escrow has somebody holding a key: an agent, a multisig, an operator you trust. <code>KRAY_CLAIM</code>
+        has none. The <code>KRAY_</code> prefix cannot be spelled by any address: bech32's alphabet is
+        <code>qpzry9x8gf2tvdw0s3jn54khce6mua7l</code>, all lowercase, and <code>KRAY_</code> carries capitals and an
+        underscore. <strong>It is not that the key is kept safe — it is that no input can ever produce that string.</strong>
+        Four pots work this way: <code>KRAY_CLAIM</code>, <code>KRAY_TREASURY</code>, <code>KRAY_STAR_OFFER</code>,
+        <code>KRAY_BLACK_HOLE</code>. Value crosses them by exactly seven acts and there is no eighth — no operator
+        path, no convenience, no exception.</p>
+
+        <h3>The acts</h3>
+        <table class="dtable">
+          <tr><th>Act</th><th>What it does</th></tr>
+          <tr><td><code>packet-list</code></td><td>Offer a whole packet. Terms may name ONE address (<code>to</code>), a key star (<code>gate</code>), or a Bitcoin height (<code>notBefore</code>) — each re-proven at the instant of the taking. One seller has one offer per asset: a second listing REPLACES the first.</td></tr>
+          <tr><td><code>packet-take</code></td><td>Take it. <strong>Whole or nothing</strong> — the taker signs the exact amount, the exact price AND a hash of the offer's whole terms, so a re-listed, re-priced or re-aimed offer refutes a stale signature instead of quietly honouring something else.</td></tr>
+          <tr><td><code>packet-delist</code></td><td>Withdraw your own offer. Nothing ever moved, so nothing comes back.</td></tr>
+          <tr><td><code>claim-open</code></td><td>Open a harvest on a merkle root. The whole total leaves at once. The total is the SUM of the list — never typed.</td></tr>
+          <tr><td><code>claim-take</code></td><td>Take your line, once, against a merkle proof. One leaf, one taking, forever.</td></tr>
+          <tr><td><code>mint-open</code></td><td>Open a mint. The total is <code>perHand × pots</code> — a multiplication, so there is no remainder to decide about. A mint must name a closing height: with nobody named, pots nobody takes would belong to no one and never move.</td></tr>
+          <tr><td><code>mint-take</code></td><td>Take one pot. <strong>There is no amount in what you sign</strong> — the payout comes from the terms the giver signed, so it cannot be haggled.</td></tr>
+          <tr><td><code>claim-close</code></td><td>The giver takes back what nobody claimed — only from the height they named, and only by signing for it. <code>expires = 0</code> on a harvest means never: what it holds belongs to the hands in its root, forever.</td></tr>
+        </table>
+
+        <h3>The list is not in the chain, and cannot be</h3>
+        <p>A harvest's act signs <code>root=</code> and nothing more. The names are a merkle commitment, and sha256 does
+        not run backwards — so no node, ever, can recover who is in a list from the chain alone. The list is published
+        <em>beside</em> it, under its own content address:
+        <code>/api/kraynet/claim/list/&lt;root&gt;</code>. A lying node can only fail to serve one; it can never serve a
+        different list undetected, because a different list has a different root and every reader re-roots what it
+        receives. A mint has no list at all — its root commits the terms, so there is nothing to publish and nothing to
+        lose.</p>
+
+        <h3>What no signature can buy</h3>
+        <p>A signature proves WHO wrote a line. It cannot know a balance, and no signature over any bytes ever could.
+        So an act promising what you have not got is signed <em>perfectly</em> and refused by the reducer anyway — and
+        a hostile node that wrote it into its own journal cannot make it stick, because every follower replaying that
+        journal halts on the same line. Refusals cost the sender nothing: not the promised value, not the eternal fee,
+        not the gas. A losing hand in a stampede for one drop pays exactly zero.</p>
+
+        <h3>The embed kit</h3>
+        <p>Whoever opens a harvest, a mint or a drop sees a kit on their own row: the link, and a paste-ready
+        <code>&lt;a&gt;</code> for a site or a game. Nothing in it can pay anybody — whoever follows it still signs for
+        themselves at the same door, and every term is proven again at the instant of the taking. That is why the link
+        is safe on a public page, and why it keeps working when the giver's own server does not.</p>
+
+        <p class="note">Each of the three is pinned per network and opens only where its fleet has adopted it
+        (A3): below the pin the acts do not exist and an old node <strong>freezes</strong> rather than forks.</p>
+      </section>
+
       <section id="land">
         <div class="shead"><span class="n">10c</span><h2>Land</h2><span class="sub">The cadastre. /land · /city</span></div>
         <p><a href="/land">/land</a> is the map of parcels. <a href="/city">/city</a> is the same register in the city (<code>/land3d</code> is the same door). A lot is a place in this universe, not a second money. What you see is what the journal can re-derive; empty infrastructure shows as empty (A6).</p>
@@ -455,6 +574,11 @@ main .cascade b{color:var(--btc);font-weight:500}
           <tr><td><code>GET /api/kraynet/audit</code></td><td>is this node still telling the story Bitcoin witnessed?</td></tr>
           <tr><td><code>GET /api/kraynet/overview</code></td><td>the live network — head, blocks, anchors, supply, tenants, statistics</td></tr>
           <tr><td><code>GET /api/kraynet/runes</code> · <code>/amm/book</code> · <code>/amm/quote</code></td><td>bridged runes and DeFi books / quotes (quote is not a fill — the signed swap is)</td></tr>
+          <tr><td><code>GET /api/kraynet/packets</code> · <code>/market</code></td><td>every live offer — ₭, Luz and rune packets, and star listings. Each row publishes <code>sellerHolds</code> and <code>fillable</code> BESIDE the offer, so a reader sees what the seller really holds, never just the promise.</td></tr>
+          <tr><td><code>GET /api/kraynet/claims</code></td><td>every open harvest and mint: total, paid, owed, how many hands have taken, the closing height, and a mint's <code>perHand</code> / <code>pots</code> / <code>potsLeft</code> / <code>gate</code>.</td></tr>
+          <tr><td><code>POST /api/kraynet/claim/proof</code></td><td>pure arithmetic over the list you bring: the root it produces, whether an address is a line in it, that line's amount, and its merkle path. No signature, no cost, no state — the node computes from YOUR bytes, not from anything it stores.</td></tr>
+          <tr><td><code>GET</code> · <code>POST /api/kraynet/claim/list</code></td><td>the list store, by content address. <code>POST {shares}</code> keeps it only when its root matches a harvest the node's own book already holds — so filling this store costs exactly what opening a harvest costs, on the real chain. <code>GET /claim/list/&lt;root&gt;</code> reads one back; re-root it and a lying node is caught at once.</td></tr>
+          <tr><td><code>GET /api/kraynet/claim/taken/&lt;root&gt;/&lt;address&gt;</code></td><td>has this hand already taken? A VIEW, never an authority — it adds no fact to the world (the list is published, <code>paid</code> is in <code>/claims</code>, and every take is in a journal anyone can replay). It exists so a player learns "already claimed" WITHOUT a wallet popup.</td></tr>
           <tr><td><code>GET /api/kraynet/speak</code></td><td>issue a Speak challenge for <code>?star=N&amp;audience=house</code>. 0 ₭. Not journaled. The lock names the star.</td></tr>
           <tr><td><code>POST /api/kraynet/speak</code></td><td>verify a hold proof (BIP-340). 0 ₭. Not journaled. Lock UI: <a href="/lock">/lock</a> · guide <a href="/docs/KRAY-LOCK.md">KRAY-LOCK.md</a>.</td></tr>
         </table>
@@ -709,6 +833,22 @@ cd ../.. &amp;&amp; npm run test:boot     <span class="c"># Signet ≠ mainnet i
         <p>Then read the anchor yourself: take any anchor transaction, extract the 98-hex OP_RETURN payload, decode it, replay the journal to that height, recompute the cascade root, and require byte equality. Bitcoin confirmations on that one transaction are confirmations of the <strong>whole</strong> KRAY state.</p>
         <p>And prove the burn with your own eyes: open <a href="/burn"><strong>/burn</strong></a> — your browser recomputes the burn address from Bitcoin's generator point upward (SHA-256 of G → the BIP-341 NUMS key → the tweak that seals the root → the address), with zero trust in any server. Or from the repo: <code>node apps/kray-net/burn-verify.mjs &lt;block&gt; &lt;root&gt; [network]</code>. If it matches the address a donation paid, those sats are destroyed forever at a key that exists for nobody.</p>
         <p>Or verify the whole network at <a href="/verify"><strong>/verify — Verify KRAY Yourself</strong></a>: three proofs your browser runs against independent sources — the keyless burn key from Bitcoin's own math, a donation confirmed <strong>directly against Bitcoin</strong> (mempool.space, not this node), and the entire journal rebuilt as a SHA-256 chain from the raw bytes. The complete, zero-trust verification is the second node: <code>node scripts/kray-follow.mjs --from &lt;this node&gt;</code>.</p>
+        <h3>The one command that checks everything at once</h3>
+        <p>A stranger pulls every content-addressed chunk from a live node, re-hashes each against the address that
+        node published for it, replays every act from the raw bytes, and requires the root it lands on to equal the
+        root the node claims. If one byte of history had been edited, this is where it would show:</p>
+        <pre><code>node scripts/cold-replay.mjs        <span class="c"># every live network, byte for byte</span>
+KRAY_NODE=https://signet.kray.network node scripts/cold-replay.mjs</code></pre>
+        <p>And the market's own suites, each spinning a real HTTP node and attacking it:</p>
+        <pre><code>node src/test/market-swarm.itest.ts    <span class="c"># many wallets at one door, in one instant</span>
+node src/test/mint-gauntlet.itest.ts  <span class="c"># every lie a wire can carry, at a real door</span>
+node src/test/drop-custody.itest.ts   <span class="c"># who holds a drop while it stands, and who cannot be robbed</span>
+node src/test/mint-drop.test.ts       <span class="c"># the reducer, including a valid signature over an unaffordable act</span>
+node scripts/mainnet-gate.mjs         <span class="c"># has a live network CARRIED each law, end to end?</span></code></pre>
+        <p class="note">That last one is not a test of the code — it is a count from signet's own journal. A law opens
+        on real value only after a live network has carried it from the signature to the settlement and back through a
+        cold replay. Proven code and a rehearsed law are different claims, and a pin on real value rests on the second.</p>
+
         <div class="card tick"><div class="label">From origin, with honor</div><p>Nobody has to believe us. Everybody can check.</p></div>
       </section>
 

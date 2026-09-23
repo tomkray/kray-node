@@ -41,7 +41,7 @@ import { validateContract, canonicalCode, runCall, contractAddress, isContractPo
 import { isMintPaper, isCutPaper, isPollPaper, resolveLuzGenesis } from './star-forms.ts'
 import { CutBook } from './cut-book.ts'
 import { PollBook } from './poll-book.ts'
-import { sha256hex, MIN_FEE, TREASURY, BLACK_HOLE, STAR_OFFER, MAX_INSCRIPTION_BYTES, MAX_INSCRIPTION_PROPORTION, starBurnOf, BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, SEAL_CONTENT_BUDGET, RETARGET_WINDOW_SEALS, retargetBytesPerKray, donationProofMinConf, SIZE_PROPORTION_ACTIVATION_SEQ, STAR_RE, type KrayEvent, type SettlementRow } from './kray-primitives.ts'
+import { sha256hex, MIN_FEE, TREASURY, BLACK_HOLE, STAR_OFFER, CLAIM_POT, MAX_INSCRIPTION_BYTES, MAX_INSCRIPTION_PROPORTION, starBurnOf, BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, SEAL_CONTENT_BUDGET, RETARGET_WINDOW_SEALS, retargetBytesPerKray, donationProofMinConf, SIZE_PROPORTION_ACTIVATION_SEQ, STAR_RE, type KrayEvent, type SettlementRow } from './kray-primitives.ts'
 import { verifyDonationProof } from '../anchor/spv.ts'   // ADR-1: pure/offline SPV re-verify (no network) — safe in the reducer
 import { selfAnchorScriptHex, BURN_INTERNAL_KEY } from './self-anchor.ts'   // ADR-1 extended: re-derive a self-anchor burn script from (pot key, sealed payload) — pure, offline. NUMS is the book.
 import { KrayAnchor } from '../anchor/anchor.ts'         // KrayAnchor.payload — the one canonical anchor payload codec (static, offline)
@@ -51,7 +51,19 @@ import { proveInscription } from './inscription-proof.ts'   // ADR-1 extended to
 import type { ProvenTx } from './rune-ancestry.ts'
 import type { RuneBalance } from './runestone.ts'   // THE KEYSTONE: the journal's accumulated per-rune outpoint truth
 import { AmmBook, ammPoolAddress, ammRrPoolAddress, isAmmPotAddress, quoteAdd, quoteFirstMint, quoteOut, quoteRemove, rrPairKey } from './amm.ts'
-import { StarMarket } from './star-market.ts'   // native, atomic, trustless star order book — folds by presence (A3), never touches Σ
+import { StarMarket, GIFT_LISTING_SEQ, hasTerms, isBitcoinHeight, starListV2Message, termsOfEvent, type ListingTerms } from './star-market.ts'   // native, atomic, trustless star order book — folds by presence (A3), never touches Σ
+import {   // THE PACKET MARKET — the same law for a whole quantity of ₭, of one star's Luz, or of a rune
+  PacketMarket, PACKET_MARKET_SEQ, MAX_BOOK_DIGITS, isPacketLane, packetAssetOfEvent,
+  packetListMessage, packetDelistMessage, packetTakeMessage, packetTermsHash, type PacketLane,
+} from './packet-market.ts'
+import {   // THE CLAIM ESCROW — one signed root, many proven hands, custody in a keyless pot
+  ClaimBook, CLAIM_ESCROW_SEQ, CLAIM_MAX_PROOF, CLAIM_MAX_HANDS, claimProves,
+  claimOpenMessage, claimTakeMessage, claimCloseMessage,
+  MINT_DROP_SEQ, mintId, mintOpenMessage, mintTakeMessage,
+} from './claim-book.ts'
+import {   // THE STANDING POOL — a supply committed once, attested season after season
+  PoolBook, poolFundMessage, poolSeasonMessage, poolCloseMessage,
+} from './pool-book.ts'
 import { StarOffers } from './star-offers.ts'   // escrowed bids — pot ₭ == book, or HALT
 import { inclusionRoot as buildInclusionRoot, IncrementalInclusionTree } from './inclusion-tree.ts'   // ADR-3 3a (Slice A): the cumulative included-act SMT
 import { IncrementalNonceMap } from './nonce-map.ts'   // ADR-3 eligibility opening: the committed account→(nonce,height) map
@@ -288,6 +300,43 @@ const ATLAS_FEE_ACTIVATION_SEQ: Record<string, number> = {
  * absent and every anchored root replays byte-identically (A3). regtest stays MAX so lab goldens
  * replay byte-exact; the :4477 swarm and every unit test inject a seq to exercise both sides.
  */
+/**
+ * THE UNGRINDABLE TIEBREAK (audit 2026-09-20, item 0 of the market deploy checklist) — at/after this seq a
+ * signed act's SAME-INSTANT ORDER KEY is the hash of its canonical message ALONE, never of the message plus
+ * the opt-in `|deadline=D` suffix.
+ *
+ * WHY. `requireSig` lets an author append `|deadline=D` to the bytes they sign. D is a Bitcoin height: it
+ * bounds when the act may still apply and it MOVES NO VALUE — every other byte of the message is the act's
+ * meaning, and D is the only one an author may vary freely while the act stays the same act. Keying the
+ * same-instant order on those bytes therefore hands a racer a free grinder: measured, 91 tries beat a
+ * thousand honest rivals into first place. Where allocation is a race — a drop listed at price 0, where the
+ * tiebreak IS the allocation — that is the difference between arithmetic and a rigged queue.
+ *
+ * WHAT DOES NOT CHANGE. The SIGNED bytes still carry the deadline (it is what the author signed and what
+ * `verifySignature` checks), and the INCLUSION SMT leaf is still keyed on them, so every anchored inclusion
+ * root re-derives byte-identically. Only the comparison that orders one millisecond moves — and it moves
+ * only for an act that carried a deadline at all.
+ *
+ * PINS. regtest 0. Signet 231 as of 2026-09-21 — the pre-flight replayed both live journals through this
+ * code and found NOT ONE act carrying a `deadline` (main 81/81, signet 230/230, both roots re-derived byte
+ * for byte), so every act below the pin keys identically either way and nothing in the past is re-read.
+ *
+ * IT MOVES WITH THE MARKET, ALWAYS. The grinder only pays where allocation is a race, which is exactly what
+ * a drop at price zero is — so this pin is set to the SAME seq as GIFT_LISTING_SEQ, PACKET_MARKET_SEQ and
+ * CLAIM_ESCROW_SEQ, and must never lag behind them. A market opened over a grindable tiebreak is a rigged
+ * queue with a proof attached.
+ */
+const DEADLINE_FREE_ORDER_SEQ: Record<string, number> = {
+  regtest: 0,
+  signet: 231,
+  // RATIFIED 2026-09-22 — main tip 81, so 82: the house's own rite, the same one POT_BINDING_SEQ used on
+  // this very network (81→82). Opened at the tip's next act so the activation is ONE explicit, auditable
+  // instant. All five market pins take this seq TOGETHER — the gift, the packet market, the claim escrow,
+  // the mint, and the ungrindable tiebreak that must never lag behind them. signet carried every one of
+  // them end to end first (opened, taken by more than one hand, and CLOSED), measured by scripts/mainnet-gate.mjs.
+  main: 82,
+}
+
 const SAME_INSTANT_ORDER_ACTIVATION_SEQ: Record<string, number> = {
   regtest: Number.MAX_SAFE_INTEGER,
   // v1.0.0 genesis reset (2026-08-26): the new signet is BORN ACTIVE like main. The old chain's
@@ -381,6 +430,9 @@ export class KrayLedger {
   readonly amm = new AmmBook()         // LP shares only; reserves sit on KRAY_AMM_* in the two books
   readonly market = new StarMarket()   // star listings (seller, price); folds by presence, never holds value
   readonly offers = new StarOffers()   // escrowed bids; pot ₭ lives at STAR_OFFER
+  readonly packets = new PacketMarket() // ₭ / Luz / rune packet listings; folds by presence, never holds value
+  readonly claims = new ClaimBook()     // open harvests; the pot at CLAIM_POT holds what they owe, or HALT
+  readonly pools = new PoolBook()      // standing supplies in the same pot: held · committed · free
   readonly cuts = new CutBook()        // Luz ✧ per star — folds by presence (A3); IR cannot store the map
   readonly polls = new PollBook()      // Poll · ✦ — one glow-weighted ballot per address; not a cascade field
   private readonly contracts = new Map<string, { code: ContractCode; creator: string; state: Record<string, bigint>; star?: string; roster?: string[] }>()
@@ -519,7 +571,7 @@ export class KrayLedger {
    */
   plateAtlasStrict: boolean = true
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number, profileValueSeq?: number, starLikeOnceSeq?: number, potBindingSeq?: number, contractV1RetiredSeq?: number) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number, profileValueSeq?: number, starLikeOnceSeq?: number, potBindingSeq?: number, contractV1RetiredSeq?: number, giftListingSeq?: number, packetMarketSeq?: number, claimEscrowSeq?: number, deadlineFreeOrderSeq?: number, mintDropSeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -533,6 +585,11 @@ export class KrayLedger {
     this.burnLawSeq = burnLawSeq ?? (BURN_LAW_SEQ[network] ?? 1)   // unknown net → the law from block zero (fail-closed)
     this.rewardRetiredSeq = rewardRetiredSeq ?? (REWARD_RETIRED_FROM_SEQ[network] ?? 1)
     this.atlasFeeActivationSeq = atlasFeeActivationSeq ?? (ATLAS_FEE_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.giftListingSeq = giftListingSeq ?? (GIFT_LISTING_SEQ[network] ?? Number.MAX_SAFE_INTEGER)   // the table lives in star-market.ts, so the mirror reads the same number
+    this.packetMarketSeq = packetMarketSeq ?? (PACKET_MARKET_SEQ[network] ?? Number.MAX_SAFE_INTEGER)   // below it every packet act is refused: no root grows, no era forks
+    this.claimEscrowSeq = claimEscrowSeq ?? (CLAIM_ESCROW_SEQ[network] ?? Number.MAX_SAFE_INTEGER)   // below it every claim act is refused: no pot fills, no era forks
+    this.mintDropSeq = mintDropSeq ?? (MINT_DROP_SEQ[network] ?? Number.MAX_SAFE_INTEGER)                // below it mint-open/mint-take do not exist: an old node FREEZES, never forks (A3)
+    this.deadlineFreeOrderSeq = deadlineFreeOrderSeq ?? (DEADLINE_FREE_ORDER_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.sameInstantOrderSeq = sameInstantOrderSeq ?? (SAME_INSTANT_ORDER_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.xFeelessActivationSeq = xFeelessActivationSeq ?? (X_FEELESS_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.tkFoldActivationSeq = tkFoldActivationSeq ?? (TK_FOLD_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
@@ -597,6 +654,11 @@ export class KrayLedger {
   private readonly inclusionActivationSeq: number
   private readonly xTransferActivationSeq: number   // slice 2: below it, x-send is refused and the Ӿ root folds nowhere (A3)
   private readonly atlasFeeActivationSeq: number    // atlas fee: below it, inscribe/origin pays burn only (A3 — byte-identical history)
+  private readonly giftListingSeq: number           // THE GIFT: at/after it a listing may cost 0 — a drop. Below it, refused as before (A3)
+  private readonly packetMarketSeq: number          // THE PACKET MARKET: at/after it ₭/Luz/rune packets may be listed. Below it, every packet act is refused (A3)
+  private readonly claimEscrowSeq: number           // THE CLAIM ESCROW: at/after it a harvest may be opened and claimed. Below it, refused (A3)
+  private readonly mintDropSeq: number              // THE MINT DROP: at/after it a mint may be opened and taken. Below it, refused (A3)
+  private readonly deadlineFreeOrderSeq: number     // THE UNGRINDABLE TIEBREAK: at/after it the same-instant key drops the `|deadline=` suffix
   private readonly sameInstantOrderSeq: number      // THE SAME-INSTANT LAW: below it, same-`at` order is unchecked (A3 — byte-identical history)
   private readonly xFeelessActivationSeq: number    // THE FIREBORN LAW: below it, x-send fee is the eternal 1 ₭ and the tank folds nowhere (A3)
   private readonly tkFoldActivationSeq: number      // THE TK-FOLD (Gate 2): below it, the lane kinds are refused and the lane root folds nowhere (A3)
@@ -638,7 +700,11 @@ export class KrayLedger {
   /** The open same-instant run: CONSECUTIVE signed acts sharing one `at`, all at/after the law's seq.
    *  Entries commit only in the apply tail (a refused act never occupies the run); any unsigned act,
    *  a different `at`, or a pre-law act closes it. Pure journal state — rebuilt identically on replay. */
-  private _instantRun: { at: number; acts: { key: string; from: string; nonce?: number }[] } | null = null
+  private _instantRun: { at: number; free: boolean; acts: { key: string; from: string; nonce?: number }[] } | null = null
+  /** The act's same-instant ORDER key, which at/after the pin drops the deadline suffix. Held apart from
+   *  the inclusion leaf on purpose: the leaf is the signed identity and must never move (anchored roots),
+   *  while the order key must be ungrindable. Below the pin the two are the same string. */
+  private _pendingOrderKey: string | null = null
   private readonly burnLawSeq: number               // THE BURN LAW: from here, fungible ₭ can never reach the hole; burn + burn-thaw become valid
   private readonly rewardRetiredSeq: number         // THE RETIREMENT: from here the unsigned `reward` is refused — the pool pays only what the bytes prove
   /** Every fungible ₭ a sender froze at the hole BEFORE the law — accumulated per sender during replay (amt
@@ -654,6 +720,10 @@ export class KrayLedger {
    *  writer could be falsely convicted from an earlier subset root at the same/higher height. */
   private readonly windowSeals = new Map<number, string>()   // Bitcoin height → windowCommitment(height, final root at that height)
   private lastSealHeight = 0                                  // seal heights must be non-decreasing across seals
+  private provenL1Height = 0                                  // the highest Bitcoin height ANY seal journaled (every network)
+  /** THE CHAIN'S OWN CLOCK — the Bitcoin height this journal is sealed to. It is what a `notBefore` offer
+   *  waits for, so a client must be able to read it and say honestly how long a bequest still has. */
+  sealedHeight(): number { return this.provenL1Height }
   private _windowSealsRootCache: string | null = null
   /** ADR-3 eligibility opening — the committed account→(next nonce, first-anchor height) map. UNLIKE the
    *  inclusion tree (empty at H), it is maintained from GENESIS so it reflects every account's REAL nonce when
@@ -753,9 +823,14 @@ export class KrayLedger {
     // deadline IS signed, so it belongs to the identity, matching 3d's deadlineOf). Stash the leaf key; the tail
     // of applyLive commits it ONLY if the act fully applies, so a sig-valid-but-refused act never reaches the SMT.
     this._pendingInclusionKey = keyFromSignedMessage(signed)
+    // THE UNGRINDABLE TIEBREAK — the order key is the MESSAGE, never the deadline a racer may vary for
+    // free. The inclusion leaf above keeps the signed bytes, so no anchored root moves. Below the pin the
+    // two strings are equal for every act that carried no deadline, which is why the change can be born
+    // inert on a journal that never used one.
+    this._pendingOrderKey = e.seq >= this.deadlineFreeOrderSeq ? keyFromSignedMessage(message) : this._pendingInclusionKey
     // THE SAME-INSTANT LAW — checked BEFORE any mutation: at the live door this refuses the act (the
     // gate re-instants it); on a forged journal the same throw HALTs every follower at this event.
-    this.assertSameInstantOrder(e, this._pendingInclusionKey)
+    this.assertSameInstantOrder(e, this._pendingOrderKey)
   }
 
   /** THE UNIQUE-RELIC LAW — A5 spoken at the reducer, same sentence as the door's 409.
@@ -789,7 +864,9 @@ export class KrayLedger {
       throw new Error(`ledger: THE SAME-INSTANT LAW — a signed ${e.kind} at/after seq ${this.sameInstantOrderSeq} must carry an integer millisecond timestamp`)
     }
     const run = this._instantRun
-    if (!run || run.at !== e.at) return   // opens a new run (or none) — a single act is trivially ordered
+    // A run never spans the pin: keys from the two eras are not comparable, so the boundary closes the run
+    // exactly as a new millisecond does. Deterministic, and identical on every replay.
+    if (!run || run.at !== e.at || run.free !== (e.seq >= this.deadlineFreeOrderSeq)) return
     const claimed = [...run.acts, { key, from: String(e.from), nonce: e.nonce }]
     const first = new Map<string, number>()
     for (const a of claimed) if (a.nonce !== undefined && !first.has(a.from)) first.set(a.from, a.nonce)
@@ -819,6 +896,9 @@ export class KrayLedger {
     }
     if (addr === STAR_OFFER) {
       throw new Error('ledger: cannot credit the star-offer pot — ₭ enters only by signed star-offer')
+    }
+    if (addr === CLAIM_POT) {
+      throw new Error('ledger: cannot credit the claim pot — a harvest enters only by signed claim-open')
     }
     if (addr.startsWith('KRAY_')) return
     // a post-quantum ML-DSA account (`kq1` + SHA-256(key)) is a hash-committed identity, not a Bitcoin address;
@@ -1165,6 +1245,18 @@ export class KrayLedger {
         // ── validated → mutate ──
         this.sealedTxids.add(txid)
         this.lastSealTxid = txid
+        // THE CHAIN'S OWN CLOCK, on every network. `lastSealHeight` belongs to the ADR-3 window machinery and
+        // is kept ONLY where that regime is active — on regtest it never moves. A `notBefore` offer must be
+        // able to open wherever the law runs, so it reads this instead: the highest Bitcoin height any seal
+        // has journaled, monotonic by construction, re-derived identically on every replay.
+        {
+          // typeof FIRST, and bounded — the same law every other reader here keeps. `Number()` would accept
+          // the STRING "900500" that this case's own validation refuses at/after the inclusion pin, and an
+          // unbounded height would let ONE seal at 9,000,000,000 latch the clock past every possible
+          // `notBefore` forever (the latch never retreats). A height Bitcoin cannot reach is not a height.
+          const h = e.l1Height
+          if (typeof h === 'number' && isBitcoinHeight(h) && h > this.provenL1Height) this.provenL1Height = h
+        }
         // an empty pot is already fully open — the seal is still consumed (recorded), reopening nothing
         if (w > 0n) this.pot.spendOnAnchor(w)
         // THE SPACE TRINITY breathes on the seal: the content budget reopens, and every
@@ -1304,15 +1396,54 @@ export class KrayLedger {
         this.checkNonce(e)
         const star = BigInt(e.star!)
         const price = BigInt(e.amount ?? '0')
-        if (price <= 0n) throw new Error('ledger: a star listing needs a positive price')
+        // A listing at zero is a GIFT — a drop anyone may take for the eternal fee alone (GIFT_LISTING_SEQ).
+        if (price < 0n) throw new Error('ledger: a star listing needs a price of zero or more')
+        if (price === 0n && (e.seq ?? 0) < this.giftListingSeq) throw new Error('ledger: a star listing needs a positive price')
+        // AND BOUNDED, from the same era onward. A price is compared to nothing — any number is a lawful ask
+        // — so an unbounded one let a single 1-₭ act write a million digits into the line that every future
+        // cascade root re-hashes, taxing every node and every citizen for as long as it stood. Gated by the
+        // gift's own pin, so every journal written before that sequence replays byte-identically (A3).
+        if ((e.seq ?? 0) >= this.giftListingSeq && String(e.amount ?? '0').length > MAX_BOOK_DIGITS) {
+          throw new Error(`ledger: a star listing's price is at most ${MAX_BOOK_DIGITS} digits — no book here holds a wider number`)
+        }
         if (this.stars.ownerOf(star) !== e.from) throw new Error('ledger: cannot list a star you do not hold')
         if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
-        this.requireSig(e, starListMessage(this.network, e.from!, star, price, e.nonce!))
+        // THE TERMS OF AN OFFER — who may take it, and when. Each is signed INTO the offer, so a relay can
+        // neither add nor strip a condition; an offer with no terms keeps the v1 message, byte for byte (A3).
+        //   to        — only that address (a gift left for somebody, a private sale)
+        //   gate      — only whoever HOLDS that star (the right travels with the star, not with a name)
+        //   notBefore — not until Bitcoin reaches that height (the clock is the chain's, proven in the seals)
+        // `termsOfEvent` is the ONE reader — the same one the signed-bytes mirror uses — so the line that was
+        // signed is a function of the act alone and door, law and referee can never disagree. The PIN decides
+        // only whether such an act may be applied at all: below it, an offer with terms is refused, exactly as
+        // the price-zero gift is (A3: the shape did not exist in that era, and this writer never emitted one).
+        const terms: ListingTerms = termsOfEvent(e)
+        const conditional = hasTerms(terms)
+        // `termsOfEvent` reads a term ONLY when it is well formed, so there is nothing left to validate here:
+        // a canonical star or no gate, a real Bitcoin height or no height. One reader, one rule, no drift.
+        if (conditional && (e.seq ?? 0) < this.giftListingSeq) throw new Error('ledger: an offer with terms is not yet the law on this network')
+        if (terms.to === e.from) throw new Error('ledger: a listing named for yourself is nobody\'s offer')
+        // A POT CAN NEVER TAKE AN OFFER — it has no key — so naming one is meaningless, and `KRAY_` labels
+        // skip the address charset check (ledger: requireRecipientNetwork returns early for them). An
+        // unescaped separator inside such a name would make two different books write the SAME commitment
+        // line, and the anchored root would stop naming one market. Refused here, before it can be written.
+        if (terms.to && this.isPot(terms.to)) throw new Error('ledger: an offer cannot be left to a protocol pot — a pot has no key to take it with')
+        if (terms.to) this.requireRecipientNetwork(terms.to)   // the star travels only to an address on THIS network
+        if (terms.gate !== undefined && terms.gate === star) throw new Error('ledger: an offer cannot be opened by the very star it offers')
+        // A KEY STAR MUST BE A STAR. Gating on a number nobody holds (or on one already entombed in the
+        // black hole) writes a line into the cascade root that no hand on earth can ever clear — and only
+        // the lister may sweep it. A gate names a star that exists and can still change hands.
+        if (terms.gate !== undefined) {
+          const keyOwner = this.stars.ownerOf(terms.gate)
+          if (!keyOwner) throw new Error(`ledger: no star ${terms.gate} — an offer cannot be opened by a star that does not exist`)
+          if (keyOwner === BLACK_HOLE) throw new Error(`ledger: star ${terms.gate} is frozen — an offer it opens could never be taken`)
+        }
+        this.requireSig(e, conditional ? starListV2Message(this.network, e.from!, star, price, terms, e.nonce!) : starListMessage(this.network, e.from!, star, price, e.nonce!))
         // ── validated → mutate ──
         this.commitNonce(e)
         this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
         this.credit(TREASURY, fee)
-        this.market.list(star, e.from!, price)   // re-list replaces the prior offer (edit price)
+        this.market.list(star, e.from!, price, conditional ? terms : undefined)   // re-list replaces the prior offer (edit price or terms)
         break
       }
       case 'star-delist': {
@@ -1350,6 +1481,10 @@ export class KrayLedger {
         if (!listing) throw new Error('ledger: that star is not listed for sale')
         if (listing.seller !== seller) throw new Error('ledger: the listing seller does not match the signed buy — refused (the offer changed hands)')
         if (listing.price !== price) throw new Error(`ledger: the listing price (${listing.price}) ≠ the signed buy price (${price}) — refused (re-priced offer, no phantom price)`)
+        // THE TERMS, re-proven at the moment of the taking — never at the moment of the offer.
+        if (listing.to && listing.to !== buyer) throw new Error('ledger: that offer was left for another address — refused')
+        if (listing.gate !== undefined && this.stars.ownerOf(listing.gate) !== buyer) throw new Error(`ledger: that offer opens only for whoever holds star ${listing.gate} — refused`)
+        if (listing.notBefore !== undefined && this.provenL1Height < listing.notBefore) throw new Error(`ledger: that offer opens at Bitcoin height ${listing.notBefore}; the chain is sealed to ${this.provenL1Height} — refused`)
         if (this.stars.ownerOf(star) !== seller) throw new Error('ledger: the seller no longer holds that star — the listing is stale, refused')
         this.requireRecipientNetwork(buyer)   // the star travels only to an address on THIS network
         if (this.balanceOf(buyer) < price + fee) throw new Error(`ledger: insufficient balance for price + fee (have ${this.balanceOf(buyer)}, need ${price + fee})`)
@@ -1439,6 +1574,433 @@ export class KrayLedger {
         this.clearFaceIf(owner, star)       // owner sold the face star via offer accept
         this.clearProfileBannerIf(owner, star)
         this.clearKrayStarPlate(star)
+        break
+      }
+      // ── THE PACKET MARKET ────────────────────────────────────────────────────────────────────────
+      // The star market's law applied to a PACKET — a whole quantity of one fungible thing (₭, the Luz of
+      // one star, one rune of the L2). A price of ZERO is the drop the Creator designed: the lister pays
+      // the eternal 1 ₭, and whoever takes it pays the eternal 1 ₭ and no price. The book holds NOTHING:
+      // the holding is re-proven at the instant of the take, so no listing can ever separate a citizen
+      // from what is theirs, and the worst a bug here can do is fail a take — Σ is untouched either way.
+      case 'packet-list': {
+        // A SIGNED offer by the holder. It moves no packet and holds no value; only a take moves anything.
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.packetMarketSeq) throw new Error('ledger: the packet market is not the law on this network yet')
+        if (this.isPot(e.from!)) throw new Error('ledger: a protocol pot cannot list a packet — only its own rules move value')
+        this.checkNonce(e)
+        const lane = this.packetLane(e)
+        const asset = packetAssetOfEvent(lane, e)          // the ONE reader, shared with the signed-bytes mirror
+        // A rune packet is a rune act: it obeys the rune book's own activation, so this market can never
+        // be the side door into a book that is still shut on this network (Porta 2).
+        if (lane === 'rune' && e.seq < this.runeBookOpenSeq) throw new Error('ledger: the rune book is not open on this network yet (dormant until the ratified activation seq)')
+        const amount = this.posAmt(e.amount, 'a packet amount')
+        const price = this.posAmt(e.price, 'a packet price')   // zero IS the drop — there is no era below the pin
+        if (amount <= 0n) throw new Error('ledger: a packet needs a positive amount')
+        // Bounded, because this number is written into a line every future cascade root re-hashes.
+        if (String(e.amount).length > MAX_BOOK_DIGITS || String(e.price).length > MAX_BOOK_DIGITS) {
+          throw new Error(`ledger: a packet's amount and price are at most ${MAX_BOOK_DIGITS} digits — no book here holds a wider number`)
+        }
+        // THE TERMS — who may take it, and when: signed into the line, so a relay can neither add nor strip one.
+        const terms: ListingTerms = termsOfEvent(e)   // well formed or absent — the ONE reader decides, and the line follows it
+        if (terms.to === e.from) throw new Error('ledger: a listing named for yourself is nobody\'s offer')
+        if (terms.to && this.isPot(terms.to)) throw new Error('ledger: an offer cannot be left to a protocol pot — a pot has no key to take it with')
+        if (terms.to) this.requireFungibleRecipient(terms.to, e.seq)   // the packet travels only to a living address on THIS network
+        // A KEY STAR MUST BE A STAR. Gating on a number nobody holds (or on one already entombed in the
+        // black hole) writes a line into the cascade root that no hand on earth can ever clear — and only
+        // the lister may sweep it. A gate names a star that exists and can still change hands.
+        if (terms.gate !== undefined) {
+          const keyOwner = this.stars.ownerOf(terms.gate)
+          if (!keyOwner) throw new Error(`ledger: no star ${terms.gate} — an offer cannot be opened by a star that does not exist`)
+          if (keyOwner === BLACK_HOLE) throw new Error(`ledger: star ${terms.gate} is frozen — an offer it opens could never be taken`)
+        }
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        // THE FEE COMES OUT OF THE VERY BALANCE THAT BACKS A ₭ PACKET. Checking the two separately let a
+        // citizen offer their whole balance and pay the fee out of it, leaving an offer that was BORN DEAD —
+        // it stood in the cascade root, refused every taker, and re-listing never converged because each
+        // attempt spent another ₭ of the thing it was offering. An offer must be fillable the moment it is made.
+        const need = lane === 'kray' ? amount + fee : amount
+        if (this.packetHeld(lane, asset, e.from!) < need) {
+          throw new Error(`ledger: you do not hold that packet — offering what you have not got is refused (have ${this.packetHeld(lane, asset, e.from!)}, offered ${amount}${lane === 'kray' ? ` plus the ${fee}-₭ fee` : ''})`)
+        }
+        this.requireSig(e, packetListMessage(this.network, e.from!, lane, asset, amount, price, terms, e.nonce!))
+        // ── validated → mutate ──
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.packets.list(lane, asset, e.from!, amount, price, terms)   // re-list replaces your own prior offer
+        break
+      }
+      case 'packet-delist': {
+        // Withdraw your own live offer. Nothing ever moved, so this only clears the commitment.
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.packetMarketSeq) throw new Error('ledger: the packet market is not the law on this network yet')
+        this.checkNonce(e)
+        const lane = this.packetLane(e)
+        const asset = packetAssetOfEvent(lane, e)
+        if (!this.packets.get(lane, asset, e.from!)) throw new Error('ledger: no live packet listing of yours — nothing to cancel')
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        this.requireSig(e, packetDelistMessage(this.network, e.from!, lane, asset, e.nonce!))
+        // ── validated → mutate ──
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.packets.remove(lane, asset, e.from!)
+        break
+      }
+      case 'packet-take': {
+        // THE ATOMIC TAKE — both legs in ONE reducer step: the taker's ₭ pays the seller AND the packet moves
+        // to the taker, or the whole act is refused. The taker signed the EXACT offer (seller, lane, asset,
+        // amount, price), so a re-listed or delisted packet refutes a stale take — never a phantom (Fano).
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.packetMarketSeq) throw new Error('ledger: the packet market is not the law on this network yet')
+        this.checkNonce(e)
+        const lane = this.packetLane(e)
+        const asset = packetAssetOfEvent(lane, e)
+        if (lane === 'rune' && e.seq < this.runeBookOpenSeq) throw new Error('ledger: the rune book is not open on this network yet (dormant until the ratified activation seq)')
+        const amount = this.posAmt(e.amount, 'a packet amount')
+        const price = this.posAmt(e.price, 'a packet price')
+        const taker = e.from!, seller = e.to!
+        if (!seller) throw new Error('ledger: a take names the seller it answers')
+        if (taker === seller) throw new Error('ledger: that packet is already yours — a take needs a different seller')
+        if (this.isPot(taker)) throw new Error('ledger: a protocol pot cannot take a packet — only its own rules move value')
+        const listing = this.packets.get(lane, asset, seller)
+        if (!listing) throw new Error('ledger: that packet is not listed')
+        if (listing.amount !== amount) throw new Error(`ledger: the listed amount (${listing.amount}) ≠ the signed take (${amount}) — refused (re-listed offer, and a take is whole or nothing)`)
+        if (listing.price !== price) throw new Error(`ledger: the listed price (${listing.price}) ≠ the signed take price (${price}) — refused (re-priced offer, no phantom price)`)
+        // AND THE TERMS THE TAKER SAYS THEY ANSWERED. Without this a seller could re-aim the same amount at
+        // the same price — put another name on it — and the taker's untouched signature would close an offer
+        // they never read. The taker declares what they saw; anything else is a phantom condition.
+        const declaredTerms = typeof e.termsHash === 'string' ? e.termsHash : ''
+        if (packetTermsHash(listing) !== declaredTerms) throw new Error('ledger: that offer no longer carries the terms you answered — refused (re-aimed offer, no phantom condition)')
+        // THE TERMS, re-proven at the moment of the taking — never at the moment of the offer.
+        if (listing.to && listing.to !== taker) throw new Error('ledger: that offer was left for another address — refused')
+        if (listing.gate !== undefined && this.stars.ownerOf(listing.gate) !== taker) throw new Error(`ledger: that offer opens only for whoever holds star ${listing.gate} — refused`)
+        if (listing.notBefore !== undefined && this.provenL1Height < listing.notBefore) throw new Error(`ledger: that offer opens at Bitcoin height ${listing.notBefore}; the chain is sealed to ${this.provenL1Height} — refused`)
+        this.requireFungibleRecipient(taker, e.seq)          // the packet travels only to a living address on THIS network
+        if (this.balanceOf(taker) < price + fee) throw new Error(`ledger: insufficient balance for price + fee (have ${this.balanceOf(taker)}, need ${price + fee})`)
+        // THE SELLER MUST STILL HOLD IT — proven now, on the packet alone, before the price arrives.
+        const held = this.packetHeld(lane, asset, seller)
+        if (held < amount) throw new Error(`ledger: the seller no longer holds that packet — the listing is stale, refused (have ${held}, offered ${amount})`)
+        this.requireSig(e, packetTakeMessage(this.network, taker, seller, lane, asset, amount, price, declaredTerms, e.nonce!))
+        // ── validated → mutate (atomic; Σ conserved: taker −(price+fee), seller +price, TREASURY +fee) ──
+        // THE PACKET MOVES FIRST. Its book is the only writer in this act that can refuse (a Luz or rune
+        // send re-checks its own invariants), and everything after it is plain arithmetic that cannot
+        // throw. So a refusal from the book leaves NOTHING applied — this act can never be half done.
+        this.packetMove(lane, asset, seller, taker, amount)
+        this.commitNonce(e)
+        this.balances.set(taker, this.balanceOf(taker) - price - fee)
+        this.credit(seller, price)
+        this.credit(TREASURY, fee)
+        this.packets.remove(lane, asset, seller)             // the offer is consumed, once
+        break
+      }
+      // ── THE STANDING POOL ────────────────────────────────────────────────────────────────────────
+      // A whole supply committed once, then attested season after season. Three numbers, each true: HELD is
+      // what really sits in the keyless pot; COMMITTED is what the live seasons may still draw from it; FREE
+      // is the rest, real but out of every season's reach until its owner's horizon. A season drawn here is
+      // the same harvest as any other — one signed root, one leaf per hand, taken once — except that its
+      // money comes from the pool and its unclaimed leaves go BACK to the pool, so an epoch nobody claimed
+      // refills the mint instead of leaving the chain.
+      case 'pool-fund': {
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.claimEscrowSeq) throw new Error('ledger: the claim escrow is not the law on this network yet')
+        if (this.isPot(e.from!)) throw new Error('ledger: a protocol pot cannot fund a pool — only its own rules move value')
+        this.checkNonce(e)
+        const lane = this.packetLane(e)
+        const asset = packetAssetOfEvent(lane, e)
+        if (lane === 'rune' && e.seq < this.runeBookOpenSeq) throw new Error('ledger: the rune book is not open on this network yet (dormant until the ratified activation seq)')
+        const amount = this.posAmt(e.amount, 'a pool amount')
+        if (amount <= 0n) throw new Error('ledger: a pool is funded with a positive amount')
+        if (String(e.amount).length > MAX_BOOK_DIGITS) throw new Error(`ledger: a pool amount is at most ${MAX_BOOK_DIGITS} digits — no book here holds a wider number`)
+        const expires = e.expires === undefined || e.expires === null || Number(e.expires) === 0 ? 0 : Number(e.expires)
+        if (expires !== 0 && !isBitcoinHeight(expires)) throw new Error('ledger: a pool returns at a Bitcoin height — a whole number above 0 and at most 21,000,000')
+        const live = this.pools.get(lane, asset, e.from!)
+        // A LATER POUR MAY PUSH THE HORIZON FORWARD, NEVER PULL IT CLOSER. A promise's end date is not
+        // something its maker may quietly shorten once hands are counting on it.
+        if (live && expires !== 0 && expires < live.expires) throw new Error(`ledger: this pool already promises to stand until Bitcoin height ${live.expires} — a horizon may be pushed forward, never pulled closer`)
+        const need = lane === 'kray' ? amount + fee : amount
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        if (this.packetHeld(lane, asset, e.from!) < need) throw new Error(`ledger: you do not hold that much to commit (have ${this.packetHeld(lane, asset, e.from!)}, promised ${amount}${lane === 'kray' ? ` plus the ${fee}-₭ fee` : ''})`)
+        this.requireSig(e, poolFundMessage(this.network, e.from!, lane, asset, amount, expires, e.nonce!))
+        // ── validated → mutate (the packet moves FIRST: its book is the only writer that can refuse) ──
+        this.packetMove(lane, asset, e.from!, CLAIM_POT, amount)
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.pools.fund(lane, asset, e.from!, amount, live ? Math.max(live.expires, expires) : expires)
+        break
+      }
+      case 'pool-season': {
+        // One epoch's list, drawn on the pool. The ceiling is what this root may take — never more, and the
+        // pool can only commit what it FREELY holds, so the three numbers stay honest at every moment.
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.claimEscrowSeq) throw new Error('ledger: the claim escrow is not the law on this network yet')
+        this.checkNonce(e)
+        const lane = this.packetLane(e)
+        const asset = packetAssetOfEvent(lane, e)
+        const ceiling = this.posAmt(e.amount, 'a season ceiling')
+        if (ceiling <= 0n) throw new Error('ledger: a season needs a positive ceiling')
+        const root = String(e.claimRoot ?? '')
+        if (!/^[0-9a-f]{64}$/.test(root)) throw new Error('ledger: a season needs its merkle root (32-byte hex, lower case)')
+        if (this.claims.get(root)) throw new Error('ledger: that harvest is already open — one root, one escrow')
+        const expires = e.expires === undefined || e.expires === null || Number(e.expires) === 0 ? 0 : Number(e.expires)
+        if (expires !== 0 && !isBitcoinHeight(expires)) throw new Error('ledger: a season closes at a Bitcoin height — a whole number above 0 and at most 21,000,000')
+        const pool = this.pools.get(lane, asset, e.from!)
+        if (!pool) throw new Error('ledger: you have no pool of that asset to draw a season from')
+        if (pool.held - pool.committed < ceiling) throw new Error(`ledger: this pool has ${pool.held - pool.committed} free and the season asks ${ceiling} — refused`)
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        this.requireSig(e, poolSeasonMessage(this.network, e.from!, lane, asset, ceiling, root, expires, e.nonce!))
+        // ── validated → mutate (no value leaves the pot: it only stops being free) ──
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.pools.commit(lane, asset, e.from!, ceiling)
+        this.claims.openClaim(root, e.from!, lane, asset, ceiling, expires, true)
+        break
+      }
+      case 'pool-close': {
+        // The owner draws back what no season can reach, and only at the horizon they signed. What a live
+        // season still needs is untouchable here — that is what makes the commitment worth reading.
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.claimEscrowSeq) throw new Error('ledger: the claim escrow is not the law on this network yet')
+        this.checkNonce(e)
+        const lane = this.packetLane(e)
+        const asset = packetAssetOfEvent(lane, e)
+        const amount = this.posAmt(e.amount, 'a pool return')
+        if (amount <= 0n) throw new Error('ledger: a pool returns a positive amount')
+        const pool = this.pools.get(lane, asset, e.from!)
+        if (!pool) throw new Error('ledger: you have no pool of that asset')
+        if (pool.expires === 0) throw new Error('ledger: that pool named no horizon — what it holds belongs to its seasons, forever')
+        if (this.provenL1Height < pool.expires) throw new Error(`ledger: that pool stands until Bitcoin height ${pool.expires}; the chain is sealed to ${this.provenL1Height} — refused`)
+        if (pool.held - pool.committed < amount) throw new Error(`ledger: this pool has ${pool.held - pool.committed} free and you asked for ${amount} — a live season still needs the rest`)
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        if (this.packetHeld(lane, asset, CLAIM_POT) < amount) throw new Error('ledger: the claim pot is short of its book — HALT')
+        this.requireFungibleRecipient(e.from!, e.seq)
+        this.requireSig(e, poolCloseMessage(this.network, e.from!, lane, asset, amount, e.nonce!))
+        // ── validated → mutate ──
+        this.packetMove(lane, asset, CLAIM_POT, e.from!, amount)
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.pools.drain(lane, asset, e.from!, amount)
+        break
+      }
+      // ── THE CLAIM ESCROW ─────────────────────────────────────────────────────────────────────────
+      // One signature opens a harvest for many hands; each hand proves its own share and takes it once.
+      // The chain cannot see the game that earned it — no mathematics can — so it makes everything AROUND
+      // that fact irrefutable: who attested, what they attested, that the promise is covered by value that
+      // has already left their hand, that nobody is paid twice or more than their leaf, and that a proven
+      // hand cannot be refused while the pot holds their share. The attestation itself is checkable by
+      // anyone who replays the land's own pure reducer and rebuilds this root.
+      case 'claim-open': {
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.claimEscrowSeq) throw new Error('ledger: the claim escrow is not the law on this network yet')
+        if (this.isPot(e.from!)) throw new Error('ledger: a protocol pot cannot open a harvest — only its own rules move value')
+        this.checkNonce(e)
+        const lane = this.packetLane(e)
+        const asset = packetAssetOfEvent(lane, e)
+        if (lane === 'rune' && e.seq < this.runeBookOpenSeq) throw new Error('ledger: the rune book is not open on this network yet (dormant until the ratified activation seq)')
+        const total = this.posAmt(e.amount, 'a harvest total')
+        if (total <= 0n) throw new Error('ledger: a harvest needs a positive total')
+        if (String(e.amount).length > MAX_BOOK_DIGITS) throw new Error(`ledger: a harvest total is at most ${MAX_BOOK_DIGITS} digits — no book here holds a wider number`)
+        const root = String(e.claimRoot ?? '')
+        if (!/^[0-9a-f]{64}$/.test(root)) throw new Error('ledger: a harvest needs its merkle root (32-byte hex, lower case)')
+        if (this.claims.get(root)) throw new Error('ledger: that harvest is already open — one root, one escrow')
+        const expires = e.expires === undefined || e.expires === null || Number(e.expires) === 0 ? 0 : Number(e.expires)
+        if (expires !== 0 && !isBitcoinHeight(expires)) throw new Error('ledger: a harvest closes at a Bitcoin height — a whole number above 0 and at most 21,000,000')
+        // THE TOTAL LEAVES THE GIVER'S HAND. On the ₭ lane the fee comes out of the same balance, so it must
+        // cover both or the harvest would be born short of its own promise.
+        const need = lane === 'kray' ? total + fee : total
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        if (this.packetHeld(lane, asset, e.from!) < need) throw new Error(`ledger: you do not hold that harvest — promising what you have not got is refused (have ${this.packetHeld(lane, asset, e.from!)}, promised ${total}${lane === 'kray' ? ` plus the ${fee}-₭ fee` : ''})`)
+        this.requireSig(e, claimOpenMessage(this.network, e.from!, lane, asset, total, root, expires, e.nonce!))
+        // ── validated → mutate (the packet moves FIRST: its book is the only writer that can refuse) ──
+        this.packetMove(lane, asset, e.from!, CLAIM_POT, total)
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.claims.openClaim(root, e.from!, lane, asset, total, expires)
+        break
+      }
+      /**
+       * OPEN A MINT — a harvest whose root commits TERMS instead of NAMES. `hands` pots of `perHand` each,
+       * one to any hand that has not taken, while pots remain. The whole total leaves at once, exactly as a
+       * harvest does, because a promise that can be spent from behind is not a promise.
+       */
+      case 'mint-open': {
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.mintDropSeq) throw new Error('ledger: the mint drop is not the law on this network yet')
+        if (this.isPot(e.from!)) throw new Error('ledger: a protocol pot cannot open a mint — only its own rules move value')
+        this.checkNonce(e)
+        const lane = this.packetLane(e)
+        const asset = packetAssetOfEvent(lane, e)
+        if (lane === 'rune' && e.seq < this.runeBookOpenSeq) throw new Error('ledger: the rune book is not open on this network yet (dormant until the ratified activation seq)')
+
+        const perHand = this.posAmt(e.perHand, 'a pot')
+        if (perHand <= 0n) throw new Error('ledger: a mint pays a positive amount per pot')
+        if (String(e.perHand).length > MAX_BOOK_DIGITS) throw new Error(`ledger: a pot is at most ${MAX_BOOK_DIGITS} digits — no book here holds a wider number`)
+        const hands = Number(e.hands)
+        if (!Number.isInteger(hands) || hands < 1) throw new Error('ledger: a mint needs at least one pot')
+        if (hands > CLAIM_MAX_HANDS) throw new Error(`ledger: a mint offers at most ${CLAIM_MAX_HANDS} pots — one book, one ceiling`)
+        const total = perHand * BigInt(hands)
+        if (total.toString().length > MAX_BOOK_DIGITS) throw new Error(`ledger: that mint totals more than ${MAX_BOOK_DIGITS} digits — no book here holds a wider number`)
+
+        // A MINT ALWAYS NAMES A HEIGHT. A harvest may say 0 because its law then reads "what it holds
+        // belongs to the hands in its root, forever" — and that is TRUE there, the hands are named. A mint
+        // has no hands in its root: unclaimed pots would belong to nobody, entitle nobody, and never move.
+        // Not a promise kept forever — value destroyed by a configuration accident. The law refuses to
+        // build the trap rather than warn about it.
+        const expires = Number(e.expires)
+        if (!isBitcoinHeight(expires)) throw new Error('ledger: a mint closes at a Bitcoin height — a whole number above 0 and at most 21,000,000. Unlike a harvest it may not say 0: with nobody named, pots nobody takes would be locked forever')
+
+        // THE GATE. `childOf` names a LAND — any hand holding a star whose parent is that star may take a
+        // pot. A single-star gate is refused: it names ONE address, so a mint with more than one pot could
+        // by arithmetic never pay more than one, and every other pot is unclaimable the instant it is
+        // signed. The law does not let you build something whose waste is provable at the moment of building.
+        let gate: { kind: 'childOf'; star: bigint } | null = null
+        if (e.gateChildOf !== undefined && e.gateChildOf !== null && String(e.gateChildOf) !== '') {
+          const star = this.posAmt(e.gateChildOf, 'a gate star')
+          const owner = this.stars.ownerOf(star)
+          if (!owner) throw new Error(`ledger: no star ${star} — a mint cannot be gated on a land that does not exist`)
+          if (owner === BLACK_HOLE) throw new Error(`ledger: star ${star} is frozen — a mint it gates could never be taken`)
+          gate = { kind: 'childOf', star }
+        }
+        if (e.gateStar !== undefined && e.gateStar !== null && String(e.gateStar) !== '') {
+          throw new Error('ledger: a mint cannot be gated on holding ONE star — that names one address, so every pot past the first would be unclaimable from the instant it is signed. Gate on childOf (a land) or on nobody')
+        }
+
+        const root = mintId(this.network, e.from!, lane, asset, perHand, hands, gate, e.nonce!)
+        if (this.claims.get(root)) throw new Error('ledger: that mint is already open — one root, one escrow')
+
+        const need = lane === 'kray' ? total + fee : total
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        if (this.packetHeld(lane, asset, e.from!) < need) throw new Error(`ledger: you do not hold that mint — promising what you have not got is refused (have ${this.packetHeld(lane, asset, e.from!)}, promised ${total}${lane === 'kray' ? ` plus the ${fee}-₭ fee` : ''})`)
+        this.requireSig(e, mintOpenMessage(this.network, e.from!, lane, asset, perHand, hands, gate, expires, e.nonce!))
+        // ── validated → mutate (the packet moves FIRST: its book is the only writer that can refuse) ──
+        this.packetMove(lane, asset, e.from!, CLAIM_POT, total)
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.claims.openMint(root, e.from!, lane, asset, { perHand, hands, gate }, expires)
+        break
+      }
+
+      /**
+       * TAKE ONE POT. There is no amount in what the taker signs — the payout comes from the terms the
+       * GIVER signed, so it can never be haggled. One pot, one hand, forever; and while pots remain.
+       */
+      case 'mint-take': {
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.mintDropSeq) throw new Error('ledger: the mint drop is not the law on this network yet')
+        const taker = e.from!
+        if (this.isPot(taker)) throw new Error('ledger: a protocol pot cannot take a pot — only its own rules move value')
+        this.checkNonce(e)
+        const root = String(e.claimRoot ?? '')
+        if (!/^[0-9a-f]{64}$/.test(root)) throw new Error('ledger: a take names the mint it takes from (32-byte hex root)')
+        const claim = this.claims.get(root)
+        if (!claim) throw new Error('ledger: no mint is open at that root')
+        if (!claim.mint) throw new Error('ledger: that root is a harvest, not a mint — a harvest pays against a merkle proof')
+        if (this.claims.hasTaken(root, taker)) throw new Error('ledger: you have already taken your pot from that mint')
+        if (this.claims.potsLeft(root) <= 0) throw new Error('ledger: every pot of that mint is taken')
+
+        // THE GATE, proven not scanned: the taker NAMES the star they hold and the reducer checks owner
+        // and parent. O(1), and a lie is refused rather than searched for.
+        let star: bigint | null = null
+        if (claim.mint.gate !== null) {
+          if (e.star === undefined || e.star === null || String(e.star) === '') throw new Error(`ledger: that mint opens only for a hand holding a star of land ${claim.mint.gate.star} — name the star you hold`)
+          star = this.posAmt(e.star, 'the star you hold')
+          if (this.stars.ownerOf(star) !== taker) throw new Error(`ledger: you do not hold star ${star} — refused`)
+          if (this.stars.parentOf(star) !== claim.mint.gate.star) throw new Error(`ledger: star ${star} is not of land ${claim.mint.gate.star} — that mint opens only for its own land`)
+        } else if (e.star !== undefined && e.star !== null && String(e.star) !== '') {
+          throw new Error('ledger: that mint has no gate — naming a star would sign a line the law does not read')
+        }
+
+        const amount = claim.mint.perHand
+        if (this.balanceOf(taker) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(taker)}, need ${fee})`)
+        if (this.packetHeld(claim.lane, claim.asset, CLAIM_POT) < amount) throw new Error('ledger: the claim pot is short of its book — HALT')
+        this.requireSig(e, mintTakeMessage(this.network, taker, root, star, e.nonce!))
+        // ── validated → mutate ──
+        this.packetMove(claim.lane, claim.asset, CLAIM_POT, taker, amount)
+        this.commitNonce(e)
+        this.balances.set(taker, this.balanceOf(taker) - fee)
+        this.credit(TREASURY, fee)
+        this.claims.take(root, taker, amount)
+        break
+      }
+
+      case 'claim-take': {
+        // A HAND PROVES ITS OWN SHARE. The proof is a witness, not a signature: it rebuilds the root or it
+        // does not, so a relay that touches it breaks nothing but its own lie.
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.claimEscrowSeq) throw new Error('ledger: the claim escrow is not the law on this network yet')
+        this.checkNonce(e)
+        const taker = e.from!
+        if (this.isPot(taker)) throw new Error('ledger: a protocol pot cannot take a share — only its own rules move value')
+        const root = String(e.claimRoot ?? '')
+        if (!/^[0-9a-f]{64}$/.test(root)) throw new Error('ledger: a claim names the harvest it takes from (32-byte hex root)')
+        const claim = this.claims.get(root)
+        if (!claim) throw new Error('ledger: no harvest is open at that root')
+        const amount = this.posAmt(e.amount, 'a share')
+        if (amount <= 0n) throw new Error('ledger: a share must be positive')
+        if (this.claims.hasTaken(root, taker)) throw new Error('ledger: you have already taken your share of that harvest')
+        const proof = Array.isArray(e.claimProof) ? e.claimProof : []
+        if (proof.length > CLAIM_MAX_PROOF) throw new Error(`ledger: a claim proof is at most ${CLAIM_MAX_PROOF} steps`)
+        if (!claimProves(root, taker, amount, proof)) throw new Error('ledger: that proof does not put your hand in this harvest — refused')
+        if (claim.paid + amount > claim.total) throw new Error('ledger: that harvest cannot pay more than it holds — refused')
+        this.requireFungibleRecipient(taker, e.seq)
+        if (this.balanceOf(taker) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(taker)}, need ${fee})`)
+        // THE POT MUST ACTUALLY HOLD IT. A book that says more than the pot is a lie applied — HALT beats it.
+        if (this.packetHeld(claim.lane, claim.asset, CLAIM_POT) < amount) throw new Error('ledger: the claim pot is short of its book — HALT')
+        this.requireSig(e, claimTakeMessage(this.network, taker, root, amount, e.nonce!))
+        // ── validated → mutate ──
+        this.packetMove(claim.lane, claim.asset, CLAIM_POT, taker, amount)
+        this.commitNonce(e)
+        this.balances.set(taker, this.balanceOf(taker) - fee)
+        this.credit(TREASURY, fee)
+        this.claims.take(root, taker, amount)
+        // A season drawn on a standing pool spends that pool: the value leaves the pot AND stops being
+        // committed in the same step, so `held`, `committed` and `free` stay true at every instant.
+        if (claim.fromPool) this.pools.paidOut(claim.lane, claim.asset, claim.giver, amount)
+        break
+      }
+      case 'claim-close': {
+        // THE GIVER TAKES BACK WHAT NO HAND CLAIMED — only their own harvest, and only at the height they
+        // named when they opened it. A harvest with no height is not closeable: they gave it away for good.
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.claimEscrowSeq) throw new Error('ledger: the claim escrow is not the law on this network yet')
+        this.checkNonce(e)
+        const root = String(e.claimRoot ?? '')
+        if (!/^[0-9a-f]{64}$/.test(root)) throw new Error('ledger: a close names the harvest it closes (32-byte hex root)')
+        const claim = this.claims.get(root)
+        if (!claim) throw new Error('ledger: no harvest is open at that root')
+        if (claim.giver !== e.from) throw new Error('ledger: only the hand that opened a harvest may close it')
+        if (claim.expires === 0) throw new Error('ledger: that harvest named no closing height — what it holds belongs to the hands in its root, forever')
+        if (this.provenL1Height < claim.expires) throw new Error(`ledger: that harvest closes at Bitcoin height ${claim.expires}; the chain is sealed to ${this.provenL1Height} — refused`)
+        const left = claim.total - claim.paid
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        // A POOL SEASON'S LEFTOVERS GO HOME TO THE POOL, not out to the owner's hand: an epoch nobody
+        // claimed refills the mint instead of leaving the chain, and the owner still needs their own
+        // horizon (pool-close) to take anything back at all.
+        if (!claim.fromPool && left > 0n && this.packetHeld(claim.lane, claim.asset, CLAIM_POT) < left) throw new Error('ledger: the claim pot is short of its book — HALT')
+        this.requireSig(e, claimCloseMessage(this.network, e.from!, root, e.nonce!))
+        // ── validated → mutate ──
+        if (!claim.fromPool && left > 0n) this.packetMove(claim.lane, claim.asset, CLAIM_POT, e.from!, left)
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        if (claim.fromPool && left > 0n) this.pools.uncommit(claim.lane, claim.asset, claim.giver, left)
+        this.claims.close(root)
         break
       }
       case 'x-send': {
@@ -2940,14 +3502,16 @@ export class KrayLedger {
     // THE SAME-INSTANT LAW — commit the applied act into the open run (only a FULLY applied act
     // occupies a run slot; assertSameInstantOrder already proved this extension keeps the run equal
     // to orderWindow's schedule). An unsigned act, a pre-law act, or a different `at` closes the run.
-    if (this._pendingInclusionKey && e.seq >= this.sameInstantOrderSeq && typeof e.at === 'number') {
-      const entry = { key: this._pendingInclusionKey, from: String(e.from), nonce: e.nonce }
-      if (this._instantRun && this._instantRun.at === e.at) this._instantRun.acts.push(entry)
-      else this._instantRun = { at: e.at, acts: [entry] }
+    if (this._pendingOrderKey && e.seq >= this.sameInstantOrderSeq && typeof e.at === 'number') {
+      const entry = { key: this._pendingOrderKey, from: String(e.from), nonce: e.nonce }
+      const free = e.seq >= this.deadlineFreeOrderSeq
+      if (this._instantRun && this._instantRun.at === e.at && this._instantRun.free === free) this._instantRun.acts.push(entry)
+      else this._instantRun = { at: e.at, free, acts: [entry] }
     } else {
       this._instantRun = null
     }
     this._pendingInclusionKey = null
+    this._pendingOrderKey = null
     // record the cascade root this event produced → {seq, inclusion root}, so a later seal can bind its anchor's
     // committed root (a PAST block-boundary root under confirmation latency) to the inclusion set it anchored.
     this._recordProducedRoot(e.seq)
@@ -3013,6 +3577,63 @@ export class KrayLedger {
       if (!Object.prototype.hasOwnProperty.call(e, key)) continue
       const v = (e as unknown as Record<string, unknown>)[key]
       if (v != null) throw new Error('ledger: AMM output is re-derived from the book — a journaled quote is purged before any mutation')
+    }
+  }
+
+  /**
+   * EVERY protocol pot, in one predicate — the keyless addresses whose value moves only by their own rules.
+   * None may ever list or take a packet: a pot has no key, so a signature in its name is a lie, and the
+   * market must never become a door into one. `KRAY_*` names the protocol's own pots (treasury, offer, the
+   * black hole); the two readers cover the law pots and the AMM pools, which are derived, not named.
+   */
+  private isPot(addr: string): boolean {
+    return addr.startsWith('KRAY_') || isContractPotAddress(addr) || isAmmPotAddress(addr)
+  }
+
+  /** The lane an act names, refusing anything this market does not know (a stranger's lane is not a lane). */
+  private packetLane(e: KrayEvent): PacketLane {
+    if (!isPacketLane(e.lane)) throw new Error(`ledger: unknown packet lane ${JSON.stringify(e.lane ?? null)} — the market moves ₭, the Luz of a star, or a rune`)
+    return e.lane
+  }
+
+  /**
+   * What an address HOLDS of a lane's asset, read from the book that lane lives in. The rune lane honours
+   * THE BACKING GATE exactly as `rune-send` does: only pot-backed credits are sendable, so the packet market
+   * can never become the side door that hands a recipient a hostage credit still backed by the sender's own
+   * personal vault. Read-only — this never mutates anything.
+   */
+  private packetHeld(lane: PacketLane, asset: string, addr: string): bigint {
+    switch (lane) {
+      case 'kray': return this.balanceOf(addr)
+      case 'luz': return this.cuts.of(asset, addr)
+      case 'rune':
+        // ALWAYS the pot-backed quantity, never the raw book — and never `this.backingGate`, which is a
+        // node-local flag: a consensus rule that read it would let two honestly-configured nodes disagree
+        // about whether an act applies. `transferableOf` is derived from the journal alone and is already
+        // clamped to the balance, so this market can never hand out a credit a recipient would need the
+        // seller's own key to reach on Bitcoin. (`rune-send` keeps its own flag; this law does not widen it.)
+        return this.runes.transferableOf(parseRuneKey(asset), addr)
+      default: {
+        const never: never = lane
+        throw new Error(`ledger: unknown packet lane ${String(never)}`)
+      }
+    }
+  }
+
+  /** Move a whole packet between two addresses, in its own book. The reducer has ALREADY proven the holding,
+   *  the signature and every term — this is the mutation alone, and it conserves each book by construction. */
+  private packetMove(lane: PacketLane, asset: string, from: string, to: string, amount: bigint): void {
+    switch (lane) {
+      case 'kray':
+        this.balances.set(from, this.balanceOf(from) - amount)
+        this.credit(to, amount)
+        return
+      case 'luz': this.cuts.send(asset, from, to, amount); return
+      case 'rune': this.runes.send(parseRuneKey(asset), from, to, amount); return
+      default: {
+        const never: never = lane
+        throw new Error(`ledger: unknown packet lane ${String(never)}`)
+      }
     }
   }
 
@@ -3104,6 +3725,20 @@ export class KrayLedger {
   }
 
   /** Porta 2 — door and reducer share this pin (lab inject included). */
+  /** Is THE GIFT the law at this sequence on this network? The door asks before it hands a wallet a line to
+   *  sign: below the pin a price-zero or terms-carrying listing can only ever be refused, and inviting a
+   *  signature for an act no node will apply burns a citizen's nonce for nothing. */
+  giftListingIsLaw(seq: number): boolean { return seq >= this.giftListingSeq }
+  /** The same question for the packet market. */
+  packetMarketIsLaw(seq: number): boolean { return seq >= this.packetMarketSeq }
+  /** THE CLAIM ESCROW, asked at the door. Without it the door prepared a harvest its own reducer would
+   *  refuse — a citizen's signature and nonce spent on an act that could never apply. */
+  claimEscrowIsLaw(seq: number): boolean { return seq >= this.claimEscrowSeq }
+
+  /** THE MINT DROP's pin, asked the same way. A door that invites a signature its own reducer will refuse
+   *  burns a citizen's effort and their nonce — so the door asks THIS, never a copy of the number. */
+  mintDropIsLaw(seq: number): boolean { return seq >= this.mintDropSeq }
+
   runeBookIsOpen(seq: number): boolean {
     return seq >= this.runeBookOpenSeq
   }
@@ -3141,6 +3776,40 @@ export class KrayLedger {
   /** THE TRIPWIRE: Σ balances == emitted − burned, exactly, or the node has drifted. Ӿ rides the SAME tripwire:
    *  every ₭ burn mints exactly one Ӿ to the burner, so `Σ xMinted == burned` — a burn site that forgot to mint
    *  (or a mint with no burn) breaks this and HALTs the node (`applyLive` throws; the store poisons). */
+  /**
+   * THE CLAIM TRIPWIRE — the keyless pot holds EXACTLY what the open harvests still owe, in every lane and
+   * for every asset. A book that promises more than the pot is a lie already applied, and a pot that holds
+   * more than the book is value nobody can ever reach; either way the honest answer is to stop. Nothing
+   * else can touch this pot: crediting it by any other act is refused at `requireRecipientNetwork`, and no
+   * key on earth encodes to a `KRAY_` label, so it can never sign its own way out.
+   */
+  claimsBacked(): boolean {
+    const seen = new Set<string>()
+    const walk = [...this.claims.assets(), ...this.pools.assets()]
+    for (const { lane, asset } of walk) {
+      const key = `${lane}|${asset}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      // The pot must hold what the free-standing harvests still owe PLUS what every pool of that asset
+      // holds. A pool season's value is already inside its pool's `held`, so it is counted once, never twice.
+      const owed = this.claims.owedIn(lane, asset, { poolBacked: false }) + this.pools.heldIn(lane, asset)
+      if (this.packetHeld(lane, asset, CLAIM_POT) !== owed) return false
+      // …and a pool may never have promised more than it holds.
+      for (const row of this.pools.all()) {
+        if (row.lane !== lane || row.asset !== asset) continue
+        if (BigInt(row.committed) > BigInt(row.held)) return false
+        // what its live seasons still owe is exactly what it says it committed
+        const seasons = this.claims.all()
+          .filter((c) => c.fromPool && c.lane === lane && c.asset === asset && c.giver === row.owner)
+          .reduce((t, c) => t + (BigInt(c.total) - BigInt(c.paid)), 0n)
+        if (seasons !== BigInt(row.committed)) return false
+      }
+    }
+    // …and with nothing open in the ₭ lane, the pot must hold no ₭ either.
+    if (!seen.has('kray|') && this.balanceOf(CLAIM_POT) !== 0n) return false
+    return true
+  }
+
   conserves(): boolean {
     let sum = 0n
     for (const b of this.balances.values()) sum += b
@@ -3158,6 +3827,7 @@ export class KrayLedger {
     for (const t of this.fireTank.values()) ft += t
     return sum === this.emitted - this.burned && xs === this.burned && xb + laneSum === this.burned && this.xTotal === this.burned
       && ft + this.fireSpent === this.burned * FIREBORN_SENDS_PER_KRAY
+      && this.claimsBacked()
       && this.balanceOf(STAR_OFFER) === this.offers.lockedTotal()
       && this.cuts.conserves()
   }
@@ -3416,6 +4086,18 @@ export class KrayLedger {
       ...(this.profiles.size > 0 ? { profileCommitment: this.profilesRoot() } : {}),
       ...((this.krayPlatesByAddr.size > 0 || this.krayPlatesByStar.size > 0)
         ? { krayPlateCommitment: this.krayPlatesRoot() } : {}),
+      // THE PACKET MARKET — the ₭/Luz/rune order book folds in ONLY once a packet is listed (by presence,
+      // appended LAST, A3): with none listed the field is absent, so every root anchored before this law
+      // opens byte-identically. Like the star market it never holds value: this commits only WHO offers
+      // WHAT, at WHAT price, under WHICH terms — re-derivable by any stranger from the journal alone.
+      ...(!this.packets.empty() ? { packetCommitment: this.packets.commitment() } : {}),
+      // THE CLAIM ESCROW — folds in ONLY once a harvest is open (by presence, appended LAST, A3). It holds
+      // real value, so this commits the root, what it owes and WHO has taken: a stranger can check a claim
+      // against the anchored bytes without trusting the node that served them.
+      ...(!this.claims.empty() ? { claimCommitment: this.claims.commitment() } : {}),
+      // THE STANDING POOLS — fold in ONLY once one exists (by presence, appended LAST, A3). Three numbers
+      // that are each true: what is held, what the live seasons may still draw, and the owner's horizon.
+      ...(!this.pools.empty() ? { poolCommitment: this.pools.commitment() } : {}),
     }
   }
 

@@ -14,8 +14,8 @@ const SKIP_DIR = new Set([
   'guardian-atlas', 'logs', 'archive',
   // workshop — stays on the operator working tree, never the public clone or zip
   'exam', 'lab',
-  // operator run-layer (cloudflared, launchd, writer wrappers) — gitignored AND unzipped
-  'bin',
+  // editor config — never a stranger's door
+  '.vscode',
   // writer-disk deploy kit — never the public door or the /validate zip
   'origin-vitrine',
   // private scroll — keep on disk, never the public door or /validate zip
@@ -24,12 +24,18 @@ const SKIP_DIR = new Set([
   'adapter',
 ])
 /** Operator-only universes at the repo root — never the public `networks/signet` recipes. */
-const SKIP_ROOT = new Set(['signet', 'regtest', 'testnet', 'mainnet'])
+// `bin` is the operator run-layer (cloudflared, launchd, writer wrappers) and lives at the
+// ROOT only. As a SKIP_DIR it matched any depth and quietly dropped the real Rust source at
+// apps/kray-fold/script/src/bin/ — which has always been on the public door.
+const SKIP_ROOT = new Set(['signet', 'regtest', 'testnet', 'mainnet', 'bin'])
 const SKIP_PREFIX = [
   'apps/kray-api/', 'apps/kray-net/data', 'apps/kray-net/regtest-harness/',
   'apps/kray-net/signet-harness/', 'apps/kray-net/archive/', 'gauntlet-',
   'data-archive-', 'data-signet-local/', 'data-backup-',
   'apps/kray-net/later/', 'apps/kray-net/works/', 'apps/kray-net/library/',
+  // dated PRIVATE council records — they name hosts and tailnet addresses ON PURPOSE.
+  // No writer's disk carries them, so the zip never has; this makes that a law, not luck.
+  'docs/audit/',
 ]
 const SKIP_FILE = new Set([
   '.ds_store', 'vault-keys.env', 'owner.box', 'node-hot.env', '.kray-sync-rev',
@@ -46,7 +52,13 @@ const SKIP_FILE = new Set([
   '.oss-guard-local',
   'operator-ship.md', 'krayos-mind.md', 'origin-local.env.example',
   'pot-signer.mjs', 'pot-custody-ops.md',
+  // The market mouths. The public door is the BOOK — follow, journal, atlas, donate → ₭ →
+  // stars / Ӿ / Glow / papers (.cursor/rules/public-door.mdc). The market ACTS are consensus
+  // and ship in the reducer, or a follower halts on them; their WINDOWS are the Creator's
+  // product surface. drops/harvests joined this list on 2026-09-23, for the same reason
+  // market.html and markets.html are already on it.
   'defi.html', 'market.html', 'markets.html', 'pool.html',
+  'drops.html', 'harvests.html',
   'parents.md',
   // writer-disk gateway key (RPC + ord) — lives beside server.mjs on a writer; never in the zip
   '.kray-api.json',

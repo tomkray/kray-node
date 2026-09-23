@@ -269,7 +269,7 @@
     var v = prompt('New price in ₭ for star #' + star + ' (current ' + num(current) + '):', String(current).replace(/[^0-9]/g, ''));
     if (v == null) return;
     var price = String(v).replace(/[^0-9]/g, '');
-    if (!price || Number(price) <= 0) { toast('Enter a positive whole number of ₭.'); return; }
+    if (price === '' || !(Number(price) >= 0)) { toast('Enter a whole number of ₭ — zero makes it a drop.'); return; }
     try {
       await window.KRAY.act('star-list', { star: String(star), price: price });
       toast('★ ' + star + ' re-listed at ' + num(price) + ' ₭.');

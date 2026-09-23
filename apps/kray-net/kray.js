@@ -1778,7 +1778,7 @@
       '<div class="g12">' +
         '<div class="foot-brand c4"><div class="b">₭ KRAY.NETWORK</div><div class="t">The book: sacrifice → ₭ → stars. Replay proves it. Sealed to Bitcoin. DeFi is an app on this ledger — not the node.</div></div>' +
         '<div class="col foot-col"><h5>Explore</h5><a href="/">Explorer</a><a href="/blocks">Chain</a><a href="/network">Network</a><a href="/land">Land</a><a href="/city">City</a><a href="/library">Library</a><a href="/mind">Mind</a><a href="/rank">Rank</a><a href="/dashboard">Dashboard</a><a href="/address/KRAY_TREASURY">Treasury</a><a href="/blackhole">Black hole</a></div>' +
-        '<div class="col foot-col"><h5>Apps</h5><a href="/market">Markets</a><a href="/market/star">Star market</a><a href="/market/luz">Light market</a><a href="/collections">Collections</a><a href="/defi">DeFi</a><a href="/rune">Runes</a><a href="/send">Send</a></div>' +
+        '<div class="col foot-col"><h5>Apps</h5><a href="/market">Markets</a><a href="/market/star">Star market</a><a href="/market/luz">Light market</a><a href="/market/drops">Drops</a><a href="/harvests">Harvests</a><a href="/collections">Collections</a><a href="/defi">DeFi</a><a href="/rune">Runes</a><a href="/send">Send</a></div>' +
         '<div class="col foot-col prove"><h5>Prove</h5><a href="/proof">Proof</a><a href="/verify">Verify</a><a href="/anchor">The anchor</a><a href="/burn">Bitcoin Proof</a><a href="/docs">Docs</a><a href="/docs#atlas">Site atlas</a></div>' +
       '</div>' +
       '<div class="bar"><span>circulating ₭ = emitted − burned · one cascade root sealed to Bitcoin</span><span>KRAY OS v2 · Blueprint</span></div>' +

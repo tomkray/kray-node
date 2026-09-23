@@ -80,6 +80,16 @@ note — never claimed away.
   end-to-end: a payout to the wrong address, a shallow (2-deep) payout, and a double-settle are all
   refused; a proven payout burns exactly the lock and the reboot re-proves it
   (`rune-bridge.test.ts`, `pot-deposit.test.ts`).
+- **Proven on a real withdraw, not only on fixtures** (2026-09-18, signet): a holder transferred on L2,
+  exited part of it and withdrew; the federation paid `62cdbcd4…7cd0` and the lock burned at seq 230.
+  `npm run live:exit-replay` lets any stranger pull the raw journal from the public edge, replay it through
+  this same reducer, re-derive the head as the **full 64 hex**, and then rewrite that withdraw inside the
+  replay — the amount up or down, the burn claimed against another transaction, the delivery pointed at the
+  pot's own change output, one byte of the raw payout, the merkle branch, the header chain, the ancestry or
+  the whole proof dropped, the delivery claimed twice. Every one HALTs at that seq. The act is also frozen
+  byte-faithful under a checked SHA-256 (`live-exit-230-adversarial.test.ts`, in `npm test`), which pins the
+  law that makes it airtight: the settle's proof is **journal-relative** — the ancestry walk must terminate
+  at an outpoint this journal already proved from Bitcoin, so bytes alone can never mint.
 
 ## Known open items (tracked, not hidden)
 

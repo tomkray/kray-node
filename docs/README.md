@@ -17,6 +17,7 @@ Files stay at this root so every citation (`docs/AXIOMS.md`, `/docs` HTML, clone
 | doc | one-line purpose | status |
 | --- | --- | --- |
 | [`AXIOMS.md`](AXIOMS.md) | The Supreme Law (`signature ‖ Merkle proof ‖ Bitcoin anchor`) and axioms A0–A10 every decision derives from. | normative |
+| [`THE-RITE.md`](THE-RITE.md) | The map of what may never break and how we prove it hasn't — the base, the roles, the flows, the ordered rite, and the scar behind every step. | normative |
 | [`FOLDER-LAW.md`](FOLDER-LAW.md) | The names of this tree. Three houses: official / writer disk / workshop. Locked now. Mainnet ignited = rename forbidden. | normative |
 | [`BOOK-AND-APPS.md`](BOOK-AND-APPS.md) | Follow is the book. Rune bridge / DeFi / pen are apps on it. `/mind` is optional after the head is green. | normative |
 | [`CONSENSUS-CONSTITUTION.md`](CONSENSUS-CONSTITUTION.md) | The rigid invariants: each article is [ENFORCED] or an honest [NAMED PATH]. | normative |
@@ -56,6 +57,8 @@ Files stay at this root so every citation (`docs/AXIOMS.md`, `/docs` HTML, clone
 | [`RAFFLE-DESIGN.md`](RAFFLE-DESIGN.md) | The validator raffle worked out to the byte — including the bug that reshapes the whole idea. | design |
 | [`MULTI-WRITER-OBJECTIVE.md`](MULTI-WRITER-OBJECTIVE.md) | The locked destination: the pen as a role, not a machine. No consensus change in the file. | design |
 | [`ETERNIZE.md`](ETERNIZE.md) | The eternal door — consensus built, world door HELD (`ETERNIZE_OPEN = false`). | design |
+| [`DROP-AND-PACKET-MARKET.md`](DROP-AND-PACKET-MARKET.md) | A listing at price zero IS the drop; the three signed terms (name, key star, Bitcoin height); the ₭/Luz/rune packet market. Built on regtest, pinned shut on signet and main. | design |
+| [`CLAIM-ESCROW.md`](CLAIM-ESCROW.md) | A harvest attested once by a signed merkle root, held in a keyless pot, taken by the hands inside it. What it proves, and the one thing it cannot. Built on regtest, pinned shut on signet and main. | design |
 | [`RESIDUAL-VECTORS.md`](RESIDUAL-VECTORS.md) | The ledger of residual advantage vectors after the fairness audit — nothing left behind. | design |
 | [`VISIBLE-MIRRORS-DECISION.md`](VISIBLE-MIRRORS-DECISION.md) | Visible mirrors on `/network` — PARKED by the Creator; nothing built. | design |
 | [`anchor-stealth.md`](anchor-stealth.md) | The stealth pay-to-contract anchor proposal — since realized in code as `self-anchor.ts`. | design |

@@ -41,6 +41,9 @@ export const STAR_OFFER = 'KRAY_STAR_OFFER'
  * which is exactly what makes the act meaningful.
  */
 export const BLACK_HOLE = 'KRAY_BLACK_HOLE'
+/** THE CLAIM ESCROW's keyless pot — an open harvest rests here, and only a proven hand or the giver's own
+ *  close moves it out. `KRAY_`-prefixed, so no key on earth encodes to it. */
+export const CLAIM_POT = 'KRAY_CLAIM'
 // THE ETERNAL FEE — exactly one ₭, never more. The ledger enforces `fee === MIN_FEE` (not a
 // floor): a fee that is not signed must not be inflatable, or a front-runner could re-submit
 // your signed act with a fee that drains your whole balance to the Treasury. A fixed constant
@@ -67,7 +70,7 @@ export function donationProofMinConf(net: string): number {
 // 'donate'/'anchor' are the proof-of-donation mint events (KRAYNET): a donation of
 // proven sats mints ₭ against the anchoring pot's deficit; an anchor spends pot sats
 // to fund a Bitcoin anchor. Every kind the reducer handles lives in this union.
-export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'eternize' | 'set-face' | 'clear-face' | 'set-profile' | 'set-kray-plate' | 'star-like' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy' | 'star-offer' | 'star-offer-cancel' | 'star-offer-accept' | 'cut-send'
+export type KrayEventKind = 'genesis' | 'emit' | 'transfer' | 'transfer-star' | 'reward' | 'inscribe' | 'name' | 'origin' | 'eternize' | 'set-face' | 'clear-face' | 'set-profile' | 'set-kray-plate' | 'star-like' | 'settle' | 'settlement' | 'guardian' | 'bridge' | 'rune-deposit' | 'rune-send' | 'rune-exit' | 'rune-cancel' | 'rune-lodge' | 'rune-rehome' | 'rune-settle' | 'amm-add' | 'amm-remove' | 'amm-swap' | 'amm-rr-add' | 'amm-rr-remove' | 'amm-rr-swap' | 'contract' | 'contract-call' | 'donate' | 'anchor' | 'seal' | 'quantum-commit' | 'quantum-migrate' | 'x-send' | 'burn' | 'burn-thaw' | 'lane-enter' | 'lane-exit' | 'fold-seal' | 'star-list' | 'star-delist' | 'star-buy' | 'star-offer' | 'star-offer-cancel' | 'star-offer-accept' | 'cut-send' | 'packet-list' | 'packet-delist' | 'packet-take' | 'claim-open' | 'claim-take' | 'claim-close' | 'mint-open' | 'mint-take' | 'pool-fund' | 'pool-season' | 'pool-close'
 
 /** A star's user-given name: 1..64 bytes UTF-8, byte-exact unique, forever. */
 export const NAME_MAX_BYTES = 64
@@ -95,6 +98,40 @@ export interface KrayEvent {
    *  exactly as the seal's txid is (a lied height is caught downstream). Required on a seal once the inclusion
    *  regime is active; absent before (A3 byte-identical). The Bitcoin clock 3d compares a deadline against. */
   l1Height?: number
+  /** THE TERMS OF A LISTING (star-list) — signed, optional, and absent on every offer that has none (A3).
+   *  `gateStar`: only whoever holds that star may take the offer. `notBefore`: not until that Bitcoin height. */
+  gateStar?: string
+  notBefore?: number
+  /** THE PACKET MARKET — the fungible lane a packet is cut from ('kray' | 'luz' | 'rune'). Additive and
+   *  optional: an event without it hashes and behaves exactly as before (A3). */
+  lane?: string
+  /** THE CLAIM ESCROW — the merkle root of a harvest's shares (64 hex). Signed by the giver, so the list
+   *  cannot be edited after the fact; every taker proves their own leaf against it. */
+  claimRoot?: string
+  /** THE CLAIM ESCROW — the path that proves one leaf. A WITNESS, not signed: it proves itself against the
+   *  root, and a tampered path simply fails to rebuild it (exactly like an SPV bag). */
+  claimProof?: Array<{ hash: string; siblingIsRight: boolean }>
+  /** THE CLAIM ESCROW — the Bitcoin height at or after which the giver may close what no hand took. */
+  expires?: number
+  /** THE MINT DROP — what one pot pays. The total is `perHand × hands`, computed by the reducer and never
+   *  supplied, so a mint cannot promise a number its own arithmetic does not produce. */
+  perHand?: string
+  /** THE MINT DROP — how many pots exist. One per hand, forever, while pots remain. */
+  hands?: number
+  /** THE MINT DROP — gate on a LAND: any hand holding a star whose parent is this star may take one pot. */
+  gateChildOf?: string
+  /** THE MINT DROP — REFUSED, and named so the refusal can say why: gating a mint on holding ONE star
+   *  names one address, so every pot past the first would be unclaimable from the instant it is signed. */
+  gateStar?: string
+  /** THE MINT DROP — the star a taker claims to hold, for a gated mint. The reducer proves owner AND
+   *  parent from it: named, never scanned for. */
+  star?: string
+  /** THE PACKET MARKET — the terms a taker says the offer carried, as one sha256. Empty/absent means "an
+   *  offer with no terms": the signature then binds that simple shape and nothing else. */
+  termsHash?: string
+  /** THE PACKET MARKET — the ₭ price of a packet, decimal string. `amount` is the packet; this is what it
+   *  costs. Zero is the DROP (the escrow the Creator designed: list at 0, the taker pays gas alone). */
+  price?: string
   interval?: number // emit: the Bitcoin-block interval this subsidy belongs to
   memo?: string
   /** genesis only: the REAL Bitcoin block this network was born at. */

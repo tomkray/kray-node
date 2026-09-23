@@ -26,6 +26,10 @@ import { KrayLedger, RUNE_BOOK_KINDS } from '../kray-core/src/protocol/ledger.ts
 import { openKrayLedger } from '../kray-core/src/protocol/store.ts'   // private replay twins MUST share the live store's pins
 import { finalityView } from '../kray-core/src/protocol/finality.ts'   // ADR-4 4a: the pure crane+anchor classifier (server feeds the bitcoind-attested hint)
 import { WINDOW_PER_SEAL_SATS } from '../kray-core/src/protocol/pot.ts'
+import { hasTerms, isBitcoinHeight, starListV2Message, termsOfEvent } from '../kray-core/src/protocol/star-market.ts'   // THE GIFT's terms — the SAME reader the reducer and the mirror use
+import { isPacketLane, packetAssetOfEvent, packetListMessage, packetDelistMessage, packetTakeMessage, packetTermsHash } from '../kray-core/src/protocol/packet-market.ts'
+import { claimRoot, claimProof, claimProves, claimOpenMessage, claimTakeMessage, claimCloseMessage, mintOpenMessage, mintTakeMessage, mintId, CLAIM_MAX_HANDS, CLAIM_MAX_PROOF } from '../kray-core/src/protocol/claim-book.ts'
+import { poolFundMessage, poolSeasonMessage, poolCloseMessage } from '../kray-core/src/protocol/pool-book.ts'
 import { BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, RETARGET_WINDOW_SEALS, SIZE_PROPORTION_ACTIVATION_SEQ, starBurnOf, retargetBytesPerKray, donationProofMinConf } from '../kray-core/src/protocol/kray-primitives.ts'
 import {
   transferMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, xSendMessage, cutSendMessage, laneEnterMessage, laneExitMessage, foldSealMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
@@ -48,7 +52,7 @@ import { verifyBeat, BEAT_MIN_ZEROS } from '../kray-core/src/economics/beat-pow.
 import { BEAT_PAY_ZEROS_CAP, readPresenceTip } from '../kray-core/src/economics/presence-window.ts'
 import { verifyCustody, custodyFromHex, custodyChallenges, hitCount, CUSTODY_CHALLENGES } from '../kray-core/src/economics/custody.ts'
 import { settleFromBeats } from '../kray-core/src/economics/settlement.ts'
-import { sha256hex, TREASURY, BLACK_HOLE, STAR_OFFER } from '../kray-core/src/protocol/kray-primitives.ts'
+import { sha256hex, TREASURY, BLACK_HOLE, STAR_OFFER, STAR_RE } from '../kray-core/src/protocol/kray-primitives.ts'
 import { readName, categoryOf, CATEGORIES } from '../kray-core/src/protocol/library.ts'
 import { id3TagTotalLength, readApic, READ_MIMES } from './id3-cover.js'
 import { unfurlHttps } from './unfurl.mjs'
@@ -320,13 +324,15 @@ const inbox = INBOX_ON ? createInbox({ dir: join(DATA_DIR, 'inbox') }) : null
 let _inboxDraining = false
 // Settle one drained act against the door's answer. `superseded` is NOT a failure: when the door
 // refuses and the account's nonce has already advanced past this act's nonce, some act consumed that
-// nonce — the intent is in the journal. This distinguishes "already applied (crash lost the receipt)"
-// from "invalid", so a citizen polling the outcome is never told a journaled act was refused.
+// nonce. That tells us THIS act can never apply — but NOT that it did. Some act of that author consumed the
+// nonce; it may have been this one (a crash lost the receipt) or an entirely different one. Saying "your
+// intent is in the journal" when a drop was never taken is a lie that costs an asset, so the verdict is
+// `spent`: final, honest about what it does not know, and never a claim that the act was applied.
 function settleDrainOutcome(id, act, r, out) {
   if (r.ok && out && out.ok) { inbox.markApplied(id, { seq: out.seq, hash: out.hash, star: out.star ?? null }); return 'applied' }
   const n = Number(act && act.nonce)
   if (Number.isInteger(n) && act && typeof act.from === 'string') {
-    try { if (node.ledger.nonceOf(String(act.from)) > n) { inbox.markSuperseded(id, (out && out.error) || 'nonce already advanced'); return 'superseded' } } catch { /* no ledger view — fall through to a plain attempt */ }
+    try { if (node.ledger.nonceOf(String(act.from)) > n) { inbox.markSuperseded(id, `this act did not apply${out && out.error ? ` (${out.error})` : ''}; another act of yours consumed nonce ${n}`); return 'superseded' } } catch { /* no ledger view — fall through to a plain attempt */ }
   }
   inbox.markAttempt(id, (out && out.error) || `HTTP ${r.status}`)
   return 'attempt'
@@ -3004,7 +3010,7 @@ async function settleBeaconWithPresence(txid) {
  *
  *  A missing treasury kind here is a VIEW lie, not a consensus hole: the first mainnet settlement
  *  (seq 49) paid 42 ₭ from atlas fees; omitting inscribe/origin painted "0 earned" over the journal. */
-const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'burn', 'x-send', 'cut-send', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate', 'star-like'])
+const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'packet-list', 'packet-delist', 'packet-take', 'claim-open', 'claim-take', 'claim-close', 'mint-open', 'mint-take', 'burn', 'x-send', 'cut-send', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate', 'star-like'])
 /** ₭ this act credited to TREASURY — the fee pool the next settlement splits. View-only. */
 function treasuryCreditOf(e) {
   if (!e || !e.kind) return 0n
@@ -5304,6 +5310,269 @@ function readOnStar(b) {
   return n
 }
 /** Porta 2 door — same pin as the reducer (lab inject included). */
+/** What a seller holds of a packet's asset RIGHT NOW — a read, for the view alone. The reducer re-proves this
+ *  at the take; this only lets a client show an offer as fillable or stale without guessing. */
+function packetHeldView(lane, asset, addr) {
+  try {
+    if (lane === 'kray') return node.ledger.balanceOf(addr)
+    if (lane === 'luz') return node.ledger.cuts.of(asset, addr)
+    // the law moves only the POT-BACKED quantity (ledger.packetHeld); reading the raw book here would
+    // promise a taker credits the reducer will refuse to hand over
+    if (lane === 'rune') return node.ledger.runes.transferableOf(parseRuneKey(asset), addr)
+  } catch { return null }
+  return null
+}
+
+/** THE TERMS OF AN OFFER, read at the door with the reducer's OWN reader — so the line the wallet is told
+ *  to sign and the line the law verifies are the same bytes, always (docs/DROP-AND-PACKET-MARKET.md). */
+/**
+ * THE DOOR'S OWN READERS — strict, because `String(x)` and `Number(x)` launder a hostile body into a line the
+ * citizen never meant. A JSON number rounds (9007199254740993 signs as …992), `true` becomes the height 1,
+ * "0x10" becomes 16, an array becomes its join. The reducer's law is "typeof FIRST"; these are its twins at
+ * the door, so what a wallet is told to sign is what the body actually said, or the body is refused by name.
+ */
+// A whole number of base units, bounded: parsing a megabyte of digits is a free freeze of a consensus node.
+// The bound is the widest LEGITIMATE value, not a round number — a rune amount is u128, whose maximum is 39
+// digits (340282366920938463463374607431768211455). Forty leaves room and still costs nothing to parse.
+const DOOR_MAX_DIGITS = 40
+function doorString(v, name) {
+  if (typeof v !== 'string') throw new Error(`${name} must be text, not ${Array.isArray(v) ? 'a list' : typeof v}`)
+  return v.trim()
+}
+/** A whole number of base units: a digit string (bounded) or a safe non-negative integer. Nothing else. */
+function doorUnits(v, name) {
+  if (typeof v === 'number') {
+    if (!Number.isSafeInteger(v) || v < 0) throw new Error(`${name} must be a whole number of base units`)
+    return String(v)
+  }
+  if (typeof v !== 'string' || !/^[0-9]+$/.test(v)) throw new Error(`${name} must be a whole number of base units`)
+  if (v.length > DOOR_MAX_DIGITS) throw new Error(`${name} is too long to be a number of base units`)
+  return String(BigInt(v))
+}
+/** A Bitcoin height: the same shape the law reads, refused here by name so a bequest never falls through. */
+function doorHeight(v, name) {
+  const n = typeof v === 'number' ? v : (typeof v === 'string' && /^[0-9]+$/.test(v) && v.length <= 9 ? Number(v) : NaN)
+  if (!isBitcoinHeight(n)) throw new Error(`${name} must be a Bitcoin height — a whole number above 0 and at most 21,000,000`)
+  return n
+}
+
+function listingTermsOf(b) {
+  const given = (k) => b && b[k] != null && String(b[k]) !== ''
+  // THE LAW IGNORES CARGO; THE DOOR DOES NOT. To the reducer an ill-formed term is simply absent — that is
+  // what stops a relay from killing an honest act by appending one. But a CITIZEN who asked for a term and
+  // got silence would be robbed by their own wallet: a bequest meant to open at a future Bitcoin height
+  // would fall through as a listing anyone can take right now. So the door refuses it, by name, up front.
+  // THE READ ROUTES PUBLISH `gate`; THE WRITE DOOR ALWAYS READ `gateStar`. A client that handed a row from
+  // /api/kraynet/market straight back therefore lost the key star IN SILENCE, and the offer applied as a
+  // public drop that any stranger could take. Both spellings are read here now, and naming both differently
+  // is refused rather than guessed.
+  const gateRaw = given('gateStar') ? b.gateStar : given('gate') ? b.gate : undefined
+  if (given('gateStar') && given('gate') && String(b.gateStar) !== String(b.gate)) {
+    throw new Error('an offer names ONE key star — gate and gateStar disagree')
+  }
+  let gate
+  if (gateRaw !== undefined) {
+    // one concept, one message: a citizen who typed a word where a star belongs should be told THAT
+    try { gate = doorUnits(gateRaw, 'the star that opens an offer') } catch { gate = null }
+    if (gate === null || !STAR_RE.test(gate)) throw new Error('the star that opens an offer must be a canonical star number')
+  }
+  const notBefore = given('notBefore') ? doorHeight(b.notBefore, 'notBefore') : undefined
+  return termsOfEvent({
+    to: given('to') ? doorString(b.to, 'the address an offer is left for') : undefined,
+    gateStar: gate,
+    notBefore,
+  })
+}
+/** A packet's amount or price, under the reducer's OWN digits-only rule — reading the RAW value, never a
+ *  `String()` of it, or the guard would be dead code and a JSON number would be laundered past it. */
+function packetUnits(raw, name) { return BigInt(doorUnits(raw, `a packet ${name}`)) }
+/** The lane a packet act names, and its one asset — refused here exactly as the reducer refuses it. */
+function packetLaneOf(b) {
+  const lane = b && b.lane != null ? doorString(b.lane, 'a packet lane') : ''
+  if (!isPacketLane(lane)) throw new Error('a packet names its lane: kray, luz or rune')
+  const star = b && b.star != null && String(b.star) !== '' ? doorUnits(b.star, 'the star a Luz packet is cut from') : undefined
+  const runeId = b && b.runeId != null && String(b.runeId) !== '' ? doorString(b.runeId, 'a rune id') : undefined
+  const asset = packetAssetOfEvent(lane, { star, runeId })
+  return { lane, asset }
+}
+/** A harvest's merkle root — 32 bytes of lower-case hex, and nothing that merely looks like it. */
+function doorRoot(b) {
+  const r = b && b.claimRoot != null ? doorString(b.claimRoot, 'a harvest root') : (b && b.root != null ? doorString(b.root, 'a harvest root') : '')
+  if (!/^[0-9a-f]{64}$/.test(r)) throw new Error('a harvest names its merkle root — 32 bytes of lower-case hex')
+  return r
+}
+const doorTotal = (b) => packetUnits(b && b.total != null ? b.total : b && b.amount, 'harvest total')
+function doorExpires(b) {
+  if (!b || b.expires == null || String(b.expires) === '' || Number(b.expires) === 0) return 0
+  return doorHeight(b.expires, 'expires')
+}
+/** The path a hand carries. Shape-checked here; the law re-proves it against the root regardless. */
+function doorProof(b) {
+  const raw = b && Array.isArray(b.claimProof) ? b.claimProof : (b && Array.isArray(b.proof) ? b.proof : [])
+  if (raw.length > CLAIM_MAX_PROOF) throw new Error(`a claim proof is at most ${CLAIM_MAX_PROOF} steps`)
+  return raw.map((step) => {
+    const hash = doorString(step && step.hash, 'a proof step')
+    if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error('every proof step is 32 bytes of lower-case hex')
+    return { hash, siblingIsRight: step.siblingIsRight === true }
+  })
+}
+
+/** The wire field the lane's asset rides on — a star for Luz, a rune id for a rune, nothing for ₭. */
+function packetAssetFields(lane, asset) {
+  if (lane === 'luz') return { star: asset }
+  if (lane === 'rune') return { runeId: asset }
+  return {}
+}
+
+/**
+ * THE ACTIVATION PINS, MIRRORED AT THE DOOR. `assertRuneBookDoor` is the precedent: a door that invites a
+ * signature for an act its own reducer will refuse burns the citizen's effort and, on a real network, their
+ * patience. The gift and the packet market are pinned shut on signet and main until each fleet adopts the
+ * law, so ask the ledger — the SAME pin it enforces — before handing anyone a line to sign.
+ */
+/**
+ * THE MINT'S TERMS, READ ONCE. `prepare` builds the line to sign and `submit` builds the event; if they
+ * read the wire differently by even one coercion, the wallet signs one thing and the law verifies another.
+ * So both call this, and neither parses the body itself.
+ */
+function doorMintTerms(b) {
+  const perHand = packetUnits(b.perHand, 'a pot')
+  const hands = Number(b.hands)
+  if (!Number.isInteger(hands) || hands < 1) throw new Error('a mint needs at least one pot')
+  const gate = b.gateChildOf != null && String(b.gateChildOf) !== ''
+    ? { kind: 'childOf', star: BigInt(doorUnits(b.gateChildOf, 'a gate star')) }
+    : null
+  const expires = Number(b.expires)
+  if (!Number.isInteger(expires) || expires <= 0) throw new Error('a mint closes at a Bitcoin height — unlike a harvest it may not say 0')
+  return { perHand, hands, gate, expires }
+}
+
+/** Every act the claim escrow's pin governs — the reducer refuses all six below CLAIM_ESCROW_SEQ. */
+const CLAIM_DOOR_KINDS = new Set(['claim-open', 'claim-take', 'claim-close', 'pool-fund', 'pool-season', 'pool-close'])
+/** Every act the MINT DROP's pin governs. Named in its own set because it has its OWN pin: `claim-close`
+ *  belongs to the escrow's set and closes a mint too, so the two sets overlap in law but not in name. */
+const MINT_DOOR_KINDS = new Set(['mint-open', 'mint-take'])
+
+function assertMarketDoor(action, b) {
+  const nextSeq = node.seq + 1
+  // A signature is a citizen's effort and their nonce. Whatever the law will certainly refuse, refuse here.
+  if (action === 'packet-list' || action === 'packet-take') {
+    if (b && b.amount != null && BigInt(doorUnits(b.amount, 'a packet amount')) <= 0n) throw new Error('a packet needs a positive amount')
+  }
+  if (action === 'packet-take' && !(b && typeof b.seller === 'string' && b.seller.trim())) {
+    throw new Error('a take names the seller it answers')
+  }
+  if ((action === 'star-list' || action === 'packet-list') && b && b.to != null && String(b.to) !== '') {
+    const to = doorString(b.to, 'the address an offer is left for')
+    if (to === b.from) throw new Error("a listing named for yourself is nobody's offer")
+    if (to.startsWith('KRAY_')) throw new Error('an offer cannot be left to a protocol pot — a pot has no key to take it with')
+  }
+  if (action === 'star-list' && b && b.star != null) {
+    const t = listingTermsOf(b)
+    if (t.gate !== undefined && String(t.gate) === doorUnits(b.star, 'a star number')) {
+      throw new Error('an offer cannot be opened by the very star it offers')
+    }
+  }
+  if (action === 'packet-list' || action === 'packet-delist' || action === 'packet-take') {
+    if (!node.ledger.packetMarketIsLaw(nextSeq)) throw new Error('the packet market is not the law on this network yet')
+  }
+  // WHAT THE LAW WILL CERTAINLY REFUSE, REFUSED HERE. `claim-take` has always re-proven the merkle path at
+  // the door so nobody signs against a root they cannot rebuild; a packet take had no twin, so the wallet
+  // opened, the citizen approved, and only then learned the offer was gone, re-listed or re-priced. The
+  // reducer still checks every one of these again — this only spares the signature.
+  if (action === 'packet-take' && b && typeof b.seller === 'string' && b.seller.trim()) {
+    const lane = b.lane, asset = b.asset != null ? String(b.asset) : (b.star != null ? String(b.star) : b.runeId != null ? String(b.runeId) : '')
+    // NO SILENT CATCH. A guard that swallows its own error stops guarding, quietly — which is worse than
+    // no guard at all, because the page then believes it was checked. Let a real fault surface as a 500.
+    const live = node.ledger.packets.get(lane, asset, String(b.seller))
+    if (!live) throw new Error('that packet is not listed')
+    if (b.amount != null && String(doorUnits(b.amount, 'a packet amount')) !== String(live.amount)) {
+      throw new Error(`the listed amount (${live.amount}) is not the ${doorUnits(b.amount, 'a packet amount')} you named — a take is whole or nothing`)
+    }
+    if (b.price != null && String(doorUnits(b.price, 'a packet price')) !== String(live.price)) {
+      throw new Error(`the listed price (${live.price}) is not the ${doorUnits(b.price, 'a packet price')} you named — the offer was re-priced`)
+    }
+    if (live.to && live.to !== String(b.from)) throw new Error('that offer was left for another address — refused')
+    // the SAME reader the packets floor publishes `sellerHolds` from — `ledger.packetHeld` is private
+    const held = packetHeldView(lane, asset, String(b.seller))
+    if (held !== null && held < BigInt(live.amount)) {
+      throw new Error(`the seller no longer holds that packet — the offer is stale (they hold ${held}, it offers ${live.amount})`)
+    }
+    const sealedNow = node.ledger.sealedHeight()
+    if (live.notBefore !== undefined && sealedNow < Number(live.notBefore)) {
+      throw new Error(`that offer opens at Bitcoin height ${live.notBefore}; the chain is sealed to ${sealedNow}`)
+    }
+  }
+  // THE ESCROW AND ITS POOL, mirrored the same way. This was MISSING when the market's two pins were
+  // mirrored, and the gap reached mainnet: the door happily prepared a `claim-open` on a network whose
+  // reducer refuses every claim act, so a citizen would have signed for nothing. Found by asking the live
+  // door, one act at a time, after the deploy — which is why the deploy asks.
+  if (CLAIM_DOOR_KINDS.has(action)) {
+    if (!node.ledger.claimEscrowIsLaw(nextSeq)) throw new Error('the claim escrow is not the law on this network yet')
+  }
+  // THE ESCROW'S TWO SPENDING ACTS, refused at the door for the same reason as the packet and the mint.
+  // `claimProves` already ran here inside `submit`; `prepare` did not, so the wallet opened for a proof
+  // that cannot rebuild the root and for a close on a harvest that does not exist. The reducer checks all
+  // of it again — this only spares the signature.
+  if (action === 'claim-take' && b) {
+    const root = String(b.claimRoot ?? '')
+    if (!/^[0-9a-f]{64}$/.test(root)) throw new Error('a claim names the harvest it takes from (32-byte hex root)')
+    const claim = node.ledger.claims.get(root)
+    if (!claim) throw new Error('no harvest is open at that root')
+    if (claim.mint) throw new Error('that root is a mint, not a harvest — a mint pays whoever has not taken, with no proof')
+    if (node.ledger.claims.hasTaken(root, String(b.from))) throw new Error('you have already taken your share of that harvest')
+    const proof = doorProof(b)
+    const amount = packetUnits(b.amount, 'share')
+    if (!claimProves(root, String(b.from), amount, proof)) throw new Error('that proof does not put your hand in this harvest')
+  }
+  if (action === 'claim-close' && b) {
+    const root = String(b.claimRoot ?? '')
+    if (!/^[0-9a-f]{64}$/.test(root)) throw new Error('a close names the harvest it closes (32-byte hex root)')
+    const claim = node.ledger.claims.get(root)
+    if (!claim) throw new Error('no harvest is open at that root')
+    if (claim.giver !== String(b.from)) throw new Error('only the hand that opened a harvest may close it')
+    if (claim.expires === 0) throw new Error('that harvest named no closing height — what it holds belongs to the hands in its root, forever')
+    const sealed = node.ledger.sealedHeight()
+    if (sealed < claim.expires) throw new Error(`that harvest closes at Bitcoin height ${claim.expires}; the chain is sealed to ${sealed} — refused`)
+  }
+  // THE MINT, mirrored the same way and for the same reason. Its own pin, asked of the ledger itself.
+  if (MINT_DOOR_KINDS.has(action)) {
+    if (!node.ledger.mintDropIsLaw(nextSeq)) throw new Error('the mint drop is not the law on this network yet')
+    // A TAKE THE LAW WILL CERTAINLY REFUSE, REFUSED BEFORE THE SIGNATURE. This lived only in `submit`, so
+    // `prepare` still handed out a line and the wallet opened for a hand that had already taken its pot —
+    // the same flaw `packet-take` carried. The reducer checks all of it again; this only spares the popup.
+    if (action === 'mint-take') {
+      const root = String(b && b.claimRoot ? b.claimRoot : '')
+      if (!/^[0-9a-f]{64}$/.test(root)) throw new Error('a take names the mint it takes from (32-byte hex root)')
+      const claim = node.ledger.claims.get(root)
+      if (!claim) throw new Error('no mint is open at that root')
+      if (!claim.mint) throw new Error('that root is a harvest, not a mint — a harvest pays against a merkle proof')
+      const who = String(b.from || '')
+      if (node.ledger.claims.hasTaken(root, who)) throw new Error('you have already taken your pot from that mint')
+      if (node.ledger.claims.potsLeft(root) <= 0) throw new Error('every pot of that mint is taken')
+      if (claim.mint.gate === null && b.star != null && String(b.star) !== '') {
+        throw new Error('that mint has no gate — naming a star would sign a line the law does not read')
+      }
+      if (claim.mint.gate !== null && (b.star == null || String(b.star) === '')) {
+        throw new Error(`that mint opens only for a hand holding a star of land ${claim.mint.gate.star} — name the star you hold`)
+      }
+    }
+    if (action === 'mint-open') {
+      // Refuse at the door what the reducer will certainly refuse, so nobody signs for nothing.
+      const expires = b && b.expires != null ? Number(b.expires) : 0
+      if (!Number.isInteger(expires) || expires <= 0) throw new Error('a mint closes at a Bitcoin height — unlike a harvest it may not say 0: with nobody named, pots nobody takes would be locked forever')
+      if (b && b.gateStar != null && String(b.gateStar) !== '') throw new Error('a mint cannot be gated on holding ONE star — that names one address, so every pot past the first would be unclaimable from the instant it is signed')
+      const hands = b && b.hands != null ? Number(b.hands) : 0
+      if (!Number.isInteger(hands) || hands < 1) throw new Error('a mint needs at least one pot')
+    }
+  }
+  if (action === 'star-list' && !node.ledger.giftListingIsLaw(nextSeq)) {
+    const priceIsZero = b && b.price != null && String(b.price).trim() !== '' && (() => { try { return BigInt(doorUnits(b.price, 'a listing price')) === 0n } catch { return false } })()
+    if (priceIsZero) throw new Error('a star listing needs a positive price on this network yet — the gift is not its law')
+    if (hasTerms(listingTermsOf(b))) throw new Error('an offer with terms is not the law on this network yet')
+  }
+}
+
 function assertRuneBookDoor(kind) {
   if (!RUNE_BOOK_KINDS.has(kind)) return
   if (!node.ledger.runeBookIsOpen(node.seq + 1)) {
@@ -5327,6 +5596,7 @@ function prepareMessage(action, b, nonceOverride) {
   const from = b.from
   if (!from) throw new Error('from is required')
   assertRuneBookDoor(action)
+  assertMarketDoor(action, b)
   // a batch prepares many actions at once, each at a sequential nonce (n, n+1, …); the override lets the
   // batch builder assign them without each item re-reading the same current nonce. Default = the live nonce.
   const nonce = nonceOverride != null ? nonceOverride : node.nonceOf(from)
@@ -5519,7 +5789,66 @@ function prepareMessage(action, b, nonceOverride) {
     case 'fold-seal': return { message: foldSealMessage(NET, from, String(b.foldPre), String(b.foldPost), String(b.foldDiffsHash), nonce), nonce }
     case 'sendstar': assertNotAmmPot(b.to, 'send star'); return { message: sendStarMessage(NET, from, b.to, BigInt(b.star), nonce), nonce, star: String(b.star) }
     // THE STAR MARKET — the exact terms each party signs (buyer signs star+price+seller: no phantom price)
-    case 'star-list': return { message: starListMessage(NET, from, BigInt(b.star), BigInt(b.price), nonce), nonce, star: String(b.star) }
+    case 'star-list': {
+      // An offer may name WHO may take it, WHICH star opens it and WHEN (docs/DROP-AND-PACKET-MARKET.md).
+      // With no terms this is byte-for-byte the v1 line it always was (A3).
+      const t = listingTermsOf(b)
+      // ONE reader for the price, in both halves of the door: `prepare` once signed `BigInt(b.price)` while
+      // `buildSubmitEvent` wrote `String(b.price)`, so a JSON number ≥ 1e21 was signed in one spelling and
+      // submitted in another — the citizen burned a signature and got a raw engine error back.
+      const price = doorUnits(b.price, 'a listing price')
+      return {
+        message: hasTerms(t)
+          ? starListV2Message(NET, from, BigInt(b.star), BigInt(price), t, nonce)
+          : starListMessage(NET, from, BigInt(b.star), BigInt(price), nonce),
+        nonce, star: String(b.star),
+      }
+    }
+    case 'packet-list': {
+      const { lane, asset } = packetLaneOf(b)
+      return { message: packetListMessage(NET, from, lane, asset, packetUnits(b.amount, 'amount'), packetUnits(b.price, 'price'), listingTermsOf(b), nonce), nonce }
+    }
+    case 'packet-delist': {
+      const { lane, asset } = packetLaneOf(b)
+      return { message: packetDelistMessage(NET, from, lane, asset, nonce), nonce }
+    }
+    case 'claim-open': {
+      const { lane, asset } = packetLaneOf(b)
+      return { message: claimOpenMessage(NET, from, lane, asset, doorTotal(b), doorRoot(b), doorExpires(b), nonce), nonce }
+    }
+    case 'claim-take': return { message: claimTakeMessage(NET, from, doorRoot(b), packetUnits(b.amount, 'share'), nonce), nonce }
+    case 'claim-close': return { message: claimCloseMessage(NET, from, doorRoot(b), nonce), nonce }
+    case 'mint-open': {
+      const { lane, asset } = packetLaneOf(b)
+      const t = doorMintTerms(b)
+      return { message: mintOpenMessage(NET, from, lane, asset, t.perHand, t.hands, t.gate, t.expires, nonce), nonce }
+    }
+    case 'mint-take': {
+      const star = b.star != null && String(b.star) !== '' ? BigInt(doorUnits(b.star, 'the star you hold')) : null
+      return { message: mintTakeMessage(NET, from, doorRoot(b), star, nonce), nonce }
+    }
+    case 'pool-fund': {
+      const { lane, asset } = packetLaneOf(b)
+      return { message: poolFundMessage(NET, from, lane, asset, doorTotal(b), doorExpires(b), nonce), nonce }
+    }
+    case 'pool-season': {
+      const { lane, asset } = packetLaneOf(b)
+      return { message: poolSeasonMessage(NET, from, lane, asset, packetUnits(b.ceiling != null ? b.ceiling : b.amount, 'season ceiling'), doorRoot(b), doorExpires(b), nonce), nonce }
+    }
+    case 'pool-close': {
+      const { lane, asset } = packetLaneOf(b)
+      return { message: poolCloseMessage(NET, from, lane, asset, doorTotal(b), nonce), nonce }
+    }
+    case 'packet-take': {
+      const { lane, asset } = packetLaneOf(b)
+      assertNotAmmPot(b.seller, 'take packet')
+      // THE TERMS THE TAKER IS ANSWERING, read from the book the node itself publishes — so the line they
+      // sign names the offer as it stands right now, and a re-aimed offer refutes the signature instead of
+      // quietly swallowing it.
+      const live = node.ledger.packets.get(lane, asset, String(b.seller))
+      const terms = packetTermsHash(live ?? undefined)
+      return { message: packetTakeMessage(NET, from, String(b.seller), lane, asset, packetUnits(b.amount, 'amount'), packetUnits(b.price, 'price'), terms, nonce), nonce, terms }
+    }
     case 'star-delist': return { message: starDelistMessage(NET, from, BigInt(b.star), nonce), nonce, star: String(b.star) }
     case 'star-buy': assertNotAmmPot(b.seller, 'buy star'); return { message: starBuyMessage(NET, from, BigInt(b.star), BigInt(b.price), String(b.seller), nonce), nonce, star: String(b.star) }
     case 'star-offer': return { message: starOfferMessage(NET, from, BigInt(b.star), BigInt(b.price), nonce), nonce, star: String(b.star) }
@@ -5647,6 +5976,7 @@ function prepareMessage(action, b, nonceOverride) {
 }
 function buildSubmitEvent(action, b, atOverride) {
   assertRuneBookDoor(action)
+  assertMarketDoor(action, b)
   const base = { from: b.from, nonce: Number(b.nonce), publicKey: b.publicKey, signature: b.signature, scheme: (b.scheme === 'ml-dsa' ? 'ml-dsa' : 'kraywallet'), at: atOverride ?? Date.now() }
   let action_
   // SECURITY: never touch the content store before the signature is verified. An unsigned/unpaid request must
@@ -5762,7 +6092,107 @@ function buildSubmitEvent(action, b, atOverride) {
       break
     }
     // THE STAR MARKET — native, atomic, trustless. list/edit-price + delist + buy; the eternal 1-₭ fee → validators.
-    case 'star-list': action_ = { ...base, kind: 'star-list', star: String(b.star), amount: String(b.price), fee: '1' }; break
+    case 'star-list': {
+      const t = listingTermsOf(b)
+      action_ = {
+        ...base, kind: 'star-list', star: String(b.star), amount: doorUnits(b.price, 'a listing price'), fee: '1',
+        ...(t.to ? { to: t.to } : {}),
+        ...(t.gate !== undefined ? { gateStar: t.gate.toString() } : {}),
+        ...(t.notBefore !== undefined ? { notBefore: t.notBefore } : {}),
+      }
+      break
+    }
+    // THE PACKET MARKET — ₭ / Luz / rune packets under the star market's law. The lane carries its own
+    // asset field and no other; `packetAssetOfEvent` is the ONE reader the reducer and the mirror share.
+    case 'packet-list': {
+      const { lane, asset } = packetLaneOf(b)
+      const t = listingTermsOf(b)
+      action_ = {
+        ...base, kind: 'packet-list', lane, ...packetAssetFields(lane, asset),
+        amount: String(b.amount), price: String(b.price), fee: '1',
+        ...(t.to ? { to: t.to } : {}),
+        ...(t.gate !== undefined ? { gateStar: t.gate.toString() } : {}),
+        ...(t.notBefore !== undefined ? { notBefore: t.notBefore } : {}),
+      }
+      break
+    }
+    case 'packet-delist': {
+      const { lane, asset } = packetLaneOf(b)
+      action_ = { ...base, kind: 'packet-delist', lane, ...packetAssetFields(lane, asset), fee: '1' }
+      break
+    }
+    // THE CLAIM ESCROW — one signed root opens a harvest; each hand proves its own leaf. The proof is a
+    // WITNESS and rides unsigned: it rebuilds the root or it does not.
+    case 'claim-open': {
+      const { lane, asset } = packetLaneOf(b)
+      action_ = {
+        ...base, kind: 'claim-open', lane, ...packetAssetFields(lane, asset),
+        amount: String(doorTotal(b)), claimRoot: doorRoot(b), fee: '1',
+        ...(doorExpires(b) ? { expires: doorExpires(b) } : {}),
+      }
+      break
+    }
+    case 'mint-open': {
+      const { lane, asset } = packetLaneOf(b)
+      const t = doorMintTerms(b)
+      action_ = {
+        ...base, kind: 'mint-open', lane, ...packetAssetFields(lane, asset),
+        perHand: t.perHand.toString(), hands: t.hands, expires: t.expires, fee: '1',
+        ...(t.gate ? { gateChildOf: t.gate.star.toString() } : {}),
+      }
+      break
+    }
+    case 'mint-take': {
+      // Refuse here what the law will certainly refuse, so a citizen never spends a signature for nothing.
+      const root = doorRoot(b)
+      const claim = node.ledger.claims.get(root)
+      if (!claim) throw new Error('no mint is open at that root')
+      if (!claim.mint) throw new Error('that root is a harvest, not a mint — a harvest pays against a merkle proof')
+      if (node.ledger.claims.hasTaken(root, String(b.from))) throw new Error('you have already taken your pot from that mint')
+      if (node.ledger.claims.potsLeft(root) <= 0) throw new Error('every pot of that mint is taken')
+      action_ = {
+        ...base, kind: 'mint-take', claimRoot: root, fee: '1',
+        ...(b.star != null && String(b.star) !== '' ? { star: String(doorUnits(b.star, 'the star you hold')) } : {}),
+      }
+      break
+    }
+    case 'claim-take': {
+      const proof = doorProof(b)
+      const root = doorRoot(b), amount = packetUnits(b.amount, 'share')
+      // Refuse here what the law will certainly refuse, so a citizen never spends a signature on a path
+      // that cannot rebuild the root they are claiming against.
+      if (!claimProves(root, String(b.from), amount, proof)) throw new Error('that proof does not put your hand in this harvest')
+      action_ = { ...base, kind: 'claim-take', claimRoot: root, amount: String(amount), claimProof: proof, fee: '1' }
+      break
+    }
+    case 'claim-close': { action_ = { ...base, kind: 'claim-close', claimRoot: doorRoot(b), fee: '1' }; break }
+    case 'pool-fund': {
+      const { lane, asset } = packetLaneOf(b)
+      action_ = { ...base, kind: 'pool-fund', lane, ...packetAssetFields(lane, asset), amount: String(doorTotal(b)), fee: '1', ...(doorExpires(b) ? { expires: doorExpires(b) } : {}) }
+      break
+    }
+    case 'pool-season': {
+      const { lane, asset } = packetLaneOf(b)
+      const ceiling = packetUnits(b.ceiling != null ? b.ceiling : b.amount, 'season ceiling')
+      action_ = { ...base, kind: 'pool-season', lane, ...packetAssetFields(lane, asset), amount: String(ceiling), claimRoot: doorRoot(b), fee: '1', ...(doorExpires(b) ? { expires: doorExpires(b) } : {}) }
+      break
+    }
+    case 'pool-close': {
+      const { lane, asset } = packetLaneOf(b)
+      action_ = { ...base, kind: 'pool-close', lane, ...packetAssetFields(lane, asset), amount: String(doorTotal(b)), fee: '1' }
+      break
+    }
+    case 'packet-take': {
+      const { lane, asset } = packetLaneOf(b)
+      assertNotAmmPot(b.seller, 'take packet')
+      const declared = b && typeof b.termsHash === 'string' ? b.termsHash : packetTermsHash(node.ledger.packets.get(lane, asset, String(b.seller)) ?? undefined)
+      action_ = {
+        ...base, kind: 'packet-take', lane, ...packetAssetFields(lane, asset),
+        to: String(b.seller), amount: doorUnits(b.amount, 'a packet amount'), price: doorUnits(b.price, 'a packet price'), fee: '1',
+        ...(declared ? { termsHash: declared } : {}),
+      }
+      break
+    }
     case 'star-delist': action_ = { ...base, kind: 'star-delist', star: String(b.star), fee: '1' }; break
     case 'star-buy': assertNotAmmPot(b.seller, 'buy star'); action_ = { ...base, kind: 'star-buy', to: b.seller, star: String(b.star), amount: String(b.price), fee: '1' }; break
     case 'star-offer': action_ = { ...base, kind: 'star-offer', star: String(b.star), amount: String(b.price), fee: '1' }; break
@@ -6201,6 +6631,9 @@ const server = createServer(async (req, res) => {
           '/market': 'markets.html',
           '/market/star': 'market.html',
           '/market/luz': 'luz.html',
+          '/market/drops': 'drops.html',   // the floor where the price is zero
+          '/harvests': 'harvests.html',    // one signed root, many hands — the escrow's own window
+          '/market/harvests': 'harvests.html',
           '/collections': 'market.html',
         }
         const PARAM = [
@@ -7053,13 +7486,52 @@ const server = createServer(async (req, res) => {
           const s = node.star(BigInt(l.star))
           return {
             star: l.star, seller: l.seller, price: l.price,
+            // THE TERMS — a price of 0 is a DROP; `to` names the one hand that may take it, `gate` the star
+            // that opens it, `notBefore` the Bitcoin height it waits for. Absent means unconditional.
+            ...(l.to ? { to: l.to } : {}),
+            ...(l.gate !== undefined ? { gate: l.gate } : {}),
+            ...(l.notBefore !== undefined ? { notBefore: l.notBefore } : {}),
+            drop: l.price === '0',
             name: s?.name ?? null, contentHash: s?.contentHash ?? null, contentType: s?.contentType ?? null,
             rarity: s?.rarity ?? null, collection: s?.collection ?? null,
             media: s?.contentHash ? '/content/' + s.contentHash : null,
             owner: s?.owner ?? null,   // == seller while the offer is live; a mismatch means the offer is stale
           }
         })
-        return ok(res, { count: listings.length, listings, ...marketPulse() })
+        return ok(res, { count: listings.length, listings, sealedHeight: node.ledger.sealedHeight(), ...marketPulse() })
+      }
+      // THE CLAIM ESCROW — every open harvest, what it still owes, and how many hands have taken. Read-only.
+      if (p === '/api/kraynet/claims') {
+        const rows = node.ledger.claims.all().map((c) => ({
+          ...c,
+          owed: (BigInt(c.total) - BigInt(c.paid)).toString(),
+          closes: c.expires || null,
+          closeable: c.expires > 0 && node.ledger.sealedHeight() >= c.expires,
+        }))
+        return ok(res, { count: rows.length, claims: rows, pools: node.ledger.pools.all(), sealedHeight: node.ledger.sealedHeight(), potBacked: node.ledger.claimsBacked() })
+      }
+      // THE PACKET MARKET — offers of ₭, of one star's Luz, or of one L2 rune. A price of 0 is a DROP.
+      // Read-only, derived from the reducer's own book, with the seller's CURRENT holding beside the offer so
+      // a client can see at a glance whether the offer is still fillable (the book holds no custody).
+      if (p === '/api/kraynet/packets') {
+        const sealedNow = node.ledger.sealedHeight()
+        const rows = node.ledger.packets.all().map((l) => {
+          const held = packetHeldView(l.lane, l.asset, l.seller)
+          return {
+            lane: l.lane, asset: l.asset, seller: l.seller, amount: l.amount, price: l.price,
+            ...(l.to ? { to: l.to } : {}),
+            ...(l.gate !== undefined ? { gate: l.gate } : {}),
+            ...(l.notBefore !== undefined ? { notBefore: l.notBefore } : {}),
+            drop: l.price === '0',
+            sellerHolds: held === null ? null : held.toString(),
+            // `fillable` once ignored the offer's own terms and promised a take the law refuses. The height
+            // is objective, so it is answered here; `to` and `gate` depend on WHO is asking, so they are
+            // published beside it for the reader to judge, never folded into a yes.
+            fillable: held === null ? null : (held >= BigInt(l.amount) && (l.notBefore == null || sealedNow >= Number(l.notBefore))),
+            openToAnyone: !l.to && l.gate == null,
+          }
+        })
+        return ok(res, { count: rows.length, listings: rows, sealedHeight: sealedNow })
       }
       // LINEAGE COLLECTIONS — a named parent with children. Read-only view of the journal + listing book.
       if (p === '/api/kraynet/collections') return ok(res, { collections: collectionsIndex() })
@@ -7135,6 +7607,43 @@ const server = createServer(async (req, res) => {
           const all = existsSync(jp) ? readFileSync(jp, 'utf8').split('\n').filter((l) => l.trim()) : []
           if (all.length) { for (let s = 0; s < all.length; s += DEFAULT_CHUNK_SIZE) { const span = all.slice(s, s + DEFAULT_CHUNK_SIZE); if (chunkAddress(span) === cm[1]) return ok(res, { address: cm[1], lines: span }) } }
           return err(res, 404, 'no chunk with that content address in this journal')
+        }
+      }
+      // ── A HARVEST'S LIST by the root it produces. The chain holds the root; this holds the names, so a
+      //    hand can build its own proof from a link instead of from whatever the giver remembered to send
+      //    them. Self-proving like a chunk: re-root what comes back and a lying server is caught at once.
+      {
+        const lm = /^\/api\/kraynet\/claim\/list\/([0-9a-f]{64})$/.exec(p)
+        if (lm) {
+          if (PUBLIC && publicWalletGetFlood(req)) return err(res, 429, 'slow down')
+          const file = join(DATA_DIR, 'claim-lists', `${lm[1]}.json`)
+          if (!existsSync(file)) return err(res, 404, 'this node keeps no list for that root — ask whoever opened the harvest to publish it')
+          try { return ok(res, JSON.parse(readFileSync(file, 'utf8'))) }
+          catch { return err(res, 503, 'the stored list could not be read') }
+        }
+      }
+      // ── HAS THIS HAND ALREADY TAKEN? A VIEW, never an authority.
+      //
+      //    IT LEAKS NOTHING. The list is published under its own root, `paid` and `hands` are already in
+      //    /claims, and every claim-take sits in the journal any stranger can replay from chunk 0. This
+      //    answers in one lookup what anybody could already compute — it adds no fact to the world.
+      //
+      //    IT DECIDES NOTHING. The reducer never reads this. A stale `false` costs a refusal that charges
+      //    no fee and writes nothing; a stale `true` costs a button that the law would have refused anyway.
+      //    What it buys is that a player clicking an NPC learns "already claimed" WITHOUT a wallet popup —
+      //    signing must never be how someone discovers there was nothing for them.
+      {
+        const tm = /^\/api\/kraynet\/claim\/taken\/([0-9a-f]{64})\/([0-9A-Za-z]{8,128})$/.exec(p)
+        if (tm) {
+          if (PUBLIC && publicWalletGetFlood(req)) return err(res, 429, 'slow down')
+          const root = tm[1], who = tm[2]
+          const claim = node.ledger.claims.get(root)
+          if (!claim) return err(res, 404, 'no harvest is open at that root')
+          return ok(res, {
+            root, address: who,
+            taken: node.ledger.claims.hasTaken(root, who),
+            owed: (claim.total - claim.paid).toString(),
+          })
         }
       }
       if (p === '/api/kraynet/anchors') {
@@ -8036,7 +8545,7 @@ const server = createServer(async (req, res) => {
           const out = await r.json().catch(() => ({}))
           const fate = settleDrainOutcome(took.id, b, r, out)
           if (fate === 'applied') return ok(res, { ok: true, id: took.id, stored: true, applied: true, seq: out.seq, hash: out.hash, ...(out.star != null ? { star: out.star, url: out.url } : {}), cascadeRoot: out.cascadeRoot })
-          if (fate === 'superseded') return ok(res, { ok: true, id: took.id, stored: true, applied: false, superseded: true, note: 'the account nonce already advanced past this act — its intent is already in the journal' })
+          if (fate === 'superseded') return ok(res, { ok: true, id: took.id, stored: true, applied: false, superseded: true, note: 'this act was NOT applied — another act of yours consumed that nonce, so it can never apply. Read the account to see what did.' })
           return ok(res, { ok: true, id: took.id, stored: true, applied: false, lastError: (out && out.error) || `HTTP ${r.status}`, note: 'held in the inbox — the drain loop retries FIFO; poll GET /api/kraynet/inbox/' + took.id })
         } catch (e) {
           inbox.markAttempt(took.id, e instanceof Error ? e.message : String(e))
@@ -8079,6 +8588,66 @@ const server = createServer(async (req, res) => {
       }
       // only the HOLDER of a Bitcoin L1 ordinal may father an origin child from it —
       // SPV control proof is the law (DEV-TRUST is not ownership). Ord mismatch is a fast 403.
+      // THE PROOF DESK — pure arithmetic over a list the CALLER brings: the node stores no harvest list and
+      // learns nothing from asking. It exists so no wallet has to reimplement a merkle tree to claim.
+      if (p === '/api/kraynet/claim/proof') {
+        const shares = Array.isArray(b && b.shares) ? b.shares : null
+        if (!shares || !shares.length) return err(res, 400, 'send {shares:[{to,amount}…]} — the list the giver published')
+        if (shares.length > CLAIM_MAX_HANDS) return err(res, 400, `a harvest names at most ${CLAIM_MAX_HANDS} hands`)
+        let parsed
+        try {
+          parsed = shares.map((row) => ({ to: doorString(row && row.to, 'a share address'), amount: BigInt(doorUnits(row && row.amount, 'a share')) }))
+        } catch (e2) { return err(res, 400, e2.message) }
+        const root = claimRoot(parsed)
+        const wanted = b && b.to != null ? doorString(b.to, 'an address') : ''
+        if (!wanted) return ok(res, { root, hands: parsed.length })
+        const index = parsed.findIndex((row) => row.to === wanted)
+        if (index < 0) return ok(res, { root, hands: parsed.length, inList: false })
+        const proof = claimProof(parsed, index)
+        // `taken` rides along because the caller is about to ask for a signature and this is the last
+        // moment it is free to learn there is nothing to sign for. It is a view: the reducer checks again.
+        return ok(res, {
+          root, hands: parsed.length, inList: true, amount: parsed[index].amount.toString(), proof,
+          taken: node.ledger.claims.hasTaken(root, wanted),
+        })
+      }
+
+      /**
+       * THE LIST, WHERE ANYBODY CAN FETCH IT. The chain keeps a harvest's ROOT and nothing else — it does
+       * not need the names and should not carry them. But a root alone pays nobody: without the list, the
+       * hands in it cannot build their own proof, and a pot with no closing height would sit there forever.
+       * So the giver has to publish the list somewhere, and until now "somewhere" was their problem.
+       *
+       * Here it is, by CONTENT ADDRESS — the same law the journal's own chunks follow. A list is stored
+       * under the root it produces, so a lying node can only ever FAIL to serve one; it can never serve a
+       * different list undetected, because a different list has a different root and every reader re-roots
+       * what it receives. Nothing here is consensus: it is a place to put bytes that prove themselves.
+       *
+       * THE ANTI-ABUSE IS THE CHAIN ITSELF. A list is kept only when its root matches a harvest that this
+       * node's own book already holds — so filling this store costs exactly what opening a harvest costs,
+       * in real value, on the real chain. There is no free write.
+       */
+      if (p === '/api/kraynet/claim/list') {
+        const shares = Array.isArray(b && b.shares) ? b.shares : null
+        if (!shares || !shares.length) return err(res, 400, 'send {shares:[{to,amount}…]} — the list this harvest was opened on')
+        if (shares.length > CLAIM_MAX_HANDS) return err(res, 400, `a harvest names at most ${CLAIM_MAX_HANDS} hands`)
+        let parsed
+        try {
+          parsed = shares.map((row) => ({ to: doorString(row && row.to, 'a share address'), amount: BigInt(doorUnits(row && row.amount, 'a share')) }))
+        } catch (e2) { return err(res, 400, e2.message) }
+        const root = claimRoot(parsed)
+        // The one gate: this must be the list a real harvest was opened on. No harvest, no storage.
+        if (!node.ledger.claims.all().some((c) => c.root === root)) {
+          return err(res, 404, 'no open harvest carries that root — a list is kept only for a harvest that exists')
+        }
+        try {
+          const dir = join(DATA_DIR, 'claim-lists')
+          mkdirSync(dir, { recursive: true, mode: 0o700 })
+          const body = JSON.stringify({ version: 1, root, hands: parsed.length, shares: parsed.map((r) => ({ to: r.to, amount: r.amount.toString() })) })
+          writeFileSync(join(dir, `${root}.json`), body, { mode: 0o600 })
+          return ok(res, { root, hands: parsed.length, url: `/api/kraynet/claim/list/${root}` })
+        } catch { return err(res, 503, 'this node could not keep the list right now') }
+      }
       if ((p === '/api/kraynet/prepare' || p === '/api/kraynet/submit') && b && b.action === 'origin') {
         try { await assertLiveOriginParentage(b.from, [String(b.parentId || '')], b.originProofs) }
         catch (e) { return err(res, 403, e.message) }

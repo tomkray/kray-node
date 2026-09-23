@@ -30,6 +30,7 @@ gauntlet-*/
 
 # live node state — each network's own universe, never source
 apps/kray-net/data/
+/data-lab/                 # a bench started from the repo root (KRAY_DATA=./data-lab) — throwaway regtest state
 apps/kray-net/data-lab/
 apps/kray-net/data-v2/
 apps/kray-net/data-signet/

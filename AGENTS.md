@@ -1,7 +1,7 @@
 # AGENTS.md — KRAY.NETWORK
 
-> Law: `docs/AXIOMS.md` · geometry: `docs/FOLDER-LAW.md` ·
-> book vs apps: `docs/BOOK-AND-APPS.md`.
+> Law: `docs/AXIOMS.md` · **the map and the rite: `docs/THE-RITE.md`** ·
+> geometry: `docs/FOLDER-LAW.md` · book vs apps: `docs/BOOK-AND-APPS.md`.
 
 This repository is the public node. Clone it. Follow it. Verify it.
 A stranger's clone is never the writer. Two writers = fork.
@@ -34,6 +34,36 @@ Do not ask for pot vault keys.
    Signet/main.
 5. Updates never auto-run. Follower `git pull` + restart, or `/validate`
    → Update my node folder.
+
+## When the human says "the rite" — or asks you to change anything
+
+The foundation here is finished and proven. Everything from now on is **evolution built on top of
+that base**, so the one thing that must never happen is a change that breaks the base — a change
+that breaks the base is not an evolution, it is a different network.
+
+Read **`docs/THE-RITE.md`** before you touch anything, and run the rite after. It carries the five
+truths that may never break, the roles (writer · guardian · pen · vitrine · validator) and which
+kind of change reaches each, the flows that must keep breathing, the ordered steps, and the real
+incident behind every one of them.
+
+The short form, in order — a red result means **stop**, never "probably fine":
+
+1. `cd apps/kray-core && npm run test:fast` — the superset; it ends by calling `test:core`.
+2. `node scripts/cold-replay.mjs` — **the one that matters most.** Every live network must
+   re-derive byte for byte on this code. Red here means the change is a fork: do not deploy.
+3. `bash scripts/operator/fleet-law-check.sh` — every house holds what `origin/main` published,
+   every process started after its own code, every live edge answers as the current law.
+4. `bash scripts/operator/fleet-health.sh` — every book fresh, every door answering, every rune
+   solvent.
+5. Stamp the sync revision **only after** the files have been measured — never in the same breath
+   as the extraction.
+
+Steps 3 and 4 are operator-local (`scripts/operator/` is out of the public tree on purpose; it
+holds the host map). Steps 1 and 2 run from any clone.
+
+**Update only what actually moved.** The rest of the project is already proven — leave it exactly
+as it is. Never "tidy", never reorder a constructor, never rename a data directory. When you add a
+new act, pin it per network and name it in all four places (`docs/THE-RITE.md` §6).
 
 ## Houses (this clone)
 
