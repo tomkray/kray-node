@@ -78,6 +78,7 @@
   var LIST = [
     { id: "code", title: "Code", kind: "code", tag: "vars + rules", blurb: "Your own law. Paste the JSON paper. Draft in Solidity if you like — an AI translates it. The exam refuses raw Solidity because this chain cannot run a Turing VM. Run test, then seal." },
     { id: "cut", title: "KRC-77", kind: "form", tag: "luz ✧", blurb: "The token law on this star. Pick a max supply or infinite. Default is book only. Rain is opt-in: ₭ deposits fall on holders. No collect. Shares live on the book, not in this paper." },
+    { id: "cut-serial", title: "KRC-7777", kind: "form", tag: "serial id", blurb: "Same Luz paper, with an id on every unit. A canvas: games, editions, seats — anything that needs a number on this star. Supply 1 to 21,000. Not infinite. Each unit moves alone. One compiler, a second mouth." },
     { id: "poll", title: "Poll", kind: "form", tag: "✦ glow vote", blurb: "A proposal with sealed alternatives. Each person signs once, pays 1 ₭, and votes with the weight of their ✦ glow. Glow cannot move — a whale cannot buy the room. This is what glow is for." },
     { id: "mint", title: "Mint", kind: "form", tag: "mint now · inscribe", blurb: "Not a prelist. One click: price to the seller now, eternal burn to write the star, art bytes as the child. Same content cannot mint twice." },
     { id: "scroll", title: "Scroll", kind: "form", tag: "open claim", blurb: "Open scroll. Anyone claims each until max. The 1 ₭ fee is the sybil tax. Locked: ₭ leaves only through claim." },
@@ -129,6 +130,9 @@
     }
     if (id === "cut") {
       return { form: { kind: "cut", supply: "100000", infinite: false }, star: star };
+    }
+    if (id === "cut-serial") {
+      return { form: { kind: "cut-serial", supply: "6" }, star: star };
     }
     if (id === "poll") {
       return { form: { kind: "poll", title: "", choices: ["Yes", "No"] }, star: star };
@@ -255,6 +259,15 @@
         + labeled("f-pay", "Pay mint price to", "Empty = living owner of the face. Or any address on this network — a normal service payment sealed in the paper.", "empty = living owner", "")
         + '<div class="lawknob"><label for="f-shelf">Art URL · secret · this node only</label><p class="hint">Run test compiles the paper without this. Seal needs a real https URL — the grey hint is not a value. Never published. Unguessable paths.</p>'
         + '<input class="input" id="f-shelf" placeholder="paste https://…" autocomplete="off" style="min-height:44px"></div>';
+    } else if (id === "cut-serial") {
+      html = labeled("f-supply", "Supply · units with id", "How many serial units this star will ever have. 1 to 21,000 — not infinite. A game item, an edition, a seat — any id on this Luz. 6 is only a starter number.", "e.g. 6", "6", "numeric")
+        + rainKnob()
+        + '<div class="lawknob" id="f-founders-box">'
+        + '<label>Founders · optional</label>'
+        + '<p class="hint">Address + how many units at seal. Empty = you hold 1..N. What is not listed stays with you. At most 8. Σ cannot exceed supply.</p>'
+        + '<div id="f-founders"></div>'
+        + '<button type="button" class="btn" id="f-founder-add" style="min-height:44px;margin-top:8px">add a founder</button>'
+        + '</div>';
     } else if (id === "cut") {
       html = labeled("f-supply", "Supply · max units", "How many luz ✧ this star will ever have. 100000 is Radiola's default (one percent = 1000). Empty + infinite = no cap.", "e.g. 100000", "100000", "numeric")
         + '<label class="note" style="display:flex;align-items:center;gap:8px;min-height:44px">'
@@ -283,7 +296,7 @@
       return;
     }
     host.innerHTML = '<div class="lawfields">' + html + "</div>";
-    if (id === "cut") {
+    if (id === "cut" || id === "cut-serial") {
       mountFounders(host, opts.onChange);
       mountRain(host, opts.onChange);
     }
@@ -425,6 +438,11 @@
       var founders = readFounders(host);
       return { form: { kind: "cut", supply: val("f-supply"), infinite: !!(infBox && infBox.checked), rain: !!(rainBox && rainBox.checked), ...(founders.length ? { founders: founders } : {}) } };
     }
+    if (id === "cut-serial") {
+      var serialRain = document.getElementById("f-rain");
+      var serialFounders = readFounders(host);
+      return { form: { kind: "cut-serial", supply: val("f-supply"), rain: !!(serialRain && serialRain.checked), ...(serialFounders.length ? { founders: serialFounders } : {}) } };
+    }
     if (id === "poll") {
       return { form: { kind: "poll", title: val("f-title"), choices: readChoices(host) } };
     }
@@ -457,6 +475,10 @@
       var max = Number(f.max);
       var price = Number(f.price);
       return f.price !== "" && Number.isFinite(price) && price >= 0 && max >= 1 && max <= 256;
+    }
+    if (f.kind === "cut-serial") {
+      var serialSup = Number(f.supply);
+      return f.supply !== "" && Number.isInteger(serialSup) && serialSup >= 1 && serialSup <= 21000;
     }
     if (f.kind === "cut") {
       if (f.infinite) return !(f.founders && f.founders.length);

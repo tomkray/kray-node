@@ -51,6 +51,9 @@ export interface CascadeParts {
   /** THE STANDING POOLS — present iff a pool exists (by presence, appended LAST, A3). It commits what each
    *  pool holds, what its live seasons may still draw, and the horizon its owner may draw back at. */
   poolCommitment?: string
+  /** SERIAL PACKET MARKET — one KRC-7777 unit id per listing. Present iff a unit is listed (by presence,
+   *  appended LAST, A3). An empty book omits the field, so every pre-serial-market root opens identically. */
+  serialPacketCommitment?: string
 }
 
 /** Re-derive the cascade root from its parts — byte-identical to `ledger.cascadeRoot()`, which IS this. */
@@ -83,5 +86,6 @@ export function cascadeRootFromParts(p: CascadeParts): string {
   if (p.packetCommitment !== undefined) h.update(`packets:${p.packetCommitment}\n`, 'utf8') // PACKET MARKET (A3): undefined when no packet is listed ⇒ byte-identical to every pre-packet history
   if (p.claimCommitment !== undefined) h.update(`claims:${p.claimCommitment}\n`, 'utf8') // CLAIM ESCROW (A3): undefined when no harvest is open ⇒ byte-identical to every pre-claim history
   if (p.poolCommitment !== undefined) h.update(`pools:${p.poolCommitment}\n`, 'utf8') // STANDING POOLS (A3): undefined when none exists ⇒ byte-identical to every pre-pool history
+  if (p.serialPacketCommitment !== undefined) h.update(`serial-packets:${p.serialPacketCommitment}\n`, 'utf8') // KRC-7777 UNIT MARKET (A3): undefined when no unit is listed ⇒ byte-identical
   return h.digest('hex')
 }

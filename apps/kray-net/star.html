@@ -722,7 +722,7 @@
   function luzCardHtml(s){
     var L=s.luz;
     if(!L || L.unportioned) return '';
-    return '<div class="card tick" id="luz"><h2>✧ Luz · KRC-77</h2>'
+    return '<div class="card tick" id="luz"><h2>✧ Luz · '+(s.luz&&s.luz.serial?'KRC-7777':'KRC-77')+'</h2>'
       +'<div class="sub">The token book on this star — supply, who holds how many, tripwire. Same fold every node replays. '
       +'<a href="/market/luz">the light market →</a></div>'
       +'<div id="luzbody">…</div></div>';
@@ -841,6 +841,8 @@
         return;
       }
       var supply=book.supply||'0', circ=book.circulating||'0';
+      var serial=!!book.serial;
+      var L=book;
       var rows=book.holders||[];
       var ok=String(circ)===String(supply);
       var mine=0n;
@@ -875,13 +877,31 @@
         h+='</tbody></table></div>';
       }
       if(mine>0n){
+        var serial=!!(L&&L.serial);
+        var myUnits=(L&&L.units||[]).filter(function(u){ return me && String(u.address)===String(me); }).map(function(u){ return u.unit; });
         h+='<div class="lawfields" style="margin-top:var(--s5)">'
-          +'<div class="lawknob"><label for="luz-to">Send luz ✧</label>'
-          +'<p class="hint">You hold <b>'+nfmt(mine)+'</b> ✧ on this star. Fee 1 ₭. Σ does not change.</p></div>'
+          +'<div class="lawknob"><label for="luz-to">'+(serial?'Send one unit':'Send luz ✧')+'</label>'
+          +'<p class="hint">'+(serial
+            ? 'You hold <b>'+nfmt(mine)+'</b> serial units. Name the id. Fee 1 ₭. Σ does not change.'
+            : 'You hold <b>'+nfmt(mine)+'</b> ✧ on this star. Fee 1 ₭. Σ does not change.')+'</p></div>'
           +'<input class="input" id="luz-to" placeholder="to address (bc1p / bcrt1p…)" autocomplete="off">'
-          +'<input class="input" id="luz-amt" placeholder="amount" inputmode="numeric">'
-          +'<button type="button" class="btn primary" id="luz-send" style="min-height:44px">Send ✧</button>'
+          +(serial
+            ? '<input class="input" id="luz-amt" placeholder="'+(myUnits.length?'e.g. '+myUnits[0]:'unit id')+'" inputmode="numeric">'
+            : '<input class="input" id="luz-amt" placeholder="amount" inputmode="numeric">')
+          +'<button type="button" class="btn primary" id="luz-send" style="min-height:44px">'+(serial?'Send unit':'Send ✧')+'</button>'
           +'<div class="lawout" id="luz-out"></div></div>';
+        if(serial){
+          h+='<div class="lawfields" style="margin-top:var(--s4)">'
+            +'<div class="lawknob"><label for="luz-list-unit">List one unit</label>'
+            +'<p class="hint">Same market as a packet: you sign the id and the ₭ price. Nothing leaves until a take. Fee 1 ₭.</p></div>'
+            +'<input class="input" id="luz-list-unit" placeholder="'+(myUnits.length?'e.g. '+myUnits[0]:'unit id')+'" inputmode="numeric">'
+            +'<input class="input" id="luz-list-price" placeholder="price in ₭ · 0 = drop" inputmode="numeric" value="0">'
+            +'<button type="button" class="btn" id="luz-list" style="min-height:44px">List unit · 1 ₭</button>'
+            +'<div class="lawout" id="luz-list-out"></div></div>';
+        }
+      }
+      if(serial){
+        h+='<div id="luz-offers" class="note" style="margin-top:var(--s4)">reading unit offers…</div>';
       }
       host.innerHTML=h;
       var toEl=document.getElementById('luz-to'), amtEl=document.getElementById('luz-amt');
@@ -894,11 +914,13 @@
           var out=document.getElementById('luz-out');
           var to=String((document.getElementById('luz-to')||{}).value||'').trim();
           var amt=String((document.getElementById('luz-amt')||{}).value||'').replace(/[^0-9]/g,'');
-          if(!to || !amt){ if(out) out.textContent='name an address and a whole amount'; return; }
-          if(out) out.textContent='sign in KrayWallet — cut-send · 1 ₭…';
+          if(!to || !amt){ if(out) out.textContent=serial?'name an address and a unit id':'name an address and a whole amount'; return; }
+          if(out) out.textContent=serial?'sign in KrayWallet — cut-send-unit · 1 ₭…':'sign in KrayWallet — cut-send · 1 ₭…';
           who(me).then(function(from){
             if(!from) throw new Error('connect KrayWallet');
-            return signAndSubmit({ action:'cut-send', from: from, to: to, star: String(s.star), amount: amt });
+            return signAndSubmit(serial
+              ? { action:'cut-send-unit', from: from, to: to, star: String(s.star), unit: amt }
+              : { action:'cut-send', from: from, to: to, star: String(s.star), amount: amt });
           }).then(function(){
             if(out){ out.style.color='var(--good)'; out.textContent='sent — the book moved, Σ stayed'; }
             load();
@@ -906,6 +928,51 @@
             if(out){ out.style.color='var(--crit, #c44)'; out.textContent='✗ '+((e&&e.message)||'refused'); }
           });
         });
+      }
+      var listBtn=document.getElementById('luz-list');
+      if(listBtn){
+        listBtn.addEventListener('click', function(){
+          var out=document.getElementById('luz-list-out');
+          var unit=String((document.getElementById('luz-list-unit')||{}).value||'').replace(/[^0-9]/g,'');
+          var price=String((document.getElementById('luz-list-price')||{}).value||'0').replace(/[^0-9]/g,'')||'0';
+          if(!unit){ if(out) out.textContent='name the unit id'; return; }
+          if(out) out.textContent='sign in KrayWallet — packet-list-unit · 1 ₭…';
+          who(me).then(function(from){
+            if(!from) throw new Error('connect KrayWallet');
+            return signAndSubmit({ action:'packet-list-unit', from: from, star: String(s.star), unit: unit, price: price });
+          }).then(function(){
+            if(out){ out.style.color='var(--good)'; out.textContent='listed — the unit is still yours until a take'; }
+            load();
+          }).catch(function(e){
+            if(out){ out.style.color='var(--crit, #c44)'; out.textContent='✗ '+((e&&e.message)||'refused'); }
+          });
+        });
+      }
+      var offers=document.getElementById('luz-offers');
+      if(offers && serial){
+        fetch('/api/kraynet/packets').then(function(r){ return r.json(); }).then(function(pack){
+          var rows=(pack&&pack.units||[]).filter(function(u){ return String(u.star)===String(s.star); });
+          if(!rows.length){ offers.textContent='No unit of this star is listed.'; return; }
+          offers.innerHTML='<b>Listed units</b>'+rows.map(function(u){
+            var mine=me && String(u.seller)===String(me);
+            var price=String(u.price)==='0'?'drop · 1 ₭ gas':(u.price+' ₭ · +1 ₭ gas');
+            var act=mine
+              ? '<button type="button" class="btn" data-unit-act="delist" data-unit="'+esc(u.unit)+'" style="min-height:44px;margin-left:8px">Withdraw</button>'
+              : '<button type="button" class="btn primary" data-unit-act="take" data-unit="'+esc(u.unit)+'" data-seller="'+esc(u.seller)+'" data-price="'+esc(u.price)+'" style="min-height:44px;margin-left:8px">'+(String(u.price)==='0'?'Take':'Buy')+'</button>';
+            return '<div style="margin-top:8px">unit #'+esc(u.unit)+' · '+esc(price)+' · '+(mine?'yours':esc(String(u.seller).slice(0,10)+'…'))+act+'</div>';
+          }).join('');
+          offers.querySelectorAll('[data-unit-act]').forEach(function(el){
+            el.addEventListener('click', function(){
+              var act=el.getAttribute('data-unit-act');
+              var unit=el.getAttribute('data-unit');
+              who(me).then(function(from){
+                if(!from) throw new Error('connect KrayWallet');
+                if(act==='delist') return signAndSubmit({ action:'packet-delist-unit', from: from, star: String(s.star), unit: unit });
+                return signAndSubmit({ action:'packet-take-unit', from: from, star: String(s.star), unit: unit, seller: el.getAttribute('data-seller'), price: el.getAttribute('data-price') });
+              }).then(function(){ load(); }).catch(function(e){ offers.appendChild(document.createTextNode(' ✗ '+((e&&e.message)||'refused'))); });
+            });
+          });
+        }).catch(function(){ offers.textContent='unit book unread'; });
       }
     }
     function load(){
@@ -1108,7 +1175,7 @@
       var desk='code';
       function tabs(){
         return '<div class="lawtabs">'
-          +[['code','Code'],['cut','KRC-77'],['poll','Poll'],['mint','Mint'],['scroll','Scroll'],['escrow','Escrow'],['pass','Pass'],['raffle','Raffle'],['vest','Vest'],['tunnel','Tunnel'],['being','Being'],['times3','3-use']].map(function(t){
+          +[['code','Code'],['cut','KRC-77'],['cut-serial','KRC-7777'],['poll','Poll'],['mint','Mint'],['scroll','Scroll'],['escrow','Escrow'],['pass','Pass'],['raffle','Raffle'],['vest','Vest'],['tunnel','Tunnel'],['being','Being'],['times3','3-use']].map(function(t){
             return '<button class="btn lawtab'+(desk===t[0]?' on':'')+'" data-desk="'+t[0]+'">'+t[1]+'</button>';
           }).join('')+'</div>';
       }
@@ -1161,6 +1228,17 @@
             +'<input class="input" id="f-pay" placeholder="empty = living owner" autocomplete="off"></div>'
             +'<div class="lawknob"><label for="f-shelf">Art URL · secret · this node only</label><p class="hint">Run test compiles the paper without this. Seal needs a real https URL — the grey hint is not a value. {n} / {i} when max &gt; 1.</p>'
             +'<input class="input" id="f-shelf" placeholder="paste https://…" autocomplete="off"></div>'
+            +'</div>';
+        } else if(desk==='cut-serial'){
+          body='<p class="note">Serial Luz (KRC-7777). Same paper as KRC-77, plus an id on every unit. A canvas — games, editions, anything that needs a number on this star. Supply 1 to 21,000. Each unit has one owner. Burns 1 ₭.</p>'
+            +'<div class="lawfields">'
+            +'<div class="lawknob"><label for="f-supply">Supply · units with id</label><p class="hint">How many serial units this star will ever have. 1 to 21,000 — not infinite. A game item, an edition, a seat — any id on this Luz. 6 is only a starter number.</p>'
+            +'<input class="input" id="f-supply" placeholder="e.g. 6" value="6" inputmode="numeric"></div>'
+            +(window.KrayContractPapers&&KrayContractPapers.rainKnob?KrayContractPapers.rainKnob():'<button type="button" class="btn lawrain" id="f-rain-btn" aria-pressed="false">rain · off — book only</button><input type="checkbox" id="f-rain" hidden><p class="hint">Off by default. Tap to open a ₭ pot that rains on holders. No collect.</p>')
+            +'<div class="lawknob" id="f-founders-box"><label>Founders · optional</label>'
+            +'<p class="hint">Address + how many units at seal. Empty = you hold 1..N. What is not listed stays with you. At most 8. Σ cannot exceed supply.</p>'
+            +'<div id="f-founders"></div>'
+            +'<button type="button" class="btn" id="f-founder-add" style="min-height:44px;margin-top:8px">add a founder</button></div>'
             +'</div>';
         } else if(desk==='cut'){
           body='<p class="note">The token law on this star (KRC-77). Sealed supply — a max, or infinite. Rain is a choice: ₭ in the pot falls on holders, or the paper is book-only. No collect. Shares live on the book. Burns 1 ₭.</p>'
@@ -1241,12 +1319,12 @@
         });
         var seal=document.getElementById('lawseal');
         var examFp='';
-        if(desk==='cut' && window.KrayContractPapers && KrayContractPapers.mountFounders){
+        if((desk==='cut'||desk==='cut-serial') && window.KrayContractPapers && KrayContractPapers.mountFounders){
           KrayContractPapers.mountFounders(document.getElementById('f-founders-box')||host, function(){ examFp=''; if(seal) seal.disabled=true; });
         }
-        if(desk==='cut' && window.KrayContractPapers && KrayContractPapers.mountRain){
+        if((desk==='cut'||desk==='cut-serial') && window.KrayContractPapers && KrayContractPapers.mountRain){
           KrayContractPapers.mountRain(host, function(){ examFp=''; if(seal) seal.disabled=true; });
-        } else if(desk==='cut'){
+        } else if(desk==='cut'||desk==='cut-serial'){
           var rainBtn=document.getElementById('f-rain-btn'), rainBox=document.getElementById('f-rain');
           if(rainBtn && rainBox){
             rainBtn.addEventListener('click', function(){
@@ -1274,6 +1352,12 @@
               ? KrayContractPapers.readFounders(document.getElementById('f-founders-box')||host)
               : [];
             return { form:{ kind:'cut', supply:String((document.getElementById('f-supply')||{}).value||'').trim(), infinite:!!(document.getElementById('f-infinite')&&document.getElementById('f-infinite').checked), rain:!!(document.getElementById('f-rain')&&document.getElementById('f-rain').checked), ...(founders.length?{founders:founders}:{}) }, star:String(s.star) };
+          }
+          if(desk==='cut-serial'){
+            var serialFounders=(window.KrayContractPapers&&KrayContractPapers.readFounders)
+              ? KrayContractPapers.readFounders(document.getElementById('f-founders-box')||host)
+              : [];
+            return { form:{ kind:'cut-serial', supply:String((document.getElementById('f-supply')||{}).value||'').trim(), rain:!!(document.getElementById('f-rain')&&document.getElementById('f-rain').checked), ...(serialFounders.length?{founders:serialFounders}:{}) }, star:String(s.star) };
           }
           if(desk==='poll'){
             var choices=(window.KrayContractPapers&&KrayContractPapers.readChoices)

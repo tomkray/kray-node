@@ -136,6 +136,13 @@ export function cutSendMessage(network: string, from: string, to: string, star: 
   return `kray-core.cut-send.v1|net=${network}|from=${from}|to=${to}|star=${star}|amount=${amount}|nonce=${nonce}`
 }
 
+/** SERIAL LUZ SEND — move ONE unit id of a KRC-7777 star. Own domain: a
+ *  cut-send.v1 signature can never move a serial unit, and unit 3 cannot
+ *  replay as unit 4. Amount is always 1 — it is not in the line. */
+export function cutSendUnitMessage(network: string, from: string, to: string, star: bigint, unit: bigint, nonce: number): string {
+  return `kray-core.cut-send-unit.v1|net=${network}|from=${from}|to=${to}|star=${star}|unit=${unit}|nonce=${nonce}`
+}
+
 /** THE TK-FOLD LANE ENTRY (Gate 2) — the message a holder signs to move their own spendable Ӿ INTO the
  *  compressed lane. Its OWN injective domain (no `to` — the lane credits the signer), so it can never be
  *  replayed as an x-send or a lane transfer, nor the reverse. Journal nonce (not the lane nonce). */

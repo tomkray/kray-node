@@ -22,7 +22,7 @@ import { NAME_MAX_BYTES } from './star-lore.ts'
 import { AnchoringPot, DEFAULT_POT_TARGET_SATS, MINT_CAP_SATS, WINDOW_PER_SEAL_SATS } from './pot.ts'
 import {
   isSupportedScheme, toBtcNet, scriptOfAddress, verifySignature, isAddressOnNetwork,
-  transferMessage, xSendMessage, cutSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
+  transferMessage, xSendMessage, cutSendMessage, cutSendUnitMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, BODY_HASH_RE, ORIGIN_COHORT_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
@@ -38,8 +38,8 @@ import { settleFromBeats } from '../economics/settlement.ts'
 import { hitCount, custodyFromHex, verifyCustody, type AtlasOracle } from '../economics/custody.ts'
 import { assertPresenceClaims, assertPresenceEra, foldClaimsByAddress, readPresenceTip } from '../economics/presence-window.ts'
 import { validateContract, canonicalCode, runCall, contractAddress, isContractPotAddress, MAX_LIT_DIGITS, type ContractCode } from './contract.ts'
-import { isMintPaper, isCutPaper, isPollPaper, resolveLuzGenesis } from './star-forms.ts'
-import { CutBook } from './cut-book.ts'
+import { isMintPaper, isCutPaper, isSerialCutPaper, isPollPaper, resolveLuzGenesis } from './star-forms.ts'
+import { CutBook, SERIAL_LUZ_SEQ, MAX_SERIAL_CUT_SUPPLY } from './cut-book.ts'
 import { PollBook } from './poll-book.ts'
 import { sha256hex, MIN_FEE, TREASURY, BLACK_HOLE, STAR_OFFER, CLAIM_POT, MAX_INSCRIPTION_BYTES, MAX_INSCRIPTION_PROPORTION, starBurnOf, BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, SEAL_CONTENT_BUDGET, RETARGET_WINDOW_SEALS, retargetBytesPerKray, donationProofMinConf, SIZE_PROPORTION_ACTIVATION_SEQ, STAR_RE, type KrayEvent, type SettlementRow } from './kray-primitives.ts'
 import { verifyDonationProof } from '../anchor/spv.ts'   // ADR-1: pure/offline SPV re-verify (no network) — safe in the reducer
@@ -56,6 +56,10 @@ import {   // THE PACKET MARKET — the same law for a whole quantity of ₭, of
   PacketMarket, PACKET_MARKET_SEQ, MAX_BOOK_DIGITS, isPacketLane, packetAssetOfEvent,
   packetListMessage, packetDelistMessage, packetTakeMessage, packetTermsHash, type PacketLane,
 } from './packet-market.ts'
+import {   // KRC-7777 UNIT MARKET — the packet law for ONE serial id. Own domain; never widens packet-list.v1.
+  SerialPacketMarket, serialUnitOfEvent,
+  serialPacketListMessage, serialPacketDelistMessage, serialPacketTakeMessage, serialPacketTermsHash,
+} from './serial-packet-market.ts'
 import {   // THE CLAIM ESCROW — one signed root, many proven hands, custody in a keyless pot
   ClaimBook, CLAIM_ESCROW_SEQ, CLAIM_MAX_PROOF, CLAIM_MAX_HANDS, claimProves,
   claimOpenMessage, claimTakeMessage, claimCloseMessage,
@@ -431,6 +435,7 @@ export class KrayLedger {
   readonly market = new StarMarket()   // star listings (seller, price); folds by presence, never holds value
   readonly offers = new StarOffers()   // escrowed bids; pot ₭ lives at STAR_OFFER
   readonly packets = new PacketMarket() // ₭ / Luz / rune packet listings; folds by presence, never holds value
+  readonly serialPackets = new SerialPacketMarket() // KRC-7777 unit listings; same law, own domain, own fold (A3)
   readonly claims = new ClaimBook()     // open harvests; the pot at CLAIM_POT holds what they owe, or HALT
   readonly pools = new PoolBook()      // standing supplies in the same pot: held · committed · free
   readonly cuts = new CutBook()        // Luz ✧ per star — folds by presence (A3); IR cannot store the map
@@ -571,7 +576,7 @@ export class KrayLedger {
    */
   plateAtlasStrict: boolean = true
 
-  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number, profileValueSeq?: number, starLikeOnceSeq?: number, potBindingSeq?: number, contractV1RetiredSeq?: number, giftListingSeq?: number, packetMarketSeq?: number, claimEscrowSeq?: number, deadlineFreeOrderSeq?: number, mintDropSeq?: number) {
+  constructor(potTarget: bigint = DEFAULT_POT_TARGET_SATS, network = 'regtest', potScriptHex?: string, backingGate = false, atlasBytes?: (hash: string) => Uint8Array | null, inclusionActivationSeq?: number, xTransferActivationSeq?: number, burnLawSeq?: number, rewardRetiredSeq?: number, atlasFeeActivationSeq?: number, sameInstantOrderSeq?: number, xFeelessActivationSeq?: number, tkFoldActivationSeq?: number, sizeProportionSeq?: number, potInternalKeyHex?: string, proofMandatorySeq?: number, runeAncestrySeq?: number, uniqueRelicRefuseSeq?: number, mintWitnessSeq?: number, donationScriptSeq?: number, runeBookOpenSeq?: number, digitLawSeq?: number, profileValueSeq?: number, starLikeOnceSeq?: number, potBindingSeq?: number, contractV1RetiredSeq?: number, giftListingSeq?: number, packetMarketSeq?: number, claimEscrowSeq?: number, deadlineFreeOrderSeq?: number, mintDropSeq?: number, serialLuzSeq?: number) {
     this.pot = new AnchoringPot(potTarget)
     this.network = network
     this.potScriptHex = potScriptHex
@@ -590,6 +595,7 @@ export class KrayLedger {
     this.claimEscrowSeq = claimEscrowSeq ?? (CLAIM_ESCROW_SEQ[network] ?? Number.MAX_SAFE_INTEGER)   // below it every claim act is refused: no pot fills, no era forks
     this.mintDropSeq = mintDropSeq ?? (MINT_DROP_SEQ[network] ?? Number.MAX_SAFE_INTEGER)                // below it mint-open/mint-take do not exist: an old node FREEZES, never forks (A3)
     this.deadlineFreeOrderSeq = deadlineFreeOrderSeq ?? (DEADLINE_FREE_ORDER_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
+    this.serialLuzSeq = serialLuzSeq ?? (SERIAL_LUZ_SEQ[network] ?? Number.MAX_SAFE_INTEGER)   // below it serial Luz is refused: no unit root, no era fork
     this.sameInstantOrderSeq = sameInstantOrderSeq ?? (SAME_INSTANT_ORDER_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.xFeelessActivationSeq = xFeelessActivationSeq ?? (X_FEELESS_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
     this.tkFoldActivationSeq = tkFoldActivationSeq ?? (TK_FOLD_ACTIVATION_SEQ[network] ?? Number.MAX_SAFE_INTEGER)
@@ -674,6 +680,7 @@ export class KrayLedger {
   private readonly starLikeOnceSeq: number          // once-ever like: at/after it, second like from same address×star HALTs
   private readonly potBindingSeq: number            // THE POT BINDING: at/after it, a proof-bearing rune deposit's journaled vault must be THIS network's pot / federation (A3 below)
   private readonly contractV1RetiredSeq: number     // CONTRACT-V1 RETIREMENT (E1): at/after it, a law with no star is refused — the v1 pot is retired (A3 below)
+  private readonly serialLuzSeq: number             // KRC-7777: below it serial seal + cut-send-unit refuse (A3)
   /** THE JOURNAL'S ACCUMULATED TRUTH — outpoint → balances of ONE rune, re-derived by earlier
    *  proven deposits. Scoped per rune (the etch-root shortcut is exact only for the focused rune,
    *  so one rune's memo must never answer for another). Re-built identically on every replay from
@@ -1620,6 +1627,9 @@ export class KrayLedger {
         // it stood in the cascade root, refused every taker, and re-listing never converged because each
         // attempt spent another ₭ of the thing it was offering. An offer must be fillable the moment it is made.
         const need = lane === 'kray' ? amount + fee : amount
+        if (lane === 'luz' && this.cuts.isSerial(asset)) {
+          throw new Error('ledger: serial Luz moves by unit, not as a packet amount')
+        }
         if (this.packetHeld(lane, asset, e.from!) < need) {
           throw new Error(`ledger: you do not hold that packet — offering what you have not got is refused (have ${this.packetHeld(lane, asset, e.from!)}, offered ${amount}${lane === 'kray' ? ` plus the ${fee}-₭ fee` : ''})`)
         }
@@ -1695,6 +1705,94 @@ export class KrayLedger {
         this.credit(seller, price)
         this.credit(TREASURY, fee)
         this.packets.remove(lane, asset, seller)             // the offer is consumed, once
+        break
+      }
+      // ── THE SERIAL PACKET MARKET (KRC-7777) ──────────────────────────────────────────────────────
+      // The packet market's law for ONE unit id. Own domain — packet-list.v1 never grew a unit field.
+      // The book holds NOTHING. A take pays the seller AND moves that exact id, or refuses the whole act.
+      case 'packet-list-unit': {
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.packetMarketSeq) throw new Error('ledger: the packet market is not the law on this network yet')
+        if (e.seq < this.serialLuzSeq) throw new Error('ledger: serial Luz is not the law on this network yet')
+        if (this.isPot(e.from!)) throw new Error('ledger: a protocol pot cannot list a packet — only its own rules move value')
+        this.checkNonce(e)
+        const { star, unit } = serialUnitOfEvent(e)
+        const price = this.posAmt(e.price, 'a packet price')
+        if (String(e.price).length > MAX_BOOK_DIGITS) {
+          throw new Error(`ledger: a packet's amount and price are at most ${MAX_BOOK_DIGITS} digits — no book here holds a wider number`)
+        }
+        const terms: ListingTerms = termsOfEvent(e)
+        if (terms.to === e.from) throw new Error('ledger: a listing named for yourself is nobody\'s offer')
+        if (terms.to && this.isPot(terms.to)) throw new Error('ledger: an offer cannot be left to a protocol pot — a pot has no key to take it with')
+        if (terms.to) this.requireFungibleRecipient(terms.to, e.seq)
+        if (terms.gate !== undefined) {
+          const keyOwner = this.stars.ownerOf(terms.gate)
+          if (!keyOwner) throw new Error(`ledger: no star ${terms.gate} — an offer cannot be opened by a star that does not exist`)
+          if (keyOwner === BLACK_HOLE) throw new Error(`ledger: star ${terms.gate} is frozen — an offer it opens could never be taken`)
+        }
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        if (!this.cuts.isSerial(star)) throw new Error('ledger: this Luz is not serial — packet-list moves a fungible amount')
+        if (this.cuts.ownerOfUnit(star, unit) !== e.from) {
+          throw new Error(`ledger: you do not hold that unit — offering what you have not got is refused (unit ${unit})`)
+        }
+        this.requireSig(e, serialPacketListMessage(this.network, e.from!, star, unit, price, terms, e.nonce!))
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.serialPackets.list(star, unit, e.from!, price, terms)
+        break
+      }
+      case 'packet-delist-unit': {
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.packetMarketSeq) throw new Error('ledger: the packet market is not the law on this network yet')
+        if (e.seq < this.serialLuzSeq) throw new Error('ledger: serial Luz is not the law on this network yet')
+        this.checkNonce(e)
+        const { star, unit } = serialUnitOfEvent(e)
+        const live = this.serialPackets.get(star, unit)
+        if (!live || live.seller !== e.from) throw new Error('ledger: no live unit listing of yours — nothing to cancel')
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient balance for the fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        this.requireSig(e, serialPacketDelistMessage(this.network, e.from!, star, unit, e.nonce!))
+        this.commitNonce(e)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        this.serialPackets.remove(star, unit)
+        break
+      }
+      case 'packet-take-unit': {
+        const fee = BigInt(e.fee ?? '0')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (an unsigned fee cannot be inflated)')
+        if (e.seq < this.packetMarketSeq) throw new Error('ledger: the packet market is not the law on this network yet')
+        if (e.seq < this.serialLuzSeq) throw new Error('ledger: serial Luz is not the law on this network yet')
+        this.checkNonce(e)
+        const { star, unit } = serialUnitOfEvent(e)
+        const price = this.posAmt(e.price, 'a packet price')
+        const taker = e.from!, seller = e.to!
+        if (!seller) throw new Error('ledger: a take names the seller it answers')
+        if (taker === seller) throw new Error('ledger: that unit is already yours — a take needs a different seller')
+        if (this.isPot(taker)) throw new Error('ledger: a protocol pot cannot take a packet — only its own rules move value')
+        const listing = this.serialPackets.get(star, unit)
+        if (!listing) throw new Error('ledger: that unit is not listed')
+        if (listing.seller !== seller) throw new Error('ledger: that unit is not listed by that seller')
+        if (listing.price !== price) throw new Error(`ledger: the listed price (${listing.price}) ≠ the signed take price (${price}) — refused (re-priced offer, no phantom price)`)
+        const declaredTerms = typeof e.termsHash === 'string' ? e.termsHash : ''
+        if (serialPacketTermsHash(listing) !== declaredTerms) throw new Error('ledger: that offer no longer carries the terms you answered — refused (re-aimed offer, no phantom condition)')
+        if (listing.to && listing.to !== taker) throw new Error('ledger: that offer was left for another address — refused')
+        if (listing.gate !== undefined && this.stars.ownerOf(listing.gate) !== taker) throw new Error(`ledger: that offer opens only for whoever holds star ${listing.gate} — refused`)
+        if (listing.notBefore !== undefined && this.provenL1Height < listing.notBefore) throw new Error(`ledger: that offer opens at Bitcoin height ${listing.notBefore}; the chain is sealed to ${this.provenL1Height} — refused`)
+        this.requireFungibleRecipient(taker, e.seq)
+        if (this.balanceOf(taker) < price + fee) throw new Error(`ledger: insufficient balance for price + fee (have ${this.balanceOf(taker)}, need ${price + fee})`)
+        if (this.cuts.ownerOfUnit(star, unit) !== seller) {
+          throw new Error(`ledger: the seller no longer holds that unit — the listing is stale, refused (unit ${unit})`)
+        }
+        this.requireSig(e, serialPacketTakeMessage(this.network, taker, seller, star, unit, price, declaredTerms, e.nonce!))
+        this.cuts.sendUnit(star, seller, taker, unit)
+        this.commitNonce(e)
+        this.balances.set(taker, this.balanceOf(taker) - price - fee)
+        this.credit(seller, price)
+        this.credit(TREASURY, fee)
+        this.serialPackets.remove(star, unit)
         break
       }
       // ── THE STANDING POOL ────────────────────────────────────────────────────────────────────────
@@ -2062,11 +2160,45 @@ export class KrayLedger {
         if (e.to!.startsWith('KRAY_') || isContractPotAddress(e.to!) || isAmmPotAddress(e.to!)) {
           throw new Error('ledger: Luz cannot enter a protocol pot')
         }
+        if (this.cuts.isSerial(e.star)) throw new Error('ledger: serial Luz moves by unit — cut-send-unit, never a fungible amount')
         const held = this.cuts.of(e.star, e.from!)
         if (held < amt) throw new Error(`ledger: insufficient Luz (have ${held}, need ${amt})`)
         // ── validated → mutate ──
         this.commitNonce(e)
         this.cuts.send(e.star, e.from!, e.to!, amt)
+        this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
+        this.credit(TREASURY, fee)
+        break
+      }
+      case 'cut-send-unit': {
+        // KRC-7777 — move ONE unit id. Own domain (cutSendUnitMessage). Pin-dormant off regtest (A3).
+        if (e.seq < this.serialLuzSeq) throw new Error('ledger: serial Luz is not the law on this network yet')
+        if (e.from && (e.from.startsWith('KRAY_') || isContractPotAddress(e.from))) {
+          throw new Error('ledger: a protocol pot cannot move Luz — only a holder signs')
+        }
+        if (typeof e.star !== 'string' || !STAR_RE.test(e.star)) throw new Error('ledger: a Luz send needs a star number')
+        if (typeof e.unit !== 'string' || !STAR_RE.test(e.unit) || e.unit === '0') {
+          throw new Error('ledger: a serial Luz send needs a unit id greater than 0')
+        }
+        const unit = BigInt(e.unit)
+        const fee = BigInt(e.fee ?? '0')
+        if (e.from === e.to) throw new Error('ledger: a Luz send needs two different parties')
+        if (fee !== MIN_FEE) throw new Error('ledger: the eternal 1-₭ fee — exactly one, never more (Luz moves, ₭ pays the gas)')
+        this.checkNonce(e)
+        if (this.balanceOf(e.from!) < fee) throw new Error(`ledger: insufficient ₭ for the Luz fee (have ${this.balanceOf(e.from!)}, need ${fee})`)
+        this.requireSig(e, cutSendUnitMessage(this.network, e.from!, e.to!, BigInt(e.star), unit, e.nonce!))
+        this.requireFungibleRecipient(e.to!, e.seq)
+        if (e.to!.startsWith('KRAY_') || isContractPotAddress(e.to!) || isAmmPotAddress(e.to!)) {
+          throw new Error('ledger: Luz cannot enter a protocol pot')
+        }
+        if (!this.cuts.isSerial(e.star)) throw new Error('ledger: this Luz is not serial — cut-send moves a fungible amount')
+        if (this.cuts.ownerOfUnit(e.star, unit) !== e.from) {
+          throw new Error(`ledger: insufficient Luz (unit ${unit} is not yours)`)
+        }
+        // ── validated → mutate ──
+        this.commitNonce(e)
+        this.cuts.sendUnit(e.star, e.from!, e.to!, unit)
+        this.serialPackets.remove(e.star, unit)   // the offer dies with the unit — the book never holds value
         this.balances.set(e.from!, this.balanceOf(e.from!) - fee)
         this.credit(TREASURY, fee)
         break
@@ -2955,6 +3087,13 @@ export class KrayLedger {
         const addr = contractAddress(codeHash, e.from, e.seq)
         if (this.contracts.has(addr)) throw new Error('ledger: that contract address already exists')
         if (isPollPaper(e.code) && !useV2) throw new Error('ledger: a poll hangs on a star')
+        if (useV2 && isSerialCutPaper(e.code)) {
+          if (e.seq < this.serialLuzSeq) throw new Error('ledger: serial Luz is not the law on this network yet')
+          const serialSupply = BigInt(e.code.vars?.supply ?? '0')
+          if (serialSupply > BigInt(MAX_SERIAL_CUT_SUPPLY)) {
+            throw new Error(`ledger: serial Luz is at most ${MAX_SERIAL_CUT_SUPPLY} units`)
+          }
+        }
         // ── validated → mutate ──
         const state: Record<string, bigint> = {}
         for (const [kk, val] of Object.entries(e.code.vars ?? {})) state[kk] = BigInt(val)
@@ -2971,6 +3110,7 @@ export class KrayLedger {
           // Luz genesis: capped paper spends supply once (founders + remainder to sealer).
           if (isCutPaper(e.code) && String(e.code.vars?.capped) === '1') {
             const supply = BigInt(e.code.vars?.supply ?? '0')
+            const serial = isSerialCutPaper(e.code)
             if (supply > 0n) {
               const credits = resolveLuzGenesis(e.code, e.from)
               for (const c of credits) {
@@ -2979,7 +3119,8 @@ export class KrayLedger {
                   throw new Error('ledger: a founder cannot be a protocol pot')
                 }
               }
-              this.cuts.genesisAlloc(String(onStar), supply, credits)
+              if (serial) this.cuts.genesisSerial(String(onStar), supply, credits)
+              else this.cuts.genesisAlloc(String(onStar), supply, credits)
             }
           }
           if (isPollPaper(e.code) && onStar != null) {
@@ -3628,7 +3769,10 @@ export class KrayLedger {
         this.balances.set(from, this.balanceOf(from) - amount)
         this.credit(to, amount)
         return
-      case 'luz': this.cuts.send(asset, from, to, amount); return
+      case 'luz':
+        if (this.cuts.isSerial(asset)) throw new Error('ledger: serial Luz moves by unit, not as a packet amount')
+        this.cuts.send(asset, from, to, amount)
+        return
       case 'rune': this.runes.send(parseRuneKey(asset), from, to, amount); return
       default: {
         const never: never = lane
@@ -3731,6 +3875,8 @@ export class KrayLedger {
   giftListingIsLaw(seq: number): boolean { return seq >= this.giftListingSeq }
   /** The same question for the packet market. */
   packetMarketIsLaw(seq: number): boolean { return seq >= this.packetMarketSeq }
+  /** KRC-7777 — the door asks before it hands a wallet a line to sign. */
+  serialLuzIsLaw(seq: number): boolean { return seq >= this.serialLuzSeq }
   /** THE CLAIM ESCROW, asked at the door. Without it the door prepared a harvest its own reducer would
    *  refuse — a citizen's signature and nonce spent on an act that could never apply. */
   claimEscrowIsLaw(seq: number): boolean { return seq >= this.claimEscrowSeq }
@@ -4098,6 +4244,8 @@ export class KrayLedger {
       // THE STANDING POOLS — fold in ONLY once one exists (by presence, appended LAST, A3). Three numbers
       // that are each true: what is held, what the live seasons may still draw, and the owner's horizon.
       ...(!this.pools.empty() ? { poolCommitment: this.pools.commitment() } : {}),
+      // KRC-7777 UNIT MARKET — folds in ONLY once a unit is listed (by presence, appended LAST, A3).
+      ...(!this.serialPackets.empty() ? { serialPacketCommitment: this.serialPackets.commitment() } : {}),
     }
   }
 

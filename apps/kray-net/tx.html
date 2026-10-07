@@ -324,6 +324,10 @@
         ? ('Poll vote · ✦ glow · 1 ₭ seal'+(n?' on star '+n:''))
         : ('Law called'+(t.rule?' · '+esc(t.rule):'')+(t.paid&&t.paid.length?' · pot paid '+t.paid.map(function(p){ return kray(p.amount); }).join(' + '):'')+(n?' on star '+n:''));
       case 'cut-send':      return '<span class="amt">'+luzAmt(t)+' ✧</span> '+luzNm(t)+' → sent — Luz of this star (KRC-77 · ₭ pays the gas)';
+      case 'cut-send-unit': return '<span class="amt">unit #'+esc(String((t.luz&&t.luz.unit)||t.unit||''))+'</span> '+luzNm(t)+' → sent — serial Luz (KRC-7777 · ₭ pays the gas)';
+      case 'packet-list-unit': return '<span class="amt">unit #'+esc(String((t.luz&&t.luz.unit)||t.unit||''))+'</span> '+luzNm(t)+' listed at '+kray(t.price||'0')+' — KRC-7777 · the unit stays until a take';
+      case 'packet-delist-unit': return '<span class="amt">unit #'+esc(String((t.luz&&t.luz.unit)||t.unit||''))+'</span> '+luzNm(t)+' withdrawn — nothing moved';
+      case 'packet-take-unit': return '<span class="amt">unit #'+esc(String((t.luz&&t.luz.unit)||t.unit||''))+'</span> '+luzNm(t)+' taken for '+kray(t.price||'0')+' — atomic · that id, once';
       default:              return esc(t.kind);
     }
   }

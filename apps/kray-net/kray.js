@@ -157,6 +157,8 @@
     'transfer-star': 'starmove',
     'star-list': 'market', 'star-delist': 'market', 'star-buy': 'market',
     'star-offer': 'market', 'star-offer-cancel': 'market', 'star-offer-accept': 'market',
+    'packet-list': 'market', 'packet-delist': 'market', 'packet-take': 'market',
+    'packet-list-unit': 'market', 'packet-delist-unit': 'market', 'packet-take-unit': 'market',
   };
   KRAY.ACT_HUE = {
     'amm-add': 0x2dd4bf, 'amm-remove': 0x0f766e, 'amm-swap': 0x5eead4,
@@ -164,6 +166,8 @@
     'create-pool': 0xfbbf24,
     'star-list': 0xff6ea8, 'star-delist': 0xa78a96, 'star-buy': 0xff2d8a,
     'star-offer': 0xc4b5fd, 'star-offer-cancel': 0x7c6f8a, 'star-offer-accept': 0xa78bfa,
+    'packet-list': 0xfbbf24, 'packet-delist': 0xa78a96, 'packet-take': 0xf59e0b,
+    'packet-list-unit': 0xfbbf24, 'packet-delist-unit': 0xa78a96, 'packet-take-unit': 0xf59e0b,
     'rune-deposit': 0xa78bfa, 'rune-send': 0x8b5cf6, 'rune-exit': 0x6d28d9,
     'rune-cancel': 0x4c1d95, 'rune-lodge': 0xc4b5fd, 'rune-settle': 0x5b21b6, 'rune-rehome': 0x818cf8,
     'transfer': 0x54e0a0, 'donate': 0x86efac, 'reward': 0x4ade80, 'burn': 0xf59e0b,

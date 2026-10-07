@@ -36,8 +36,9 @@ const SIGNED_VALUE: Record<string, 'MIN_FEE' | 'prescribed' | 'burn1'> = {
   transfer: 'MIN_FEE', 'transfer-star': 'MIN_FEE',
   'star-list': 'MIN_FEE', 'star-delist': 'MIN_FEE', 'star-buy': 'MIN_FEE',
   'star-offer': 'MIN_FEE', 'star-offer-cancel': 'MIN_FEE', 'star-offer-accept': 'MIN_FEE',
-  'cut-send': 'MIN_FEE', 'lane-enter': 'MIN_FEE', 'lane-exit': 'MIN_FEE',
+  'cut-send': 'MIN_FEE', 'cut-send-unit': 'MIN_FEE', 'lane-enter': 'MIN_FEE', 'lane-exit': 'MIN_FEE',
   'packet-list': 'MIN_FEE', 'packet-delist': 'MIN_FEE', 'packet-take': 'MIN_FEE',   // THE PACKET MARKET — ₭ / Luz / rune
+  'packet-list-unit': 'MIN_FEE', 'packet-delist-unit': 'MIN_FEE', 'packet-take-unit': 'MIN_FEE', // KRC-7777 unit market
   'claim-open': 'MIN_FEE', 'claim-take': 'MIN_FEE', 'claim-close': 'MIN_FEE',      // THE CLAIM ESCROW — a harvest, its hands, its close
   'mint-open': 'MIN_FEE', 'mint-take': 'MIN_FEE',                                  // THE MINT DROP — opening the pots, and taking one
   'pool-fund': 'MIN_FEE', 'pool-season': 'MIN_FEE', 'pool-close': 'MIN_FEE',      // THE STANDING POOL — pour, attest, draw back

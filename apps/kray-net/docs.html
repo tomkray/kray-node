@@ -114,6 +114,8 @@ main .cascade b{color:var(--btc);font-weight:500}
       <a href="#mint">Mint ₭ by donation</a>
       <a href="#inscribe">Write a star</a>
       <a href="#law">Write a contract</a>
+      <a href="#krc77">KRC-77 · an amount of light</a>
+      <a href="#krc7777">KRC-7777 · numbered copies</a>
       <a href="#drop">Collection mint</a>
       <a href="#recursion">Recursive inscriptions</a>
       <a href="#baptize">Baptisms</a>
@@ -177,8 +179,8 @@ main .cascade b{color:var(--btc);font-weight:500}
           <tr><td><a href="/library">Library</a></td><td>Every named work and relic on this journal, browsable.</td></tr>
           <tr><td><a href="/mind">Mind</a></td><td>Talk to the book. The book is memory (<code>GET /docs/pack.json</code>). Local Llama or a Claude / Grok / GPT key — the key never hits the node. No persona hardness. Law: <a href="/docs/book-and-apps.md">book vs apps</a>.</td></tr>
           <tr><td><a href="/blackhole">Black hole</a></td><td>What was entombed at <code>KRAY_BLACK_HOLE</code> — counted forever, spendable never (A1).</td></tr>
-          <tr><td><a href="/market/drops">Drops</a></td><td>The floor where the price is zero. A standing offer of a whole packet — ₭, a star's Luz, or an L2 rune — that stays the seller's until a hand takes it.</td></tr>
-          <tr><td><a href="/harvests">Harvests</a></td><td>One signed root, many hands. And mints: N equal pots, one per hand, nobody named. Both rest in the keyless pot <code>KRAY_CLAIM</code>.</td></tr>
+          <tr><td><a href="/market/drops">Drops</a></td><td>Leave a thing on the ground. Price zero, or a price. ₭, fungible Luz, one KRC-7777 id, a rune, or a whole star. It stays yours until one hand takes it whole.</td></tr>
+          <tr><td><a href="/harvests">Harvests</a></td><td>A signed list. The total moves into a pot nobody can spend. Each hand proves their line and takes once. A mint is the same pot with no names: N equal shares, first come.</td></tr>
         </table>
         <table class="dtable">
           <tr><th>Act</th><th>What you sign</th></tr>
@@ -314,11 +316,44 @@ main .cascade b{color:var(--btc);font-weight:500}
           <tr><td><strong>Vest</strong></td><td>Unlock on journal height, not a wall clock. ₭ goes only to the beneficiary.</td></tr>
           <tr><td><strong>Scroll</strong></td><td>Open / stamp / list claims. Locked: ₭ leaves only through <code>claim</code>.</td></tr>
           <tr><td><strong>Raffle</strong></td><td>Seats + Bitcoin seal as the draw. Nobody picks the winner. No collect.</td></tr>
-          <tr><td><strong>Mint</strong></td><td>A drop. See <a href="#drop">collection mint</a>.</td></tr>
+          <tr><td><strong>KRC-77</strong></td><td>Fungible light of this star. An amount per wallet. See <a href="#krc77">KRC-77</a>.</td></tr>
+          <tr><td><strong>KRC-7777</strong></td><td>Numbered copies of this star. One id, one owner. See <a href="#krc7777">KRC-7777</a>.</td></tr>
+          <tr><td><strong>Mint</strong></td><td>A collection birth. See <a href="#drop">collection mint</a>.</td></tr>
         </table>
         <p>Three laws of the language: <strong>total</strong> (no loops, budget 512), <strong>deterministic</strong> (integers; Bitcoin beacon is the only entropy), <strong>cannot create value</strong> (pays only from the pot, plus <code>take</code> in the same call). Living tools (<code>collect</code>, <code>toggle_*</code>) follow the face when it is sold.</p>
         <p>Ask an AI: copy <a href="/docs/contracts.md">the contract tutorial</a> into Claude. That file is the <code>kraynet-dev</code> skill. Studio: <a href="/inscribe">/inscribe</a> → Law, or the star page.</p>
         <div class="card tick"><div class="label">Why this cannot steal the network</div><p>The worst a broken paper can do is empty <em>itself</em>. Signature ‖ Merkle ‖ Bitcoin still holds every call.</p></div>
+      </section>
+
+      <section id="krc77">
+        <div class="shead"><span class="n">06b1</span><h2>KRC-77 · an amount of light</h2><span class="sub">One star. One image. A number on each wallet. The copies are interchangeable.</span></div>
+        <p>Seal Luz on a star you own. You choose the supply — up to 10,000,000 — or you leave it infinite, and no units exist until a later mint door. The sealer is credited with the whole supply, unless the paper names founders. What is left stays with the sealer.</p>
+        <p>A holder has an <strong>amount</strong>. “I have 30” does not say which 30. Sending 10 to someone else is <code>cut-send</code>: a signature over star, amount, and recipient. The 1 ₭ fee is gas. The light moves. The star stays. The sum of every wallet still equals the sealed supply, or the node halts.</p>
+        <p>The picture is inscribed once, on the star. You do not inscribe it again for each unit. Rank of who holds how much: <a href="/rank/luz">/rank/luz</a>. Send from the star's own Luz card.</p>
+        <div class="card tick"><div class="label">When this is the right paper</div><p>The units are the same thing. A currency on a star, a share, a stack of identical tickets where the ticket number does not matter. When copy 7 must be a specific copy, that is <a href="#krc7777">KRC-7777</a>.</p></div>
+      </section>
+
+      <section id="krc7777">
+        <div class="shead"><span class="n">06b2</span><h2>KRC-7777 · numbered copies of one star</h2><span class="sub">One image. Up to 21,000 ids born from that star. Each id has one owner.</span></div>
+        <p>KRC-77 is a <strong>quantity</strong> on a star: one number per wallet. KRC-7777 is the same Luz paper with a serial on every copy. The <strong>id</strong> is the star's number. The <strong>serial</strong> is the number of that Luz inside the star. Copy 7 of star 40 is <code>star=40|unit=7</code>. The digit 7 can also be a star. It is not this copy. <code>/star/7</code> opens star 7.</p>
+        <p>The signature does not invent the number. It authorizes the act, and the book assigns the numbers in order: the next star id at birth, serials 1…supply when the law is sealed. Every later move signs the pair. A signature for serial 7 of star 40 cannot move star 7, serial 4, or a fungible amount. In the cascade the copy's line wears a <code>u</code> mark — <code>40|u|7|owner</code> — so it cannot be read as a star or as a KRC-77 balance.</p>
+        <p>The picture is inscribed <strong>once</strong>, on the star. The copies are not new stars and they are not a second inscription of the same bytes. They are numbered children inside that star's book. Sending, listing or buying names the star and the unit. The take moves that id and the ₭ price in one reducer step, or it refuses the whole act.</p>
+        <table class="dtable">
+          <tr><th></th><th>KRC-77</th><th>KRC-7777</th></tr>
+          <tr><td><strong>What you hold</strong></td><td>An amount. “I have 30.”</td><td>Ids. “I have copy 7.”</td></tr>
+          <tr><td><strong>The image</strong></td><td>Once, on the star.</td><td>Once, on the star.</td></tr>
+          <tr><td><strong>Supply</strong></td><td>You choose, up to 10,000,000. Or infinite.</td><td>You choose, from 1 to <strong>21,000</strong>. Not infinite.</td></tr>
+          <tr><td><strong>A sale</strong></td><td>A packet amount.</td><td>That one unit id. Whole. Once.</td></tr>
+        </table>
+        <h3>A family of types</h3>
+        <p>A category is a normal star. Its copies are the KRC-7777 on that star. A parent star can name the family — Sword — and each child star is one type, born with Sword as parent. The parent pointer is signed provenance. The copies live on the child, not on the parent.</p>
+        <pre><code>Sword                         the family, one image
+├── Fire sword    child       KRC-7777 · 40 copies, ids 1–40
+├── Ice sword     child       KRC-7777 · 12 copies, ids 1–12
+└── Match ball    child       KRC-7777 · 10,000 copies, ids 1–10,000</code></pre>
+        <p>Forty sword types are forty child stars, not forty thousand copies of one picture. Each child still has its own ceiling of 21,000. Gold with 5, silver with 30, and a ball with 10,000 are three seals. 6 in the form is only a starter number.</p>
+        <div class="card tick"><div class="label">Why 21,000</div><p>Every id is one owner line inside the cascade root, for as long as the star exists. 21,000 lets a real edition — ten thousand copies, with room — live on one star. It does not let one seal write an unbounded list into every future root. The ceiling can rise later. It does not shrink. Stars already sealed under a smaller supply stay exactly that supply.</p></div>
+        <p>Seal it at <a href="/inscribe">/inscribe</a> → KRC-7777. List or take one id at <a href="/market/drops">/market/drops</a>, or on the star's own Luz card. The signed lines are <code>cut-send-unit</code>, <code>packet-list-unit</code>, <code>packet-take-unit</code>. They do not widen the fungible <code>cut-send</code> or <code>packet-list</code> lines.</p>
       </section>
 
       <section id="drop">
@@ -370,6 +405,7 @@ main .cascade b{color:var(--btc);font-weight:500}
           <tr><th>Door</th><th>Moves</th><th>Rule</th></tr>
           <tr><td><strong>Send ₭</strong></td><td>fungible ₭</td><td>A spend never touches a star. Sending <code>N</code> costs <code>N + 1</code>.</td></tr>
           <tr><td><strong>Send a star</strong></td><td>one star, whole</td><td>Inscription, name and law travel with the face. The 1 ₭ fee is separate — a star never pays its own fee. The mouth of a law moves with the new owner.</td></tr>
+          <tr><td><strong>Send Luz</strong></td><td>an amount, or one id</td><td><a href="#krc77">KRC-77</a> sends an amount (<code>cut-send</code>). <a href="#krc7777">KRC-7777</a> sends one unit id (<code>cut-send-unit</code>). The star stays. Gas is 1 ₭.</td></tr>
           <tr><td><strong>Send a rune</strong></td><td>L2 credit</td><td>After a <a href="#bridge">bridge</a>, credits move by signed <code>rune/send</code>. Bitcoin reserves do not move. Each line of a drop list is its own nonce and its own 1 ₭ fee.</td></tr>
         </table>
         <p>Studio: <a href="/send">/send</a>. Profile can paste a drop list (addresses + amounts). Names resolve on the + Lines path; a raw paste is addresses only so a list cannot be redirected by a lookup.</p>
@@ -412,8 +448,13 @@ main .cascade b{color:var(--btc);font-weight:500}
 
       <section id="market">
         <div class="shead"><span class="n">10b1</span><h2>The market — offers, promises, and mints</h2><span class="sub">Three shapes, one law. The difference between them is WHO holds the value while it waits. /market/drops · /harvests</span></div>
-        <p>There are three ways to move a thing to somebody else without knowing them yet, and the only real difference
-        is custody — who holds it while it stands. Get that difference and the rest follows.</p>
+        <p>Three ways to hand something to a person you have not met. The difference is who holds it while it waits.</p>
+        <ul>
+          <li><strong>A drop</strong> — you leave it on the ground. Price zero means anyone may take it and pay only the 1 ₭ of gas. A price means they buy it. It stays in your hand until the take. One taker, the whole thing, once. A numbered KRC-7777 copy is the same door: you name the star and the unit id.</li>
+          <li><strong>A harvest</strong> — you already know the list. Who, and how much. You sign that list as one merkle root. The total leaves you at that signature and sits in a pot with no key. Each person proves their own line and takes exactly that line, once. You cannot spend it back.</li>
+          <li><strong>A mint</strong> — a harvest that names no one. N equal pots. The first hands to sign each take one, while pots remain.</li>
+        </ul>
+        <p class="note">A <a href="#drop">collection mint</a> is a different door. That one births child stars from an artist's face. A market drop does not. It offers something that already exists.</p>
         <table class="dtable">
           <tr><th>Shape</th><th>What it is</th><th>Who holds it while it waits</th></tr>
           <tr><td><strong>A drop</strong><br><a href="/market/drops">/market/drops</a></td>

@@ -1586,13 +1586,13 @@
 
   <div data-ppane="luz" id="pane-luz">
   <div class="card tick pzone" id="luzpanel" data-pzone="luzpanel">
-    <div class="chead"><h2>✧ Luz · KRC-77</h2></div>
-    <p class="sub">Shares of a star's sealed light — not glow (✦), not ₭, not Ӿ. Holdings below; send when you own this address; ledger newest first from the journal.</p>
+    <div class="chead"><h2>✧ Luz</h2></div>
+    <p class="sub">KRC-77 is a fungible amount of a star's light. KRC-7777 is one numbered copy of that same light. Not glow (✦), not ₭, not Ӿ. Send signs the matching act.</p>
 
     <div class="luz-sum" id="luz-sum" aria-label="Luz summary">
       <div class="stat"><div class="v" id="luz-n-books">0</div><div class="k">books held</div></div>
       <div class="stat"><div class="v" id="luz-n-amt">0</div><div class="k">✧ total</div></div>
-      <div class="stat"><div class="v" id="luz-n-acts">—</div><div class="k">cut-sends in view</div></div>
+      <div class="stat"><div class="v" id="luz-n-acts">—</div><div class="k">Luz acts in view</div></div>
     </div>
 
     <div class="flab">① Holdings — tap a book to send (owner) or open the rank</div>
@@ -1605,12 +1605,14 @@
         <input class="input" id="luz-to" placeholder="send to · name, domain, @username — or the address" autocomplete="off" disabled>
         <div class="resolved" id="luz-res" hidden></div>
         <input class="input" id="luz-amt" placeholder="amount · ✧" inputmode="numeric" autocomplete="off" disabled>
+        <input class="input" id="luz-price" placeholder="list price · ₭ · 0 = drop" inputmode="numeric" autocomplete="off" hidden disabled>
         <button class="btn primary" id="luz-send-go" disabled>Send ✧ — fee 1 ₭</button>
+        <button class="btn" id="luz-list-go" hidden disabled>List this serial — fee 1 ₭</button>
       </div>
       <div class="out" id="luz-out"></div>
     </div>
 
-    <div class="flab" style="margin-top:var(--s5)">③ Ledger · cut-send · chronological (newest first)</div>
+    <div class="flab" style="margin-top:var(--s5)">③ Ledger · Luz moves · chronological (newest first)</div>
     <p class="sub" style="margin:0 0 var(--s3)">Only Luz moves on this address. Full journal is under Activity.</p>
     <div class="luz-ledger" id="luz-list"><span class="eyebrow">reading Luz acts…</span></div>
     <div class="actions" style="margin-top:var(--s3)">
@@ -2725,7 +2727,7 @@
   });
 
   /* ── LUZ ✧ — holdings · owner send · chronological cut-send ledger ── */
-  var luzStar=null, luzBefore=null, luzDone=false, luzBusy=false, luzSeen=0;
+  var luzStar=null, luzSerial=false, luzBefore=null, luzDone=false, luzBusy=false, luzSeen=0;
   function luzSharePct(amt, supply){
     try{
       var a=BigInt(String(amt||'0').replace(/[^0-9]/g,'')||'0');
@@ -2743,15 +2745,37 @@
     var hint=document.getElementById('luz-ops-hint');
     var rows=(profile&&profile.luz)||[];
     var h=rows.filter(function(x){ return String(x.star)===String(luzStar); })[0];
+    luzSerial=!!(h&&h.serial);
+    var ids=(h&&h.units)||[];
+    var shown=ids.slice(0,8).map(function(u){ return '#'+u; }).join(' ');
     if(hint){
       if(!luzStar||!h) hint.textContent='Pick a book above.';
+      else if(luzSerial) hint.innerHTML='Sending one serial of ★ <b>'+Number(h.star).toLocaleString()+'</b>'
+        +(h.starName?' “'+esc(h.starName)+'”':'')
+        +' · you hold <b>'+ids.length.toLocaleString()+'</b>'
+        +(shown?' · '+esc(shown+(ids.length>8?' …':'')):'')
+        +(h.supply?' · supply '+Number(h.supply).toLocaleString():'')
+        +' · KRC-7777';
       else hint.innerHTML='Sending from ★ <b>'+Number(h.star).toLocaleString()+'</b>'
         +(h.starName?' “'+esc(h.starName)+'”':'')
         +' · you hold <b>'+Number(h.amount).toLocaleString()+'</b> ✧'
-        +(h.supply?' · supply '+Number(h.supply).toLocaleString():'');
+        +(h.supply?' · supply '+Number(h.supply).toLocaleString():'')
+        +' · KRC-77';
     }
     var amt=document.getElementById('luz-amt');
-    if(amt && h) amt.placeholder='amount · up to '+Number(h.amount).toLocaleString()+' ✧';
+    var price=document.getElementById('luz-price');
+    var go=document.getElementById('luz-send-go');
+    var list=document.getElementById('luz-list-go');
+    var lab=document.querySelector('#luz-ops .flab');
+    if(amt && h) amt.placeholder=luzSerial
+      ? (ids.length?'serial · e.g. '+ids[0]:'serial id')
+      : ('amount · up to '+Number(h.amount).toLocaleString()+' ✧');
+    if(price) price.hidden=!luzSerial;
+    if(list) list.hidden=!luzSerial;
+    if(go) go.textContent=luzSerial?'Send serial — fee 1 ₭':'Send ✧ — fee 1 ₭';
+    if(lab) lab.textContent=luzSerial
+      ? '② Send one serial · or list it · fee 1 ₭ · Σ of that star does not change'
+      : '② Send ✧ · fee 1 ₭ · Σ of that star does not change';
   }
   function paintLuzPanel(p){
     var rows=((p&&p.luz)||[]).slice().sort(function(a,b){
@@ -2767,7 +2791,7 @@
     var g=document.getElementById('luz-grid'); if(!g) return;
     if(!rows.length){
       g.innerHTML='<div class="luz-empty"><div class="eyebrow" style="margin-bottom:10px">no Luz on this address</div>'
-        +'<p style="margin:0 0 12px;font-size:13px;color:var(--ink-3)">✧ is a share of a sealed star (KRC-77). Receive a cut-send, or seal a Luz paper on a star you own.</p>'
+        +'<p style="margin:0 0 12px;font-size:13px;color:var(--ink-3)">✧ is a share of a sealed star. KRC-77 is an amount. KRC-7777 is one numbered copy. Receive a send, or seal a Luz paper on a star you own.</p>'
         +'<a href="/market/luz">Browse Luz market →</a> · <a href="/inscribe?tab=law">Seal Luz →</a></div>';
       luzStar=null;
       return;
@@ -2776,14 +2800,23 @@
       var face={star:h.star,name:h.starName||null,ctype:h.ctype||null,url:h.url||null,held:!!h.held,media:!!h.media,contentHash:h.contentHash||null};
       var art=(window.KRAY && KRAY.faceHtml) ? KRAY.faceHtml(face) : ('★ '+Number(h.star).toLocaleString());
       var pct=luzSharePct(h.amount, h.supply);
-      var title=(h.starName?esc(h.starName)+' · ':'')+'★ '+Number(h.star).toLocaleString();
+      var serial=!!h.serial;
+      var ids=h.units||[];
+      var title=(h.starName?esc(h.starName)+' · ':'')+'★ '+Number(h.star).toLocaleString()+(serial?' · KRC-7777':' · KRC-77');
+      var amtLine=serial
+        ? (ids.length.toLocaleString()+'<small> serial'+(ids.length===1?'':'s')+'</small>')
+        : (Number(h.amount).toLocaleString()+'<small>✧</small>');
+      var meta='★ '+Number(h.star).toLocaleString()+(h.starName?' · '+esc(h.starName):'')
+        +(serial?' · KRC-7777':' · KRC-77')
+        +(serial&&ids.length?' · '+esc(ids.slice(0,6).map(function(u){ return '#'+u; }).join(' ')+(ids.length>6?' …':'')):'')
+        +(!serial&&h.supply?' · '+pct.toFixed(pct>=10?0:2)+'% of '+Number(h.supply).toLocaleString():'')
+        +(serial&&h.supply?' · supply '+Number(h.supply).toLocaleString():'');
       return '<button type="button" class="luz-cell'+(String(luzStar)===String(h.star)?' on':'')+'" data-luz-star="'+esc(String(h.star))+'" title="'+title+'">'
         +'<div class="luz-art">'+art+'</div>'
         +'<div class="luz-body">'
-        +'<div class="luz-amt">'+Number(h.amount).toLocaleString()+'<small>✧</small></div>'
-        +'<div class="luz-meta">★ '+Number(h.star).toLocaleString()+(h.starName?' · '+esc(h.starName):'')
-        +(h.supply?' · '+pct.toFixed(pct>=10?0:2)+'% of '+Number(h.supply).toLocaleString():'')+'</div>'
-        +(h.supply?'<div class="luz-share" aria-hidden="true"><i style="width:'+Math.max(2,Math.min(100,pct)).toFixed(1)+'%"></i></div>':'')
+        +'<div class="luz-amt">'+amtLine+'</div>'
+        +'<div class="luz-meta">'+meta+'</div>'
+        +(!serial&&h.supply?'<div class="luz-share" aria-hidden="true"><i style="width:'+Math.max(2,Math.min(100,pct)).toFixed(1)+'%"></i></div>':'')
         +'</div></button>';
     }).join('');
     g.querySelectorAll('[data-luz-star]').forEach(function(b){
@@ -2811,7 +2844,9 @@
       var u='/api/kraynet/address-txs/'+encodeURIComponent(ADDR)+'?limit=50'+(cursor!=null?'&before='+cursor:'');
       fetch(u).then(function(r){ return r.json(); }).then(function(d){
         var txs=d.transactions||[];
-        txs.forEach(function(t){ if(t && t.kind==='cut-send') batch.push(t); });
+        txs.forEach(function(t){
+          if(t && (t.kind==='cut-send' || t.kind==='cut-send-unit')) batch.push(t);
+        });
         cursor=d.nextBefore;
         var done=!!d.done || cursor==null;
         if(batch.length>=want || done || !txs.length) finish(batch.slice(0,want), done || batch.length<want);
@@ -2822,7 +2857,7 @@
       luzBusy=false;
       var el=document.getElementById('luz-list'), more=document.getElementById('luz-more');
       if(!rows.length && !luzSeen){
-        if(el) el.innerHTML='<span class="eyebrow">no cut-send yet on this address</span>';
+        if(el) el.innerHTML='<span class="eyebrow">no Luz send yet on this address</span>';
         if(more) more.hidden=true; luzDone=true;
         var na=document.getElementById('luz-n-acts'); if(na) na.textContent='0';
         return;
@@ -2851,18 +2886,40 @@
       var amt=(document.getElementById('luz-amt')||{}).value||'';
       amt=String(amt).replace(/[,\s]/g,'');
       if(!toAddr||!/^\d+$/.test(amt)||BigInt(amt)<1n){
-        if(out){ out.className='out err'; out.textContent='✗ pick a book, a recipient, and a whole ✧ amount'; }
+        if(out){ out.className='out err'; out.textContent=luzSerial?'✗ pick a book, a recipient, and a serial id':'✗ pick a book, a recipient, and a whole ✧ amount'; }
         return;
       }
       busy=true;
       try{
-        var r=await walletAct('cut-send',{to:toAddr,star:String(luzStar),amount:amt}, out||{className:'',textContent:''});
-        if(out){ out.className='out ok'; out.innerHTML='✓ sent '+Number(amt).toLocaleString()+' ✧ of ★ '+Number(luzStar).toLocaleString()+txLink(r); }
+        var r=luzSerial
+          ? await walletAct('cut-send-unit',{to:toAddr,star:String(luzStar),unit:amt}, out||{className:'',textContent:''})
+          : await walletAct('cut-send',{to:toAddr,star:String(luzStar),amount:amt}, out||{className:'',textContent:''});
+        if(out){ out.className='out ok'; out.innerHTML=luzSerial
+          ? ('✓ sent serial #'+Number(amt).toLocaleString()+' of ★ '+Number(luzStar).toLocaleString()+txLink(r))
+          : ('✓ sent '+Number(amt).toLocaleString()+' ✧ of ★ '+Number(luzStar).toLocaleString()+txLink(r)); }
         var inp=document.getElementById('luz-amt'); if(inp) inp.value='';
         var tin=document.getElementById('luz-to'); if(tin){ tin.value=''; tin.removeAttribute('data-resolved'); }
         var rb=document.getElementById('luz-res'); if(rb) rb.hidden=true;
         await loadProfile();
         loadLuzTxs(true);
+      }catch(e){ if(out){ out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused'); } }
+      finally{ busy=false; }
+    });
+    var list=document.getElementById('luz-list-go');
+    if(list) list.addEventListener('click', async function(){
+      if(busy||me!==ADDR||!luzStar||!luzSerial) return;
+      var out=document.getElementById('luz-out');
+      var unit=String((document.getElementById('luz-amt')||{}).value||'').replace(/[,\s]/g,'');
+      var price=String((document.getElementById('luz-price')||{}).value||'0').replace(/[,\s]/g,'')||'0';
+      if(!/^\d+$/.test(unit)||BigInt(unit)<1n||!/^\d+$/.test(price)){
+        if(out){ out.className='out err'; out.textContent='✗ name the serial and a price of zero or more'; }
+        return;
+      }
+      busy=true;
+      try{
+        var r=await walletAct('packet-list-unit',{star:String(luzStar),unit:unit,price:price}, out||{className:'',textContent:''});
+        if(out){ out.className='out ok'; out.innerHTML='✓ listed serial #'+Number(unit).toLocaleString()+' of ★ '+Number(luzStar).toLocaleString()+' · still yours until a take'+txLink(r); }
+        await loadProfile();
       }catch(e){ if(out){ out.className='out err'; out.textContent='✗ '+(e&&e.message?e.message:'refused'); } }
       finally{ busy=false; }
     });
@@ -3216,6 +3273,13 @@
         tags=[actTag('luz','luz'), actTag('krc-77'), actTag(dir,'dir-'+dir)];
         moneySide(((t.luz&&t.luz.amount!=null)?Number(t.luz.amount):Number(t.amount||0)).toLocaleString());
         amtUnit='✧ · ★ '+Number(t.star||(t.luz&&t.luz.star)||0).toLocaleString();
+        sub=(party||'self')+(feeBits?' · '+feeBits:'')+' · '+blk;
+        break;
+      case 'cut-send-unit':
+        ico='g-star'; title=dir==='in'?'Received serial':'Sent serial';
+        tags=[actTag('luz','luz'), actTag('krc-7777'), actTag(dir,'dir-'+dir)];
+        moneySide('#'+Number((t.luz&&t.luz.unit)||t.unit||0).toLocaleString());
+        amtUnit='serial · ★ '+Number(t.star||(t.luz&&t.luz.star)||0).toLocaleString();
         sub=(party||'self')+(feeBits?' · '+feeBits:'')+' · '+blk;
         break;
       case 'settlement':
@@ -3752,7 +3816,7 @@
                 'rn-dep-tx','rn-dep-go','rn-add-pay','rn-paste','rn-send-go','rn-exit-l1','rn-exit-amt','rn-exit-go','rn-wd-custom','rn-wd-go',
                 'i-content','i-name','i-parent','i-oparent','i-osatpoint','i-metadata','i-metapick','i-go',
                 'ct-addr','ct-rule','ct-call',
-                'luz-to','luz-amt','luz-send-go'];
+                'luz-to','luz-amt','luz-price','luz-send-go','luz-list-go'];
   function unlock(){
     var mine = me===ADDR;
     $('actsub').textContent = mine ? 'You hold this address — every command lives here. Journal acts cost 1 ₭ (x-send is prescribed). Lane sends are feeless until someone seals a breath.' : (me?'Connected as another address — open YOUR profile to operate.':'Connect the KrayWallet that owns this address to operate from here.');

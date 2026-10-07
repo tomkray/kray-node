@@ -18,11 +18,12 @@ import { callerInt } from './star-law.ts'
 import { isContractPotAddress, validateContract, type ContractCode, type Expr, type LuzGenesisRow, type PollPaper } from './contract.ts'
 import { BLACK_HOLE, STAR_OFFER, TREASURY } from './kray-primitives.ts'
 import { isPublicHostname } from './public-host.ts'
+import { MAX_SERIAL_CUT_SUPPLY } from './cut-book.ts'
 
 const ADDR_RE = /^[a-z0-9]{8,90}$/i
 const WHOLE = /^(0|[1-9]\d*)$/
 
-export type FormKind = 'escrow' | 'tunnel' | 'vest' | 'scroll' | 'raffle' | 'mint' | 'cut' | 'luz' | 'poll'
+export type FormKind = 'escrow' | 'tunnel' | 'vest' | 'scroll' | 'raffle' | 'mint' | 'cut' | 'luz' | 'cut-serial' | 'poll'
 
 /** Seats in one raffle window — the IR has no list type; each face is a bind. */
 export const MAX_RAFFLE_SEATS = 8
@@ -32,6 +33,8 @@ export const DEFAULT_RAFFLE_PERIOD = 100
 export const MAX_MINT_EDITION = 256
 /** KRC-77 Cut — max sealed supply (same ceiling as the old L2 share token). 0 + uncapped = infinite. */
 export const MAX_CUT_SUPPLY = 10_000_000
+/** KRC-7777 — max numbered copies on one star (21_000). Not the 10M fungible cap, not the mint's 256 editions. */
+export { MAX_SERIAL_CUT_SUPPLY }
 /** Founder rows at seal — the remainder stays with the sealer. Same bound as a list scroll. */
 export const MAX_CUT_FOUNDERS = 8
 /** MasterChef scale — integer only. Hidden; the desk does not let a user pick it. */
@@ -58,6 +61,7 @@ export type ContractForm =
   | { kind: 'mint'; price: string; max: string; payTo?: string; drop?: string }
   | { kind: 'cut'; supply?: string; infinite?: boolean; rain?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
   | { kind: 'luz'; supply?: string; infinite?: boolean; rain?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
+  | { kind: 'cut-serial'; supply?: string; rain?: boolean; founders?: Array<{ to?: string; address?: string; amount?: string }> }
   | { kind: 'poll'; title?: string; choices?: string[] }
 
 function addr(a: string, name: string): string {
@@ -625,19 +629,22 @@ export function isMintPaper(code: { rules?: { name: string }[] } | null | undefi
  * at least ceil(S / H) ₭ before the smallest hand sees 1 ₭. Dust stays in the
  * pot (no rounding gift, no invisible mint).
  */
-export function compileCut(input: { supply?: string; infinite?: boolean; rain?: boolean; founders?: unknown } = {}): ContractCode {
+export function compileCut(input: { supply?: string; infinite?: boolean; rain?: boolean; founders?: unknown; serial?: boolean } = {}): ContractCode {
+  const serial = !!input.serial
   const infinite = !!input.infinite
+  if (serial && infinite) throw new Error('form: serial Luz cannot be infinite')
   let supply = '0'
   let capped = '0'
   if (!infinite) {
     const raw = input.supply != null && String(input.supply).trim() !== ''
       ? String(input.supply).trim()
-      : '100000'
+      : (serial ? '6' : '100000')
     supply = whole(raw, 'supply')
     if (supply === '0') throw new Error('form: cut supply must be greater than 0 (or pick infinite)')
     const n = Number(supply)
-    if (!Number.isInteger(n) || n < 1 || n > MAX_CUT_SUPPLY) {
-      throw new Error(`form: cut supply is at most ${MAX_CUT_SUPPLY}`)
+    const cap = serial ? MAX_SERIAL_CUT_SUPPLY : MAX_CUT_SUPPLY
+    if (!Number.isInteger(n) || n < 1 || n > cap) {
+      throw new Error(`form: ${serial ? 'serial Luz' : 'cut'} supply is at most ${cap}`)
     }
     capped = '1'
   }
@@ -673,8 +680,8 @@ export function compileCut(input: { supply?: string; infinite?: boolean; rain?: 
   }
   return finish({
     vars: rain
-      ? { luz: '1', supply, capped, acc_rps: '0', deposited: '0', prec: CUT_PRECISION }
-      : { luz: '1', supply, capped, prec: CUT_PRECISION },
+      ? { luz: '1', supply, capped, acc_rps: '0', deposited: '0', prec: CUT_PRECISION, ...(serial ? { serial: '1' } : {}) }
+      : { luz: '1', supply, capped, prec: CUT_PRECISION, ...(serial ? { serial: '1' } : {}) },
     rules: rain ? [depositRule] : [holdRule],
     ...(founders ? { genesis: founders } : {}),
   })
@@ -686,6 +693,11 @@ export function isCutPaper(code: { rules?: { name: string }[]; vars?: Record<str
     && (names.includes('deposit') || names.includes('hold'))
     && !names.includes('mint') && !names.includes('enter')
     && code?.vars?.prec != null && code?.vars?.capped != null
+}
+
+/** Serial knob on the same paper — KRC-7777. Presence of vars.serial=1. */
+export function isSerialCutPaper(code: { vars?: Record<string, string> } | null | undefined): boolean {
+  return isCutPaper(code) && String(code?.vars?.serial) === '1'
 }
 
 /** Same paper. Mouth is Luz; compiler kind may still say cut. */
@@ -826,6 +838,7 @@ export function compileForm(form: ContractForm): ContractCode {
   if (form.kind === 'raffle') return compileRaffle(form)
   if (form.kind === 'mint') return compileMint(form)
   if (form.kind === 'cut' || form.kind === 'luz') return compileCut(form)
+  if (form.kind === 'cut-serial') return compileCut({ ...form, serial: true })
   if (form.kind === 'poll') return compilePoll(form)
   throw new Error(`form: unknown kind "${(form as { kind: string }).kind}"`)
 }

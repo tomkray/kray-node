@@ -24,10 +24,11 @@
  */
 import { hasTerms, starListV2Message, termsOfEvent } from './star-market.ts'
 import { isPacketLane, packetAssetOfEvent, packetDelistMessage, packetListMessage, packetTakeMessage } from './packet-market.ts'
+import { serialUnitOfEvent, serialPacketDelistMessage, serialPacketListMessage, serialPacketTakeMessage } from './serial-packet-market.ts'
 import { claimOpenMessage, claimTakeMessage, claimCloseMessage, mintOpenMessage, mintTakeMessage, type MintTerms } from './claim-book.ts'
 import { poolFundMessage, poolSeasonMessage, poolCloseMessage } from './pool-book.ts'
 import {
-  transferMessage, xSendMessage, cutSendMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
+  transferMessage, xSendMessage, cutSendMessage, cutSendUnitMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6,
   runeSendMessage, runeExitMessage, runeCancelMessage, ammAddMessage, ammRemoveMessage, ammSwapMessage,
   ammRrAddMessage, ammRrRemoveMessage, ammRrSwapMessage, contractMessage, contractMessageV2, eternizeMessage,
@@ -95,6 +96,18 @@ export function signedMessageOfEvent(e: KrayEvent, network: string): string | nu
       const asset = packetAssetOfEvent(e.lane, e)
       return packetTakeMessage(network, e.from!, e.to!, e.lane, asset, posAmt(e.amount, 'a packet amount'), posAmt(e.price, 'a packet price'), typeof e.termsHash === 'string' ? e.termsHash : '', e.nonce!)
     }
+    case 'packet-list-unit': {
+      const { star, unit } = serialUnitOfEvent(e)
+      return serialPacketListMessage(network, e.from!, star, unit, posAmt(e.price, 'a packet price'), termsOfEvent(e), e.nonce!)
+    }
+    case 'packet-delist-unit': {
+      const { star, unit } = serialUnitOfEvent(e)
+      return serialPacketDelistMessage(network, e.from!, star, unit, e.nonce!)
+    }
+    case 'packet-take-unit': {
+      const { star, unit } = serialUnitOfEvent(e)
+      return serialPacketTakeMessage(network, e.from!, e.to!, star, unit, posAmt(e.price, 'a packet price'), typeof e.termsHash === 'string' ? e.termsHash : '', e.nonce!)
+    }
     // THE CLAIM ESCROW — verbatim twins of the reducer's cases. The merkle PROOF never enters the line: it
     // is a witness that proves itself against the root, exactly like an SPV bag.
     case 'claim-open': {
@@ -139,6 +152,7 @@ export function signedMessageOfEvent(e: KrayEvent, network: string): string | nu
     }
     case 'x-send': return xSendMessage(network, e.from!, e.to!, BigInt(e.amount!), e.nonce!)
     case 'cut-send': return cutSendMessage(network, e.from!, e.to!, BigInt(e.star!), BigInt(e.amount!), e.nonce!)
+    case 'cut-send-unit': return cutSendUnitMessage(network, e.from!, e.to!, BigInt(e.star!), BigInt(e.unit!), e.nonce!)
     case 'burn': return burnMessage(network, e.from!, BigInt(e.amount!), e.nonce!)
     // THE TK-FOLD (Gate 2) — the lane's journal kinds, verbatim twins of the reducer's cases
     case 'lane-enter': return laneEnterMessage(network, e.from!, BigInt(e.amount!), e.nonce!)

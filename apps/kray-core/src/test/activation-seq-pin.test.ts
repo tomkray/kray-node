@@ -77,6 +77,10 @@ const GOLDEN: Record<string, Golden> = {
   // THE COUPLING, pinned as a number and not only as a sentence: this seq must equal the market's three
   // above on every network. A market opened over a grindable tiebreak is a rigged queue with a proof.
   DEADLINE_FREE_ORDER_SEQ: { kind: 'table', file: 'protocol/ledger.ts', nets: { regtest: 0, signet: 231, main: 82 } },
+  // KRC-7777 — serial Luz. Born at 0 on every named net: no serial act has ever entered a
+  // journal, so the first unit line is the first time `|u|` appears. A journal of only
+  // fungible KRC-77 replays byte-identical (A3). Below a raised pin, seal + cut-send-unit refuse.
+  SERIAL_LUZ_SEQ: { kind: 'table', file: 'protocol/cut-book.ts', nets: { regtest: 0, signet: 0, main: 0 } },
   PRESENCE_WINDOW_FROM_SEQ: { kind: 'scalar', file: 'economics/presence-window.ts', value: 121 },
   BEAT_PAY_CAP_LIFTED_FROM_SEQ: { kind: 'scalar', file: 'economics/presence-window.ts', value: MAX },
 }
@@ -255,6 +259,7 @@ function main() {
       'donationScriptSeq', 'runeBookOpenSeq', 'digitLawSeq', 'profileValueSeq', 'starLikeOnceSeq',
       'potBindingSeq', 'contractV1RetiredSeq',
       'giftListingSeq', 'packetMarketSeq', 'claimEscrowSeq', 'deadlineFreeOrderSeq', 'mintDropSeq',
+      'serialLuzSeq',
     ]
     ok(names.length === GOLDEN_ORDER.length && names.every((n, i) => n === GOLDEN_ORDER[i]),
       names.join(',') === GOLDEN_ORDER.join(',')
@@ -291,6 +296,13 @@ function main() {
     const claimOpen = GOLDEN.CLAIM_ESCROW_SEQ.nets[net] === 0
     ok(claimOpen ? !/claim escrow is not the law/.test(claim) : /claim escrow is not the law/.test(claim),
       `${net}: the claim pin arrived in its own slot (the escrow ${claimOpen ? 'exists' : 'does not exist'})`)
+    let serial = 'applied'
+    try {
+      led.applyLive({ seq: 1, kind: 'cut-send-unit', hash: 'u', at: 1, from: 'x', to: 'y', star: '0', unit: '1', fee: '1', nonce: 0 } as never)
+    } catch (e) { serial = (e as Error).message }
+    const serialOpen = GOLDEN.SERIAL_LUZ_SEQ.nets[net] === 0
+    ok(serialOpen ? !/serial Luz is not the law/.test(serial) : /serial Luz is not the law/.test(serial),
+      `${net}: the serial Luz pin arrived in its own slot (KRC-7777 ${serialOpen ? 'is the law' : 'is refused'})`)
   }
 
   console.log(`\n╚═ ${pass} passed${fail ? `, ${fail} FAILED` : ''} — catalog; RUNE_BOOK_OPEN_SEQ is 0 on every named net (Porta 2 open). ₭\n`)

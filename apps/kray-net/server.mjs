@@ -28,11 +28,12 @@ import { finalityView } from '../kray-core/src/protocol/finality.ts'   // ADR-4 
 import { WINDOW_PER_SEAL_SATS } from '../kray-core/src/protocol/pot.ts'
 import { hasTerms, isBitcoinHeight, starListV2Message, termsOfEvent } from '../kray-core/src/protocol/star-market.ts'   // THE GIFT's terms — the SAME reader the reducer and the mirror use
 import { isPacketLane, packetAssetOfEvent, packetListMessage, packetDelistMessage, packetTakeMessage, packetTermsHash } from '../kray-core/src/protocol/packet-market.ts'
+import { serialUnitOfEvent, serialPacketListMessage, serialPacketDelistMessage, serialPacketTakeMessage, serialPacketTermsHash } from '../kray-core/src/protocol/serial-packet-market.ts'
 import { claimRoot, claimProof, claimProves, claimOpenMessage, claimTakeMessage, claimCloseMessage, mintOpenMessage, mintTakeMessage, mintId, CLAIM_MAX_HANDS, CLAIM_MAX_PROOF } from '../kray-core/src/protocol/claim-book.ts'
 import { poolFundMessage, poolSeasonMessage, poolCloseMessage } from '../kray-core/src/protocol/pool-book.ts'
 import { BYTES_PER_KRAY_BURN, BYTES_PER_KRAY_PROPORTION, BYTES_PER_KRAY_MIN, BYTES_PER_KRAY_MIN_PROPORTION, RETARGET_WINDOW_SEALS, SIZE_PROPORTION_ACTIVATION_SEQ, starBurnOf, retargetBytesPerKray, donationProofMinConf } from '../kray-core/src/protocol/kray-primitives.ts'
 import {
-  transferMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, xSendMessage, cutSendMessage, laneEnterMessage, laneExitMessage, foldSealMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
+  transferMessage, burnMessage, sendStarMessage, starListMessage, starDelistMessage, starBuyMessage, starOfferMessage, starOfferCancelMessage, starOfferAcceptMessage, xSendMessage, cutSendMessage, cutSendUnitMessage, laneEnterMessage, laneExitMessage, foldSealMessage, inscribeMessageV2, nameMessageV2, originMessageV2,
   inscribeMessageV3, inscribeMessageV4, inscribeMessageV5, inscribeMessageV6, originCohortRootOf, originChildBindOf,
   assertInscriptionMeta, INSCRIBE_META_MAX,
   MAX_PARENTS_PER_ACT, MAX_ORIGINS_PER_ACT, ORDINAL_ID_RE,
@@ -3010,7 +3011,7 @@ async function settleBeaconWithPresence(txid) {
  *
  *  A missing treasury kind here is a VIEW lie, not a consensus hole: the first mainnet settlement
  *  (seq 49) paid 42 ₭ from atlas fees; omitting inscribe/origin painted "0 earned" over the journal. */
-const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'packet-list', 'packet-delist', 'packet-take', 'claim-open', 'claim-take', 'claim-close', 'mint-open', 'mint-take', 'burn', 'x-send', 'cut-send', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate', 'star-like'])
+const FEE_POOL_KINDS = new Set(['transfer', 'transfer-star', 'rune-send', 'rune-exit', 'rune-cancel', 'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap', 'contract-call', 'star-list', 'star-delist', 'star-buy', 'star-offer', 'star-offer-cancel', 'star-offer-accept', 'packet-list', 'packet-delist', 'packet-take', 'packet-list-unit', 'packet-delist-unit', 'packet-take-unit', 'claim-open', 'claim-take', 'claim-close', 'mint-open', 'mint-take', 'burn', 'x-send', 'cut-send', 'cut-send-unit', 'eternize', 'set-face', 'clear-face', 'set-profile', 'set-kray-plate', 'star-like'])
 /** ₭ this act credited to TREASURY — the fee pool the next settlement splits. View-only. */
 function treasuryCreditOf(e) {
   if (!e || !e.kind) return 0n
@@ -3995,7 +3996,7 @@ function txSummary(e, block) {
   }
   // Luz ✧ on a cut-send — same honesty as a rune row: which book, how many, the star's face.
   // Derived from the journal + the star's written bytes. Never a second amount field.
-  if (e.kind === 'cut-send' && starNo != null) {
+  if ((e.kind === 'cut-send' || e.kind === 'cut-send-unit' || e.kind === 'packet-list-unit' || e.kind === 'packet-delist-unit' || e.kind === 'packet-take-unit') && starNo != null) {
     const thumb = out.contentUrl && String(out.contentType || '').toLowerCase().startsWith('image/')
       ? out.contentUrl
       : null
@@ -4008,7 +4009,9 @@ function txSummary(e, block) {
     } catch { /* Luz must never take the tx door down */ }
     out.luz = {
       name: 'Luz', glyph: '✧', star: String(starNo),
-      amount: e.amount != null ? String(e.amount) : null,
+      amount: e.amount != null ? String(e.amount) : (e.unit != null ? '1' : null),
+      unit: e.unit != null ? String(e.unit) : null,
+      serial: e.unit != null || e.kind === 'cut-send-unit',
       supply, thumbnail: thumb,
     }
     if (thumb) out.thumbnail = thumb
@@ -4043,7 +4046,7 @@ function feeOnlyTreasuryDestination(e) {
   }
   if (nonzero(e.amount) || nonzero(e.take) || nonzero(e.krayIn) || nonzero(e.runeIn) || nonzero(e.lp) || nonzero(e.burn)) return false
   const peerKinds = new Set([
-    'transfer', 'transfer-star', 'cut-send', 'x-send', 'burn', 'burn-thaw',
+    'transfer', 'transfer-star', 'cut-send', 'cut-send-unit', 'x-send', 'burn', 'burn-thaw',
     'inscribe', 'origin', 'name', 'contract', 'donate', 'emit', 'settlement',
     'anchor', 'seal', 'rune-send', 'rune-deposit', 'rune-settle', 'rune-lodge',
     'amm-add', 'amm-remove', 'amm-swap', 'amm-rr-add', 'amm-rr-remove', 'amm-rr-swap',
@@ -5212,6 +5215,14 @@ function readContractCode(b, from, opts) {
         ...(Array.isArray(f.founders) ? { founders: f.founders } : {}),
       })
     }
+    if (kind === 'cut-serial') {
+      return compileForm({
+        kind: 'cut-serial',
+        supply: f.supply != null && String(f.supply) !== '' ? String(f.supply) : undefined,
+        ...(f.rain === true ? { rain: true } : {}),
+        ...(Array.isArray(f.founders) ? { founders: f.founders } : {}),
+      })
+    }
     if (kind === 'poll') {
       if (!exam && readOnStar(b) == null) throw new Error('a poll hangs on a star')
       const raw = f.choices
@@ -5224,7 +5235,7 @@ function readContractCode(b, from, opts) {
         choices,
       })
     }
-    throw new Error(`unknown form "${kind}" — escrow, tunnel, vest, scroll, raffle, mint, luz, or poll`)
+    throw new Error(`unknown form "${kind}" — escrow, tunnel, vest, scroll, raffle, mint, luz, cut-serial, or poll`)
   }
   throw new Error('a contract needs code, a living-law flag list, or a form (escrow / tunnel / vest / scroll / raffle / mint / luz / poll)')
 }
@@ -5395,6 +5406,15 @@ function packetLaneOf(b) {
   const asset = packetAssetOfEvent(lane, { star, runeId })
   return { lane, asset }
 }
+/** KRC-7777 — star + unit id. `amount` is accepted as a synonym for unit so the drops counter can reuse ②. */
+function doorSerialUnit(b) {
+  const star = doorUnits(b && b.star, 'the star a serial unit is cut from')
+  const raw = b && b.unit != null && String(b.unit) !== '' ? b.unit : (b && b.amount)
+  const unit = doorUnits(raw, 'a serial unit id')
+  if (BigInt(unit) <= 0n) throw new Error('a serial packet names a unit id greater than 0')
+  serialUnitOfEvent({ star, unit })
+  return { star, unit }
+}
 /** A harvest's merkle root — 32 bytes of lower-case hex, and nothing that merely looks like it. */
 function doorRoot(b) {
   const r = b && b.claimRoot != null ? doorString(b.claimRoot, 'a harvest root') : (b && b.root != null ? doorString(b.root, 'a harvest root') : '')
@@ -5475,6 +5495,23 @@ function assertMarketDoor(action, b) {
   }
   if (action === 'packet-list' || action === 'packet-delist' || action === 'packet-take') {
     if (!node.ledger.packetMarketIsLaw(nextSeq)) throw new Error('the packet market is not the law on this network yet')
+    if (b && b.lane === 'luz' && b.star != null) {
+      const star = doorUnits(b.star, 'the star a Luz packet is cut from')
+      if (node.ledger.cuts.isSerial(star)) throw new Error('serial Luz moves by unit — use packet-list-unit')
+    }
+  }
+  if (action === 'packet-list-unit' || action === 'packet-delist-unit' || action === 'packet-take-unit') {
+    if (!node.ledger.packetMarketIsLaw(nextSeq)) throw new Error('the packet market is not the law on this network yet')
+    if (!node.ledger.serialLuzIsLaw(nextSeq)) throw new Error('serial Luz is not the law on this network yet')
+    doorSerialUnit(b)
+    if (action === 'packet-take-unit' && !(b && typeof b.seller === 'string' && b.seller.trim())) {
+      throw new Error('a take names the seller it answers')
+    }
+    if (action === 'packet-list-unit' && b && b.to != null && String(b.to) !== '') {
+      const to = doorString(b.to, 'the address an offer is left for')
+      if (to === b.from) throw new Error("a listing named for yourself is nobody's offer")
+      if (to.startsWith('KRAY_')) throw new Error('an offer cannot be left to a protocol pot — a pot has no key to take it with')
+    }
   }
   // WHAT THE LAW WILL CERTAINLY REFUSE, REFUSED HERE. `claim-take` has always re-proven the merkle path at
   // the door so nobody signs against a root they cannot rebuild; a packet take had no twin, so the wallet
@@ -5771,9 +5808,23 @@ function prepareMessage(action, b, nonceOverride) {
       assertNotAmmPot(b.to, 'cut-send'); assertNotContractPot(b.to, 'cut-send')
       const star = readOnStar(b)
       if (star == null) throw new Error('a Luz send needs a star number')
+      if (node.ledger && node.ledger.cuts && typeof node.ledger.cuts.isSerial === 'function' && node.ledger.cuts.isSerial(star)) {
+        throw new Error('serial Luz moves by unit — use cut-send-unit')
+      }
       const luzAmt = parseLaneAmount(String(b.amount ?? ''))
       if (luzAmt === undefined) throw new Error('a Luz amount must be a canonical decimal within u128 (the canonical-decimal law)')
       return { message: cutSendMessage(NET, from, b.to, BigInt(star), luzAmt, nonce), nonce, star }
+    }
+    case 'cut-send-unit': {
+      assertNotAmmPot(b.to, 'cut-send-unit'); assertNotContractPot(b.to, 'cut-send-unit')
+      const star = readOnStar(b)
+      if (star == null) throw new Error('a Luz send needs a star number')
+      const unitRaw = String(b.unit ?? '').trim()
+      if (!/^[1-9]\d*$/.test(unitRaw)) throw new Error('a serial Luz send needs a unit id greater than 0')
+      if (node.ledger && node.ledger.cuts && typeof node.ledger.cuts.isSerial === 'function' && !node.ledger.cuts.isSerial(star)) {
+        throw new Error('this Luz is not serial — use cut-send')
+      }
+      return { message: cutSendUnitMessage(NET, from, b.to, BigInt(star), BigInt(unitRaw), nonce), nonce, star, unit: unitRaw }
     }
     // THE TK-FOLD (Gate 2, dormant until the ratified seq): enter/exit the compressed lane; a folder lands a proven breath
     case 'lane-enter': {
@@ -5848,6 +5899,21 @@ function prepareMessage(action, b, nonceOverride) {
       const live = node.ledger.packets.get(lane, asset, String(b.seller))
       const terms = packetTermsHash(live ?? undefined)
       return { message: packetTakeMessage(NET, from, String(b.seller), lane, asset, packetUnits(b.amount, 'amount'), packetUnits(b.price, 'price'), terms, nonce), nonce, terms }
+    }
+    case 'packet-list-unit': {
+      const { star, unit } = doorSerialUnit(b)
+      return { message: serialPacketListMessage(NET, from, star, BigInt(unit), packetUnits(b.price, 'price'), listingTermsOf(b), nonce), nonce, star, unit }
+    }
+    case 'packet-delist-unit': {
+      const { star, unit } = doorSerialUnit(b)
+      return { message: serialPacketDelistMessage(NET, from, star, BigInt(unit), nonce), nonce, star, unit }
+    }
+    case 'packet-take-unit': {
+      const { star, unit } = doorSerialUnit(b)
+      assertNotAmmPot(b.seller, 'take packet')
+      const live = node.ledger.serialPackets.get(star, BigInt(unit))
+      const terms = serialPacketTermsHash(live ?? undefined)
+      return { message: serialPacketTakeMessage(NET, from, String(b.seller), star, BigInt(unit), packetUnits(b.price, 'price'), terms, nonce), nonce, terms, star, unit }
     }
     case 'star-delist': return { message: starDelistMessage(NET, from, BigInt(b.star), nonce), nonce, star: String(b.star) }
     case 'star-buy': assertNotAmmPot(b.seller, 'buy star'); return { message: starBuyMessage(NET, from, BigInt(b.star), BigInt(b.price), String(b.seller), nonce), nonce, star: String(b.star) }
@@ -5993,6 +6059,15 @@ function buildSubmitEvent(action, b, atOverride) {
       const star = readOnStar(b)
       if (star == null) throw new Error('a Luz send needs a star number')
       action_ = { ...base, kind: 'cut-send', to: b.to, star, amount: String(b.amount), fee: '1' }
+      break
+    }
+    case 'cut-send-unit': {
+      assertNotAmmPot(b.to, 'cut-send-unit'); assertNotContractPot(b.to, 'cut-send-unit')
+      const star = readOnStar(b)
+      if (star == null) throw new Error('a Luz send needs a star number')
+      const unit = String(b.unit ?? '').trim()
+      if (!/^[1-9]\d*$/.test(unit)) throw new Error('a serial Luz send needs a unit id greater than 0')
+      action_ = { ...base, kind: 'cut-send-unit', to: b.to, star, unit, fee: '1' }
       break
     }
     // THE TK-FOLD (Gate 2): the lane's journal doors — the reducer holds every wall (proof, chaining, conservation)
@@ -6189,6 +6264,32 @@ function buildSubmitEvent(action, b, atOverride) {
       action_ = {
         ...base, kind: 'packet-take', lane, ...packetAssetFields(lane, asset),
         to: String(b.seller), amount: doorUnits(b.amount, 'a packet amount'), price: doorUnits(b.price, 'a packet price'), fee: '1',
+        ...(declared ? { termsHash: declared } : {}),
+      }
+      break
+    }
+    case 'packet-list-unit': {
+      const { star, unit } = doorSerialUnit(b)
+      const t = listingTermsOf(b)
+      action_ = {
+        ...base, kind: 'packet-list-unit', star, unit, price: String(b.price), fee: '1',
+        ...(t.to ? { to: t.to } : {}),
+        ...(t.gate !== undefined ? { gateStar: t.gate.toString() } : {}),
+        ...(t.notBefore !== undefined ? { notBefore: t.notBefore } : {}),
+      }
+      break
+    }
+    case 'packet-delist-unit': {
+      const { star, unit } = doorSerialUnit(b)
+      action_ = { ...base, kind: 'packet-delist-unit', star, unit, fee: '1' }
+      break
+    }
+    case 'packet-take-unit': {
+      const { star, unit } = doorSerialUnit(b)
+      assertNotAmmPot(b.seller, 'take packet')
+      const declared = b && typeof b.termsHash === 'string' ? b.termsHash : serialPacketTermsHash(node.ledger.serialPackets.get(star, BigInt(unit)) ?? undefined)
+      action_ = {
+        ...base, kind: 'packet-take-unit', star, unit, to: String(b.seller), price: doorUnits(b.price, 'a packet price'), fee: '1',
         ...(declared ? { termsHash: declared } : {}),
       }
       break
@@ -7531,7 +7632,20 @@ const server = createServer(async (req, res) => {
             openToAnyone: !l.to && l.gate == null,
           }
         })
-        return ok(res, { count: rows.length, listings: rows, sealedHeight: sealedNow })
+        const units = node.ledger.serialPackets.all().map((l) => {
+          const owner = node.ledger.cuts.ownerOfUnit(l.star, BigInt(l.unit))
+          return {
+            star: l.star, unit: l.unit, seller: l.seller, price: l.price,
+            ...(l.to ? { to: l.to } : {}),
+            ...(l.gate !== undefined ? { gate: l.gate } : {}),
+            ...(l.notBefore !== undefined ? { notBefore: l.notBefore } : {}),
+            drop: l.price === '0',
+            sellerHolds: owner === l.seller,
+            fillable: owner === l.seller && (l.notBefore == null || sealedNow >= Number(l.notBefore)),
+            openToAnyone: !l.to && l.gate == null,
+          }
+        })
+        return ok(res, { count: rows.length, listings: rows, units, unitCount: units.length, sealedHeight: sealedNow })
       }
       // LINEAGE COLLECTIONS — a named parent with children. Read-only view of the journal + listing book.
       if (p === '/api/kraynet/collections') return ok(res, { collections: collectionsIndex() })

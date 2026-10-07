@@ -34,6 +34,7 @@
  */
 import { createHash } from 'node:crypto'
 import { isqrt } from '../economics/presence.ts'
+import { MAX_SERIAL_CUT_SUPPLY } from './cut-book.ts'
 
 /** The node budget for one call. Generous for real rules, fatal to abuse. */
 export const MAX_NODES = 512
@@ -252,6 +253,17 @@ export function validateContract(code: ContractCode): { ok: boolean; reason?: st
       seen.add(to)
       sum += BigInt(amount)
       if (sum > cap) return { ok: false, reason: 'founders take more than supply' }
+    }
+  }
+  // KRC-7777 knob — absent on every sealed KRC-77 paper (A3). Presence is the serial law.
+  if (code.vars?.serial !== undefined) {
+    if (code.vars.serial !== '0' && code.vars.serial !== '1') return { ok: false, reason: 'serial must be 0 or 1' }
+    if (code.vars.serial === '1') {
+      if (code.vars?.luz !== '1') return { ok: false, reason: 'serial is a Luz knob' }
+      if (String(code.vars?.capped) !== '1') return { ok: false, reason: 'serial Luz cannot be infinite' }
+      const serialSupply = code.vars?.supply
+      if (!serialSupply || !/^[1-9]\d*$/.test(serialSupply)) return { ok: false, reason: 'serial Luz needs a capped supply' }
+      if (BigInt(serialSupply) > BigInt(MAX_SERIAL_CUT_SUPPLY)) return { ok: false, reason: `serial Luz is at most ${MAX_SERIAL_CUT_SUPPLY} units` }
     }
   }
   if (code.poll !== undefined || code.vars?.poll === '1') {
